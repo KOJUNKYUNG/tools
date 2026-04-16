@@ -1,6 +1,6 @@
 ## 1. 프로젝트 개요
 - **프로젝트명:** All-in-One Document Utility (가칭: DocuFlow)
-- **목적:** PDF 변환/병합 및 PPT 이미지 추출/배경 일괄 변경 기능을 제공하는 웹 기반 도구 모음.
+- **목적:** PDF 변환/병합/압축/분할/페이지 관리, PPT 이미지 추출/배경 일괄 변경, 이미지 변환/압축/크기 조정 기능을 제공하는 웹 기반 도구 모음.
 - **핵심 가치:** - **Privacy-First:** 가급적 클라이언트 사이드에서 파일을 처리하여 보안 강화.
     - **Efficiency:** 직관적인 UI/UX를 통한 빠른 작업 처리.
     - **Automation Ready:** 반복적인 PPT 편집 작업을 자동화.
@@ -13,7 +13,10 @@
 - **Database/Storage:** Supabase (이미지 메타데이터 및 배경 이미지 저장소)
 - **Core Libraries:**
     - PDF 처리: `pdf-lib`, `pdfjs-dist`
+    - PDF 압축: `@kihyun1998/justpdf-compress-wasm` (Rust 기반 WASM, 서버 전송 없음)
     - PPT 조작: `jszip` (이미지 추출 및 XML 수정용)
+    - 이미지 처리: `browser-image-compression`
+    - 드래그 앤 드롭 정렬: `@dnd-kit/sortable`
     - 파일 업로드: `react-dropzone`
 
 ---
@@ -26,11 +29,23 @@
 | **이미지 → PDF 변환** | JPG/PNG 이미지를 하나의 PDF로 변환 | `pdf-lib` |
 | **PDF → 이미지 변환** | PDF 각 페이지를 이미지(JPG/PNG)로 추출. 사용자가 출력 형식과 해상도(72/150/300 DPI)를 선택 가능 | `pdfjs-dist`, `canvas` |
 | **PDF 파일 합치기** | 여러 PDF 파일을 업로드 순서대로 하나의 파일로 병합 | `pdf-lib` |
+| **PDF 압축** | PDF 파일 용량 감소. Light/Medium/Heavy 3단계 압축 레벨 선택 가능. 처리 전후 용량 비교 표시 | `@kihyun1998/justpdf-compress-wasm` |
+| **PDF 분할** | 페이지 범위 지정(예: `1-3, 5, 7-9`) 또는 전체 페이지 개별 분리. 분리 결과는 ZIP으로 다운로드 | `pdf-lib` |
+| **PDF 페이지 관리** | 페이지 썸네일 그리드에서 드래그 앤 드롭 재정렬, 개별 삭제, 90°/180° 회전 후 새 PDF로 다운로드 | `pdf-lib`, `pdfjs-dist`, `@dnd-kit/sortable` |
 
 **지원 파일 형식:**
 - 입력 이미지: JPG, PNG
 - 입력 PDF: PDF v1.4 이상
 - 출력 이미지: JPG, PNG (사용자 선택)
+
+**PDF 압축 레벨:**
+- **Light (경량):** 10~30% 용량 감소, 화질 거의 유지
+- **Medium (중간):** 30~60% 용량 감소, 범용 공유·이메일 첨부용
+- **Heavy (강한 압축):** 60~80% 용량 감소, 화질 저하 감수
+
+**PDF 분할 모드:**
+- **범위 지정:** 텍스트 입력(예: `1-3, 5, 7-9`)으로 원하는 페이지만 추출하여 단일 PDF 다운로드
+- **전체 분리:** 모든 페이지를 개별 PDF로 분리하여 ZIP 파일로 다운로드
 
 ### 3.2 PPT 도구 (PPT Tools)
 | 세부 기능 | 설명 | 구현 로직 |
@@ -50,6 +65,22 @@
 - **데이터 관리:** Supabase Storage에 이미지 저장, Database에 태그 및 카테고리 정보 관리.
 - **사용자 기여:** 로그인한 사용자는 누구나 갤러리에 이미지를 업로드할 수 있음. 업로드 시 카테고리와 태그를 직접 입력.
 - **심사 정책:** 사용자가 업로드한 이미지는 관리자 승인 후 갤러리에 공개 (부적절한 이미지 노출 방지).
+
+### 3.4 이미지 도구 (Image Tools)
+| 세부 기능 | 설명 | 권장 라이브러리 |
+| :--- | :--- | :--- |
+| **이미지 압축** | JPG/PNG/WebP 이미지 파일 용량 감소. 품질(%) 슬라이더 또는 목표 용량(KB) 직접 입력으로 압축 강도 조절 | `browser-image-compression` |
+| **이미지 포맷 변환** | JPG ↔ PNG ↔ WebP 간 형식 변환. 다중 파일 일괄 변환 지원 및 ZIP 다운로드 | `browser-image-compression`, Canvas API |
+| **이미지 크기 변경** | 픽셀 단위 너비·높이 직접 지정 또는 비율(%) 입력으로 크기 조정. 종횡비 잠금(lock) 옵션 제공 | Canvas API (`OffscreenCanvas`) |
+
+**지원 파일 형식:**
+- 입력: JPG, PNG, WebP
+- 출력: JPG, PNG, WebP (사용자 선택)
+
+**이미지 크기 변경 옵션:**
+- **픽셀 지정:** 너비/높이를 px 단위로 직접 입력 (종횡비 잠금 시 한쪽 입력 시 자동 계산)
+- **비율 지정:** 원본 대비 퍼센트(%) 입력으로 균일 축소·확대
+- **프리셋:** 소셜 미디어 대표 해상도 빠른 선택 (1920×1080, 1280×720, 1080×1080 등)
 
 ---
 
@@ -95,15 +126,22 @@
 
 ## 6. 단계별 개발 로드맵 (Phased Roadmap)
 
-### Phase 1: 기반 구축 및 PDF 도구
-- [ ] Clerk 설정 및 기본 Layout 구성 (Shadcn/UI).
-- [ ] PDF 합치기 및 이미지 변환 로직 구현 (Client-side).
+### Phase 1: 기반 구축 및 PDF 도구 (완료)
+- [x] Clerk 설정 및 기본 Layout 구성 (Shadcn/UI).
+- [x] PDF 합치기·이미지 변환·PDF→이미지 변환 로직 구현 (Client-side).
 
-### Phase 2: PPT 조작 기능
-- [ ] PPTX 압축 해제 및 이미지 추출 기능.
-- [ ] PPT XML 파싱을 통한 배경 이미지 교체 프로토타입 개발.
+### Phase 2: PPT 조작 기능 (완료)
+- [x] PPTX 압축 해제 및 이미지 추출 기능.
+- [x] PPT XML 파싱을 통한 배경 이미지 교체 구현.
 
-### Phase 3: 갤러리 및 수익화 준비
+### Phase 3: 신규 도구 확장
+- [ ] PDF 압축 기능 구현 (`@kihyun1998/justpdf-compress-wasm`).
+- [ ] PDF 분할 기능 구현 (`pdf-lib`).
+- [ ] PDF 페이지 관리 기능 구현 (`@dnd-kit/sortable` + `pdfjs-dist` 썸네일).
+- [ ] 이미지 압축 및 포맷 변환 기능 구현 (`browser-image-compression`).
+- [ ] 이미지 크기 변경 기능 구현 (Canvas API).
+
+### Phase 4: 갤러리 및 수익화 준비
 - [ ] Supabase 연동 및 이미지 갤러리 페이지 구축.
 - [ ] 구글 애드센스 배치를 위한 UI 최적화 및 SEO 설정.
 
@@ -115,7 +153,7 @@
 - 비로그인 사용자와 로그인 사용자(Clerk) 간 처리 용량 제한 차등화:
     - 비로그인: 최대 10MB / 파일, 일일 5회 처리 제한 (TBD).
     - 로그인: 최대 50MB / 파일, 무제한 처리 (TBD).
-- **지원 파일 형식:** PDF (v1.4+), PPTX (Office 2007+), 이미지 (JPG, PNG).
+- **지원 파일 형식:** PDF (v1.4+), PPTX (Office 2007+), 이미지 (JPG, PNG, WebP).
 - **브라우저 지원:** 최신 Chrome, Firefox, Edge, Safari (IE 미지원).
 
 ---
