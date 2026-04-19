@@ -3,10 +3,8 @@
 import { useCallback, useRef, useState } from "react";
 import JSZip from "jszip";
 import { FileUpload } from "@/components/common/FileUpload";
-import {
-  ProcessingStatus,
-  type ProcessingState,
-} from "@/components/common/ProcessingStatus";
+import { ProcessingStatus } from "@/components/common/ProcessingStatus";
+import type { ProcessingState } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   pdfToImages,
