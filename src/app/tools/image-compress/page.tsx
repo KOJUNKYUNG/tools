@@ -11,6 +11,7 @@ import {
   type OutputFormat,
 } from "@/lib/image/compressImage";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { getErrorMessage } from "@/lib/errors";
 import { ImageMinusIcon } from "lucide-react";
 
 const IMAGE_ACCEPT = {
@@ -60,9 +61,7 @@ export default function ImageCompressPage() {
       resultRef.current = result;
       setStatus("done");
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
+      setErrorMessage(getErrorMessage(err).message);
       setStatus("error");
     }
   }, [files, quality, outputFormat]);

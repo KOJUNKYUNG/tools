@@ -11,6 +11,7 @@ import {
   type CompressPdfResult,
 } from "@/lib/pdf/compressPdf";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { getErrorMessage } from "@/lib/errors";
 import { ArchiveIcon } from "lucide-react";
 
 const PDF_ACCEPT = { "application/pdf": [".pdf"] };
@@ -55,9 +56,7 @@ export default function PdfCompressPage() {
       resultRef.current = result;
       setStatus("done");
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
+      setErrorMessage(getErrorMessage(err).message);
       setStatus("error");
     }
   }, [files, preset]);

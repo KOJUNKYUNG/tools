@@ -12,6 +12,7 @@ import {
   type PageInfo,
 } from "@/lib/pdf/managePages";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { getErrorMessage } from "@/lib/errors";
 import { FileStackIcon } from "lucide-react";
 
 const PDF_ACCEPT = { "application/pdf": [".pdf"] };
@@ -37,8 +38,9 @@ export default function PdfPagesPage() {
         const thumbs = await generateThumbnails(newFiles[0], setProgress);
         setPages(thumbs);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "썸네일 생성 실패";
-        setErrorMessage(msg);
+        setErrorMessage(
+          getErrorMessage(err, { fallbackMessage: "썸네일 생성 실패" }).message,
+        );
       } finally {
         setLoadingThumbnails(false);
         setProgress(0);
@@ -84,9 +86,7 @@ export default function PdfPagesPage() {
       resultRef.current = result;
       setStatus("done");
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
+      setErrorMessage(getErrorMessage(err).message);
       setStatus("error");
     }
   }, [files, pages]);

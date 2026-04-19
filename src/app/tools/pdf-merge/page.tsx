@@ -7,6 +7,7 @@ import type { ProcessingState } from "@/types";
 import { Button } from "@/components/ui/button";
 import { mergePdfs } from "@/lib/pdf/mergePdf";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { getErrorMessage } from "@/lib/errors";
 import { MergeIcon } from "lucide-react";
 
 const PDF_ACCEPT = {
@@ -36,16 +37,11 @@ export default function PdfMergePage() {
       resultRef.current = pdfBytes;
       setStatus("done");
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-
-      if (msg.includes("memory") || msg.includes("OOM")) {
-        setErrorMessage(
+      const { message } = getErrorMessage(err, {
+        memoryHint:
           "브라우저 메모리가 부족합니다. 파일 크기를 줄이거나 파일 수를 줄여주세요.",
-        );
-      } else {
-        setErrorMessage(msg);
-      }
+      });
+      setErrorMessage(message);
       setStatus("error");
     }
   }, [files]);

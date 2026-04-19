@@ -7,6 +7,7 @@ import type { ProcessingState } from "@/types";
 import { Button } from "@/components/ui/button";
 import { splitPdf, type SplitResult } from "@/lib/pdf/splitPdf";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { getErrorMessage } from "@/lib/errors";
 import { ScissorsIcon } from "lucide-react";
 import { PDFDocument } from "pdf-lib";
 
@@ -58,9 +59,7 @@ export default function PdfSplitPage() {
       resultRef.current = result;
       setStatus("done");
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
+      setErrorMessage(getErrorMessage(err).message);
       setStatus("error");
     }
   }, [files, mode, rangeInput]);

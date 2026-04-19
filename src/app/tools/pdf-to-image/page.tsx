@@ -13,6 +13,7 @@ import {
   type DpiOption,
 } from "@/lib/pdf/pdfToImage";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { getErrorMessage } from "@/lib/errors";
 import { FileOutputIcon } from "lucide-react";
 
 const PDF_ACCEPT = { "application/pdf": [".pdf"] };
@@ -56,15 +57,11 @@ export default function PdfToImagePage() {
       resultRef.current = images;
       setStatus("done");
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      if (msg.includes("memory") || msg.includes("OOM")) {
-        setErrorMessage(
+      const { message } = getErrorMessage(err, {
+        memoryHint:
           "브라우저 메모리가 부족합니다. DPI를 낮추거나 페이지가 적은 PDF를 사용해 주세요.",
-        );
-      } else {
-        setErrorMessage(msg);
-      }
+      });
+      setErrorMessage(message);
       setStatus("error");
     }
   }, [files, format, dpi]);

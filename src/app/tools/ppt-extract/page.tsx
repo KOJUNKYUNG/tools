@@ -7,6 +7,7 @@ import type { ProcessingState } from "@/types";
 import { Button } from "@/components/ui/button";
 import { extractPptImages } from "@/lib/ppt/extractImages";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { getErrorMessage } from "@/lib/errors";
 import { ImageDownIcon } from "lucide-react";
 
 const PPTX_ACCEPT = {
@@ -41,9 +42,7 @@ export default function PptExtractPage() {
       resultRef.current = zipBytes;
       setStatus("done");
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
+      setErrorMessage(getErrorMessage(err).message);
       setStatus("error");
     }
   }, [file]);

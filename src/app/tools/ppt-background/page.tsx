@@ -15,6 +15,7 @@ import {
   type SlideBackground,
 } from "@/lib/ppt/extractCurrentBackgrounds";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { getErrorMessage } from "@/lib/errors";
 import type { GalleryImage } from "@/lib/gallery/types";
 import {
   PaintbrushIcon,
@@ -168,9 +169,7 @@ export default function PptBackgroundPage() {
       resultRef.current = result;
       setStatus("done");
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
+      setErrorMessage(getErrorMessage(err).message);
       setStatus("error");
     }
   }, [pptxFile, bgImage, mode]);

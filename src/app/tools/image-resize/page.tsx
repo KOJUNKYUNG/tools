@@ -14,6 +14,7 @@ import {
 } from "@/lib/image/resizeImage";
 import { CropSelector, type CropRect } from "@/components/image/CropSelector";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { getErrorMessage } from "@/lib/errors";
 import { MaximizeIcon, LockIcon, UnlockIcon } from "lucide-react";
 
 const IMAGE_ACCEPT = {
@@ -130,9 +131,7 @@ export default function ImageResizePage() {
       setProgress(100);
       setStatus("done");
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
+      setErrorMessage(getErrorMessage(err).message);
       setStatus("error");
     }
   }, [files, mode, width, height, percent, lockAspect, presetIdx, needsCrop, cropRect]);
