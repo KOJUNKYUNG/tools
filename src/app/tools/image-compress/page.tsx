@@ -1,17 +1,16 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useState } from "react";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
-import type { ProcessingState } from "@/types";
 import { Button } from "@/components/ui/button";
+import { useToolProcessor } from "@/hooks/useToolProcessor";
 import {
   compressImages,
   type CompressResult,
   type OutputFormat,
 } from "@/lib/image/compressImage";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
-import { getErrorMessage } from "@/lib/errors";
 import { ImageMinusIcon } from "lucide-react";
 
 const IMAGE_ACCEPT = {
@@ -35,52 +34,27 @@ function formatBytes(bytes: number): string {
 }
 
 export default function ImageCompressPage() {
-  const [files, setFiles] = useState<File[]>([]);
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("image/jpeg");
   const [quality, setQuality] = useState(80);
-  const [status, setStatus] = useState<ProcessingState>("idle");
-  const [progress, setProgress] = useState(0);
-  const [errorMessage, setErrorMessage] = useState("");
-  const resultRef = useRef<CompressResult | null>(null);
 
-  const handleCompress = useCallback(async () => {
-    if (files.length === 0) return;
-
-    setStatus("processing");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-
-    try {
-      const result = await compressImages({
-        files,
-        quality,
-        outputFormat,
-        onProgress: setProgress,
-      });
-      resultRef.current = result;
-      setStatus("done");
-    } catch (err) {
-      setErrorMessage(getErrorMessage(err).message);
-      setStatus("error");
-    }
-  }, [files, quality, outputFormat]);
-
-  const handleDownload = useCallback(() => {
-    if (!resultRef.current) return;
-    const { data, filename, type } = resultRef.current;
-    const mime = type === "zip" ? "application/zip" : outputFormat;
-    downloadBlob(data, filename, mime);
-  }, [outputFormat]);
-
-  const handleRetry = useCallback(() => {
-    setStatus("idle");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-  }, []);
-
-  const result = resultRef.current;
+  const {
+    files,
+    setFiles,
+    status,
+    progress,
+    errorMessage,
+    result,
+    run,
+    retry,
+    download,
+  } = useToolProcessor<CompressResult>({
+    processor: (files, onProgress) =>
+      compressImages({ files, quality, outputFormat, onProgress }),
+    onDownload: (res) => {
+      const mime = res.type === "zip" ? "application/zip" : outputFormat;
+      downloadBlob(res.data, res.filename, mime);
+    },
+  });
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
@@ -152,7 +126,7 @@ export default function ImageCompressPage() {
         )}
 
         {files.length > 0 && status === "idle" && (
-          <Button className="w-full" size="lg" onClick={handleCompress}>
+          <Button className="w-full" size="lg" onClick={run}>
             이미지 압축하기 ({files.length}개)
           </Button>
         )}
@@ -194,9 +168,9 @@ export default function ImageCompressPage() {
           status={status}
           progress={progress}
           errorMessage={errorMessage}
-          onRetry={handleRetry}
-          onDownload={handleDownload}
-          downloadFileName={resultRef.current?.filename ?? "compressed.jpg"}
+          onRetry={retry}
+          onDownload={download}
+          downloadFileName={result?.filename ?? "compressed.jpg"}
         />
       </div>
     </div>

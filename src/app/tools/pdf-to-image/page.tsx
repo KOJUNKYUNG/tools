@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useState } from "react";
 import JSZip from "jszip";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
-import type { ProcessingState } from "@/types";
 import { Button } from "@/components/ui/button";
+import { useToolProcessor } from "@/hooks/useToolProcessor";
 import {
   pdfToImages,
   type ConvertedImage,
@@ -13,7 +13,6 @@ import {
   type DpiOption,
 } from "@/lib/pdf/pdfToImage";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
-import { getErrorMessage } from "@/lib/errors";
 import { FileOutputIcon } from "lucide-react";
 
 const PDF_ACCEPT = { "application/pdf": [".pdf"] };
@@ -30,73 +29,46 @@ const DPI_OPTIONS: { value: DpiOption; label: string }[] = [
 ];
 
 export default function PdfToImagePage() {
-  const [files, setFiles] = useState<File[]>([]);
   const [format, setFormat] = useState<OutputFormat>("image/jpeg");
   const [dpi, setDpi] = useState<DpiOption>(150);
-  const [status, setStatus] = useState<ProcessingState>("idle");
-  const [progress, setProgress] = useState(0);
-  const [errorMessage, setErrorMessage] = useState("");
-  const resultRef = useRef<ConvertedImage[] | null>(null);
 
-  const handleConvert = useCallback(async () => {
-    const file = files[0];
-    if (!file) return;
-
-    setStatus("processing");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-
-    try {
-      const images = await pdfToImages({
-        file,
-        format,
-        dpi,
-        onProgress: setProgress,
-      });
-      resultRef.current = images;
-      setStatus("done");
-    } catch (err) {
-      const { message } = getErrorMessage(err, {
-        memoryHint:
-          "브라우저 메모리가 부족합니다. DPI를 낮추거나 페이지가 적은 PDF를 사용해 주세요.",
-      });
-      setErrorMessage(message);
-      setStatus("error");
-    }
-  }, [files, format, dpi]);
-
-  const handleDownload = useCallback(async () => {
-    const images = resultRef.current;
-    if (!images || images.length === 0) return;
-
-    if (images.length === 1) {
-      const buf = await images[0].blob.arrayBuffer();
-      const mime = format === "image/png" ? "image/png" : "image/jpeg";
-      downloadBlob(new Uint8Array(buf), images[0].name, mime);
-      return;
-    }
-
-    const zip = new JSZip();
-    for (const img of images) {
-      zip.file(img.name, img.blob);
-    }
-    const zipBytes = await zip.generateAsync({ type: "uint8array" });
-    downloadBlob(zipBytes, "pdf-images.zip", "application/zip");
-  }, [format]);
-
-  const handleRetry = useCallback(() => {
-    setStatus("idle");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-  }, []);
+  const {
+    files,
+    setFiles,
+    status,
+    progress,
+    errorMessage,
+    result,
+    run,
+    retry,
+    download,
+  } = useToolProcessor<ConvertedImage[]>({
+    processor: (files, onProgress) =>
+      pdfToImages({ file: files[0], format, dpi, onProgress }),
+    onDownload: async (images) => {
+      if (images.length === 0) return;
+      if (images.length === 1) {
+        const buf = await images[0].blob.arrayBuffer();
+        const mime = format === "image/png" ? "image/png" : "image/jpeg";
+        downloadBlob(new Uint8Array(buf), images[0].name, mime);
+        return;
+      }
+      const zip = new JSZip();
+      for (const img of images) {
+        zip.file(img.name, img.blob);
+      }
+      const zipBytes = await zip.generateAsync({ type: "uint8array" });
+      downloadBlob(zipBytes, "pdf-images.zip", "application/zip");
+    },
+    errorOptions: {
+      memoryHint:
+        "브라우저 메모리가 부족합니다. DPI를 낮추거나 페이지가 적은 PDF를 사용해 주세요.",
+    },
+  });
 
   const file = files[0];
   const downloadFileName =
-    resultRef.current && resultRef.current.length === 1
-      ? resultRef.current[0].name
-      : "pdf-images.zip";
+    result && result.length === 1 ? result[0].name : "pdf-images.zip";
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
@@ -173,7 +145,7 @@ export default function PdfToImagePage() {
         )}
 
         {file && status === "idle" && (
-          <Button className="w-full" size="lg" onClick={handleConvert}>
+          <Button className="w-full" size="lg" onClick={run}>
             이미지로 변환
           </Button>
         )}
@@ -182,8 +154,8 @@ export default function PdfToImagePage() {
           status={status}
           progress={progress}
           errorMessage={errorMessage}
-          onRetry={handleRetry}
-          onDownload={handleDownload}
+          onRetry={retry}
+          onDownload={download}
           downloadFileName={downloadFileName}
         />
       </div>

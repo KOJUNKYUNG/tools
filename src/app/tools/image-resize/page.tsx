@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
-import type { ProcessingState } from "@/types";
 import { Button } from "@/components/ui/button";
+import { useToolProcessor } from "@/hooks/useToolProcessor";
 import {
   resizeImage,
   type ResizeMode,
@@ -14,7 +14,6 @@ import {
 } from "@/lib/image/resizeImage";
 import { CropSelector, type CropRect } from "@/components/image/CropSelector";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
-import { getErrorMessage } from "@/lib/errors";
 import { MaximizeIcon, LockIcon, UnlockIcon } from "lucide-react";
 
 const IMAGE_ACCEPT = {
@@ -24,48 +23,16 @@ const IMAGE_ACCEPT = {
 };
 
 export default function ImageResizePage() {
-  const [files, setFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<ResizeMode>("pixel");
   const [width, setWidth] = useState<string>("");
   const [height, setHeight] = useState<string>("");
   const [percent, setPercent] = useState<string>("50");
   const [lockAspect, setLockAspect] = useState(true);
   const [presetIdx, setPresetIdx] = useState(0);
-  const [status, setStatus] = useState<ProcessingState>("idle");
-  const [progress, setProgress] = useState(0);
-  const [errorMessage, setErrorMessage] = useState("");
   const [origDims, setOrigDims] = useState<{ w: number; h: number } | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
-  const resultRef = useRef<ResizeResult | null>(null);
-
-  const handleFilesChange = useCallback((newFiles: File[]) => {
-    setFiles(newFiles);
-    setOrigDims(null);
-    setCropRect(null);
-    resultRef.current = null;
-    setStatus("idle");
-
-    if (imageUrl) URL.revokeObjectURL(imageUrl);
-
-    if (newFiles.length > 0) {
-      const url = URL.createObjectURL(newFiles[0]);
-      setImageUrl(url);
-      const img = new Image();
-      img.onload = () => {
-        setOrigDims({ w: img.naturalWidth, h: img.naturalHeight });
-      };
-      img.src = url;
-    } else {
-      setImageUrl(null);
-    }
-  }, [imageUrl]);
-
-  useEffect(() => {
-    return () => {
-      if (imageUrl) URL.revokeObjectURL(imageUrl);
-    };
-  }, [imageUrl]);
+  const imageUrlRef = useRef<string | null>(null);
 
   const needsCrop =
     mode === "preset" &&
@@ -77,22 +44,19 @@ export default function ImageResizePage() {
       return Math.abs(origAspect - presetAspect) > 0.01;
     })();
 
-  const handleCropChange = useCallback((rect: CropRect) => {
-    setCropRect(rect);
-  }, []);
-
-  const handleResize = useCallback(async () => {
-    const file = files[0];
-    if (!file) return;
-
-    setStatus("processing");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-
-    try {
-      setProgress(30);
-
+  const {
+    files,
+    setFiles,
+    status,
+    progress,
+    errorMessage,
+    result,
+    run,
+    retry,
+    download,
+  } = useToolProcessor<ResizeResult>({
+    processor: async (files) => {
+      const file = files[0];
       let crop: CropArea | undefined;
       if (mode === "preset" && needsCrop && cropRect) {
         crop = {
@@ -102,7 +66,6 @@ export default function ImageResizePage() {
           height: cropRect.height,
         };
       }
-
       const opts =
         mode === "pixel"
           ? {
@@ -125,35 +88,60 @@ export default function ImageResizePage() {
                 height: RESIZE_PRESETS[presetIdx].height,
                 crop,
               };
+      return resizeImage(opts);
+    },
+    onDownload: async (res) => {
+      const file = files[0];
+      const ext = file?.name.split(".").pop() ?? "png";
+      const baseName = file?.name.replace(/\.[^.]+$/, "") ?? "resized";
+      const buf = await res.blob.arrayBuffer();
+      downloadBlob(new Uint8Array(buf), `${baseName}-resized.${ext}`, res.blob.type);
+    },
+  });
 
-      const result = await resizeImage(opts);
-      resultRef.current = result;
-      setProgress(100);
-      setStatus("done");
-    } catch (err) {
-      setErrorMessage(getErrorMessage(err).message);
-      setStatus("error");
-    }
-  }, [files, mode, width, height, percent, lockAspect, presetIdx, needsCrop, cropRect]);
+  const handleFilesChange = useCallback(
+    (newFiles: File[]) => {
+      setFiles(newFiles);
+      setOrigDims(null);
+      setCropRect(null);
 
-  const handleDownload = useCallback(async () => {
-    if (!resultRef.current) return;
-    const { blob } = resultRef.current;
-    const ext = files[0]?.name.split(".").pop() ?? "png";
-    const baseName = files[0]?.name.replace(/\.[^.]+$/, "") ?? "resized";
-    const buf = await blob.arrayBuffer();
-    downloadBlob(new Uint8Array(buf), `${baseName}-resized.${ext}`, blob.type);
-  }, [files]);
+      if (imageUrlRef.current) {
+        URL.revokeObjectURL(imageUrlRef.current);
+        imageUrlRef.current = null;
+      }
 
-  const handleRetry = useCallback(() => {
-    setStatus("idle");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
+      if (newFiles.length === 0) {
+        setImageUrl(null);
+        return;
+      }
+
+      const url = URL.createObjectURL(newFiles[0]);
+      imageUrlRef.current = url;
+      setImageUrl(url);
+
+      const img = new Image();
+      img.onload = () => {
+        setOrigDims({ w: img.naturalWidth, h: img.naturalHeight });
+      };
+      img.src = url;
+    },
+    [setFiles],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (imageUrlRef.current) {
+        URL.revokeObjectURL(imageUrlRef.current);
+        imageUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleCropChange = useCallback((rect: CropRect) => {
+    setCropRect(rect);
   }, []);
 
   const file = files[0];
-  const result = resultRef.current;
   const isUpscale =
     result && (result.width > result.originalWidth || result.height > result.originalHeight);
 
@@ -327,7 +315,7 @@ export default function ImageResizePage() {
         )}
 
         {file && origDims && status === "idle" && (
-          <Button className="w-full" size="lg" onClick={handleResize}>
+          <Button className="w-full" size="lg" onClick={run}>
             크기 변경하기
           </Button>
         )}
@@ -353,8 +341,8 @@ export default function ImageResizePage() {
           status={status}
           progress={progress}
           errorMessage={errorMessage}
-          onRetry={handleRetry}
-          onDownload={handleDownload}
+          onRetry={retry}
+          onDownload={download}
           downloadFileName={
             file ? `${file.name.replace(/\.[^.]+$/, "")}-resized.${file.name.split(".").pop()}` : "resized.png"
           }
