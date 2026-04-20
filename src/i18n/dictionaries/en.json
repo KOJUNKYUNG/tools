@@ -1,0 +1,76 @@
+{
+  "brand": {
+    "name": "Ontab",
+    "tagline": "Your toolbox on a browser tab, always within reach"
+  },
+  "nav": {
+    "presentation": "Presentation",
+    "document": "Document",
+    "image": "Image"
+  },
+  "landing": {
+    "heroTitle": "Ontab",
+    "heroSubtitle": "The toolbox that lives in your browser tab — as handy as stationery on a desk.",
+    "heroCtaPrimary": "Browse tools",
+    "valueProps": {
+      "private": "No uploads — everything runs in your browser",
+      "unlimited": "No daily limits · Free · No sign-in",
+      "fast": "Instant processing · Download right away"
+    },
+    "shelfHeading": {
+      "presentation": "Presentation tools",
+      "document": "Document tools",
+      "image": "Image tools"
+    }
+  },
+  "common": {
+    "reset": "Start over",
+    "loading": "Processing…",
+    "download": "Download"
+  },
+  "footer": {
+    "copyright": "© {year} Ontab. Document tools that run entirely in your browser."
+  },
+  "tools": {
+    "image-to-pdf": {
+      "title": "Image → PDF",
+      "description": "Convert JPG/PNG images into a single PDF file."
+    },
+    "pdf-to-image": {
+      "title": "PDF → Image",
+      "description": "Export each PDF page as a JPG or PNG image."
+    },
+    "pdf-merge": {
+      "title": "Merge PDFs",
+      "description": "Combine multiple PDF files into one."
+    },
+    "pdf-compress": {
+      "title": "Compress PDF",
+      "description": "Reduce PDF file size in your browser."
+    },
+    "pdf-split": {
+      "title": "Split PDF",
+      "description": "Extract page ranges or split every page individually."
+    },
+    "pdf-pages": {
+      "title": "Manage PDF pages",
+      "description": "Reorder, rotate, and delete pages, then save a new PDF."
+    },
+    "ppt-extract": {
+      "title": "Extract PPT images",
+      "description": "Pull every embedded image from a PPT/PPTX into a ZIP."
+    },
+    "ppt-background": {
+      "title": "Change PPT background",
+      "description": "Replace every slide background in a PPTX at once."
+    },
+    "image-compress": {
+      "title": "Compress & convert images",
+      "description": "Compress or convert JPG/PNG/WebP images."
+    },
+    "image-resize": {
+      "title": "Resize images",
+      "description": "Adjust resolution by pixel, percent, or preset."
+    }
+  }
+}
