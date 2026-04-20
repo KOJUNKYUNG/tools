@@ -1,52 +1,68 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { FileUpload } from "@/components/common/FileUpload";
-import {
-  ProcessingStatus,
-  type ProcessingState,
-} from "@/components/common/ProcessingStatus";
+import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { Button } from "@/components/ui/button";
 import { PageGrid } from "@/components/pdf/PageGrid";
+import { useToolProcessor } from "@/hooks/useToolProcessor";
 import {
   generateThumbnails,
   rebuildPdf,
   type PageInfo,
 } from "@/lib/pdf/managePages";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { getErrorMessage } from "@/lib/errors";
 import { FileStackIcon } from "lucide-react";
 
 const PDF_ACCEPT = { "application/pdf": [".pdf"] };
 
 export default function PdfPagesPage() {
-  const [files, setFiles] = useState<File[]>([]);
   const [pages, setPages] = useState<PageInfo[]>([]);
-  const [status, setStatus] = useState<ProcessingState>("idle");
-  const [progress, setProgress] = useState(0);
-  const [errorMessage, setErrorMessage] = useState("");
   const [loadingThumbnails, setLoadingThumbnails] = useState(false);
-  const resultRef = useRef<Uint8Array | null>(null);
+  const [thumbProgress, setThumbProgress] = useState(0);
+  const [thumbError, setThumbError] = useState("");
 
-  const handleFilesChange = useCallback(async (newFiles: File[]) => {
-    setFiles(newFiles);
-    setPages([]);
-    resultRef.current = null;
-    setStatus("idle");
+  const {
+    files,
+    setFiles,
+    status,
+    progress,
+    errorMessage,
+    run,
+    retry,
+    download,
+  } = useToolProcessor<Uint8Array>({
+    processor: (files, onProgress) =>
+      rebuildPdf({ file: files[0], pages, onProgress }),
+    onDownload: (bytes) =>
+      downloadBlob(bytes, "managed.pdf", "application/pdf"),
+  });
 
-    if (newFiles.length > 0) {
+  const handleFilesChange = useCallback(
+    async (newFiles: File[]) => {
+      setFiles(newFiles);
+      setPages([]);
+      setThumbError("");
+
+      if (newFiles.length === 0) return;
+
       setLoadingThumbnails(true);
+      setThumbProgress(0);
       try {
-        const thumbs = await generateThumbnails(newFiles[0], setProgress);
+        const thumbs = await generateThumbnails(newFiles[0], setThumbProgress);
         setPages(thumbs);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "썸네일 생성 실패";
-        setErrorMessage(msg);
+        setThumbError(
+          getErrorMessage(err, { fallbackMessage: "썸네일 생성 실패" }).message,
+        );
       } finally {
         setLoadingThumbnails(false);
-        setProgress(0);
+        setThumbProgress(0);
       }
-    }
-  }, []);
+    },
+    [setFiles],
+  );
 
   const handleRotate = useCallback((id: string) => {
     setPages((prev) =>
@@ -66,43 +82,6 @@ export default function PdfPagesPage() {
 
   const handleReorder = useCallback((reordered: PageInfo[]) => {
     setPages(reordered);
-  }, []);
-
-  const handleApply = useCallback(async () => {
-    const file = files[0];
-    if (!file || pages.length === 0) return;
-
-    setStatus("processing");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-
-    try {
-      const result = await rebuildPdf({
-        file,
-        pages,
-        onProgress: setProgress,
-      });
-      resultRef.current = result;
-      setStatus("done");
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
-      setStatus("error");
-    }
-  }, [files, pages]);
-
-  const handleDownload = useCallback(() => {
-    if (!resultRef.current) return;
-    downloadBlob(resultRef.current, "managed.pdf", "application/pdf");
-  }, []);
-
-  const handleRetry = useCallback(() => {
-    setStatus("idle");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
   }, []);
 
   const activeCount = pages.filter((p) => !p.deleted).length;
@@ -134,8 +113,12 @@ export default function PdfPagesPage() {
         {loadingThumbnails && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className="inline-block size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            썸네일을 생성하는 중… {Math.round(progress)}%
+            썸네일을 생성하는 중… {Math.round(thumbProgress)}%
           </div>
+        )}
+
+        {thumbError && (
+          <p className="text-sm text-destructive">{thumbError}</p>
         )}
 
         {pages.length > 0 && status === "idle" && (
@@ -156,7 +139,7 @@ export default function PdfPagesPage() {
             <Button
               className="w-full"
               size="lg"
-              onClick={handleApply}
+              onClick={run}
               disabled={activeCount === 0}
             >
               PDF 생성하기 ({activeCount}페이지)
@@ -168,8 +151,8 @@ export default function PdfPagesPage() {
           status={status}
           progress={progress}
           errorMessage={errorMessage}
-          onRetry={handleRetry}
-          onDownload={handleDownload}
+          onRetry={retry}
+          onDownload={download}
           downloadFileName="managed.pdf"
         />
       </div>

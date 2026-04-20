@@ -1,12 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { FileUpload } from "@/components/common/FileUpload";
-import {
-  ProcessingStatus,
-  type ProcessingState,
-} from "@/components/common/ProcessingStatus";
+import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { Button } from "@/components/ui/button";
+import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { splitPdf, type SplitResult } from "@/lib/pdf/splitPdf";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { ScissorsIcon } from "lucide-react";
@@ -17,70 +15,51 @@ const PDF_ACCEPT = { "application/pdf": [".pdf"] };
 type SplitMode = "range" | "all";
 
 export default function PdfSplitPage() {
-  const [files, setFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<SplitMode>("range");
   const [rangeInput, setRangeInput] = useState("");
   const [totalPages, setTotalPages] = useState(0);
-  const [status, setStatus] = useState<ProcessingState>("idle");
-  const [progress, setProgress] = useState(0);
-  const [errorMessage, setErrorMessage] = useState("");
-  const resultRef = useRef<SplitResult | null>(null);
 
-  const handleFilesChange = useCallback(async (newFiles: File[]) => {
-    setFiles(newFiles);
-    if (newFiles.length > 0) {
-      try {
-        const bytes = new Uint8Array(await newFiles[0].arrayBuffer());
-        const doc = await PDFDocument.load(bytes);
-        setTotalPages(doc.getPageCount());
-      } catch {
-        setTotalPages(0);
-      }
-    } else {
-      setTotalPages(0);
-    }
-  }, []);
-
-  const handleSplit = useCallback(async () => {
-    const file = files[0];
-    if (!file) return;
-
-    setStatus("processing");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-
-    try {
-      const result = await splitPdf({
-        file,
+  const {
+    files,
+    setFiles,
+    status,
+    progress,
+    errorMessage,
+    result,
+    run,
+    retry,
+    download,
+  } = useToolProcessor<SplitResult>({
+    processor: (files, onProgress) =>
+      splitPdf({
+        file: files[0],
         mode,
         rangeInput: mode === "range" ? rangeInput : undefined,
-        onProgress: setProgress,
-      });
-      resultRef.current = result;
-      setStatus("done");
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
-      setStatus("error");
-    }
-  }, [files, mode, rangeInput]);
+        onProgress,
+      }),
+    onDownload: (res) => {
+      const mime = res.type === "zip" ? "application/zip" : "application/pdf";
+      downloadBlob(res.data, res.filename, mime);
+    },
+  });
 
-  const handleDownload = useCallback(() => {
-    if (!resultRef.current) return;
-    const { data, filename, type } = resultRef.current;
-    const mime =
-      type === "zip" ? "application/zip" : "application/pdf";
-    downloadBlob(data, filename, mime);
-  }, []);
-
-  const handleRetry = useCallback(() => {
-    setStatus("idle");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-  }, []);
+  const handleFilesChange = useCallback(
+    async (newFiles: File[]) => {
+      setFiles(newFiles);
+      if (newFiles.length > 0) {
+        try {
+          const bytes = new Uint8Array(await newFiles[0].arrayBuffer());
+          const doc = await PDFDocument.load(bytes);
+          setTotalPages(doc.getPageCount());
+        } catch {
+          setTotalPages(0);
+        }
+      } else {
+        setTotalPages(0);
+      }
+    },
+    [setFiles],
+  );
 
   const file = files[0];
 
@@ -171,7 +150,7 @@ export default function PdfSplitPage() {
         )}
 
         {file && status === "idle" && (
-          <Button className="w-full" size="lg" onClick={handleSplit}>
+          <Button className="w-full" size="lg" onClick={run}>
             {mode === "range" ? "PDF 추출하기" : `전체 ${totalPages}페이지 분리하기`}
           </Button>
         )}
@@ -180,11 +159,9 @@ export default function PdfSplitPage() {
           status={status}
           progress={progress}
           errorMessage={errorMessage}
-          onRetry={handleRetry}
-          onDownload={handleDownload}
-          downloadFileName={
-            resultRef.current?.filename ?? "split.pdf"
-          }
+          onRetry={retry}
+          onDownload={download}
+          downloadFileName={result?.filename ?? "split.pdf"}
         />
       </div>
     </div>

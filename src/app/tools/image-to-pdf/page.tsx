@@ -1,12 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
 import { FileUpload } from "@/components/common/FileUpload";
-import {
-  ProcessingStatus,
-  type ProcessingState,
-} from "@/components/common/ProcessingStatus";
+import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { Button } from "@/components/ui/button";
+import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { imagesToPdf } from "@/lib/pdf/imageToPdf";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { ImageIcon } from "lucide-react";
@@ -17,46 +14,20 @@ const IMAGE_ACCEPT = {
 };
 
 export default function ImageToPdfPage() {
-  const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<ProcessingState>("idle");
-  const [progress, setProgress] = useState(0);
-  const [errorMessage, setErrorMessage] = useState("");
-  const resultRef = useRef<Uint8Array | null>(null);
-
-  const handleConvert = useCallback(async () => {
-    if (files.length === 0) return;
-
-    setStatus("processing");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-
-    try {
-      const pdfBytes = await imagesToPdf({
-        files,
-        onProgress: setProgress,
-      });
-      resultRef.current = pdfBytes;
-      setStatus("done");
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
-      setStatus("error");
-    }
-  }, [files]);
-
-  const handleDownload = useCallback(() => {
-    if (!resultRef.current) return;
-    downloadBlob(resultRef.current, "images-converted.pdf", "application/pdf");
-  }, []);
-
-  const handleRetry = useCallback(() => {
-    setStatus("idle");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-  }, []);
+  const {
+    files,
+    setFiles,
+    status,
+    progress,
+    errorMessage,
+    run,
+    retry,
+    download,
+  } = useToolProcessor<Uint8Array>({
+    processor: (files, onProgress) => imagesToPdf({ files, onProgress }),
+    onDownload: (bytes) =>
+      downloadBlob(bytes, "images-converted.pdf", "application/pdf"),
+  });
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
@@ -82,7 +53,7 @@ export default function ImageToPdfPage() {
         />
 
         {files.length > 0 && status === "idle" && (
-          <Button className="w-full" size="lg" onClick={handleConvert}>
+          <Button className="w-full" size="lg" onClick={run}>
             PDF로 변환 ({files.length}개 이미지)
           </Button>
         )}
@@ -91,8 +62,8 @@ export default function ImageToPdfPage() {
           status={status}
           progress={progress}
           errorMessage={errorMessage}
-          onRetry={handleRetry}
-          onDownload={handleDownload}
+          onRetry={retry}
+          onDownload={download}
           downloadFileName="images-converted.pdf"
         />
       </div>

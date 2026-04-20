@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FileUpload } from "@/components/common/FileUpload";
-import {
-  ProcessingStatus,
-  type ProcessingState,
-} from "@/components/common/ProcessingStatus";
+import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { InlineGallery } from "@/components/ppt/InlineGallery";
 import { Button } from "@/components/ui/button";
+import { useToolProcessor } from "@/hooks/useToolProcessor";
 import {
   changeBackground,
   type BgMode,
@@ -59,13 +57,8 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 export default function PptBackgroundPage() {
-  const [pptxFiles, setPptxFiles] = useState<File[]>([]);
   const [bgFiles, setBgFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<BgMode>("all-slides");
-  const [status, setStatus] = useState<ProcessingState>("idle");
-  const [progress, setProgress] = useState(0);
-  const [errorMessage, setErrorMessage] = useState("");
-  const resultRef = useRef<Uint8Array | null>(null);
 
   const [galleryImage, setGalleryImage] = useState<GalleryImage | null>(null);
   const [currentBgs, setCurrentBgs] = useState<SlideBackground[]>([]);
@@ -73,8 +66,37 @@ export default function PptBackgroundPage() {
   const [bgObjectUrls, setBgObjectUrls] = useState<Map<number, string>>(new Map());
   const [bgPreviewUrl, setBgPreviewUrl] = useState<string | null>(null);
 
-  const pptxFile = pptxFiles[0];
   const bgImage = bgFiles[0];
+
+  const {
+    files: pptxFiles,
+    setFiles: setPptxFiles,
+    status,
+    progress,
+    errorMessage,
+    run,
+    retry,
+    download,
+  } = useToolProcessor<Uint8Array>({
+    processor: (files, onProgress) =>
+      changeBackground({
+        pptxFile: files[0],
+        bgImage,
+        mode,
+        onProgress,
+      }),
+    onDownload: (bytes) => {
+      const baseName =
+        pptxFiles[0]?.name.replace(/\.pptx?$/i, "") ?? "presentation";
+      downloadBlob(
+        bytes,
+        `${baseName}-bg-changed.pptx`,
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      );
+    },
+  });
+
+  const pptxFile = pptxFiles[0];
   const isPpt = pptxFile?.name.toLowerCase().endsWith(".ppt");
   const canProcess = pptxFile && bgImage && !isPpt;
 
@@ -112,24 +134,27 @@ export default function PptBackgroundPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pptxFile, isPpt]);
 
-  const handleGallerySelect = useCallback(async (image: GalleryImage) => {
-    setGalleryImage(image);
-    if (bgPreviewUrl) URL.revokeObjectURL(bgPreviewUrl);
-    setBgPreviewUrl(image.thumbnailUrl);
-    try {
-      const res = await fetch(image.url);
-      const blob = await res.blob();
-      const ext = image.url.includes(".png") ? "png" : "jpg";
-      const file = new File([blob], `gallery-${image.id}.${ext}`, {
-        type: ext === "png" ? "image/png" : "image/jpeg",
-      });
-      setBgFiles([file]);
-    } catch {
-      setGalleryImage(null);
-      setBgPreviewUrl(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bgPreviewUrl]);
+  const handleGallerySelect = useCallback(
+    async (image: GalleryImage) => {
+      setGalleryImage(image);
+      if (bgPreviewUrl) URL.revokeObjectURL(bgPreviewUrl);
+      setBgPreviewUrl(image.thumbnailUrl);
+      try {
+        const res = await fetch(image.url);
+        const blob = await res.blob();
+        const ext = image.url.includes(".png") ? "png" : "jpg";
+        const file = new File([blob], `gallery-${image.id}.${ext}`, {
+          type: ext === "png" ? "image/png" : "image/jpeg",
+        });
+        setBgFiles([file]);
+      } catch {
+        setGalleryImage(null);
+        setBgPreviewUrl(null);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [bgPreviewUrl],
+  );
 
   const handleDirectUpload = useCallback(
     (files: File[]) => {
@@ -152,50 +177,7 @@ export default function PptBackgroundPage() {
     setBgPreviewUrl(null);
   }, [bgPreviewUrl]);
 
-  const handleApply = useCallback(async () => {
-    if (!pptxFile || !bgImage) return;
-
-    setStatus("processing");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-
-    try {
-      const result = await changeBackground({
-        pptxFile,
-        bgImage,
-        mode,
-        onProgress: setProgress,
-      });
-      resultRef.current = result;
-      setStatus("done");
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
-      setStatus("error");
-    }
-  }, [pptxFile, bgImage, mode]);
-
-  const handleDownload = useCallback(() => {
-    if (!resultRef.current) return;
-    const baseName = pptxFile?.name.replace(/\.pptx?$/i, "") ?? "presentation";
-    downloadBlob(
-      resultRef.current,
-      `${baseName}-bg-changed.pptx`,
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    );
-  }, [pptxFile]);
-
-  const handleRetry = useCallback(() => {
-    setStatus("idle");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-  }, []);
-
   const downloadFileName = `${pptxFile?.name.replace(/\.pptx?$/i, "") ?? "presentation"}-bg-changed.pptx`;
-
   const hasBgImages = currentBgs.some((bg) => bg.imageBlob !== null);
 
   return (
@@ -461,7 +443,7 @@ export default function PptBackgroundPage() {
         )}
 
         {canProcess && status === "idle" && (
-          <Button className="w-full" size="lg" onClick={handleApply}>
+          <Button className="w-full" size="lg" onClick={run}>
             배경 변경 적용
           </Button>
         )}
@@ -470,8 +452,8 @@ export default function PptBackgroundPage() {
           status={status}
           progress={progress}
           errorMessage={errorMessage}
-          onRetry={handleRetry}
-          onDownload={handleDownload}
+          onRetry={retry}
+          onDownload={download}
           downloadFileName={downloadFileName}
         />
       </div>

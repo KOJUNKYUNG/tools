@@ -88,8 +88,10 @@ export function CropSelector({
     return () => obs.disconnect();
   }, []);
 
-  const scaleX = displaySize.w > 0 ? displaySize.w / imgNatural.w : 1;
-  const scaleY = displaySize.h > 0 ? displaySize.h / imgNatural.h : 1;
+  const ready =
+    imgNatural.w > 0 && imgNatural.h > 0 && displaySize.w > 0 && displaySize.h > 0;
+  const scaleX = ready ? displaySize.w / imgNatural.w : 1;
+  const scaleY = ready ? displaySize.h / imgNatural.h : 1;
 
   const displayCrop = {
     x: crop.x * scaleX,
@@ -147,7 +149,7 @@ export function CropSelector({
           draggable={false}
         />
 
-        {displaySize.w > 0 && (
+        {ready && (
           <>
             {/* Dim overlay — 4 rects around the crop */}
             <div

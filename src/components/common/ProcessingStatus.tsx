@@ -3,6 +3,7 @@
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import type { ProcessingState } from "@/types";
 import {
   DownloadIcon,
   RefreshCwIcon,
@@ -10,8 +11,6 @@ import {
   AlertTriangleIcon,
   Loader2Icon,
 } from "lucide-react";
-
-export type ProcessingState = "idle" | "processing" | "done" | "error";
 
 interface ProcessingStatusProps {
   status: ProcessingState;

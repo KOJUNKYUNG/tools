@@ -1,12 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useState } from "react";
 import { FileUpload } from "@/components/common/FileUpload";
-import {
-  ProcessingStatus,
-  type ProcessingState,
-} from "@/components/common/ProcessingStatus";
+import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { Button } from "@/components/ui/button";
+import { useToolProcessor } from "@/hooks/useToolProcessor";
 import {
   compressPdf,
   type CompressionPreset,
@@ -32,52 +30,26 @@ function formatBytes(bytes: number): string {
 }
 
 export default function PdfCompressPage() {
-  const [files, setFiles] = useState<File[]>([]);
   const [preset, setPreset] = useState<CompressionPreset>("medium");
-  const [status, setStatus] = useState<ProcessingState>("idle");
-  const [progress, setProgress] = useState(0);
-  const [errorMessage, setErrorMessage] = useState("");
-  const resultRef = useRef<CompressPdfResult | null>(null);
 
-  const handleCompress = useCallback(async () => {
-    const file = files[0];
-    if (!file) return;
-
-    setStatus("processing");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-
-    try {
-      const result = await compressPdf({
-        file,
-        preset,
-        onProgress: setProgress,
-      });
-      resultRef.current = result;
-      setStatus("done");
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
-      setStatus("error");
-    }
-  }, [files, preset]);
-
-  const handleDownload = useCallback(() => {
-    if (!resultRef.current) return;
-    downloadBlob(resultRef.current.data, "compressed.pdf", "application/pdf");
-  }, []);
-
-  const handleRetry = useCallback(() => {
-    setStatus("idle");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-  }, []);
+  const {
+    files,
+    setFiles,
+    status,
+    progress,
+    errorMessage,
+    result,
+    run,
+    retry,
+    download,
+  } = useToolProcessor<CompressPdfResult>({
+    processor: (files, onProgress) =>
+      compressPdf({ file: files[0], preset, onProgress }),
+    onDownload: (res) =>
+      downloadBlob(res.data, "compressed.pdf", "application/pdf"),
+  });
 
   const file = files[0];
-  const result = resultRef.current;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
@@ -134,7 +106,7 @@ export default function PdfCompressPage() {
         )}
 
         {file && status === "idle" && (
-          <Button className="w-full" size="lg" onClick={handleCompress}>
+          <Button className="w-full" size="lg" onClick={run}>
             PDF 압축하기
           </Button>
         )}
@@ -169,8 +141,8 @@ export default function PdfCompressPage() {
           status={status}
           progress={progress}
           errorMessage={errorMessage}
-          onRetry={handleRetry}
-          onDownload={handleDownload}
+          onRetry={retry}
+          onDownload={download}
           downloadFileName="compressed.pdf"
         />
       </div>

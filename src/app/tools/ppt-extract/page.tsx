@@ -1,12 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
 import { FileUpload } from "@/components/common/FileUpload";
-import {
-  ProcessingStatus,
-  type ProcessingState,
-} from "@/components/common/ProcessingStatus";
+import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { Button } from "@/components/ui/button";
+import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { extractPptImages } from "@/lib/ppt/extractImages";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { ImageDownIcon } from "lucide-react";
@@ -19,53 +16,25 @@ const PPTX_ACCEPT = {
 };
 
 export default function PptExtractPage() {
-  const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<ProcessingState>("idle");
-  const [progress, setProgress] = useState(0);
-  const [errorMessage, setErrorMessage] = useState("");
-  const resultRef = useRef<Uint8Array | null>(null);
+  const {
+    files,
+    setFiles,
+    status,
+    progress,
+    errorMessage,
+    run,
+    retry,
+    download,
+  } = useToolProcessor<Uint8Array>({
+    processor: (files, onProgress) =>
+      extractPptImages({ file: files[0], onProgress }),
+    onDownload: (bytes) => {
+      const baseName = files[0]?.name.replace(/\.pptx?$/i, "") ?? "ppt";
+      downloadBlob(bytes, `${baseName}-images.zip`, "application/zip");
+    },
+  });
 
   const file = files[0];
-
-  const handleExtract = useCallback(async () => {
-    if (!file) return;
-
-    setStatus("processing");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-
-    try {
-      const zipBytes = await extractPptImages({
-        file,
-        onProgress: setProgress,
-      });
-      resultRef.current = zipBytes;
-      setStatus("done");
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
-      setErrorMessage(msg);
-      setStatus("error");
-    }
-  }, [file]);
-
-  const handleDownload = useCallback(() => {
-    if (!resultRef.current) return;
-    const baseName = file?.name.replace(/\.pptx?$/i, "") ?? "ppt";
-    downloadBlob(
-      resultRef.current,
-      `${baseName}-images.zip`,
-      "application/zip",
-    );
-  }, [file]);
-
-  const handleRetry = useCallback(() => {
-    setStatus("idle");
-    setProgress(0);
-    setErrorMessage("");
-    resultRef.current = null;
-  }, []);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
@@ -91,7 +60,7 @@ export default function PptExtractPage() {
         />
 
         {file && status === "idle" && (
-          <Button className="w-full" size="lg" onClick={handleExtract}>
+          <Button className="w-full" size="lg" onClick={run}>
             이미지 추출
           </Button>
         )}
@@ -100,8 +69,8 @@ export default function PptExtractPage() {
           status={status}
           progress={progress}
           errorMessage={errorMessage}
-          onRetry={handleRetry}
-          onDownload={handleDownload}
+          onRetry={retry}
+          onDownload={download}
           downloadFileName={`${file?.name.replace(/\.pptx?$/i, "") ?? "ppt"}-images.zip`}
         />
       </div>
