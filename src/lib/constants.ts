@@ -24,6 +24,9 @@ export interface ToolInfo {
   href: string;
   icon: LucideIcon;
   category: "pdf" | "ppt" | "image";
+  seoDescription?: string;
+  keywords?: string[];
+  ogImage?: string;
 }
 
 export const TOOLS: ToolInfo[] = [
