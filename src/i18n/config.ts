@@ -1,8 +1,7 @@
 import "server-only";
+import { locales, defaultLocale, type Locale } from "./locales";
 
-export const locales = ["ko", "en"] as const;
-export type Locale = (typeof locales)[number];
-export const defaultLocale: Locale = "ko";
+export { locales, defaultLocale, type Locale };
 
 const dictionaries = {
   ko: () => import("./dictionaries/ko.json").then((m) => m.default),

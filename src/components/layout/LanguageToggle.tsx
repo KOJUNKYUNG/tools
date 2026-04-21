@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { locales } from "@/i18n/config";
+import { locales } from "@/i18n/locales";
 
 interface Props {
   currentLocale: string;
