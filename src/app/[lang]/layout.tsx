@@ -34,6 +34,7 @@ export default async function RootLayout({
 }>) {
   const { lang } = await params;
   const dict = await getDictionary(lang as Locale);
+  const copyright = dict.footer.copyright.replace("{year}", String(new Date().getFullYear()));
   return (
     <html
       lang={lang}
@@ -43,7 +44,7 @@ export default async function RootLayout({
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <Header locale={lang} labels={dict.nav} />
         <main className="flex-1">{children}</main>
-        <Footer />
+        <Footer copyright={copyright} />
         <Toaster position="bottom-right" />
       </body>
     </html>
