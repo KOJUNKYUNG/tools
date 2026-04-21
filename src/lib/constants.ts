@@ -21,6 +21,7 @@ export interface ToolInfo {
   slug: string;
   title: string;
   description: string;
+  i18nKey: string;
   href: string;
   icon: LucideIcon;
   category: "pdf" | "ppt" | "image";
@@ -34,6 +35,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "image-to-pdf",
     title: "이미지 → PDF",
     description: "JPG/PNG 이미지를 하나의 PDF 파일로 변환합니다.",
+    i18nKey: "tools.image-to-pdf",
     href: "/tools/image-to-pdf",
     icon: ImageIcon,
     category: "pdf",
@@ -42,6 +44,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "pdf-to-image",
     title: "PDF → 이미지",
     description: "PDF 페이지를 JPG/PNG 이미지로 추출합니다.",
+    i18nKey: "tools.pdf-to-image",
     href: "/tools/pdf-to-image",
     icon: FileOutputIcon,
     category: "pdf",
@@ -50,6 +53,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "pdf-merge",
     title: "PDF 합치기",
     description: "여러 PDF 파일을 하나로 병합합니다.",
+    i18nKey: "tools.pdf-merge",
     href: "/tools/pdf-merge",
     icon: MergeIcon,
     category: "pdf",
@@ -58,6 +62,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "pdf-compress",
     title: "PDF 압축",
     description: "PDF 파일 용량을 줄입니다. 브라우저에서 안전하게 처리됩니다.",
+    i18nKey: "tools.pdf-compress",
     href: "/tools/pdf-compress",
     icon: ArchiveIcon,
     category: "pdf",
@@ -66,6 +71,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "pdf-split",
     title: "PDF 분할",
     description: "페이지 범위 추출 또는 전체 페이지 개별 분리를 지원합니다.",
+    i18nKey: "tools.pdf-split",
     href: "/tools/pdf-split",
     icon: ScissorsIcon,
     category: "pdf",
@@ -74,6 +80,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "pdf-pages",
     title: "PDF 페이지 관리",
     description: "페이지 순서 변경, 회전, 삭제 후 새 PDF로 저장합니다.",
+    i18nKey: "tools.pdf-pages",
     href: "/tools/pdf-pages",
     icon: FileStackIcon,
     category: "pdf",
@@ -82,6 +89,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "ppt-extract",
     title: "PPT 이미지 추출",
     description: "PPT/PPTX에서 모든 이미지를 ZIP으로 추출합니다.",
+    i18nKey: "tools.ppt-extract",
     href: "/tools/ppt-extract",
     icon: ImageDownIcon,
     category: "ppt",
@@ -90,6 +98,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "ppt-background",
     title: "PPT 배경 변경",
     description: "PPTX 슬라이드 배경을 일괄 교체합니다.",
+    i18nKey: "tools.ppt-background",
     href: "/tools/ppt-background",
     icon: PaintbrushIcon,
     category: "ppt",
@@ -98,6 +107,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "image-compress",
     title: "이미지 압축 · 변환",
     description: "JPG/PNG/WebP 이미지를 압축하거나 포맷을 변환합니다.",
+    i18nKey: "tools.image-compress",
     href: "/tools/image-compress",
     icon: ImageMinusIcon,
     category: "image",
@@ -106,6 +116,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "image-resize",
     title: "이미지 크기 변경",
     description: "픽셀, 비율, 프리셋으로 이미지 해상도를 조정합니다.",
+    i18nKey: "tools.image-resize",
     href: "/tools/image-resize",
     icon: MaximizeIcon,
     category: "image",
