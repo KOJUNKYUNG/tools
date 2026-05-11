@@ -1,44 +1,32 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 import { Toaster } from "@/components/ui/sonner";
+import { Providers } from "@/app/providers";
+import { pretendard, spaceGrotesk, inter, jetbrainsMono } from "@/app/fonts";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: {
-    default: "DocuFlow — 문서 도구 모음",
-    template: "%s | DocuFlow",
+    default: "Ontab — 브라우저 탭 위의 문서 도구 책상",
+    template: "%s | Ontab",
   },
   description:
-    "PDF 변환/병합, PPT 이미지 추출 및 배경 변경을 브라우저에서 바로 처리하세요. 파일이 서버에 저장되지 않습니다.",
+    "PDF · PPT · 이미지 변환·편집을 브라우저 내에서 바로 처리하세요. 업로드 없음, 일일 제한 없음, 로그인 불필요.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+      className={`${pretendard.variable} ${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
-        <Toaster position="bottom-right" />
+        <Providers>
+          {children}
+          <Toaster position="bottom-right" />
+        </Providers>
       </body>
     </html>
   );

@@ -1,0 +1,63 @@
+{
+  "brand": {
+    "name": "Ontab",
+    "tagline": "The toolbox that lives in your browser tab"
+  },
+  "nav": {
+    "presentation": "Presentation",
+    "document": "Document",
+    "image": "Image"
+  },
+  "landing": {
+    "heroTitle": "ONTAB",
+    "heroSubtitle": "The toolbox that lives in your browser tab",
+    "heroCtaPrimary": "Open the toolbox",
+    "valueProps": {
+      "private": "100% in-browser",
+      "unlimited": "Unlimited · Free",
+      "fast": "No uploads, no login"
+    },
+    "shelfHeading": {
+      "presentation": "Presentation tools",
+      "document": "Document tools",
+      "image": "Image tools"
+    },
+    "selectCategory": "Select a category",
+    "descriptor": "The toolbox that lives in your browser tab",
+    "interiorHint": "Toolbox · 10 tools"
+  },
+  "common": {
+    "reset": "Reset",
+    "back": "Close toolbox",
+    "loading": "Processing…",
+    "download": "Download",
+    "browse": "Select files",
+    "openTool": "Open this tool",
+    "drop": "Drop files here",
+    "or": "or",
+    "click": "click to browse"
+  },
+  "footer": {
+    "copyright": "© 2026 Ontab · runs entirely in your browser",
+    "version": "v0.1",
+    "license": "Open source"
+  },
+  "status": {
+    "inBrowser": "In-browser",
+    "unlimited": "Unlimited",
+    "noUpload": "No upload",
+    "queued": "Queued"
+  },
+  "tools": {
+    "ppt-background": { "title": "Change PPT background", "description": "Swap the background across every slide at once." },
+    "ppt-extract": { "title": "Extract PPT images", "description": "Pull every embedded image out of a .pptx file." },
+    "pdf-merge": { "title": "Merge PDFs", "description": "Combine multiple PDFs into one precise document." },
+    "pdf-split": { "title": "Split PDF", "description": "Separate pages or extract ranges." },
+    "pdf-compress": { "title": "Compress PDF", "description": "Reduce file size with minimal quality loss." },
+    "pdf-pages": { "title": "Manage PDF pages", "description": "Reorder, rotate, or delete pages in one place." },
+    "image-to-pdf": { "title": "Image → PDF", "description": "Package images into a single PDF." },
+    "pdf-to-image": { "title": "PDF → Image", "description": "Render each page as a high-res image." },
+    "image-compress": { "title": "Compress & convert", "description": "Batch-compress and convert formats." },
+    "image-resize": { "title": "Resize images", "description": "Batch-resize while preserving ratio." }
+  }
+}

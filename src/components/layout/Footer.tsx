@@ -1,14 +1,44 @@
-import { FileTextIcon } from "lucide-react";
+interface FooterProps {
+  copyright: string;
+  version: string;
+  license: string;
+}
 
-export function Footer() {
+export function Footer({ copyright, version, license }: FooterProps) {
   return (
-    <footer className="border-t bg-muted/30">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 py-6 text-sm text-muted-foreground sm:flex-row sm:justify-between">
-        <div className="flex items-center gap-2">
-          <FileTextIcon className="size-4" />
-          <span>DocuFlow</span>
-        </div>
-        <p>&copy; {new Date().getFullYear()} DocuFlow. All rights reserved.</p>
+    <footer
+      className="px-8 py-4 flex items-center justify-between border-t relative"
+      style={{
+        borderColor: "var(--border)",
+        height: "60px",
+        borderStyle: "solid",
+        margin: "0px",
+        padding: "16px 32px",
+        fontWeight: 500,
+      }}
+    >
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundColor: "var(--bg)",
+          opacity: "var(--tweak-footer-bg-opacity, 1)",
+          transition: "opacity 200ms ease",
+        }}
+      />
+      <div
+        className="font-body text-[11px] tabular-nums tracking-wide relative"
+        style={{ color: "var(--ink-soft)" }}
+      >
+        {copyright}
+      </div>
+      <div
+        className="flex items-center gap-3 font-body text-[10px] tracking-[0.12em] uppercase relative"
+        style={{ color: "var(--ink-soft)" }}
+      >
+        <span>{version}</span>
+        <span style={{ color: "var(--border)" }}>·</span>
+        <span>{license}</span>
       </div>
     </footer>
   );
