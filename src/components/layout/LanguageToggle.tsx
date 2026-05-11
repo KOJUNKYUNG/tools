@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { locales } from "@/i18n/locales";
 
 interface Props {
@@ -14,7 +13,6 @@ export function LanguageToggle({ currentLocale }: Props) {
 
   const switchTo = (target: string) => {
     const segments = pathname.split("/");
-    // segments: ["", "ko", "tools", ...]
     if (locales.includes(segments[1] as (typeof locales)[number])) {
       segments[1] = target;
     } else {
@@ -24,17 +22,23 @@ export function LanguageToggle({ currentLocale }: Props) {
   };
 
   return (
-    <div className="flex items-center gap-1 rounded-md border border-silver-200 p-0.5">
-      {locales.map((loc) => (
-        <Button
-          key={loc}
-          variant={loc === currentLocale ? "default" : "ghost"}
-          size="sm"
-          className="h-7 px-2 text-xs uppercase"
-          onClick={() => switchTo(loc)}
+    <div
+      className="flex items-center rounded-[4px] overflow-hidden border mr-1"
+      style={{ borderColor: "var(--border)", height: 28 }}
+    >
+      {locales.map((lc) => (
+        <button
+          key={lc}
+          onClick={() => switchTo(lc)}
+          className="px-2.5 h-full font-display text-[10.5px] font-semibold tracking-[0.08em] uppercase transition-colors"
+          style={{
+            background: currentLocale === lc ? "var(--ink-strong)" : "transparent",
+            color: currentLocale === lc ? "var(--bg)" : "var(--ink)",
+            cursor: currentLocale === lc ? "default" : "pointer",
+          }}
         >
-          {loc}
-        </Button>
+          {lc}
+        </button>
       ))}
     </div>
   );
