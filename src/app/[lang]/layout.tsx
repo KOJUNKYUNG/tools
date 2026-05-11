@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ThemeProvider } from "next-themes";
+import { Providers } from "@/app/providers";
 import { Toaster } from "@/components/ui/sonner";
 import { pretendard, spaceGrotesk, inter, jetbrainsMono } from "@/app/fonts";
 import "../globals.css";
@@ -28,10 +28,10 @@ export default async function RootLayout({
       className={`${pretendard.variable} ${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <Providers>
           {children}
           <Toaster position="bottom-right" />
-        </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );
