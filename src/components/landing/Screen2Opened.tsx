@@ -87,11 +87,14 @@ export function Screen2Opened({
             style={{
               top: "calc(50% - 150px + var(--tweak-title-y, 0px))",
               transform: "translateX(-50%)",
-              width: 520,
+              width: "min(520px, calc(100vw - 32px))",
               transition: "top 200ms ease",
             }}
           >
-            <div className="grid grid-cols-2 gap-3" style={{ textAlign: "left" }}>
+            <div
+              className="grid grid-cols-2 gap-3 max-[480px]:grid-cols-1"
+              style={{ textAlign: "left" }}
+            >
               {tools.map((t) => {
                 const toolDict = dict.tools[t.slug as ToolSlugKey];
                 return (

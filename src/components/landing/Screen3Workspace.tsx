@@ -103,7 +103,7 @@ export function Screen3Workspace({
             className="absolute left-1/2"
             style={{
               top: "calc(50% - 200px + var(--tweak-title-y, 0px))",
-              width: "var(--tweak-workspace-width, 620px)",
+              width: "min(var(--tweak-workspace-width, 620px), calc(100vw - 32px))",
               transform: "translateX(-50%)",
               transition: "top 200ms ease",
             }}
