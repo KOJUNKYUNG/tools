@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 import { Toaster } from "@/components/ui/sonner";
-import { getDictionary, type Locale } from "@/i18n/config";
 import { pretendard, spaceGrotesk, inter, jetbrainsMono } from "@/app/fonts";
 import "../globals.css";
 
@@ -34,7 +31,6 @@ export default async function RootLayout({
   params: Promise<{ lang: string }>;
 }>) {
   const { lang } = await params;
-  const dict = await getDictionary(lang as Locale);
   return (
     <html
       lang={lang}
@@ -42,13 +38,7 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${pretendard.variable} ${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
-        <Header locale={lang} />
-        <main className="flex-1">{children}</main>
-        <Footer
-          copyright={dict.footer.copyright}
-          version={dict.footer.version}
-          license={dict.footer.license}
-        />
+        {children}
         <Toaster position="bottom-right" />
       </body>
     </html>
