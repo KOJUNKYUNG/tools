@@ -41,7 +41,7 @@ export function Screen2Opened({
 }: Screen2OpenedProps) {
   const tools = TOOLS_BY_CATEGORY[activeCategory];
   return (
-    <div className="flex flex-col h-full relative overflow-hidden" style={{ background: "var(--bg)" }}>
+    <div className="flex flex-col h-screen relative overflow-hidden" style={{ background: "var(--bg)" }}>
       {theme === "dark" && (
         <div className="absolute inset-0 dark-tray-surface pointer-events-none" style={{ zIndex: 0 }} />
       )}

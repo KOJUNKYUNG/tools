@@ -28,7 +28,7 @@ function InteriorHint({ locale, dict }: { locale: "ko" | "en"; dict: Dictionary 
 
 export function Screen1Landing({ locale, theme, dict, lidState, onOpen }: Screen1LandingProps) {
   return (
-    <div className="flex flex-col h-full relative overflow-hidden" style={{ background: "var(--bg)" }}>
+    <div className="flex flex-col h-screen relative overflow-hidden" style={{ background: "var(--bg)" }}>
       {theme === "dark" && (
         <div className="absolute inset-0 dark-tray-surface pointer-events-none" style={{ zIndex: 0 }} />
       )}
