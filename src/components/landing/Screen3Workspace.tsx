@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { UploadCloud, ShieldCheck, Infinity as InfinityIcon, Zap } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -38,10 +38,9 @@ export function Screen3Workspace({
   onClose,
   onCategoryChange,
 }: Screen3WorkspaceProps) {
-  const [files, setFiles] = useState<string[]>([]);
-  const [dragOver, setDragOver] = useState(false);
   const Icon = tool.icon;
   const toolDict = dict.tools[tool.slug as ToolSlugKey];
+  const toolHref = `/${locale}/tools/${tool.slug}`;
 
   // zoomState reserved for future use (keep design parity)
   void zoomState;
@@ -156,28 +155,12 @@ export function Screen3Workspace({
               </div>
 
               <div className="px-6 py-5">
-                <div
-                  onDragEnter={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragOver(false);
-                    const f = [...e.dataTransfer.files];
-                    setFiles((prev) => [...prev, ...f.map((x) => x.name)]);
-                  }}
-                  className="rounded-[8px] border-2 border-dashed px-6 py-7 flex flex-col items-center justify-center text-center transition-colors"
+                <Link
+                  href={toolHref}
+                  className="rounded-[8px] border-2 border-dashed px-6 py-7 flex flex-col items-center justify-center text-center transition-colors hover:border-[color:var(--accent-electric)]"
                   style={{
-                    borderColor: dragOver ? "var(--accent-electric)" : "var(--hairline)",
-                    background: dragOver
-                      ? "color-mix(in oklch, var(--accent-electric) 6%, var(--surface))"
-                      : "var(--surface-2)",
+                    borderColor: "var(--hairline)",
+                    background: "var(--surface-2)",
                   }}
                 >
                   <div
@@ -203,8 +186,8 @@ export function Screen3Workspace({
                     {dict.common.click}
                   </div>
 
-                  <label
-                    className="mt-4 inline-flex items-center gap-2 px-6 h-11 rounded-[5px] font-display text-[13.5px] font-medium tracking-[0.02em] cursor-pointer focus-ring glint"
+                  <span
+                    className="mt-4 inline-flex items-center gap-2 px-6 h-11 rounded-[5px] font-display text-[13.5px] font-medium tracking-[0.02em] focus-ring glint"
                     style={{
                       background: "var(--accent-electric)",
                       color: "#fff",
@@ -213,48 +196,9 @@ export function Screen3Workspace({
                     }}
                   >
                     <UploadCloud size={14} />
-                    <span>{dict.common.browse}</span>
-                    <input
-                      type="file"
-                      multiple
-                      className="sr-only"
-                      onChange={(e) =>
-                        setFiles([...(e.target.files ?? [])].map((x) => x.name))
-                      }
-                    />
-                  </label>
-
-                  {files.length > 0 && (
-                    <div className="mt-4 w-full max-w-[400px]">
-                      <div
-                        className="font-body text-[9.5px] tracking-[0.18em] uppercase mb-1.5 text-left"
-                        style={{ color: "var(--ink-soft)" }}
-                      >
-                        {dict.status.queued} · {files.length}
-                      </div>
-                      <div
-                        className="rounded-[4px] border overflow-hidden"
-                        style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-                      >
-                        {files.slice(0, 3).map((f, i) => (
-                          <div
-                            key={i}
-                            className="flex items-center justify-between px-3 py-1.5 border-b font-body text-[10.5px]"
-                            style={{ borderColor: "var(--border)", color: "var(--ink-strong)" }}
-                          >
-                            <span className="truncate">{f}</span>
-                            <span
-                              className="font-mono text-[9px] tracking-[0.1em] uppercase"
-                              style={{ color: "var(--ink-soft)" }}
-                            >
-                              ready
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                    <span>{dict.common.openTool}</span>
+                  </span>
+                </Link>
 
                 <div
                   className="mt-4 flex items-center justify-center gap-4 font-body text-[9.5px] tracking-[0.15em] uppercase"
