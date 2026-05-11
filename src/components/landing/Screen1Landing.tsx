@@ -29,23 +29,22 @@ function InteriorHint({ locale, dict }: { locale: "ko" | "en"; dict: Dictionary 
 export function Screen1Landing({ locale, theme, dict, lidState, onOpen }: Screen1LandingProps) {
   return (
     <div className="flex flex-col h-screen relative overflow-hidden" style={{ background: "var(--bg)" }}>
-      {theme === "dark" && (
-        <div className="absolute inset-0 dark-tray-surface pointer-events-none" style={{ zIndex: 0 }} />
-      )}
+      <div
+        className="dark-only absolute inset-0 dark-tray-surface pointer-events-none"
+        style={{ zIndex: 0 }}
+      />
       <img
         src="/brand/tray-bg.png"
         alt=""
-        className="absolute inset-0 w-full h-full select-none pointer-events-none"
+        className="tray-photo absolute inset-0 w-full h-full select-none pointer-events-none"
         style={{
           objectFit: "cover",
           objectPosition: "center",
           transform: `scale(var(--tweak-bg-scale, 1))`,
           transformOrigin: "50% 50%",
-          opacity: lidState === "open" ? 0 : theme === "dark" ? 0.18 : 1,
-          mixBlendMode: theme === "dark" ? "screen" : "normal",
           transition: "opacity 600ms ease, transform 280ms cubic-bezier(.2,.8,.2,1)",
-          filter: theme === "dark" ? "brightness(0.85) contrast(0.9) saturate(0.6)" : "none",
           zIndex: 0,
+          ...(lidState === "open" ? { opacity: 0 } : null),
         }}
       />
 

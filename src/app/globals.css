@@ -224,6 +224,23 @@
       oklch(0.12 0.006 250) 100%);
 }
 
+/* Tray photo theme styling — driven by .dark class on <html>, not JS,
+ * so locale-change navigation can't flash light during React re-mount. */
+.tray-photo {
+  opacity: 1;
+  mix-blend-mode: normal;
+  filter: none;
+}
+.dark .tray-photo {
+  opacity: 0.18;
+  mix-blend-mode: screen;
+  filter: brightness(0.85) contrast(0.9) saturate(0.6);
+}
+
+/* Visibility helper — element stays in DOM, paints only under .dark */
+.dark-only { display: none; }
+.dark .dark-only { display: block; }
+
 /* Typography */
 .font-display { font-family: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.02em; }
 .font-body    { font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif; }
