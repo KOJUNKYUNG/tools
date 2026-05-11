@@ -1,7 +1,7 @@
 {
   "brand": {
     "name": "Ontab",
-    "tagline": "Your toolbox on a browser tab, always within reach"
+    "tagline": "The toolbox that lives in your browser tab"
   },
   "nav": {
     "presentation": "Presentation",
@@ -9,68 +9,54 @@
     "image": "Image"
   },
   "landing": {
-    "heroTitle": "Ontab",
-    "heroSubtitle": "The toolbox that lives in your browser tab — as handy as stationery on a desk.",
-    "heroCtaPrimary": "Browse tools",
+    "heroTitle": "ONTAB",
+    "heroSubtitle": "The toolbox that lives in your browser tab",
+    "heroCtaPrimary": "Open the toolbox",
     "valueProps": {
-      "private": "No uploads — everything runs in your browser",
-      "unlimited": "No daily limits · Free · No sign-in",
-      "fast": "Instant processing · Download right away"
+      "private": "100% in-browser",
+      "unlimited": "Unlimited · Free",
+      "fast": "No uploads, no login"
     },
     "shelfHeading": {
       "presentation": "Presentation tools",
       "document": "Document tools",
       "image": "Image tools"
-    }
+    },
+    "selectCategory": "Select a category",
+    "descriptor": "The toolbox that lives in your browser tab",
+    "interiorHint": "Toolbox · 10 tools"
   },
   "common": {
-    "reset": "Start over",
+    "reset": "Reset",
+    "back": "Close toolbox",
     "loading": "Processing…",
-    "download": "Download"
+    "download": "Download",
+    "browse": "Select files",
+    "drop": "Drop files here",
+    "or": "or",
+    "click": "click to browse"
   },
   "footer": {
-    "copyright": "© {year} Ontab. Document tools that run entirely in your browser."
+    "copyright": "© 2026 Ontab · runs entirely in your browser",
+    "version": "v0.1",
+    "license": "Open source"
+  },
+  "status": {
+    "inBrowser": "In-browser",
+    "unlimited": "Unlimited",
+    "noUpload": "No upload",
+    "queued": "Queued"
   },
   "tools": {
-    "image-to-pdf": {
-      "title": "Image → PDF",
-      "description": "Convert JPG/PNG images into a single PDF file."
-    },
-    "pdf-to-image": {
-      "title": "PDF → Image",
-      "description": "Export each PDF page as a JPG or PNG image."
-    },
-    "pdf-merge": {
-      "title": "Merge PDFs",
-      "description": "Combine multiple PDF files into one."
-    },
-    "pdf-compress": {
-      "title": "Compress PDF",
-      "description": "Reduce PDF file size in your browser."
-    },
-    "pdf-split": {
-      "title": "Split PDF",
-      "description": "Extract page ranges or split every page individually."
-    },
-    "pdf-pages": {
-      "title": "Manage PDF pages",
-      "description": "Reorder, rotate, and delete pages, then save a new PDF."
-    },
-    "ppt-extract": {
-      "title": "Extract PPT images",
-      "description": "Pull every embedded image from a PPT/PPTX into a ZIP."
-    },
-    "ppt-background": {
-      "title": "Change PPT background",
-      "description": "Replace every slide background in a PPTX at once."
-    },
-    "image-compress": {
-      "title": "Compress & convert images",
-      "description": "Compress or convert JPG/PNG/WebP images."
-    },
-    "image-resize": {
-      "title": "Resize images",
-      "description": "Adjust resolution by pixel, percent, or preset."
-    }
+    "ppt-background": { "title": "Change PPT background", "description": "Swap the background across every slide at once." },
+    "ppt-extract": { "title": "Extract PPT images", "description": "Pull every embedded image out of a .pptx file." },
+    "pdf-merge": { "title": "Merge PDFs", "description": "Combine multiple PDFs into one precise document." },
+    "pdf-split": { "title": "Split PDF", "description": "Separate pages or extract ranges." },
+    "pdf-compress": { "title": "Compress PDF", "description": "Reduce file size with minimal quality loss." },
+    "pdf-pages": { "title": "Manage PDF pages", "description": "Reorder, rotate, or delete pages in one place." },
+    "image-to-pdf": { "title": "Image → PDF", "description": "Package images into a single PDF." },
+    "pdf-to-image": { "title": "PDF → Image", "description": "Render each page as a high-res image." },
+    "image-compress": { "title": "Compress & convert", "description": "Batch-compress and convert formats." },
+    "image-resize": { "title": "Resize images", "description": "Batch-resize while preserving ratio." }
   }
 }
