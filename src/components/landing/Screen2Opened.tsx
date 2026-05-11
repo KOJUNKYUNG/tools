@@ -50,7 +50,7 @@ export function Screen2Opened({
         alt=""
         className="absolute inset-0 w-full h-full select-none pointer-events-none"
         style={{
-          objectFit: "contain",
+          objectFit: "cover",
           objectPosition: "center",
           transform: `scale(var(--tweak-bg-scale, 1))`,
           transformOrigin: "50% 50%",

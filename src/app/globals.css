@@ -96,7 +96,7 @@
   --sidebar-ring: oklch(0.708 0 0);
 
   /* Locked layout / treatment constants (previously Tweaks knobs). */
-  --tweak-bg-scale: 1.5;
+  --tweak-bg-scale: 1.0;
   --tweak-header-bg-opacity: 0.1;
   --tweak-footer-bg-opacity: 0.1;
   --tweak-categories-y: -64px;
