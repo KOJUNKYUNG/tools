@@ -39,16 +39,19 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --color-wood-50: var(--wood-50);
-  --color-wood-100: var(--wood-100);
-  --color-wood-200: var(--wood-200);
-  --color-wood-300: var(--wood-300);
-  --color-wood-400: var(--wood-400);
-  --color-wood-500: var(--wood-500);
-  --color-wood-600: var(--wood-600);
-  --color-wood-700: var(--wood-700);
-  --color-accent-mustard: var(--accent-mustard);
-  --color-accent-forest: var(--accent-forest);
+  --color-silver-50: var(--silver-50);
+  --color-silver-100: var(--silver-100);
+  --color-silver-200: var(--silver-200);
+  --color-silver-300: var(--silver-300);
+  --color-silver-400: var(--silver-400);
+  --color-silver-500: var(--silver-500);
+  --color-silver-600: var(--silver-600);
+  --color-silver-700: var(--silver-700);
+  --color-silver-800: var(--silver-800);
+  --color-silver-900: var(--silver-900);
+  --color-accent-electric: var(--accent-electric);
+  --color-accent-electric-hi: var(--accent-electric-hi);
+  --color-accent-copper: var(--accent-copper);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -91,16 +94,52 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-  --wood-50: oklch(0.97 0.012 75);
-  --wood-100: oklch(0.94 0.02 70);
-  --wood-200: oklch(0.88 0.03 65);
-  --wood-300: oklch(0.78 0.05 60);
-  --wood-400: oklch(0.65 0.07 55);
-  --wood-500: oklch(0.52 0.08 50);
-  --wood-600: oklch(0.42 0.07 45);
-  --wood-700: oklch(0.32 0.05 40);
-  --accent-mustard: oklch(0.72 0.13 85);
-  --accent-forest: oklch(0.48 0.08 155);
+
+  /* Locked layout / treatment constants (previously Tweaks knobs). */
+  --tweak-bg-scale: 1.5;
+  --tweak-header-bg-opacity: 0.1;
+  --tweak-footer-bg-opacity: 0.1;
+  --tweak-categories-y: -64px;
+  --tweak-title-y: 0px;
+  --tweak-card-height: 92px;
+  --tweak-card-padding: 14px;
+  --tweak-emboss-depth: 0.9;
+  --tweak-workspace-width: 620px;
+
+  /* Silver scale (cool, hue 250) */
+  --silver-50:  oklch(0.98 0.003 250);
+  --silver-100: oklch(0.94 0.004 250);
+  --silver-200: oklch(0.88 0.006 250);
+  --silver-300: oklch(0.78 0.008 250);
+  --silver-400: oklch(0.65 0.010 250);
+  --silver-500: oklch(0.52 0.012 250);
+  --silver-600: oklch(0.42 0.010 250);
+  --silver-700: oklch(0.28 0.008 250);
+  --silver-800: oklch(0.20 0.006 250);
+  --silver-900: oklch(0.14 0.005 250);
+
+  /* Accents */
+  --accent-electric: oklch(0.62 0.15 250);
+  --accent-electric-hi: oklch(0.68 0.17 250);
+  --accent-copper:   oklch(0.68 0.13 55);
+
+  /* Semantic — light */
+  --bg:         var(--silver-50);
+  --bg-soft:    var(--silver-100);
+  --surface:    #ffffff;
+  --surface-2:  var(--silver-100);
+  --border:     var(--silver-200);
+  --hairline:   var(--silver-300);
+  --ink-soft:   var(--silver-400);
+  --ink:        var(--silver-500);
+  --ink-strong: var(--silver-700);
+  --headline:   var(--silver-700);
+
+  /* Shadows — narrow, cool-tinted */
+  --shadow-sm: 0 1px 0 rgba(20, 30, 60, 0.04), 0 1px 2px rgba(20, 30, 60, 0.04);
+  --shadow-md: 0 1px 0 rgba(20, 30, 60, 0.05), 0 4px 12px -2px rgba(20, 30, 60, 0.08);
+  --shadow-lg: 0 1px 0 rgba(20, 30, 60, 0.05), 0 12px 32px -8px rgba(20, 30, 60, 0.18);
+  --shadow-inset: inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(20,30,60,0.06);
 }
 
 .dark {
@@ -135,16 +174,23 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
-  --wood-50: oklch(0.18 0.02 40);
-  --wood-100: oklch(0.22 0.025 42);
-  --wood-200: oklch(0.28 0.03 45);
-  --wood-300: oklch(0.38 0.04 48);
-  --wood-400: oklch(0.5 0.06 52);
-  --wood-500: oklch(0.62 0.07 55);
-  --wood-600: oklch(0.75 0.05 60);
-  --wood-700: oklch(0.88 0.03 65);
-  --accent-mustard: oklch(0.78 0.14 82);
-  --accent-forest: oklch(0.62 0.09 155);
+
+  /* Dark — deep graphite / brushed titanium */
+  --bg:         oklch(0.14 0.005 250);
+  --bg-soft:    oklch(0.18 0.006 250);
+  --surface:    oklch(0.21 0.007 250);
+  --surface-2:  oklch(0.25 0.008 250);
+  --border:     oklch(0.32 0.010 250);
+  --hairline:   oklch(0.38 0.010 250);
+  --ink-soft:   oklch(0.55 0.010 250);
+  --ink:        oklch(0.72 0.010 250);
+  --ink-strong: oklch(0.92 0.006 250);
+  --headline:   oklch(0.95 0.005 250);
+  --accent-electric: oklch(0.72 0.17 250);
+  --shadow-sm: 0 1px 0 rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md: 0 1px 0 rgba(0,0,0,0.3), 0 6px 16px -4px rgba(0,0,0,0.5);
+  --shadow-lg: 0 1px 0 rgba(0,0,0,0.3), 0 16px 40px -8px rgba(0,0,0,0.6);
+  --shadow-inset: inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -1px 0 rgba(0,0,0,0.4);
 }
 
 @layer base {
@@ -157,4 +203,202 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Dark tray surface — brushed titanium gradient that REPLACES the photo
+ * background in dark mode (the photo gets brightness(0.5) which kills the
+ * texture). Applied as a layer in the screen wrapper.
+ */
+.dark-tray-surface {
+  background:
+    radial-gradient(ellipse at 30% 25%, oklch(0.32 0.012 250) 0%, transparent 60%),
+    radial-gradient(ellipse at 75% 75%, oklch(0.18 0.008 250) 0%, transparent 55%),
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,0) 0px,
+      rgba(255,255,255,0.02) 1px,
+      rgba(0,0,0,0.04) 2px,
+      rgba(255,255,255,0) 3px),
+    linear-gradient(160deg,
+      oklch(0.22 0.010 250) 0%,
+      oklch(0.16 0.008 250) 60%,
+      oklch(0.12 0.006 250) 100%);
+}
+
+/* Typography */
+.font-display { font-family: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.02em; }
+.font-body    { font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif; }
+.font-ko      { font-family: var(--font-pretendard), "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", ui-sans-serif, sans-serif; }
+.font-mono    { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; }
+
+/* Subtle machined glint — applied on hover over cards & buttons */
+.glint {
+  position: relative;
+  overflow: hidden;
+}
+.glint::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.9) 50%, transparent 100%);
+  opacity: 0;
+  transform: translateY(-1px);
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.glint:hover::before { opacity: 1; }
+.dark .glint::before {
+  background: linear-gradient(90deg, transparent 0%, rgba(180,200,240,0.5) 50%, transparent 100%);
+}
+
+/* Brushed-metal micro texture for the tray surface */
+.brushed {
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,0.0) 0px,
+      rgba(255,255,255,0.015) 1px,
+      rgba(0,0,0,0.012) 2px,
+      rgba(255,255,255,0.0) 3px),
+    radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.35) 0%, transparent 55%),
+    radial-gradient(ellipse at 70% 80%, rgba(255,255,255,0.15) 0%, transparent 50%),
+    linear-gradient(180deg, oklch(0.88 0.006 250), oklch(0.80 0.008 250) 60%, oklch(0.76 0.008 250));
+}
+.dark .brushed {
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,0.0) 0px,
+      rgba(255,255,255,0.025) 1px,
+      rgba(0,0,0,0.05) 2px,
+      rgba(255,255,255,0.0) 3px),
+    radial-gradient(ellipse at 30% 20%, rgba(170,200,240,0.12) 0%, transparent 55%),
+    radial-gradient(ellipse at 70% 80%, rgba(170,200,240,0.06) 0%, transparent 50%),
+    linear-gradient(180deg, oklch(0.32 0.010 250), oklch(0.26 0.010 250) 60%, oklch(0.22 0.010 250));
+}
+
+/* Tray rim (the raised edge) */
+.rim {
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,0.8),
+    inset 0 -2px 4px rgba(20,30,60,0.15),
+    inset 3px 0 5px rgba(255,255,255,0.3),
+    inset -3px 0 5px rgba(20,30,60,0.12),
+    0 1px 0 rgba(255,255,255,0.8),
+    0 24px 48px -16px rgba(20,30,60,0.25),
+    0 6px 16px -4px rgba(20,30,60,0.15);
+}
+.dark .rim {
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,0.12),
+    inset 0 -2px 4px rgba(0,0,0,0.5),
+    inset 3px 0 5px rgba(255,255,255,0.06),
+    inset -3px 0 5px rgba(0,0,0,0.4),
+    0 1px 0 rgba(255,255,255,0.08),
+    0 24px 48px -12px rgba(0,0,0,0.7),
+    0 6px 16px -4px rgba(0,0,0,0.5);
+}
+
+/* Lid — sits on top of tray; when "open", translates up and fades */
+.lid {
+  background:
+    radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.5) 0%, transparent 55%),
+    radial-gradient(ellipse at 75% 75%, rgba(255,255,255,0.2) 0%, transparent 50%),
+    linear-gradient(160deg, oklch(0.90 0.006 250) 0%, oklch(0.82 0.008 250) 50%, oklch(0.78 0.008 250) 100%);
+}
+.dark .lid {
+  background:
+    radial-gradient(ellipse at 30% 25%, rgba(180,200,240,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 75% 75%, rgba(180,200,240,0.08) 0%, transparent 50%),
+    linear-gradient(160deg, oklch(0.36 0.010 250) 0%, oklch(0.28 0.010 250) 50%, oklch(0.22 0.010 250) 100%);
+}
+
+/* Scrollbar hygiene inside artboards */
+.ob-scroll::-webkit-scrollbar { width: 0; height: 0; }
+.ob-scroll { scrollbar-width: none; }
+
+/* Gentle hairline divider */
+.hr-line { height: 1px; background: var(--hairline); opacity: 0.5; }
+
+/* Keyboard / metal nameplate button */
+.nameplate {
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm), var(--shadow-inset);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.nameplate:hover {
+  border-color: var(--hairline);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md), var(--shadow-inset);
+}
+.nameplate:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm), inset 0 1px 2px rgba(20,30,60,0.12);
+}
+.nameplate[data-active="true"] {
+  background: var(--ink-strong);
+  color: var(--bg);
+  border-color: var(--ink-strong);
+}
+.dark .nameplate[data-active="true"] {
+  background: var(--silver-100);
+  color: var(--silver-900);
+}
+/* Dark mode — active glass button: bright surface keeps the same look,
+   but the label needs to be dark for contrast (silver-900 ink-on-white). */
+.dark .glass-btn[data-active="true"] {
+  color: var(--silver-900) !important;
+  background: rgba(240,244,252,0.92) !important;
+  border-color: rgba(255,255,255,0.85) !important;
+}
+.dark .glass-btn[data-active="true"]:hover,
+.dark .glass-btn[data-active="true"]:active {
+  background: rgba(240,244,252,0.92) !important;
+  color: var(--silver-900) !important;
+  border-color: var(--silver-100);
+}
+
+/* Glass button — used on the tray photo in Screen 1 */
+.glass-btn:hover {
+  background: rgba(255,255,255,0.38) !important;
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.7),
+    inset 0 -1px 0 rgba(20,30,60,0.08),
+    0 6px 18px -4px rgba(20,30,60,0.28) !important;
+}
+.glass-btn:active {
+  transform: translateY(0);
+  background: rgba(255,255,255,0.28) !important;
+}
+/* Disable hover/active visual changes when the button is in selected state.
+   The active=true tab keeps its light fill no matter what the cursor does. */
+.glass-btn[data-active="true"]:hover,
+.glass-btn[data-active="true"]:active {
+  background: rgba(255,255,255,0.85) !important;
+  transform: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    0 4px 14px -4px rgba(20,30,60,0.35) !important;
+}
+
+/* Tool card */
+.toolcard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 1px 2px rgba(20,30,60,0.04);
+  transition: transform 0.22s cubic-bezier(.2,.7,.2,1), box-shadow 0.22s ease, border-color 0.18s ease;
+}
+.toolcard:hover {
+  transform: translateY(-2px);
+  border-color: var(--hairline);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+.dark .toolcard:hover {
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* Focus ring */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--accent-electric);
+  outline-offset: 2px;
 }

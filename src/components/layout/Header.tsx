@@ -26,7 +26,7 @@ export function Header({ locale, labels }: HeaderProps) {
   ];
 
   return (
-    <header className="sticky top-0 z-50 border-b border-wood-200 bg-wood-50/85 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-silver-200 bg-silver-50/85 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         <Logo locale={locale} />
 
@@ -53,7 +53,7 @@ export function Header({ locale, labels }: HeaderProps) {
       </div>
 
       {mobileOpen && (
-        <nav className="flex flex-col gap-1 border-t border-wood-200 px-4 py-3 md:hidden">
+        <nav className="flex flex-col gap-1 border-t border-silver-200 px-4 py-3 md:hidden">
           {navLinks.map((link) => (
             <Button
               key={link.href}

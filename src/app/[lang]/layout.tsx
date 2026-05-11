@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Toaster } from "@/components/ui/sonner";
 import { getDictionary, type Locale } from "@/i18n/config";
+import { pretendard, spaceGrotesk, inter, jetbrainsMono } from "@/app/fonts";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -39,7 +40,7 @@ export default async function RootLayout({
     <html
       lang={lang}
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${pretendard.variable} ${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <Header locale={lang} labels={dict.nav} />

@@ -24,7 +24,7 @@ export function LanguageToggle({ currentLocale }: Props) {
   };
 
   return (
-    <div className="flex items-center gap-1 rounded-md border border-wood-200 p-0.5">
+    <div className="flex items-center gap-1 rounded-md border border-silver-200 p-0.5">
       {locales.map((loc) => (
         <Button
           key={loc}

@@ -4,7 +4,7 @@ interface FooterProps {
 
 export function Footer({ copyright }: FooterProps) {
   return (
-    <footer className="border-t border-wood-200 bg-wood-50/50 py-6 text-center text-sm text-wood-600">
+    <footer className="border-t border-silver-200 bg-silver-50/50 py-6 text-center text-sm text-silver-600">
       <p>{copyright}</p>
     </footer>
   );
