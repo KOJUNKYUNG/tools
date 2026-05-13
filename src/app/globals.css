@@ -104,7 +104,7 @@
   --tweak-card-height: 92px;
   --tweak-card-padding: 14px;
   --tweak-emboss-depth: 0.9;
-  --tweak-workspace-width: 620px;
+  --tweak-workspace-width: 980px;
 
   /* Silver scale (cool, hue 250) */
   --silver-50:  oklch(0.98 0.003 250);

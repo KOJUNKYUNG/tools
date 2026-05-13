@@ -155,67 +155,84 @@ export function Screen3Workspace({
               </div>
 
               <div className="px-6 py-5">
-                <Link
-                  href={toolHref}
-                  className="rounded-[8px] border-2 border-dashed px-6 py-7 flex flex-col items-center justify-center text-center transition-colors hover:border-[color:var(--accent-electric)]"
-                  style={{
-                    borderColor: "var(--hairline)",
-                    background: "var(--surface-2)",
-                  }}
-                >
+                {tool.slug === "ppt-background" ? (
                   <div
-                    className="w-10 h-10 rounded-[4px] flex items-center justify-center mb-2.5"
+                    className="rounded-[8px] border-2 border-dashed px-6 py-12 text-center"
                     style={{
-                      background: "var(--surface)",
-                      border: "1px solid var(--border)",
-                      color: "var(--ink-strong)",
+                      borderColor: "var(--hairline)",
+                      background: "var(--surface-2)",
+                      color: "var(--ink-soft)",
                     }}
                   >
-                    <UploadCloud size={16} />
+                    <div className="font-display text-[13px]">
+                      ppt-background tool — wiring up
+                    </div>
                   </div>
-                  <div
-                    className="font-display text-[14px] font-semibold leading-[1.2] font-ko"
-                    style={{ color: "var(--headline)" }}
-                  >
-                    {dict.common.drop}
-                  </div>
-                  <div
-                    className="mt-0.5 font-body text-[11px]"
-                    style={{ color: "var(--ink-soft)" }}
-                  >
-                    {dict.common.click}
-                  </div>
+                ) : (
+                  <>
+                    <Link
+                      href={toolHref}
+                      className="rounded-[8px] border-2 border-dashed px-6 py-7 flex flex-col items-center justify-center text-center transition-colors hover:border-[color:var(--accent-electric)]"
+                      style={{
+                        borderColor: "var(--hairline)",
+                        background: "var(--surface-2)",
+                      }}
+                    >
+                      <div
+                        className="w-10 h-10 rounded-[4px] flex items-center justify-center mb-2.5"
+                        style={{
+                          background: "var(--surface)",
+                          border: "1px solid var(--border)",
+                          color: "var(--ink-strong)",
+                        }}
+                      >
+                        <UploadCloud size={16} />
+                      </div>
+                      <div
+                        className="font-display text-[14px] font-semibold leading-[1.2] font-ko"
+                        style={{ color: "var(--headline)" }}
+                      >
+                        {dict.common.drop}
+                      </div>
+                      <div
+                        className="mt-0.5 font-body text-[11px]"
+                        style={{ color: "var(--ink-soft)" }}
+                      >
+                        {dict.common.click}
+                      </div>
 
-                  <span
-                    className="mt-4 inline-flex items-center gap-2 px-6 h-11 rounded-[5px] font-display text-[13.5px] font-medium tracking-[0.02em] focus-ring glint"
-                    style={{
-                      background: "var(--accent-electric)",
-                      color: "#fff",
-                      boxShadow:
-                        "0 1px 0 rgba(255,255,255,0.2) inset, 0 1px 2px rgba(20,30,60,0.15), 0 6px 16px -6px color-mix(in oklch, var(--accent-electric) 60%, transparent)",
-                    }}
-                  >
-                    <UploadCloud size={14} />
-                    <span>{dict.common.openTool}</span>
-                  </span>
-                </Link>
+                      <span
+                        className="mt-4 inline-flex items-center gap-2 px-6 h-11 rounded-[5px] font-display text-[13.5px] font-medium tracking-[0.02em] focus-ring glint"
+                        style={{
+                          background: "var(--accent-electric)",
+                          color: "#fff",
+                          boxShadow:
+                            "0 1px 0 rgba(255,255,255,0.2) inset, 0 1px 2px rgba(20,30,60,0.15), 0 6px 16px -6px color-mix(in oklch, var(--accent-electric) 60%, transparent)",
+                        }}
+                      >
+                        <UploadCloud size={14} />
+                        <span>{dict.common.openTool}</span>
+                      </span>
+                    </Link>
 
-                <div
-                  className="mt-4 flex items-center justify-center gap-4 font-body text-[9.5px] tracking-[0.15em] uppercase"
-                  style={{ color: "var(--ink-soft)" }}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <ShieldCheck size={10} /> {dict.status.inBrowser}
-                  </span>
-                  <span style={{ background: "var(--border)" }} className="w-px h-3" />
-                  <span className="flex items-center gap-1.5">
-                    <InfinityIcon size={10} /> {dict.status.unlimited}
-                  </span>
-                  <span style={{ background: "var(--border)" }} className="w-px h-3" />
-                  <span className="flex items-center gap-1.5">
-                    <Zap size={10} /> {dict.status.noUpload}
-                  </span>
-                </div>
+                    <div
+                      className="mt-4 flex items-center justify-center gap-4 font-body text-[9.5px] tracking-[0.15em] uppercase"
+                      style={{ color: "var(--ink-soft)" }}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <ShieldCheck size={10} /> {dict.status.inBrowser}
+                      </span>
+                      <span style={{ background: "var(--border)" }} className="w-px h-3" />
+                      <span className="flex items-center gap-1.5">
+                        <InfinityIcon size={10} /> {dict.status.unlimited}
+                      </span>
+                      <span style={{ background: "var(--border)" }} className="w-px h-3" />
+                      <span className="flex items-center gap-1.5">
+                        <Zap size={10} /> {dict.status.noUpload}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
