@@ -174,13 +174,24 @@ function ensureNamespaces(xml: string): string {
   return result;
 }
 
+/**
+ * Extract the trailing integer from a slide-like filename
+ * (e.g. "ppt/slides/slide12.xml" → 12, "ppt/slideMasters/slideMaster3.xml" → 3).
+ * Falls back to 0 if no match — sorted-stable for non-conforming names.
+ */
+function slideOrdinal(path: string): number {
+  const m = path.match(/(\d+)\.xml$/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
 async function processSlideGroup(
   zip: JSZip,
   dir: string,
   mediaTarget: string,
   fillOffsets: FillRectOffsets,
   onEach?: (done: number, total: number) => void,
-  /** 1-based whitelist over the sorted-by-filename slide order. Undefined = all. */
+  /** 1-based whitelist over the slide order (sorted by trailing integer in the
+   *  filename — matches extractCurrentBackgrounds). Undefined = all. */
   targetIndices1Based?: ReadonlySet<number>,
 ): Promise<void> {
   const pattern = new RegExp(`^${dir}/[^/]+\\.xml$`);
@@ -190,7 +201,7 @@ async function processSlideGroup(
     if (pattern.test(path)) slideFiles.push(path);
   });
 
-  slideFiles.sort();
+  slideFiles.sort((a, b) => slideOrdinal(a) - slideOrdinal(b));
 
   const filtered = targetIndices1Based
     ? slideFiles
