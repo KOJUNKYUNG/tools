@@ -8,6 +8,8 @@ import { FadeInCenter } from "@/components/brand/FadeInCenter";
 import { CategoryStrip } from "@/components/brand/CategoryStrip";
 import { TOOLS, type ToolInfo } from "@/lib/constants";
 import type { Dictionary } from "@/i18n/config";
+import { PptBackgroundTool } from "@/components/tools/ppt-background/PptBackgroundTool";
+import { buildPptBackgroundLabels } from "@/components/tools/ppt-background/labels";
 
 type Category = "presentation" | "document" | "image";
 
@@ -156,18 +158,7 @@ export function Screen3Workspace({
 
               <div className="px-6 py-5">
                 {tool.slug === "ppt-background" ? (
-                  <div
-                    className="rounded-[8px] border-2 border-dashed px-6 py-12 text-center"
-                    style={{
-                      borderColor: "var(--hairline)",
-                      background: "var(--surface-2)",
-                      color: "var(--ink-soft)",
-                    }}
-                  >
-                    <div className="font-display text-[13px]">
-                      ppt-background tool — wiring up
-                    </div>
-                  </div>
+                  <PptBackgroundTool labels={buildPptBackgroundLabels(dict)} />
                 ) : (
                   <>
                     <Link
