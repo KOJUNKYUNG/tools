@@ -144,7 +144,8 @@
         "action": {
           "apply": "배경 변경 적용",
           "applyDisabledHint": "배경 이미지를 먼저 선택하세요",
-          "specificEmpty": "적용할 슬라이드를 선택하세요"
+          "specificEmpty": "적용할 슬라이드를 선택하세요",
+          "reset": "도구 초기화"
         },
         "processing": {
           "processing": "변환 중…",

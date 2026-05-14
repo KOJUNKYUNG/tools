@@ -144,7 +144,8 @@
         "action": {
           "apply": "Apply background",
           "applyDisabledHint": "Choose a background image first",
-          "specificEmpty": "Select at least one slide"
+          "specificEmpty": "Select at least one slide",
+          "reset": "Reset"
         },
         "processing": {
           "processing": "Converting…",

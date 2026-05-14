@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { UploadCloud, ShieldCheck, Infinity as InfinityIcon, Zap } from "lucide-react";
+import { UploadCloud, ShieldCheck, Infinity as InfinityIcon, Zap, RotateCcw as RotateCcwIcon } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { FadeInCenter } from "@/components/brand/FadeInCenter";
@@ -43,6 +44,7 @@ export function Screen3Workspace({
   const Icon = tool.icon;
   const toolDict = dict.tools[tool.slug as ToolSlugKey];
   const toolHref = `/${locale}/tools/${tool.slug}`;
+  const [pptBgResetKey, setPptBgResetKey] = useState(0);
 
   // zoomState reserved for future use (keep design parity)
   void zoomState;
@@ -148,6 +150,18 @@ export function Screen3Workspace({
                     {toolDict.description}
                   </div>
                 </div>
+                {tool.slug === "ppt-background" && (
+                  <button
+                    type="button"
+                    onClick={() => setPptBgResetKey((k) => k + 1)}
+                    aria-label={dict.common.reset}
+                    title={dict.common.reset}
+                    className="shrink-0 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
+                    style={{ color: "var(--ink-soft)" }}
+                  >
+                    <RotateCcwIcon className="size-4" />
+                  </button>
+                )}
                 <span
                   className="shrink-0 font-body text-[9px] tracking-[0.18em] uppercase font-mono pt-1"
                   style={{ color: "var(--ink-soft)", display: "none" }}
@@ -158,7 +172,7 @@ export function Screen3Workspace({
 
               <div className="px-6 py-5">
                 {tool.slug === "ppt-background" ? (
-                  <PptBackgroundTool inline labels={buildPptBackgroundLabels(dict)} />
+                  <PptBackgroundTool key={pptBgResetKey} inline labels={buildPptBackgroundLabels(dict)} />
                 ) : (
                   <>
                     <Link

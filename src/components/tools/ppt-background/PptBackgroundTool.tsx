@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FileIcon, Layers, UploadCloud } from "lucide-react";
+import { FileIcon, Layers, RotateCcwIcon, UploadCloud } from "lucide-react";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
@@ -110,6 +110,7 @@ export interface PptBackgroundToolLabels {
     apply: string;
     applyDisabledHint: string;
     specificEmpty: string;
+    reset: string;
   };
   processing: {
     processing: string;
@@ -296,6 +297,15 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     setBgLoading(false);
   }, [retry, setPptxFilesRaw, bgPreviewUrl]);
 
+  const handleTryAnother = useCallback(() => {
+    retry();
+    setBgFiles([]);
+    setGalleryImage(null);
+    if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
+    setBgPreviewUrl(null);
+    // Keep pptxFile, currentBgs, bgObjectUrls, mode, selectedSlides.
+  }, [retry, bgPreviewUrl]);
+
   // ───────── Render ─────────
   return (
     <div
@@ -342,6 +352,16 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               {labels.header.description}
             </div>
           </div>
+          <button
+            type="button"
+            onClick={onReset}
+            aria-label={labels.action.reset}
+            title={labels.action.reset}
+            className="shrink-0 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
+            style={{ color: "var(--ink-soft)" }}
+          >
+            <RotateCcwIcon className="size-4" />
+          </button>
         </div>
       )}
 
@@ -544,7 +564,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                     errorMessage={errorMessage}
                     onRetry={retry}
                     onDownload={download}
-                    onReset={onReset}
+                    onTryAnother={handleTryAnother}
                     labels={labels.processing}
                   />
                 </>
