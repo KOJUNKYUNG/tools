@@ -27,6 +27,45 @@ const PPTX_ACCEPT = {
   "application/vnd.ms-powerpoint": [".ppt"],
 };
 
+/**
+ * Load a gallery image (any URL the browser can decode — picsum JPEG, SVG data
+ * URL, etc.) and convert it to a PNG File via Canvas. This gives the
+ * downstream PPTX writer a single, predictable input (raster PNG bytes with a
+ * correct MIME label) and avoids embedding SVG into PPTX backgrounds, which
+ * PowerPoint handles inconsistently.
+ */
+async function galleryImageToPngFile(url: string, id: string): Promise<File> {
+  return new Promise<File>((resolve, reject) => {
+    const img = new globalThis.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const w = img.naturalWidth || 1920;
+      const h = img.naturalHeight || 1080;
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas 2D context unavailable"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("Canvas toBlob returned null"));
+            return;
+          }
+          resolve(new File([blob], `gallery-${id}.png`, { type: "image/png" }));
+        },
+        "image/png",
+      );
+    };
+    img.onerror = () => reject(new Error("Failed to load gallery image"));
+    img.src = url;
+  });
+}
+
 export interface PptBackgroundToolLabels {
   header: { title: string; description: string };
   upload: { dropzoneLabel: string; dropzoneHint: string; pptDetected: string };
@@ -194,15 +233,11 @@ export function PptBackgroundTool({ labels }: PptBackgroundToolProps) {
       if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
       setBgPreviewUrl(image.thumbnailUrl);
       try {
-        const res = await fetch(image.url);
-        const blob = await res.blob();
-        const ext = image.url.includes("png") || image.url.startsWith("data:image/svg") ? "png" : "jpg";
-        const file = new File([blob], `gallery-${image.id}.${ext}`, {
-          type: ext === "png" ? "image/png" : "image/jpeg",
-        });
+        const file = await galleryImageToPngFile(image.url, image.id);
         setBgFiles([file]);
       } catch {
         setGalleryImage(null);
+        if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
         setBgPreviewUrl(null);
       }
     },
