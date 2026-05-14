@@ -158,7 +158,7 @@ export function Screen3Workspace({
 
               <div className="px-6 py-5">
                 {tool.slug === "ppt-background" ? (
-                  <PptBackgroundTool labels={buildPptBackgroundLabels(dict)} />
+                  <PptBackgroundTool inline labels={buildPptBackgroundLabels(dict)} />
                 ) : (
                   <>
                     <Link

@@ -123,9 +123,16 @@ export interface PptBackgroundToolLabels {
 
 interface PptBackgroundToolProps {
   labels: PptBackgroundToolLabels;
+  /**
+   * When true, the tool renders without its outer card chrome (border,
+   * shadow, glass surface) and without the internal header strip. Use this
+   * when mounting inside a surface that already provides the chrome
+   * (e.g. Screen3Workspace's inline card). Default: false.
+   */
+  inline?: boolean;
 }
 
-export function PptBackgroundTool({ labels }: PptBackgroundToolProps) {
+export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolProps) {
   const [showConversionGuide, setShowConversionGuide] = useState(false);
   const [bgFiles, setBgFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<BgMode>("all-slides");
@@ -290,46 +297,51 @@ export function PptBackgroundTool({ labels }: PptBackgroundToolProps) {
   // ───────── Render ─────────
   return (
     <div
-      className="overflow-hidden rounded-[14px] border"
-      style={{
-        background: "color-mix(in oklch, var(--surface) 92%, transparent)",
-        backdropFilter: "blur(10px) saturate(1.1)",
-        WebkitBackdropFilter: "blur(10px) saturate(1.1)",
-        borderColor: "var(--border)",
-        boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
-      }}
+      className={inline ? "" : "overflow-hidden rounded-[14px] border"}
+      style={
+        inline
+          ? undefined
+          : {
+              background: "color-mix(in oklch, var(--surface) 92%, transparent)",
+              backdropFilter: "blur(10px) saturate(1.1)",
+              WebkitBackdropFilter: "blur(10px) saturate(1.1)",
+              borderColor: "var(--border)",
+              boxShadow:
+                "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+            }
+      }
     >
-      {/* Header strip */}
-      <div
-        className="flex items-start gap-3 border-b px-6 pt-5 pb-4"
-        style={{ borderColor: "var(--border)" }}
-      >
+      {!inline && (
         <div
-          className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
-          style={{
-            background: "var(--surface-2)",
-            border: "1px solid var(--border)",
-            color: "var(--ink-strong)",
-          }}
+          className="flex items-start gap-3 border-b px-6 pt-5 pb-4"
+          style={{ borderColor: "var(--border)" }}
         >
-          <Layers size={18} />
-        </div>
-        <div className="min-w-0 flex-1">
           <div
-            className="font-display text-[16px] font-semibold leading-[1.2] tracking-[0.005em] font-ko"
-            style={{ color: "var(--headline)" }}
+            className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+              color: "var(--ink-strong)",
+            }}
           >
-            {labels.header.title}
+            <Layers size={18} />
           </div>
-          <div
-            className="mt-1 font-body text-[12px] leading-[1.45]"
-            style={{ color: "var(--ink)" }}
-          >
-            {labels.header.description}
+          <div className="min-w-0 flex-1">
+            <div
+              className="font-display text-[16px] font-semibold leading-[1.2] tracking-[0.005em] font-ko"
+              style={{ color: "var(--headline)" }}
+            >
+              {labels.header.title}
+            </div>
+            <div
+              className="mt-1 font-body text-[12px] leading-[1.45]"
+              style={{ color: "var(--ink)" }}
+            >
+              {labels.header.description}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Body */}
       {!pptxFile ? (
