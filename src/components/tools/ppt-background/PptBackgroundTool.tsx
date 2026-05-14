@@ -15,6 +15,7 @@ import {
   type SlideBackground,
 } from "@/lib/ppt/extractCurrentBackgrounds";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { template } from "@/lib/common/template";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
 import { ModeSelector } from "./ModeSelector";
 import { SlideThumbStrip } from "./SlideThumbStrip";
@@ -30,7 +31,7 @@ export interface PptBackgroundToolLabels {
   header: { title: string; description: string };
   upload: { dropzoneLabel: string; dropzoneHint: string; pptDetected: string };
   conversion: { heading: string; note: string; methods: ConversionMethodLabels[] };
-  fileStatus: { slideCount: (n: number) => string; changeFile: string; analyzing: string };
+  fileStatus: { slideCountTemplate: string; changeFile: string; analyzing: string };
   mode: {
     label: string;
     optionAll: string;
@@ -59,7 +60,7 @@ export interface PptBackgroundToolLabels {
   };
   gallery: {
     heading: string;
-    countSuffix: (n: number) => string;
+    countSuffixTemplate: string;
     categoryAll: string;
     categoryByKey: Record<GalleryCategory, string>;
     empty: string;
@@ -351,7 +352,7 @@ export function PptBackgroundTool({ labels }: PptBackgroundToolProps) {
                 </p>
                 <p className="font-body text-[10.5px]" style={{ color: "var(--ink-soft)" }}>
                   {totalSlides > 0
-                    ? labels.fileStatus.slideCount(totalSlides)
+                    ? template(labels.fileStatus.slideCountTemplate, { n: totalSlides })
                     : labels.fileStatus.analyzing}
                 </p>
               </div>

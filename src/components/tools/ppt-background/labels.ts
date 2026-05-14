@@ -4,10 +4,6 @@ import type { PptBackgroundToolLabels } from "./PptBackgroundTool";
 
 type PptBgPageDict = Dictionary["tools"]["ppt-background"]["page"];
 
-function template(str: string, vars: Record<string, string | number>): string {
-  return str.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ""));
-}
-
 export function buildPptBackgroundLabels(
   dict: Dictionary,
 ): PptBackgroundToolLabels {
@@ -34,7 +30,7 @@ export function buildPptBackgroundLabels(
       })),
     },
     fileStatus: {
-      slideCount: (n) => template(p.fileStatus.slideCountTemplate, { n }),
+      slideCountTemplate: p.fileStatus.slideCountTemplate,
       changeFile: p.fileStatus.changeFile,
       analyzing: p.fileStatus.analyzing,
     },
@@ -51,7 +47,7 @@ export function buildPptBackgroundLabels(
     background: p.background,
     gallery: {
       heading: p.gallery.heading,
-      countSuffix: (n) => template(p.gallery.countSuffixTemplate, { n }),
+      countSuffixTemplate: p.gallery.countSuffixTemplate,
       categoryAll: p.gallery.categoryAll,
       categoryByKey,
       empty: p.gallery.empty,

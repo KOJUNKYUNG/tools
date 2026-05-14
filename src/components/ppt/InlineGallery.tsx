@@ -9,6 +9,7 @@ import {
   type GalleryImage,
 } from "@/lib/gallery/types";
 import { cn } from "@/lib/utils";
+import { template } from "@/lib/common/template";
 
 type CategoryFilter = "all" | GalleryCategory;
 
@@ -18,7 +19,7 @@ interface InlineGalleryProps {
   forceCollapsed?: boolean;
   labels: {
     heading: string;            // "배경 갤러리" / "Background gallery"
-    countSuffix: (n: number) => string;  // e.g. (n) => `(${n}개 이미지)`
+    countSuffixTemplate: string;  // e.g. "({n}개 이미지)"
     categoryAll: string;
     categoryByKey: Record<GalleryCategory, string>;
     empty: string;
@@ -64,7 +65,7 @@ export function InlineGallery({
           />
           <span className="font-display text-[13px] font-medium">{labels.heading}</span>
           <span className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
-            {labels.countSuffix(MOCK_IMAGES.length)}
+            {template(labels.countSuffixTemplate, { n: MOCK_IMAGES.length })}
           </span>
         </div>
         <ChevronDownIcon

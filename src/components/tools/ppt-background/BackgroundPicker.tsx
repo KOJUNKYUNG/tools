@@ -29,7 +29,7 @@ interface BackgroundPickerProps {
     uploadHint: string;
     gallery: {
       heading: string;
-      countSuffix: (n: number) => string;
+      countSuffixTemplate: string;
       categoryAll: string;
       categoryByKey: Record<GalleryCategory, string>;
       empty: string;
