@@ -85,7 +85,7 @@ export async function extractCurrentBackgrounds(
     const slideNum = parseInt(slidePath.match(/slide(\d+)/)?.[1] ?? `${i + 1}`);
 
     const bg: SlideBackground = {
-      slideIndex: i,
+      slideIndex: i + 1,
       slideName: `슬라이드 ${slideNum}`,
       imageBlob: null,
       source: "none",

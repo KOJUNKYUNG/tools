@@ -17,6 +17,17 @@ interface PageRangeSelectorProps {
 
 const DEBOUNCE_MS = 300;
 
+/**
+ * Two-way sync between a text input ("1, 3, 5-7") and a parent-owned Set.
+ *
+ * - While the input is focused, the user's literal text is preserved verbatim;
+ *   external selection changes (e.g. thumbnail clicks elsewhere) do NOT rewrite
+ *   what the user is typing.
+ * - The parent's `onChange(set)` still fires while typing, debounced 300 ms,
+ *   so a grid hilight in `children` follows along live.
+ * - Normalisation to canonical form ("1, 2, 3" → "1-3") happens only on
+ *   blur or Enter — never mid-typing.
+ */
 export function PageRangeSelector({
   totalPages,
   selected,
@@ -27,36 +38,68 @@ export function PageRangeSelector({
   children,
 }: PageRangeSelectorProps) {
   const [text, setText] = useState(() => serializeRange(selected));
-  const composingRef = useRef(false);
+  const editingRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // External -> input (only when user is not actively editing).
+  // External -> input: only when the user is NOT editing.
   useEffect(() => {
-    if (composingRef.current) return;
+    if (editingRef.current) return;
     const canonical = serializeRange(selected);
     setText((current) => (current === canonical ? current : canonical));
   }, [selected]);
 
-  // Input -> external (debounced).
+  function cancelDebounce() {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+  }
+
   function handleInput(next: string) {
     setText(next);
-    composingRef.current = true;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    editingRef.current = true;
+    cancelDebounce();
     debounceRef.current = setTimeout(() => {
-      composingRef.current = false;
       onChange(parseRange(next, totalPages));
+      // NOTE: editingRef stays true until blur/Enter, so the useEffect above
+      // won't rewrite the input while the user is still in the field.
     }, DEBOUNCE_MS);
   }
 
+  function commit() {
+    cancelDebounce();
+    editingRef.current = false;
+    const finalSet = parseRange(text, totalPages);
+    onChange(finalSet);
+    setText(serializeRange(finalSet));
+  }
+
+  function handleFocus() {
+    editingRef.current = true;
+  }
+
+  function handleBlur() {
+    commit();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.currentTarget.blur(); // triggers commit via onBlur
+    }
+  }
+
   function selectAll() {
-    composingRef.current = false;
+    cancelDebounce();
+    editingRef.current = false;
     const all = new Set<number>();
     for (let i = 1; i <= totalPages; i++) all.add(i);
     onChange(all);
   }
 
   function clear() {
-    composingRef.current = false;
+    cancelDebounce();
+    editingRef.current = false;
     onChange(new Set());
   }
 
@@ -67,6 +110,9 @@ export function PageRangeSelector({
           type="text"
           value={text}
           onChange={(e) => handleInput(e.target.value)}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
           placeholder={inputPlaceholder}
           className="flex-1 rounded-[5px] border px-2.5 py-1.5 font-mono text-[12px] outline-none focus:border-[color:var(--accent-electric)]"
           style={{
