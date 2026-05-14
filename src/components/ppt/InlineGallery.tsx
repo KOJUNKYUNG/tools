@@ -86,7 +86,7 @@ export function InlineGallery({
           className={cn(forceOpen ? "px-4 pb-3 pt-3" : "border-t px-4 pb-3 pt-3")}
           style={{ borderColor: "var(--border)" }}
         >
-          <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          <div className="mb-2 flex flex-wrap items-center gap-1">
             <CategoryChip
               active={category === "all"}
               onClick={() => setCategory("all")}
@@ -112,7 +112,7 @@ export function InlineGallery({
           ) : (
             <div
               className="grid grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3"
-              style={{ maxHeight: "260px" }}
+              style={{ maxHeight: "180px" }}
             >
               {filtered.map((img) => {
                 const isSelected = selectedImageId === img.id;
@@ -176,7 +176,7 @@ function CategoryChip({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-[5px] border px-2.5 py-1 font-body text-[11px] transition-colors"
+      className="rounded-[5px] border px-2 py-0.5 font-body text-[10.5px] transition-colors"
       style={{
         background: active ? "var(--surface)" : "var(--surface-2)",
         borderColor: active ? "var(--accent-electric)" : "var(--border)",

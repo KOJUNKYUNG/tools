@@ -54,35 +54,73 @@ export function BackgroundPicker({
 
   return (
     <div className="space-y-3">
-      <div
-        className="font-display text-[12px] font-semibold uppercase tracking-[0.08em]"
-        style={{ color: "var(--ink-soft)" }}
-      >
-        {labels.heading}
-      </div>
-
-      {/* Preview card — fixed compact height */}
+      {/* Preview card with overlaid meta + clear */}
       <div
         className="overflow-hidden rounded-[8px] border"
         style={{ background: "var(--surface)", borderColor: "var(--border)" }}
       >
         <div
-          className="border-b px-3 py-1.5 font-body text-[11px]"
-          style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-soft)" }}
-        >
-          {labels.previewLabel}
-        </div>
-        <div
           className="relative flex items-center justify-center"
-          style={{ background: "var(--surface-2)", height: "140px" }}
+          style={{ background: "var(--surface-2)", height: "100px" }}
         >
           {bgPreviewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={bgPreviewUrl}
-              alt="background preview"
-              className="size-full object-contain"
-            />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={bgPreviewUrl}
+                alt="background preview"
+                className="size-full object-contain"
+              />
+              {bgFile && (
+                <>
+                  <div
+                    className="absolute bottom-1.5 left-1.5 flex max-w-[calc(100%-2.25rem)] items-center gap-1.5 rounded-[4px] px-2 py-0.5"
+                    style={{
+                      background: "color-mix(in oklch, var(--surface) 78%, transparent)",
+                      backdropFilter: "blur(4px)",
+                      WebkitBackdropFilter: "blur(4px)",
+                    }}
+                  >
+                    {galleryImage ? (
+                      <ImageIcon
+                        className="size-3 shrink-0"
+                        style={{ color: "var(--accent-electric)" }}
+                      />
+                    ) : (
+                      <UploadCloudIcon
+                        className="size-3 shrink-0"
+                        style={{ color: "var(--accent-electric)" }}
+                      />
+                    )}
+                    <span
+                      className="truncate font-display text-[10.5px] font-medium"
+                      style={{ color: "var(--ink-strong)" }}
+                    >
+                      {galleryImage ? galleryImage.title : bgFile.name}
+                    </span>
+                    <span
+                      className="shrink-0 font-body text-[9.5px]"
+                      style={{ color: "var(--ink-soft)" }}
+                    >
+                      · {galleryImage ? labels.fromGallery : labels.fromUpload}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onClear}
+                    aria-label={labels.clear}
+                    className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full transition-colors"
+                    style={{
+                      background: "color-mix(in oklch, var(--surface) 78%, transparent)",
+                      backdropFilter: "blur(4px)",
+                      WebkitBackdropFilter: "blur(4px)",
+                    }}
+                  >
+                    <XIcon className="size-3" style={{ color: "var(--ink-strong)" }} />
+                  </button>
+                </>
+              )}
+            </>
           ) : (
             <span className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
               {labels.empty}
@@ -90,39 +128,6 @@ export function BackgroundPicker({
           )}
         </div>
       </div>
-
-      {/* Selected meta + clear */}
-      {bgFile && (
-        <div
-          className="flex items-center gap-2 rounded-[6px] border px-3 py-2"
-          style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
-        >
-          {galleryImage ? (
-            <ImageIcon className="size-4" style={{ color: "var(--accent-electric)" }} />
-          ) : (
-            <UploadCloudIcon className="size-4" style={{ color: "var(--accent-electric)" }} />
-          )}
-          <div className="min-w-0 flex-1">
-            <p
-              className="truncate font-display text-[11.5px] font-medium"
-              style={{ color: "var(--ink-strong)" }}
-            >
-              {galleryImage ? galleryImage.title : bgFile.name}
-            </p>
-            <p className="truncate font-body text-[10.5px]" style={{ color: "var(--ink-soft)" }}>
-              {galleryImage ? labels.fromGallery : labels.fromUpload}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClear}
-            className="rounded p-1 transition-colors hover:bg-[color:var(--surface)]"
-            aria-label={labels.clear}
-          >
-            <XIcon className="size-4" style={{ color: "var(--ink-soft)" }} />
-          </button>
-        </div>
-      )}
 
       {/* Source segmented toggle */}
       <div
