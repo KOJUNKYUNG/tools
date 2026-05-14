@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ImageIcon, UploadCloudIcon, XIcon } from "lucide-react";
 import { FileUpload } from "@/components/common/FileUpload";
 import { InlineGallery } from "@/components/ppt/InlineGallery";
@@ -20,6 +20,12 @@ interface BackgroundPickerProps {
   onDirectUpload: (files: File[]) => void;
   onGallerySelect: (img: GalleryImage) => void;
   onClear: () => void;
+  /**
+   * Action area to render to the right of the Preview card in Row 1
+   * (Apply button, ProcessingStatus, etc). Composed by the parent so this
+   * component stays presentational.
+   */
+  actionSlot?: ReactNode;
   labels: {
     heading: string;
     previewLabel: string;
@@ -48,52 +54,27 @@ export function BackgroundPicker({
   onDirectUpload,
   onGallerySelect,
   onClear,
+  actionSlot,
   labels,
 }: BackgroundPickerProps) {
   const [source, setSource] = useState<BgSource>("gallery");
 
   return (
     <div className="space-y-3">
-      {/* Top row: toggle (flex-fill) + preview (fixed) */}
-      <div className="flex items-start gap-3">
-        {/* Source segmented toggle */}
-        <div
-          className="flex flex-1 self-stretch overflow-hidden rounded-[6px] border"
-          style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
-        >
-          {(["upload", "gallery"] as const).map((src) => {
-            const active = source === src;
-            const label = src === "upload" ? labels.sourceUpload : labels.sourceGallery;
-            return (
-              <button
-                key={src}
-                type="button"
-                onClick={() => setSource(src)}
-                className="flex-1 font-display text-[12px] font-medium transition-colors"
-                style={{
-                  background: active ? "var(--surface)" : "transparent",
-                  color: active ? "var(--ink-strong)" : "var(--ink-soft)",
-                  boxShadow: active ? "inset 0 -2px 0 var(--accent-electric)" : undefined,
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Preview card — fixed 160×90 (16:9) at the right edge */}
+      {/* Row 1: Preview (left) + right column [Action on top, toggle on bottom] */}
+      <div className="flex items-stretch gap-3">
+        {/* Preview card — 240×135 (16:9) */}
         <div
           className="shrink-0 overflow-hidden rounded-[8px] border"
           style={{
             background: "var(--surface)",
             borderColor: "var(--border)",
-            width: "160px",
+            width: "240px",
           }}
         >
           <div
             className="relative flex items-center justify-center"
-            style={{ background: "var(--surface-2)", height: "90px" }}
+            style={{ background: "var(--surface-2)", height: "135px" }}
           >
             {bgPreviewUrl ? (
               <>
@@ -106,7 +87,7 @@ export function BackgroundPicker({
                 {bgFile && (
                   <>
                     <div
-                      className="absolute bottom-1 left-1 flex max-w-[calc(100%-1.75rem)] items-center gap-1 rounded-[3px] px-1.5 py-0.5"
+                      className="absolute bottom-1.5 left-1.5 flex max-w-[calc(100%-2.25rem)] items-center gap-1.5 rounded-[4px] px-2 py-0.5"
                       style={{
                         background: "color-mix(in oklch, var(--surface) 78%, transparent)",
                         backdropFilter: "blur(4px)",
@@ -115,17 +96,17 @@ export function BackgroundPicker({
                     >
                       {galleryImage ? (
                         <ImageIcon
-                          className="size-2.5 shrink-0"
+                          className="size-3 shrink-0"
                           style={{ color: "var(--accent-electric)" }}
                         />
                       ) : (
                         <UploadCloudIcon
-                          className="size-2.5 shrink-0"
+                          className="size-3 shrink-0"
                           style={{ color: "var(--accent-electric)" }}
                         />
                       )}
                       <span
-                        className="truncate font-display text-[9.5px] font-medium"
+                        className="truncate font-display text-[10.5px] font-medium"
                         style={{ color: "var(--ink-strong)" }}
                       >
                         {galleryImage ? galleryImage.title : bgFile.name}
@@ -135,28 +116,59 @@ export function BackgroundPicker({
                       type="button"
                       onClick={onClear}
                       aria-label={labels.clear}
-                      className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full transition-colors"
+                      className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full transition-colors"
                       style={{
                         background: "color-mix(in oklch, var(--surface) 78%, transparent)",
                         backdropFilter: "blur(4px)",
                         WebkitBackdropFilter: "blur(4px)",
                       }}
                     >
-                      <XIcon className="size-2.5" style={{ color: "var(--ink-strong)" }} />
+                      <XIcon className="size-3" style={{ color: "var(--ink-strong)" }} />
                     </button>
                   </>
                 )}
               </>
             ) : (
-              <span className="font-body text-[10.5px]" style={{ color: "var(--ink-soft)" }}>
+              <span className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
                 {labels.empty}
               </span>
             )}
           </div>
         </div>
+
+        {/* Right column: Action (top, flex-1) + Toggle (bottom, fixed) */}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex min-h-0 flex-1 flex-col justify-center gap-2">
+            {actionSlot}
+          </div>
+          <div
+            className="flex overflow-hidden rounded-[6px] border"
+            style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
+          >
+            {(["upload", "gallery"] as const).map((src) => {
+              const active = source === src;
+              const label = src === "upload" ? labels.sourceUpload : labels.sourceGallery;
+              return (
+                <button
+                  key={src}
+                  type="button"
+                  onClick={() => setSource(src)}
+                  className="flex-1 py-1.5 font-display text-[11.5px] font-medium transition-colors"
+                  style={{
+                    background: active ? "var(--surface)" : "transparent",
+                    color: active ? "var(--ink-strong)" : "var(--ink-soft)",
+                    boxShadow: active ? "inset 0 -2px 0 var(--accent-electric)" : undefined,
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Source body (full width) */}
+      {/* Row 2: source body — full width */}
       {source === "upload" ? (
         <FileUpload
           accept={IMAGE_ACCEPT}

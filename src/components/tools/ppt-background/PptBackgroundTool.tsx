@@ -502,7 +502,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
           <div style={{ background: "var(--hairline)" }} />
 
           {/* RIGHT panel */}
-          <div className="space-y-4 px-6 py-5">
+          <div className="px-6 py-5">
             <BackgroundPicker
               bgFile={bgFile}
               bgPreviewUrl={bgPreviewUrl}
@@ -510,6 +510,45 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               onDirectUpload={handleDirectUpload}
               onGallerySelect={handleGallerySelect}
               onClear={clearBgSelection}
+              actionSlot={
+                <>
+                  {status === "idle" && (
+                    <button
+                      type="button"
+                      onClick={canRun ? run : undefined}
+                      disabled={!canRun}
+                      className="glint inline-flex h-11 w-full items-center justify-center gap-2 rounded-[5px] font-display text-[13px] font-medium tracking-[0.02em] focus-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{
+                        background: "var(--accent-electric)",
+                        color: "#fff",
+                        boxShadow:
+                          "0 1px 0 rgba(255,255,255,0.2) inset, 0 1px 2px rgba(20,30,60,0.15), 0 6px 16px -6px color-mix(in oklch, var(--accent-electric) 60%, transparent)",
+                      }}
+                    >
+                      <UploadCloud size={14} />
+                      <span>{labels.action.apply}</span>
+                    </button>
+                  )}
+                  {!canRun && status === "idle" && applyDisabledLabel && (
+                    <p
+                      className="text-center font-body text-[10.5px]"
+                      style={{ color: "var(--ink-soft)" }}
+                    >
+                      {applyDisabledLabel}
+                    </p>
+                  )}
+
+                  <ProcessingStatus
+                    status={status}
+                    progress={progress}
+                    errorMessage={errorMessage}
+                    onRetry={retry}
+                    onDownload={download}
+                    onReset={onReset}
+                    labels={labels.processing}
+                  />
+                </>
+              }
               labels={{
                 heading: labels.background.heading,
                 previewLabel: labels.background.preview,
@@ -524,45 +563,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 gallery: labels.gallery,
               }}
             />
-
-            {/* Action area */}
-            <div className="space-y-2">
-              {status === "idle" && (
-                <button
-                  type="button"
-                  onClick={canRun ? run : undefined}
-                  disabled={!canRun}
-                  className="glint inline-flex h-11 w-full items-center justify-center gap-2 rounded-[5px] font-display text-[13px] font-medium tracking-[0.02em] focus-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{
-                    background: "var(--accent-electric)",
-                    color: "#fff",
-                    boxShadow:
-                      "0 1px 0 rgba(255,255,255,0.2) inset, 0 1px 2px rgba(20,30,60,0.15), 0 6px 16px -6px color-mix(in oklch, var(--accent-electric) 60%, transparent)",
-                  }}
-                >
-                  <UploadCloud size={14} />
-                  <span>{labels.action.apply}</span>
-                </button>
-              )}
-              {!canRun && status === "idle" && applyDisabledLabel && (
-                <p
-                  className="text-center font-body text-[10.5px]"
-                  style={{ color: "var(--ink-soft)" }}
-                >
-                  {applyDisabledLabel}
-                </p>
-              )}
-
-              <ProcessingStatus
-                status={status}
-                progress={progress}
-                errorMessage={errorMessage}
-                onRetry={retry}
-                onDownload={download}
-                onReset={onReset}
-                labels={labels.processing}
-              />
-            </div>
           </div>
         </div>
       )}
