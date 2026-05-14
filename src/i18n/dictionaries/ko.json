@@ -127,7 +127,9 @@
           "fromUpload": "직접 업로드한 배경",
           "clear": "선택 해제",
           "uploadLabel": "이미지 업로드",
-          "uploadHint": "JPG, PNG 지원"
+          "uploadHint": "JPG, PNG 지원",
+          "sourceUpload": "직접 업로드",
+          "sourceGallery": "갤러리"
         },
         "gallery": {
           "heading": "배경 갤러리",

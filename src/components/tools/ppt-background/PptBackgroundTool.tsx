@@ -96,6 +96,8 @@ export interface PptBackgroundToolLabels {
     clear: string;
     uploadLabel: string;
     uploadHint: string;
+    sourceUpload: string;
+    sourceGallery: string;
   };
   gallery: {
     heading: string;
@@ -517,6 +519,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 clear: labels.background.clear,
                 uploadLabel: labels.background.uploadLabel,
                 uploadHint: labels.background.uploadHint,
+                sourceUpload: labels.background.sourceUpload,
+                sourceGallery: labels.background.sourceGallery,
                 gallery: labels.gallery,
               }}
             />

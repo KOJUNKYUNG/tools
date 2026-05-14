@@ -1,15 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { ImageIcon, UploadCloudIcon, XIcon } from "lucide-react";
 import { FileUpload } from "@/components/common/FileUpload";
 import { InlineGallery } from "@/components/ppt/InlineGallery";
-import type { GalleryImage } from "@/lib/gallery/types";
-import type { GalleryCategory } from "@/lib/gallery/types";
+import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
 
 const IMAGE_ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
   "image/png": [".png"],
 };
+
+type BgSource = "upload" | "gallery";
 
 interface BackgroundPickerProps {
   bgFile: File | null;
@@ -27,6 +29,8 @@ interface BackgroundPickerProps {
     clear: string;
     uploadLabel: string;
     uploadHint: string;
+    sourceUpload: string;
+    sourceGallery: string;
     gallery: {
       heading: string;
       countSuffixTemplate: string;
@@ -46,6 +50,8 @@ export function BackgroundPicker({
   onClear,
   labels,
 }: BackgroundPickerProps) {
+  const [source, setSource] = useState<BgSource>("gallery");
+
   return (
     <div className="space-y-3">
       <div
@@ -55,7 +61,7 @@ export function BackgroundPicker({
         {labels.heading}
       </div>
 
-      {/* Preview card */}
+      {/* Preview card — fixed compact height */}
       <div
         className="overflow-hidden rounded-[8px] border"
         style={{ background: "var(--surface)", borderColor: "var(--border)" }}
@@ -67,8 +73,8 @@ export function BackgroundPicker({
           {labels.previewLabel}
         </div>
         <div
-          className="relative flex aspect-video items-center justify-center"
-          style={{ background: "var(--surface-2)" }}
+          className="relative flex items-center justify-center"
+          style={{ background: "var(--surface-2)", height: "140px" }}
         >
           {bgPreviewUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -118,8 +124,34 @@ export function BackgroundPicker({
         </div>
       )}
 
-      {/* Direct upload — compact, only when no background is selected */}
-      {!bgFile && (
+      {/* Source segmented toggle */}
+      <div
+        className="flex overflow-hidden rounded-[6px] border"
+        style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
+      >
+        {(["upload", "gallery"] as const).map((src) => {
+          const active = source === src;
+          const label = src === "upload" ? labels.sourceUpload : labels.sourceGallery;
+          return (
+            <button
+              key={src}
+              type="button"
+              onClick={() => setSource(src)}
+              className="flex-1 py-2 font-display text-[12px] font-medium transition-colors"
+              style={{
+                background: active ? "var(--surface)" : "transparent",
+                color: active ? "var(--ink-strong)" : "var(--ink-soft)",
+                boxShadow: active ? "inset 0 -2px 0 var(--accent-electric)" : undefined,
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Source body */}
+      {source === "upload" ? (
         <FileUpload
           accept={IMAGE_ACCEPT}
           multiple={false}
@@ -127,15 +159,14 @@ export function BackgroundPicker({
           label={labels.uploadLabel}
           description={labels.uploadHint}
         />
+      ) : (
+        <InlineGallery
+          onSelect={onGallerySelect}
+          selectedImageId={galleryImage?.id}
+          forceOpen
+          labels={labels.gallery}
+        />
       )}
-
-      {/* Gallery (collapses when a background is selected) */}
-      <InlineGallery
-        onSelect={onGallerySelect}
-        selectedImageId={galleryImage?.id}
-        forceCollapsed={!!bgFile}
-        labels={labels.gallery}
-      />
     </div>
   );
 }

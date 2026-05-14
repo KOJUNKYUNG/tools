@@ -17,6 +17,8 @@ interface InlineGalleryProps {
   onSelect: (image: GalleryImage) => void;
   selectedImageId?: string | null;
   forceCollapsed?: boolean;
+  /** When true, render in always-open mode without the collapsible header. */
+  forceOpen?: boolean;
   labels: {
     heading: string;            // "배경 갤러리" / "Background gallery"
     countSuffixTemplate: string;  // e.g. "({n}개 이미지)"
@@ -30,6 +32,7 @@ export function InlineGallery({
   onSelect,
   selectedImageId,
   forceCollapsed,
+  forceOpen = false,
   labels,
 }: InlineGalleryProps) {
   const [expanded, setExpanded] = useState(false);
@@ -44,6 +47,8 @@ export function InlineGallery({
     return MOCK_IMAGES.filter((img) => img.category === category);
   }, [category]);
 
+  const open = forceOpen || expanded;
+
   return (
     <div
       className="rounded-[10px] border"
@@ -52,30 +57,35 @@ export function InlineGallery({
         borderColor: "var(--border)",
       }}
     >
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors"
-        style={{ color: "var(--ink-strong)" }}
-      >
-        <div className="flex items-center gap-2">
-          <GalleryHorizontalEndIcon
-            className="size-4"
-            style={{ color: "var(--accent-electric)" }}
+      {!forceOpen && (
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors"
+          style={{ color: "var(--ink-strong)" }}
+        >
+          <div className="flex items-center gap-2">
+            <GalleryHorizontalEndIcon
+              className="size-4"
+              style={{ color: "var(--accent-electric)" }}
+            />
+            <span className="font-display text-[13px] font-medium">{labels.heading}</span>
+            <span className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
+              {template(labels.countSuffixTemplate, { n: MOCK_IMAGES.length })}
+            </span>
+          </div>
+          <ChevronDownIcon
+            className={cn("size-4 transition-transform", expanded && "rotate-180")}
+            style={{ color: "var(--ink-soft)" }}
           />
-          <span className="font-display text-[13px] font-medium">{labels.heading}</span>
-          <span className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
-            {template(labels.countSuffixTemplate, { n: MOCK_IMAGES.length })}
-          </span>
-        </div>
-        <ChevronDownIcon
-          className={cn("size-4 transition-transform", expanded && "rotate-180")}
-          style={{ color: "var(--ink-soft)" }}
-        />
-      </button>
+        </button>
+      )}
 
-      {expanded && (
-        <div className="border-t px-4 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
+      {open && (
+        <div
+          className={cn(forceOpen ? "px-4 pb-3 pt-3" : "border-t px-4 pb-3 pt-3")}
+          style={{ borderColor: "var(--border)" }}
+        >
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
             <CategoryChip
               active={category === "all"}

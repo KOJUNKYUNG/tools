@@ -127,7 +127,9 @@
           "fromUpload": "Uploaded image",
           "clear": "Clear selection",
           "uploadLabel": "Upload image",
-          "uploadHint": "JPG, PNG"
+          "uploadHint": "JPG, PNG",
+          "sourceUpload": "Upload",
+          "sourceGallery": "Gallery"
         },
         "gallery": {
           "heading": "Background gallery",
