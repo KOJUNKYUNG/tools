@@ -138,8 +138,9 @@ export function InlineGallery({
                     className="group relative overflow-hidden rounded-[6px] border text-left transition-colors"
                     style={{
                       background: "var(--surface-2)",
-                      borderColor: isSelected ? "var(--accent-electric)" : "var(--border)",
-                      borderWidth: isSelected ? 2 : 1,
+                      borderColor: "var(--border)",
+                      borderWidth: 1,
+                      boxShadow: isSelected ? "inset 0 0 0 2px var(--accent-electric)" : undefined,
                     }}
                   >
                     <div className="relative aspect-video overflow-hidden">

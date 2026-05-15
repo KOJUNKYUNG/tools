@@ -329,7 +329,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       }
       style={
         inline
-          ? { maxHeight: "calc(100vh - 220px)" }
+          ? { maxHeight: "calc(50vh + 50px)" }
           : {
               background: "color-mix(in oklch, var(--surface) 92%, transparent)",
               backdropFilter: "blur(10px) saturate(1.1)",
@@ -337,7 +337,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               borderColor: "var(--border)",
               boxShadow:
                 "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
-              maxHeight: "calc(100vh - 220px)",
+              maxHeight: "calc(50vh + 50px)",
             }
       }
     >
