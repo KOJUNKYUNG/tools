@@ -22,11 +22,8 @@ export function SlideThumbStrip({
 }: SlideThumbStripProps) {
   return (
     <div
-      className="grid gap-2 overflow-y-auto"
-      style={{
-        gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-        maxHeight: "260px",
-      }}
+      className="grid gap-2"
+      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))" }}
     >
       {backgrounds.map((bg) => {
         const url = thumbnailUrls.get(bg.slideIndex);

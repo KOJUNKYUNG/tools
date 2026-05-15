@@ -60,9 +60,9 @@ export function BackgroundPicker({
   const [source, setSource] = useState<BgSource>("gallery");
 
   return (
-    <div className="space-y-3">
-      {/* Row 1: Preview (left) + right column [Action on top, toggle on bottom] */}
-      <div className="flex items-stretch gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      {/* Row 1: Preview (left, 240×135) + right column (Action fixed-height + Toggle) */}
+      <div className="flex shrink-0 items-stretch gap-3">
         {/* Preview card — 240×135 (16:9) */}
         <div
           className="shrink-0 overflow-hidden rounded-[8px] border"
@@ -136,13 +136,15 @@ export function BackgroundPicker({
           </div>
         </div>
 
-        {/* Right column: Action (top, flex-1) + Toggle (bottom, fixed) */}
+        {/* Right column of Row 1 */}
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="flex min-h-0 flex-1 flex-col justify-center gap-2">
+          {/* Action area — FIXED 100px so swapped states never resize the row */}
+          <div className="shrink-0 overflow-hidden" style={{ height: "100px" }}>
             {actionSlot}
           </div>
+          {/* Compact Upload/Gallery toggle */}
           <div
-            className="flex overflow-hidden rounded-[6px] border"
+            className="flex shrink-0 overflow-hidden rounded-[6px] border"
             style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
           >
             {(["upload", "gallery"] as const).map((src) => {
@@ -168,23 +170,25 @@ export function BackgroundPicker({
         </div>
       </div>
 
-      {/* Row 2: source body — full width */}
-      {source === "upload" ? (
-        <FileUpload
-          accept={IMAGE_ACCEPT}
-          multiple={false}
-          onFiles={onDirectUpload}
-          label={labels.uploadLabel}
-          description={labels.uploadHint}
-        />
-      ) : (
-        <InlineGallery
-          onSelect={onGallerySelect}
-          selectedImageId={galleryImage?.id}
-          forceOpen
-          labels={labels.gallery}
-        />
-      )}
+      {/* Source body — flex-1, fills remaining panel height */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {source === "upload" ? (
+          <FileUpload
+            accept={IMAGE_ACCEPT}
+            multiple={false}
+            onFiles={onDirectUpload}
+            label={labels.uploadLabel}
+            description={labels.uploadHint}
+          />
+        ) : (
+          <InlineGallery
+            onSelect={onGallerySelect}
+            selectedImageId={galleryImage?.id}
+            forceOpen
+            labels={labels.gallery}
+          />
+        )}
+      </div>
     </div>
   );
 }

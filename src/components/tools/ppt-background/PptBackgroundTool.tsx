@@ -405,10 +405,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
           }}
         >
           {/* LEFT panel */}
-          <div className="space-y-4 px-6 py-5">
+          <div className="flex h-full min-h-0 flex-col gap-3 px-6 py-5">
             {/* File status */}
             <div
-              className="flex items-center gap-3 rounded-[8px] border px-3 py-2.5"
+              className="flex shrink-0 items-center gap-3 rounded-[8px] border px-3 py-2.5"
               style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
             >
               <FileIcon className="size-4 shrink-0" style={{ color: "var(--accent-electric)" }} />
@@ -439,81 +439,84 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               </button>
             </div>
 
-            {/* Mode + range selector + thumb strip */}
-            <div className="space-y-3">
+            {/* ApplyTo row: label (left) + mode-specific dynamic content (right, flex-1) */}
+            <div className="flex shrink-0 items-center gap-3" style={{ minHeight: "32px" }}>
+              <div
+                className="shrink-0 font-display text-[11px] font-medium uppercase tracking-[0.08em]"
+                style={{ color: "var(--ink-soft)" }}
+              >
+                {labels.mode.label}
+              </div>
+              <div className="min-w-0 flex-1">
+                {mode === "all-slides" && <span>&nbsp;</span>}
+                {mode === "master" && (
+                  <p
+                    className="truncate font-body text-[10.5px]"
+                    style={{ color: "var(--ink-soft)" }}
+                    title={labels.mode.masterNote}
+                  >
+                    {labels.mode.masterNote}
+                  </p>
+                )}
+                {mode === "specific-slides" && (
+                  <PageRangeSelector
+                    totalPages={totalSlides}
+                    selected={selectedSlides}
+                    onChange={setSelectedSlides}
+                    inputPlaceholder={labels.mode.specificInput}
+                    selectAllLabel={labels.mode.specificSelectAll}
+                    clearLabel={labels.mode.specificClear}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Mode segmented control */}
+            <div className="shrink-0">
               <ModeSelector
                 value={mode}
                 onChange={(next) => {
                   setMode(next);
                   if (next !== "specific-slides") setSelectedSlides(new Set());
                 }}
-                labels={labels.mode}
+                labels={{
+                  optionAll: labels.mode.optionAll,
+                  optionMaster: labels.mode.optionMaster,
+                  optionSpecific: labels.mode.optionSpecific,
+                }}
               />
+            </div>
 
-              {mode === "specific-slides" ? (
-                <PageRangeSelector
-                  totalPages={totalSlides}
-                  selected={selectedSlides}
-                  onChange={setSelectedSlides}
-                  inputPlaceholder={labels.mode.specificInput}
-                  selectAllLabel={labels.mode.specificSelectAll}
-                  clearLabel={labels.mode.specificClear}
-                >
-                  <p
-                    className="font-body text-[10.5px]"
-                    style={{ color: "var(--ink-soft)" }}
-                  >
-                    {labels.mode.specificHint}
-                  </p>
-                  <SlideThumbStrip
-                    backgrounds={currentBgs}
-                    thumbnailUrls={bgObjectUrls}
-                    selectable={{
-                      selected: selectedSlides,
-                      onToggle: (n) => {
-                        setSelectedSlides((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(n)) next.delete(n);
-                          else next.add(n);
-                          return next;
-                        });
-                      },
-                    }}
-                    labels={{
-                      emptyThumb: labels.thumbnails.empty,
-                      sourceByKey: labels.thumbnails.sourceByKey,
-                    }}
-                  />
-                </PageRangeSelector>
+            {/* Slide thumbnail strip — flex-1, fills remaining height */}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {bgLoading ? (
+                <p className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
+                  {labels.fileStatus.analyzing}
+                </p>
               ) : (
-                <>
-                  {mode === "master" && (
-                    <p
-                      className="font-body text-[10.5px]"
-                      style={{ color: "var(--ink-soft)" }}
-                    >
-                      {labels.mode.masterNote}
-                    </p>
-                  )}
-                  {bgLoading ? (
-                    <p
-                      className="font-body text-[11px]"
-                      style={{ color: "var(--ink-soft)" }}
-                    >
-                      {labels.fileStatus.analyzing}
-                    </p>
-                  ) : (
-                    <SlideThumbStrip
-                      backgrounds={currentBgs}
-                      thumbnailUrls={bgObjectUrls}
-                      selectable={null}
-                      labels={{
-                        emptyThumb: labels.thumbnails.empty,
-                        sourceByKey: labels.thumbnails.sourceByKey,
-                      }}
-                    />
-                  )}
-                </>
+                <SlideThumbStrip
+                  backgrounds={currentBgs}
+                  thumbnailUrls={bgObjectUrls}
+                  selectable={
+                    mode === "specific-slides"
+                      ? {
+                          selected: selectedSlides,
+                          onToggle: (n) => {
+                            setSelectedSlides((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(n)) next.delete(n);
+                              else next.add(n);
+                              return next;
+                            });
+                          },
+                        }
+                      : null
+                  }
+                  labels={{
+                    emptyThumb: labels.thumbnails.empty,
+                    sourceByKey: labels.thumbnails.sourceByKey,
+                  }}
+                />
               )}
             </div>
           </div>
@@ -522,7 +525,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
           <div style={{ background: "var(--hairline)" }} />
 
           {/* RIGHT panel */}
-          <div className="px-6 py-5">
+          <div className="flex h-full min-h-0 flex-col px-6 py-5">
             <BackgroundPicker
               bgFile={bgFile}
               bgPreviewUrl={bgPreviewUrl}
@@ -531,13 +534,19 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               onGallerySelect={handleGallerySelect}
               onClear={clearBgSelection}
               actionSlot={
-                <>
-                  {status === "idle" && (
+                status === "idle" ? (
+                  <div className="flex h-full flex-col gap-1.5">
+                    <p
+                      className="text-center font-body text-[10.5px] leading-[16px]"
+                      style={{ color: "var(--ink-soft)", minHeight: "16px" }}
+                    >
+                      {!canRun && applyDisabledLabel ? applyDisabledLabel : " "}
+                    </p>
                     <button
                       type="button"
                       onClick={canRun ? run : undefined}
                       disabled={!canRun}
-                      className="glint inline-flex h-11 w-full items-center justify-center gap-2 rounded-[5px] font-display text-[13px] font-medium tracking-[0.02em] focus-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      className="glint inline-flex w-full flex-1 items-center justify-center gap-2 rounded-[5px] font-display text-[13px] font-medium tracking-[0.02em] focus-ring disabled:cursor-not-allowed disabled:opacity-50"
                       style={{
                         background: "var(--accent-electric)",
                         color: "#fff",
@@ -548,16 +557,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       <UploadCloud size={14} />
                       <span>{labels.action.apply}</span>
                     </button>
-                  )}
-                  {!canRun && status === "idle" && applyDisabledLabel && (
-                    <p
-                      className="text-center font-body text-[10.5px]"
-                      style={{ color: "var(--ink-soft)" }}
-                    >
-                      {applyDisabledLabel}
-                    </p>
-                  )}
-
+                  </div>
+                ) : (
                   <ProcessingStatus
                     status={status}
                     progress={progress}
@@ -567,7 +568,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                     onTryAnother={handleTryAnother}
                     labels={labels.processing}
                   />
-                </>
+                )
               }
               labels={{
                 heading: labels.background.heading,

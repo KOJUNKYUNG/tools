@@ -51,7 +51,10 @@ export function InlineGallery({
 
   return (
     <div
-      className="rounded-[10px] border"
+      className={cn(
+        "rounded-[10px] border",
+        forceOpen && "flex h-full min-h-0 flex-col"
+      )}
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",
@@ -83,10 +86,14 @@ export function InlineGallery({
 
       {open && (
         <div
-          className={cn(forceOpen ? "px-4 pb-3 pt-3" : "border-t px-4 pb-3 pt-3")}
+          className={cn(
+            forceOpen
+              ? "flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3"
+              : "border-t px-4 pb-3 pt-3"
+          )}
           style={{ borderColor: "var(--border)" }}
         >
-          <div className="mb-2 flex flex-wrap items-center gap-1">
+          <div className="mb-2 flex shrink-0 flex-wrap items-center gap-1">
             <CategoryChip
               active={category === "all"}
               onClick={() => setCategory("all")}
@@ -111,8 +118,11 @@ export function InlineGallery({
             </div>
           ) : (
             <div
-              className="grid grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3"
-              style={{ maxHeight: "180px" }}
+              className={cn(
+                "grid grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3",
+                forceOpen && "min-h-0 flex-1"
+              )}
+              style={forceOpen ? undefined : { maxHeight: "180px" }}
             >
               {filtered.map((img) => {
                 const isSelected = selectedImageId === img.id;

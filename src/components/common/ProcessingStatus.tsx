@@ -57,11 +57,11 @@ export function ProcessingStatus({
   const L = { ...DEFAULTS, ...labels };
 
   return (
-    <div className="space-y-3">
+    <div className="h-full">
       {status === "processing" && (
-        <div className="space-y-2">
+        <div className="flex h-full flex-col justify-center gap-2">
           <div
-            className="flex items-center gap-2 font-display text-[13px] font-medium"
+            className="flex items-center gap-2 font-display text-[12px] font-medium"
             style={{ color: "var(--ink-strong)" }}
           >
             <Loader2Icon
@@ -89,47 +89,40 @@ export function ProcessingStatus({
 
       {status === "done" && (
         <div
-          className="w-full rounded-[8px] border px-4 py-3"
+          className="flex h-full w-full flex-col justify-center gap-2 rounded-[8px] border px-3 py-2"
           style={{
             background: "var(--surface)",
             borderColor: "var(--border)",
             boxShadow: "inset 2px 0 0 var(--accent-electric)",
           }}
         >
-          <div className="flex min-w-0 items-start gap-3">
+          <div className="flex min-w-0 items-center gap-2">
             <CheckCircle2Icon
-              className="size-5 shrink-0"
+              className="size-4 shrink-0"
               style={{ color: "var(--accent-electric)" }}
             />
-            <div className="min-w-0 flex-1">
-              <div
-                className="font-display text-[13px] font-semibold"
-                style={{ color: "var(--headline)" }}
-              >
-                {L.done}
-              </div>
-              <div
-                className="mt-0.5 truncate font-body text-[12px]"
-                style={{ color: "var(--ink)" }}
-                title={downloadFileName}
-              >
-                {downloadFileName ?? L.doneBody}
-              </div>
+            <div
+              className="truncate font-display text-[12px] font-semibold"
+              style={{ color: "var(--headline)" }}
+              title={downloadFileName}
+            >
+              {L.done}
+              {downloadFileName ? ` — ${downloadFileName}` : ""}
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-1.5">
             {onTryAnother && (
               <button
                 type="button"
                 onClick={onTryAnother}
-                className="inline-flex items-center gap-1.5 rounded-[5px] border px-3 h-9 font-display text-[12px] transition-colors hover:border-[color:var(--accent-electric)]"
+                className="inline-flex items-center gap-1.5 rounded-[5px] border px-2.5 h-8 font-display text-[11.5px] transition-colors hover:border-[color:var(--accent-electric)]"
                 style={{
                   background: "var(--surface-2)",
                   borderColor: "var(--border)",
                   color: "var(--ink-strong)",
                 }}
               >
-                <RefreshCwIcon className="size-3.5" />
+                <RefreshCwIcon className="size-3" />
                 {L.retry}
               </button>
             )}
@@ -137,7 +130,7 @@ export function ProcessingStatus({
               <button
                 type="button"
                 onClick={onDownload}
-                className="glint inline-flex items-center gap-1.5 rounded-[5px] px-4 h-9 font-display text-[12px] font-medium"
+                className="glint inline-flex items-center gap-1.5 rounded-[5px] px-3 h-8 font-display text-[11.5px] font-medium"
                 style={{
                   background: "var(--accent-electric)",
                   color: "#fff",
@@ -145,7 +138,7 @@ export function ProcessingStatus({
                     "0 1px 0 rgba(255,255,255,0.2) inset, 0 1px 2px rgba(20,30,60,0.15), 0 6px 16px -6px color-mix(in oklch, var(--accent-electric) 60%, transparent)",
                 }}
               >
-                <DownloadIcon className="size-3.5" />
+                <DownloadIcon className="size-3" />
                 {L.download}
               </button>
             )}
@@ -155,46 +148,47 @@ export function ProcessingStatus({
 
       {status === "error" && (
         <div
-          className="w-full rounded-[8px] border px-4 py-3"
+          className="flex h-full w-full flex-col justify-center gap-2 rounded-[8px] border px-3 py-2"
           style={{
             background: "var(--surface)",
             borderColor: "var(--border)",
             boxShadow: "inset 2px 0 0 var(--accent-copper)",
           }}
         >
-          <div className="flex items-start gap-3">
+          <div className="flex min-w-0 items-center gap-2">
             <AlertTriangleIcon
-              className="size-5 shrink-0"
+              className="size-4 shrink-0"
               style={{ color: "var(--accent-copper)" }}
             />
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <div
-                className="font-display text-[13px] font-semibold"
+                className="font-display text-[12px] font-semibold"
                 style={{ color: "var(--headline)" }}
               >
                 {L.error}
               </div>
               <div
-                className="mt-0.5 font-body text-[12px]"
+                className="truncate font-body text-[11px]"
                 style={{ color: "var(--ink)" }}
+                title={errorMessage}
               >
                 {errorMessage ?? L.errorBody}
               </div>
             </div>
           </div>
           {onRetry && (
-            <div className="mt-3 flex items-center justify-end">
+            <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={onRetry}
-                className="inline-flex items-center gap-1.5 rounded-[5px] border px-3 h-9 font-display text-[12px] transition-colors hover:border-[color:var(--accent-electric)]"
+                className="inline-flex items-center gap-1.5 rounded-[5px] border px-2.5 h-8 font-display text-[11.5px] transition-colors hover:border-[color:var(--accent-electric)]"
                 style={{
                   background: "var(--surface-2)",
                   borderColor: "var(--border)",
                   color: "var(--ink-strong)",
                 }}
               >
-                <RefreshCwIcon className="size-3.5" />
+                <RefreshCwIcon className="size-3" />
                 {L.retry}
               </button>
             </div>
