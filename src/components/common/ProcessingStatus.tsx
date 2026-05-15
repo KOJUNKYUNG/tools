@@ -115,7 +115,7 @@ export function ProcessingStatus({
               <button
                 type="button"
                 onClick={onTryAnother}
-                className="inline-flex items-center gap-1.5 rounded-[5px] border px-2.5 h-8 font-display text-[11.5px] transition-colors hover:border-[color:var(--accent-electric)]"
+                className="inline-flex items-center gap-1.5 rounded-[5px] border px-2.5 h-8 font-display text-[11.5px] whitespace-nowrap transition-colors hover:border-[color:var(--accent-electric)]"
                 style={{
                   background: "var(--surface-2)",
                   borderColor: "var(--border)",
@@ -130,7 +130,7 @@ export function ProcessingStatus({
               <button
                 type="button"
                 onClick={onDownload}
-                className="glint inline-flex items-center gap-1.5 rounded-[5px] px-3 h-8 font-display text-[11.5px] font-medium"
+                className="glint inline-flex items-center gap-1.5 rounded-[5px] px-3 h-8 font-display text-[11.5px] whitespace-nowrap font-medium"
                 style={{
                   background: "var(--accent-electric)",
                   color: "#fff",
@@ -181,7 +181,7 @@ export function ProcessingStatus({
               <button
                 type="button"
                 onClick={onRetry}
-                className="inline-flex items-center gap-1.5 rounded-[5px] border px-2.5 h-8 font-display text-[11.5px] transition-colors hover:border-[color:var(--accent-electric)]"
+                className="inline-flex items-center gap-1.5 rounded-[5px] border px-2.5 h-8 font-display text-[11.5px] whitespace-nowrap transition-colors hover:border-[color:var(--accent-electric)]"
                 style={{
                   background: "var(--surface-2)",
                   borderColor: "var(--border)",

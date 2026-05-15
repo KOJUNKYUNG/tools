@@ -196,6 +196,19 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     [setPptxFilesRaw],
   );
 
+  const openPptxFileDialog = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".ppt,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint";
+    input.onchange = (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files && target.files.length > 0) {
+        setPptxFiles(Array.from(target.files));
+      }
+    };
+    input.click();
+  }, [setPptxFiles]);
+
   // Extract current backgrounds when a .pptx is loaded.
   useEffect(() => {
     if (!pptxFile) {
@@ -309,10 +322,14 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // ───────── Render ─────────
   return (
     <div
-      className={inline ? "" : "overflow-hidden rounded-[14px] border"}
+      className={
+        inline
+          ? "flex h-full flex-col"
+          : "flex flex-col overflow-hidden rounded-[14px] border"
+      }
       style={
         inline
-          ? undefined
+          ? { maxHeight: "calc(100vh - 220px)" }
           : {
               background: "color-mix(in oklch, var(--surface) 92%, transparent)",
               backdropFilter: "blur(10px) saturate(1.1)",
@@ -320,6 +337,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               borderColor: "var(--border)",
               boxShadow:
                 "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+              maxHeight: "calc(100vh - 220px)",
             }
       }
     >
@@ -399,9 +417,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       ) : (
         // Two-pane workspace.
         <div
-          className="grid"
+          className="grid min-h-0 flex-1"
           style={{
-            gridTemplateColumns: "1fr 1px 1fr",
+            gridTemplateColumns: "minmax(0, 1fr) 1px minmax(0, 1fr)",
           }}
         >
           {/* LEFT panel */}
@@ -427,7 +445,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               </div>
               <button
                 type="button"
-                onClick={() => setPptxFiles([])}
+                onClick={openPptxFileDialog}
                 className="rounded-[5px] border px-2 py-1 font-body text-[10.5px] transition-colors hover:border-[color:var(--accent-electric)]"
                 style={{
                   background: "var(--surface)",
@@ -537,8 +555,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 status === "idle" ? (
                   <div className="flex h-full flex-col gap-1.5">
                     <p
-                      className="text-center font-body text-[10.5px] leading-[16px]"
+                      className="truncate text-center font-body text-[10.5px] leading-[16px]"
                       style={{ color: "var(--ink-soft)", minHeight: "16px" }}
+                      title={!canRun && applyDisabledLabel ? applyDisabledLabel : undefined}
                     >
                       {!canRun && applyDisabledLabel ? applyDisabledLabel : " "}
                     </p>

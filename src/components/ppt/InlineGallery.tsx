@@ -122,7 +122,11 @@ export function InlineGallery({
                 "grid grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3",
                 forceOpen && "min-h-0 flex-1"
               )}
-              style={forceOpen ? undefined : { maxHeight: "180px" }}
+              style={
+                forceOpen
+                  ? { gridAutoRows: "min-content", alignContent: "start" }
+                  : { maxHeight: "180px", gridAutoRows: "min-content", alignContent: "start" }
+              }
             >
               {filtered.map((img) => {
                 const isSelected = selectedImageId === img.id;
