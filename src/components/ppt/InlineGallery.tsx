@@ -140,7 +140,8 @@ export function InlineGallery({
                       background: "var(--surface-2)",
                       borderColor: "var(--border)",
                       borderWidth: 1,
-                      boxShadow: isSelected ? "inset 0 0 0 2px var(--accent-electric)" : undefined,
+                      outline: isSelected ? "2px solid var(--accent-electric)" : undefined,
+                      outlineOffset: isSelected ? "-2px" : undefined,
                     }}
                   >
                     <div className="relative aspect-video overflow-hidden">

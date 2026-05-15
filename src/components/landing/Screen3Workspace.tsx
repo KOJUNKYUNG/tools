@@ -123,7 +123,7 @@ export function Screen3Workspace({
               }}
             >
               <div
-                className="px-6 pt-5 pb-4 flex items-start gap-3 border-b"
+                className="px-6 pt-3 pb-3 flex items-start gap-3 border-b"
                 style={{ borderColor: "var(--border)" }}
               >
                 <div
@@ -170,7 +170,7 @@ export function Screen3Workspace({
                 </span>
               </div>
 
-              <div className="px-6 py-5">
+              <div className="px-6 py-3">
                 {tool.slug === "ppt-background" ? (
                   <PptBackgroundTool key={pptBgResetKey} inline labels={buildPptBackgroundLabels(dict)} />
                 ) : (

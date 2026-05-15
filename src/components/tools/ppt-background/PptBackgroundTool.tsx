@@ -241,6 +241,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     };
   }, [pptxFile]);
 
+  // When the user picks a new background after a completed run, drop the
+  // Done box and let them Apply again with the new background.
+  useEffect(() => {
+    if (status === "done") retry();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bgFiles, galleryImage?.id]);
+
   // Cleanup all object URLs on unmount.
   useEffect(() => {
     return () => {
@@ -329,7 +336,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       }
       style={
         inline
-          ? { maxHeight: "calc(50vh + 50px)" }
+          ? { maxHeight: "calc(50vh)" }
           : {
               background: "color-mix(in oklch, var(--surface) 92%, transparent)",
               backdropFilter: "blur(10px) saturate(1.1)",
@@ -337,13 +344,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               borderColor: "var(--border)",
               boxShadow:
                 "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
-              maxHeight: "calc(50vh + 50px)",
+              maxHeight: "calc(50vh)",
             }
       }
     >
       {!inline && (
         <div
-          className="flex items-start gap-3 border-b px-6 pt-5 pb-4"
+          className="flex items-start gap-3 border-b px-6 pt-3 pb-3"
           style={{ borderColor: "var(--border)" }}
         >
           <div
@@ -386,7 +393,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       {/* Body */}
       {!pptxFile ? (
         // Empty state — centered dropzone, optional conversion guide below.
-        <div className="space-y-4 px-6 py-6">
+        <div className="space-y-4 px-6 py-4">
           {showConversionGuide && (
             <div
               className="rounded-[6px] border px-3 py-2 font-body text-[11.5px]"
@@ -423,7 +430,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
           }}
         >
           {/* LEFT panel */}
-          <div className="flex h-full min-h-0 flex-col gap-3 px-6 py-5">
+          <div className="flex h-full min-h-0 flex-col gap-3 px-6 py-3">
             {/* File status */}
             <div
               className="flex shrink-0 items-center gap-3 rounded-[8px] border px-3 py-2.5"
@@ -543,7 +550,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
           <div style={{ background: "var(--hairline)" }} />
 
           {/* RIGHT panel */}
-          <div className="flex h-full min-h-0 flex-col px-6 py-5">
+          <div className="flex h-full min-h-0 flex-col px-6 py-3">
             <BackgroundPicker
               bgFile={bgFile}
               bgPreviewUrl={bgPreviewUrl}

@@ -100,20 +100,12 @@ export function ProcessingStatus({
             className="size-5 shrink-0"
             style={{ color: "var(--accent-electric)" }}
           />
-          <div className="min-w-0 flex-1">
-            <div
-              className="font-display text-[12px] font-semibold"
-              style={{ color: "var(--headline)" }}
-            >
-              {L.done}
-            </div>
-            <div
-              className="truncate font-body text-[11px]"
-              style={{ color: "var(--ink)" }}
-              title={downloadFileName}
-            >
-              {downloadFileName ?? L.doneBody}
-            </div>
+          <div
+            className="min-w-0 flex-1 truncate font-body text-[12px]"
+            style={{ color: "var(--ink-strong)" }}
+            title={downloadFileName ?? L.doneBody}
+          >
+            {downloadFileName ?? L.doneBody}
           </div>
           <div className="shrink-0 flex flex-col gap-1.5">
             {onDownload && (
