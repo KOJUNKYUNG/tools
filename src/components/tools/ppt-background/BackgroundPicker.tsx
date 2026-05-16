@@ -73,7 +73,7 @@ export function BackgroundPicker({
           }}
         >
           <div
-            className="relative flex items-center justify-center"
+            className="relative"
             style={{ background: "var(--surface-2)", height: "135px" }}
           >
             {bgPreviewUrl ? (
@@ -82,56 +82,55 @@ export function BackgroundPicker({
                 <img
                   src={bgPreviewUrl}
                   alt="background preview"
-                  className="absolute inset-0 size-full object-cover"
+                  className="block object-cover"
+                  style={{ width: "240px", height: "135px" }}
                 />
-                {bgPreviewUrl && (
-                  <>
-                    <div
-                      className="absolute bottom-1.5 left-1.5 flex max-w-[calc(100%-2.25rem)] items-center gap-1.5 rounded-[4px] px-2 py-0.5"
-                      style={{
-                        background: "color-mix(in oklch, var(--surface) 78%, transparent)",
-                        backdropFilter: "blur(4px)",
-                        WebkitBackdropFilter: "blur(4px)",
-                      }}
-                    >
-                      {galleryImage ? (
-                        <ImageIcon
-                          className="size-3 shrink-0"
-                          style={{ color: "var(--accent-electric)" }}
-                        />
-                      ) : (
-                        <UploadCloudIcon
-                          className="size-3 shrink-0"
-                          style={{ color: "var(--accent-electric)" }}
-                        />
-                      )}
-                      <span
-                        className="truncate font-display text-[10.5px] font-medium"
-                        style={{ color: "var(--ink-strong)" }}
-                      >
-                        {galleryImage?.title ?? bgFile?.name ?? ""}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onClear}
-                      aria-label={labels.clear}
-                      className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full transition-colors"
-                      style={{
-                        background: "color-mix(in oklch, var(--surface) 78%, transparent)",
-                        backdropFilter: "blur(4px)",
-                        WebkitBackdropFilter: "blur(4px)",
-                      }}
-                    >
-                      <XIcon className="size-3" style={{ color: "var(--ink-strong)" }} />
-                    </button>
-                  </>
-                )}
+                <div
+                  className="absolute bottom-1.5 left-1.5 flex max-w-[calc(100%-2.25rem)] items-center gap-1.5 rounded-[4px] px-2 py-0.5"
+                  style={{
+                    background: "color-mix(in oklch, var(--surface) 78%, transparent)",
+                    backdropFilter: "blur(4px)",
+                    WebkitBackdropFilter: "blur(4px)",
+                  }}
+                >
+                  {galleryImage ? (
+                    <ImageIcon
+                      className="size-3 shrink-0"
+                      style={{ color: "var(--accent-electric)" }}
+                    />
+                  ) : (
+                    <UploadCloudIcon
+                      className="size-3 shrink-0"
+                      style={{ color: "var(--accent-electric)" }}
+                    />
+                  )}
+                  <span
+                    className="truncate font-display text-[10.5px] font-medium"
+                    style={{ color: "var(--ink-strong)" }}
+                  >
+                    {galleryImage?.title ?? bgFile?.name ?? ""}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClear}
+                  aria-label={labels.clear}
+                  className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full transition-colors"
+                  style={{
+                    background: "color-mix(in oklch, var(--surface) 78%, transparent)",
+                    backdropFilter: "blur(4px)",
+                    WebkitBackdropFilter: "blur(4px)",
+                  }}
+                >
+                  <XIcon className="size-3" style={{ color: "var(--ink-strong)" }} />
+                </button>
               </>
             ) : (
-              <span className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
-                {labels.empty}
-              </span>
+              <div className="flex h-full items-center justify-center">
+                <span className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
+                  {labels.empty}
+                </span>
+              </div>
             )}
           </div>
         </div>
