@@ -95,24 +95,19 @@ export function ProcessingStatus({
             borderColor: "var(--border)",
             boxShadow: "inset 2px 0 0 var(--accent-electric)",
           }}
+          title={downloadFileName}
         >
           <CheckCircle2Icon
             className="size-5 shrink-0"
             style={{ color: "var(--accent-electric)" }}
           />
-          <div
-            className="min-w-0 flex-1 truncate font-body text-[12px]"
-            style={{ color: "var(--ink-strong)" }}
-            title={downloadFileName ?? L.doneBody}
-          >
-            {downloadFileName ?? L.doneBody}
-          </div>
-          <div className="shrink-0 flex flex-col gap-1.5">
+          <div className="min-w-0 flex-1" />
+          <div className="shrink-0 flex w-[112px] flex-col gap-1.5">
             {onDownload && (
               <button
                 type="button"
                 onClick={onDownload}
-                className="glint inline-flex items-center justify-center gap-1.5 rounded-[5px] px-3 h-8 font-display text-[11.5px] whitespace-nowrap font-medium"
+                className="glint inline-flex w-full items-center justify-start gap-1.5 rounded-[5px] px-3 h-8 font-display text-[11.5px] whitespace-nowrap font-medium"
                 style={{
                   background: "var(--accent-electric)",
                   color: "#fff",
@@ -128,7 +123,7 @@ export function ProcessingStatus({
               <button
                 type="button"
                 onClick={onTryAnother}
-                className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border px-3 h-8 font-display text-[11.5px] whitespace-nowrap transition-colors hover:border-[color:var(--accent-electric)]"
+                className="inline-flex w-full items-center justify-start gap-1.5 rounded-[5px] border px-3 h-8 font-display text-[11.5px] whitespace-nowrap transition-colors hover:border-[color:var(--accent-electric)]"
                 style={{
                   background: "var(--surface-2)",
                   borderColor: "var(--border)",
@@ -172,11 +167,11 @@ export function ProcessingStatus({
             </div>
           </div>
           {onRetry && (
-            <div className="shrink-0">
+            <div className="shrink-0 w-[112px]">
               <button
                 type="button"
                 onClick={onRetry}
-                className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border px-3 h-8 font-display text-[11.5px] whitespace-nowrap transition-colors hover:border-[color:var(--accent-electric)]"
+                className="inline-flex w-full items-center justify-start gap-1.5 rounded-[5px] border px-3 h-8 font-display text-[11.5px] whitespace-nowrap transition-colors hover:border-[color:var(--accent-electric)]"
                 style={{
                   background: "var(--surface-2)",
                   borderColor: "var(--border)",

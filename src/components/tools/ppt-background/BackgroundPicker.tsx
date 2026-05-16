@@ -84,10 +84,10 @@ export function BackgroundPicker({
                   alt="background preview"
                   className="size-full object-contain"
                 />
-                {bgFile && (
+                {bgPreviewUrl && (
                   <>
                     <div
-                      className="absolute bottom-0 left-0 right-0 flex items-center gap-1.5 px-2 py-1"
+                      className="absolute bottom-1.5 left-1.5 flex max-w-[calc(100%-2.25rem)] items-center gap-1.5 rounded-[4px] px-2 py-0.5"
                       style={{
                         background: "color-mix(in oklch, var(--surface) 78%, transparent)",
                         backdropFilter: "blur(4px)",
@@ -106,10 +106,10 @@ export function BackgroundPicker({
                         />
                       )}
                       <span
-                        className="min-w-0 flex-1 truncate font-display text-[10.5px] font-medium"
+                        className="truncate font-display text-[10.5px] font-medium"
                         style={{ color: "var(--ink-strong)" }}
                       >
-                        {galleryImage ? galleryImage.title : bgFile.name}
+                        {galleryImage?.title ?? bgFile?.name ?? ""}
                       </span>
                     </div>
                     <button
