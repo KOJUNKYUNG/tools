@@ -150,7 +150,7 @@
         "processing": {
           "processing": "Converting…",
           "done": "Done",
-          "doneBody": "Your .pptx is ready.",
+          "doneBody": "",
           "download": "Download",
           "error": "Error",
           "errorBody": "Something went wrong. Please try again.",
