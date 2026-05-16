@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon, ChevronDownIcon, GalleryHorizontalEndIcon } from "lucide-react";
 import { MOCK_IMAGES } from "@/lib/gallery/mockData";
 import {
@@ -37,6 +37,13 @@ export function InlineGallery({
 }: InlineGalleryProps) {
   const [expanded, setExpanded] = useState(false);
   const [category, setCategory] = useState<CategoryFilter>("all");
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.scrollTop = 0;
+    }
+  }, [category]);
 
   useEffect(() => {
     if (forceCollapsed) setExpanded(false);
@@ -118,6 +125,7 @@ export function InlineGallery({
             </div>
           ) : (
             <div
+              ref={gridRef}
               className={cn(
                 "grid grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3",
                 forceOpen && "min-h-0 flex-1"

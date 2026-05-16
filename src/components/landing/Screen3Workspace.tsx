@@ -112,7 +112,7 @@ export function Screen3Workspace({
             }}
           >
             <div
-              className="rounded-[14px] border overflow-hidden"
+              className="relative rounded-[14px] border overflow-hidden"
               style={{
                 background: "color-mix(in oklch, var(--surface) 92%, transparent)",
                 backdropFilter: "blur(10px) saturate(1.1)",
@@ -122,6 +122,18 @@ export function Screen3Workspace({
                   "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
               }}
             >
+              {tool.slug === "ppt-background" && (
+                <button
+                  type="button"
+                  onClick={() => setPptBgResetKey((k) => k + 1)}
+                  aria-label={dict.common.reset}
+                  title={dict.common.reset}
+                  className="absolute right-2 top-2 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
+                  style={{ color: "var(--ink-soft)" }}
+                >
+                  <RotateCcwIcon className="size-4" />
+                </button>
+              )}
               <div
                 className="px-6 pt-3 pb-3 flex items-start gap-3 border-b"
                 style={{ borderColor: "var(--border)" }}
@@ -150,18 +162,6 @@ export function Screen3Workspace({
                     {toolDict.description}
                   </div>
                 </div>
-                {tool.slug === "ppt-background" && (
-                  <button
-                    type="button"
-                    onClick={() => setPptBgResetKey((k) => k + 1)}
-                    aria-label={dict.common.reset}
-                    title={dict.common.reset}
-                    className="shrink-0 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
-                    style={{ color: "var(--ink-soft)" }}
-                  >
-                    <RotateCcwIcon className="size-4" />
-                  </button>
-                )}
                 <span
                   className="shrink-0 font-body text-[9px] tracking-[0.18em] uppercase font-mono pt-1"
                   style={{ color: "var(--ink-soft)", display: "none" }}

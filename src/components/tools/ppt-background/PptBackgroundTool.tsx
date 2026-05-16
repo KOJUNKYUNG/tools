@@ -331,8 +331,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     <div
       className={
         inline
-          ? "flex h-full flex-col"
-          : "flex flex-col overflow-hidden rounded-[14px] border"
+          ? "relative flex h-full flex-col"
+          : "relative flex flex-col overflow-hidden rounded-[14px] border"
       }
       style={
         inline
@@ -348,6 +348,18 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             }
       }
     >
+      {!inline && (
+        <button
+          type="button"
+          onClick={onReset}
+          aria-label={labels.action.reset}
+          title={labels.action.reset}
+          className="absolute right-2 top-2 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
+          style={{ color: "var(--ink-soft)" }}
+        >
+          <RotateCcwIcon className="size-4" />
+        </button>
+      )}
       {!inline && (
         <div
           className="flex items-start gap-3 border-b px-6 pt-3 pb-3"
@@ -377,16 +389,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               {labels.header.description}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onReset}
-            aria-label={labels.action.reset}
-            title={labels.action.reset}
-            className="shrink-0 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
-            style={{ color: "var(--ink-soft)" }}
-          >
-            <RotateCcwIcon className="size-4" />
-          </button>
         </div>
       )}
 
@@ -465,7 +467,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             </div>
 
             {/* ApplyTo row: label (left) + mode-specific dynamic content (right, flex-1) */}
-            <div className="flex shrink-0 items-center gap-3" style={{ minHeight: "32px" }}>
+            <div className="flex shrink-0 items-center gap-3" style={{ minHeight: "44px" }}>
               <div
                 className="shrink-0 font-display text-[11px] font-medium uppercase tracking-[0.08em]"
                 style={{ color: "var(--ink-soft)" }}
@@ -476,7 +478,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 {mode === "all-slides" && <span>&nbsp;</span>}
                 {mode === "master" && (
                   <p
-                    className="truncate font-body text-[10.5px]"
+                    className="line-clamp-2 font-body text-[10.5px] leading-[1.35]"
                     style={{ color: "var(--ink-soft)" }}
                     title={labels.mode.masterNote}
                   >

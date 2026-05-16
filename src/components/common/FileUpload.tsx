@@ -15,6 +15,7 @@ interface FileUploadProps {
   onFiles: (files: File[]) => void;
   label?: string;
   description?: string;
+  hideFileList?: boolean;
 }
 
 function formatBytes(bytes: number): string {
@@ -32,6 +33,7 @@ export function FileUpload({
   onFiles,
   label = "파일을 드래그하거나 클릭하여 업로드",
   description,
+  hideFileList = false,
 }: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
 
@@ -108,7 +110,7 @@ export function FileUpload({
         </div>
       </div>
 
-      {files.length > 0 && (
+      {!hideFileList && files.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">
