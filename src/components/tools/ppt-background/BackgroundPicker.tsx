@@ -82,7 +82,7 @@ export function BackgroundPicker({
                 <img
                   src={bgPreviewUrl}
                   alt="background preview"
-                  className="size-full object-contain"
+                  className="size-full object-cover"
                 />
                 {bgPreviewUrl && (
                   <>

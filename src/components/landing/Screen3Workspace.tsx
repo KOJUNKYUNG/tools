@@ -128,7 +128,7 @@ export function Screen3Workspace({
                   onClick={() => setPptBgResetKey((k) => k + 1)}
                   aria-label={dict.common.reset}
                   title={dict.common.reset}
-                  className="absolute right-4 top-4 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
+                  className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
                   style={{ color: "var(--ink-soft)" }}
                 >
                   <RotateCcwIcon className="size-4" />
