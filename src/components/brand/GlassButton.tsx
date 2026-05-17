@@ -20,13 +20,13 @@ function GlassButtonImpl({ onClick, children, active = false }: GlassButtonProps
       fontWeight: 600,
       letterSpacing: "0.02em",
       color: active ? "var(--ink-strong)" : "rgba(28,36,52,0.78)",
-      background: active ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.5)",
+      background: active ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.3)",
       backdropFilter: active ? "blur(8px) saturate(1.1)" : "none",
       WebkitBackdropFilter: active ? "blur(8px) saturate(1.1)" : "none",
-      border: active ? "1px solid rgba(255,255,255,0.9)" : "1px solid rgba(255,255,255,0.6)",
+      border: active ? "1px solid rgba(255,255,255,0.95)" : "1px solid rgba(255,255,255,0.5)",
       boxShadow: active
-        ? "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 8px -2px rgba(20,30,60,0.18)"
-        : "0 1px 3px -1px rgba(20,30,60,0.12)",
+        ? "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 8px -2px rgba(20,30,60,0.2)"
+        : "inset 0 1px 0 rgba(255,255,255,0.45), 0 1px 3px -1px rgba(20,30,60,0.14)",
       cursor: active ? "default" : "pointer",
       transition: "transform 180ms ease, background 180ms ease, color 180ms ease",
       isolation: "isolate",
