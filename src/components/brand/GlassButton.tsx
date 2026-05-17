@@ -20,17 +20,15 @@ function GlassButtonImpl({ onClick, children, active = false }: GlassButtonProps
       fontWeight: 600,
       letterSpacing: "0.02em",
       color: active ? "var(--ink-strong)" : "rgba(28,36,52,0.78)",
-      background: active ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.28)",
-      backdropFilter: "blur(8px) saturate(1.1)",
-      WebkitBackdropFilter: "blur(8px) saturate(1.1)",
-      border: active ? "1px solid rgba(255,255,255,0.9)" : "1px solid rgba(255,255,255,0.45)",
+      background: active ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.5)",
+      backdropFilter: active ? "blur(8px) saturate(1.1)" : "none",
+      WebkitBackdropFilter: active ? "blur(8px) saturate(1.1)" : "none",
+      border: active ? "1px solid rgba(255,255,255,0.9)" : "1px solid rgba(255,255,255,0.6)",
       boxShadow: active
         ? "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 8px -2px rgba(20,30,60,0.18)"
-        : "inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(20,30,60,0.06), 0 1px 4px -1px rgba(20,30,60,0.14)",
+        : "0 1px 3px -1px rgba(20,30,60,0.12)",
       cursor: active ? "default" : "pointer",
-      transition:
-        "transform 180ms ease, background 180ms ease, box-shadow 180ms ease, color 180ms ease",
-      willChange: "transform, background",
+      transition: "transform 180ms ease, background 180ms ease, color 180ms ease",
       isolation: "isolate",
     }),
     [active],
