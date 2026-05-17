@@ -414,6 +414,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             onFiles={setPptxFiles}
             label={labels.upload.dropzoneLabel}
             description={labels.upload.dropzoneHint}
+            hideAutoHint
           />
           {showConversionGuide && (
             <PptConversionGuide

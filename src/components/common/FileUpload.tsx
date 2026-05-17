@@ -16,6 +16,8 @@ interface FileUploadProps {
   label?: string;
   description?: string;
   hideFileList?: boolean;
+  /** Hide the auto-generated "{exts} · 최대 {size}" hint line. */
+  hideAutoHint?: boolean;
 }
 
 function formatBytes(bytes: number): string {
@@ -34,6 +36,7 @@ export function FileUpload({
   label = "파일을 드래그하거나 클릭하여 업로드",
   description,
   hideFileList = false,
+  hideAutoHint = false,
 }: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
 
@@ -104,9 +107,11 @@ export function FileUpload({
           {description && (
             <p className="mt-1 text-xs text-muted-foreground">{description}</p>
           )}
-          <p className="mt-1 text-xs text-muted-foreground">
-            {acceptedExtensions} · 최대 {formatBytes(maxSize)}
-          </p>
+          {!hideAutoHint && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {acceptedExtensions} · 최대 {formatBytes(maxSize)}
+            </p>
+          )}
         </div>
       </div>
 
