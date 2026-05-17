@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 import { ArrowLeft } from "lucide-react";
 import { GlassButton } from "./GlassButton";
 
@@ -13,7 +14,7 @@ interface CategoryStripProps {
 
 const ORDER: Array<"presentation" | "document" | "image"> = ["presentation", "document", "image"];
 
-export function CategoryStrip({ active, labels, backLabel, theme = "light", onSelect, onBack }: CategoryStripProps) {
+function CategoryStripImpl({ active, labels, backLabel, theme = "light", onSelect, onBack }: CategoryStripProps) {
   const isDark = theme === "dark";
   const labelColor = isDark ? "rgba(235,240,250,0.62)" : "rgba(40,48,64,0.55)";
   const blend: "normal" | "multiply" = isDark ? "normal" : "multiply";
@@ -49,3 +50,5 @@ export function CategoryStrip({ active, labels, backLabel, theme = "light", onSe
     </div>
   );
 }
+
+export const CategoryStrip = memo(CategoryStripImpl);

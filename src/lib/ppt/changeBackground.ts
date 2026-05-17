@@ -1,11 +1,13 @@
 import JSZip from "jszip";
 
-export type BgMode = "all-slides" | "master";
+export type BgMode = "all-slides" | "master" | "specific-slides";
 
 export interface ChangeBackgroundOptions {
   pptxFile: File;
   bgImage: File;
   mode: BgMode;
+  /** 1-based slide indices. Required when mode === "specific-slides". */
+  targetSlides?: number[];
   onProgress?: (pct: number) => void;
 }
 
@@ -172,12 +174,25 @@ function ensureNamespaces(xml: string): string {
   return result;
 }
 
+/**
+ * Extract the trailing integer from a slide-like filename
+ * (e.g. "ppt/slides/slide12.xml" → 12, "ppt/slideMasters/slideMaster3.xml" → 3).
+ * Falls back to 0 if no match — sorted-stable for non-conforming names.
+ */
+function slideOrdinal(path: string): number {
+  const m = path.match(/(\d+)\.xml$/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
 async function processSlideGroup(
   zip: JSZip,
   dir: string,
   mediaTarget: string,
   fillOffsets: FillRectOffsets,
   onEach?: (done: number, total: number) => void,
+  /** 1-based whitelist over the slide order (sorted by trailing integer in the
+   *  filename — matches extractCurrentBackgrounds). Undefined = all. */
+  targetIndices1Based?: ReadonlySet<number>,
 ): Promise<void> {
   const pattern = new RegExp(`^${dir}/[^/]+\\.xml$`);
   const slideFiles: string[] = [];
@@ -186,10 +201,17 @@ async function processSlideGroup(
     if (pattern.test(path)) slideFiles.push(path);
   });
 
-  slideFiles.sort();
+  slideFiles.sort((a, b) => slideOrdinal(a) - slideOrdinal(b));
 
-  for (let i = 0; i < slideFiles.length; i++) {
-    const slidePath = slideFiles[i];
+  const filtered = targetIndices1Based
+    ? slideFiles
+        .map((p, i) => ({ p, ord: i + 1 }))
+        .filter((entry) => targetIndices1Based.has(entry.ord))
+        .map((entry) => entry.p)
+    : slideFiles;
+
+  for (let i = 0; i < filtered.length; i++) {
+    const slidePath = filtered[i];
     const slideFileName = slidePath.split("/").pop()!;
     let slideXml = await zip.file(slidePath)!.async("text");
 
@@ -210,7 +232,7 @@ async function processSlideGroup(
     slideXml = setBackground(slideXml, relId, fillOffsets);
     zip.file(slidePath, slideXml);
 
-    onEach?.(i + 1, slideFiles.length);
+    onEach?.(i + 1, filtered.length);
   }
 }
 
@@ -265,6 +287,7 @@ export async function changeBackground({
   pptxFile,
   bgImage,
   mode,
+  targetSlides,
   onProgress,
 }: ChangeBackgroundOptions): Promise<Uint8Array> {
   const arrayBuffer = await pptxFile.arrayBuffer();
@@ -289,12 +312,7 @@ export async function changeBackground({
     slideSize.h,
   );
 
-  if (mode === "all-slides") {
-    const mediaTarget = `../media/${mediaName}`;
-    await processSlideGroup(zip, "ppt/slides", mediaTarget, fillOffsets, (done, total) => {
-      onProgress?.(Math.round((done / total) * 100));
-    });
-  } else {
+  if (mode === "master") {
     const mediaTarget = `../media/${mediaName}`;
     await processSlideGroup(
       zip,
@@ -304,6 +322,25 @@ export async function changeBackground({
       (done, total) => {
         onProgress?.(Math.round((done / total) * 100));
       },
+    );
+  } else {
+    const mediaTarget = `../media/${mediaName}`;
+    let whitelist: Set<number> | undefined;
+    if (mode === "specific-slides") {
+      if (!targetSlides || targetSlides.length === 0) {
+        throw new Error("적용할 슬라이드를 선택해 주세요.");
+      }
+      whitelist = new Set(targetSlides);
+    }
+    await processSlideGroup(
+      zip,
+      "ppt/slides",
+      mediaTarget,
+      fillOffsets,
+      (done, total) => {
+        onProgress?.(Math.round((done / total) * 100));
+      },
+      whitelist,
     );
   }
 

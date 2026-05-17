@@ -1,27 +1,21 @@
-export interface GalleryImage {
-  id: string;
-  url: string;
-  thumbnailUrl: string;
-  category: GalleryCategory;
-  tags: string[];
-  title: string;
-  width: number;
-  height: number;
-}
-
-export type GalleryCategory =
-  | "Nature"
-  | "Gradient"
-  | "Abstract";
+export type GalleryCategory = "gradient" | "nature" | "texture" | "pattern";
 
 export const GALLERY_CATEGORIES: GalleryCategory[] = [
-  "Nature",
-  "Gradient",
-  "Abstract",
+  "gradient",
+  "nature",
+  "texture",
+  "pattern",
 ];
 
-export const CATEGORY_LABEL: Record<GalleryCategory, string> = {
-  Nature: "자연",
-  Gradient: "그라디언트",
-  Abstract: "추상",
-};
+export interface GalleryImage {
+  id: string;
+  category: GalleryCategory;
+  /** Display title. Not i18n'd at the mock stage; revisit when Supabase lands. */
+  title: string;
+  url: string;
+  thumbnailUrl: string;
+  width: number;
+  height: number;
+  /** Future search. Not surfaced in UI in this PR. */
+  tags?: string[];
+}

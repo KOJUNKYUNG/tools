@@ -1,190 +1,182 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  GalleryHorizontalEndIcon,
-  PaintbrushIcon,
-  ChevronDownIcon,
-  XIcon,
-} from "lucide-react";
-import { MOCK_IMAGES, getAllTags } from "@/lib/gallery/mockData";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CheckIcon, ChevronDownIcon, GalleryHorizontalEndIcon } from "lucide-react";
+import { MOCK_IMAGES } from "@/lib/gallery/mockData";
 import {
   GALLERY_CATEGORIES,
-  CATEGORY_LABEL,
   type GalleryCategory,
   type GalleryImage,
 } from "@/lib/gallery/types";
 import { cn } from "@/lib/utils";
+import { template } from "@/lib/common/template";
 
-const ALL_TAGS = getAllTags();
+type CategoryFilter = "all" | GalleryCategory;
 
 interface InlineGalleryProps {
   onSelect: (image: GalleryImage) => void;
   selectedImageId?: string | null;
   forceCollapsed?: boolean;
+  /** When true, render in always-open mode without the collapsible header. */
+  forceOpen?: boolean;
+  labels: {
+    heading: string;            // "배경 갤러리" / "Background gallery"
+    countSuffixTemplate: string;  // e.g. "({n}개 이미지)"
+    categoryAll: string;
+    categoryByKey: Record<GalleryCategory, string>;
+    empty: string;
+  };
 }
 
-export function InlineGallery({ onSelect, selectedImageId, forceCollapsed }: InlineGalleryProps) {
+export function InlineGallery({
+  onSelect,
+  selectedImageId,
+  forceCollapsed,
+  forceOpen = false,
+  labels,
+}: InlineGalleryProps) {
   const [expanded, setExpanded] = useState(false);
+  const [category, setCategory] = useState<CategoryFilter>("all");
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.scrollTop = 0;
+    }
+  }, [category]);
 
   useEffect(() => {
     if (forceCollapsed) setExpanded(false);
   }, [forceCollapsed]);
-  const [category, setCategory] = useState<GalleryCategory | null>(null);
-  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
-  const filteredImages = useMemo(() => {
-    return MOCK_IMAGES.filter((img) => {
-      if (category && img.category !== category) return false;
-      if (selectedTags.size > 0) {
-        return img.tags.some((t) => selectedTags.has(t));
-      }
-      return true;
-    });
-  }, [category, selectedTags]);
+  const filtered = useMemo(() => {
+    if (category === "all") return MOCK_IMAGES;
+    return MOCK_IMAGES.filter((img) => img.category === category);
+  }, [category]);
 
-  const toggleTag = useCallback((tag: string) => {
-    setSelectedTags((prev) => {
-      const next = new Set(prev);
-      if (next.has(tag)) next.delete(tag);
-      else next.add(tag);
-      return next;
-    });
-  }, []);
-
-  const clearFilters = useCallback(() => {
-    setCategory(null);
-    setSelectedTags(new Set());
-  }, []);
-
-  const hasFilters = category !== null || selectedTags.size > 0;
+  const open = forceOpen || expanded;
 
   return (
-    <div className="rounded-xl border bg-card">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-muted/50"
-      >
-        <div className="flex items-center gap-2">
-          <GalleryHorizontalEndIcon className="size-5 text-primary" />
-          <span className="text-sm font-medium">배경 이미지 갤러리</span>
-          <span className="text-xs text-muted-foreground">
-            ({MOCK_IMAGES.length}개 이미지)
-          </span>
-        </div>
-        <ChevronDownIcon
+    <div
+      className={cn(
+        "rounded-[10px] border",
+        forceOpen && "flex h-full min-h-0 flex-col"
+      )}
+      style={{
+        background: "var(--surface)",
+        borderColor: "var(--border)",
+      }}
+    >
+      {!forceOpen && (
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors"
+          style={{ color: "var(--ink-strong)" }}
+        >
+          <div className="flex items-center gap-2">
+            <GalleryHorizontalEndIcon
+              className="size-4"
+              style={{ color: "var(--accent-electric)" }}
+            />
+            <span className="font-display text-[13px] font-medium">{labels.heading}</span>
+            <span className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
+              {template(labels.countSuffixTemplate, { n: MOCK_IMAGES.length })}
+            </span>
+          </div>
+          <ChevronDownIcon
+            className={cn("size-4 transition-transform", expanded && "rotate-180")}
+            style={{ color: "var(--ink-soft)" }}
+          />
+        </button>
+      )}
+
+      {open && (
+        <div
           className={cn(
-            "size-4 text-muted-foreground transition-transform",
-            expanded && "rotate-180",
+            forceOpen
+              ? "flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3"
+              : "border-t px-4 pb-3 pt-3"
           )}
-        />
-      </button>
-
-      {expanded && (
-        <div className="border-t px-4 pb-4 pt-3">
-          <div className="mb-3 flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setCategory(null)}
-              className={cn(
-                "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                category === null
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background hover:bg-muted",
-              )}
-            >
-              전체
-            </button>
+          style={{ borderColor: "var(--border)" }}
+        >
+          <div className="mb-2 flex shrink-0 flex-wrap items-center gap-1">
+            <CategoryChip
+              active={category === "all"}
+              onClick={() => setCategory("all")}
+              label={labels.categoryAll}
+            />
             {GALLERY_CATEGORIES.map((cat) => (
-              <button
+              <CategoryChip
                 key={cat}
-                type="button"
-                onClick={() => setCategory(cat === category ? null : cat)}
-                className={cn(
-                  "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                  category === cat
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background hover:bg-muted",
-                )}
-              >
-                {CATEGORY_LABEL[cat]}
-              </button>
+                active={category === cat}
+                onClick={() => setCategory(cat)}
+                label={labels.categoryByKey[cat]}
+              />
             ))}
           </div>
 
-          <div className="mb-3 flex flex-wrap items-center gap-1">
-            {ALL_TAGS.map((tag) => (
-              <Badge
-                key={tag}
-                variant={selectedTags.has(tag) ? "default" : "outline"}
-                className="cursor-pointer select-none text-[10px]"
-                onClick={() => toggleTag(tag)}
-              >
-                #{tag}
-              </Badge>
-            ))}
-            {hasFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="ml-1 flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground"
-              >
-                <XIcon className="size-2.5" />
-                초기화
-              </button>
-            )}
-          </div>
-
-          {filteredImages.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              검색 결과가 없습니다.
+          {filtered.length === 0 ? (
+            <div
+              className="py-8 text-center font-body text-[12px]"
+              style={{ color: "var(--ink-soft)" }}
+            >
+              {labels.empty}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {filteredImages.map((img) => {
+            <div
+              ref={gridRef}
+              className={cn(
+                "grid grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3",
+                forceOpen && "min-h-0 flex-1"
+              )}
+              style={
+                forceOpen
+                  ? { gridAutoRows: "min-content", alignContent: "start" }
+                  : { maxHeight: "180px", gridAutoRows: "min-content", alignContent: "start" }
+              }
+            >
+              {filtered.map((img) => {
                 const isSelected = selectedImageId === img.id;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={img.id}
-                    className={cn(
-                      "group relative overflow-hidden rounded-lg border transition-all",
-                      isSelected
-                        ? "ring-2 ring-primary ring-offset-2"
-                        : "hover:shadow-md",
-                    )}
+                    onClick={() => onSelect(img)}
+                    className="group relative overflow-hidden rounded-[6px] border text-left transition-colors"
+                    style={{
+                      background: "var(--surface-2)",
+                      borderColor: "var(--border)",
+                      borderWidth: 1,
+                      outline: isSelected ? "2px solid var(--accent-electric)" : undefined,
+                      outlineOffset: isSelected ? "-2px" : undefined,
+                    }}
                   >
                     <div className="relative aspect-video overflow-hidden">
-                      <Image
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
                         src={img.thumbnailUrl}
                         alt={img.title}
-                        fill
-                        sizes="(max-width: 640px) 50vw, 33vw"
-                        className="object-cover transition-transform group-hover:scale-105"
-                        unoptimized
+                        className="size-full object-cover"
                       />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/40">
-                        <Button
-                          size="sm"
-                          variant={isSelected ? "secondary" : "default"}
-                          className="translate-y-1 text-xs opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100"
-                          onClick={() => onSelect(img)}
+                      {isSelected && (
+                        <div
+                          className="absolute right-1.5 top-1.5 flex size-5 items-center justify-center rounded-full"
+                          style={{ background: "var(--accent-electric)", color: "#fff" }}
                         >
-                          <PaintbrushIcon className="size-3" />
-                          {isSelected ? "선택됨" : "선택"}
-                        </Button>
-                      </div>
+                          <CheckIcon className="size-3" />
+                        </div>
+                      )}
                     </div>
-                    <div className="p-2">
-                      <p className="truncate text-xs font-medium">{img.title}</p>
-                      <p className="truncate text-[10px] text-muted-foreground">
-                        {CATEGORY_LABEL[img.category]}
+                    <div className="px-2 py-1.5">
+                      <p
+                        className="truncate font-display text-[11px] font-medium"
+                        style={{ color: "var(--ink-strong)" }}
+                      >
+                        {img.title}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -192,5 +184,31 @@ export function InlineGallery({ onSelect, selectedImageId, forceCollapsed }: Inl
         </div>
       )}
     </div>
+  );
+}
+
+function CategoryChip({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-[5px] border px-2 py-0.5 font-body text-[10.5px] transition-colors"
+      style={{
+        background: active ? "var(--surface)" : "var(--surface-2)",
+        borderColor: active ? "var(--accent-electric)" : "var(--border)",
+        color: active ? "var(--ink-strong)" : "var(--ink)",
+        boxShadow: active ? "inset 0 -2px 0 var(--accent-electric)" : undefined,
+      }}
+    >
+      {label}
+    </button>
   );
 }

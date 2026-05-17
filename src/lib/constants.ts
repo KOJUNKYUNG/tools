@@ -34,7 +34,7 @@ export const TOOLS: ToolInfo[] = [
   {
     slug: "ppt-background",
     title: "PPT 배경 바꾸기",
-    description: "슬라이드 배경을 한 번에 일괄 교체합니다.",
+    description: "PPTX 슬라이드 배경을 한 번에 일괄 교체합니다.",
     i18nKey: "tools.ppt-background",
     href: "/tools/ppt-background",
     icon: Layers,

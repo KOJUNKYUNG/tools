@@ -49,7 +49,116 @@
     "queued": "Queued"
   },
   "tools": {
-    "ppt-background": { "title": "Change PPT background", "description": "Swap the background across every slide at once." },
+    "ppt-background": {
+      "title": "Change PPT background",
+      "description": "Replace the background across every slide of a .pptx file at once.",
+      "page": {
+        "header": {
+          "title": "Replace PPTX backgrounds",
+          "description": "Swap the background image across every slide of a .pptx file at once."
+        },
+        "upload": {
+          "dropzoneLabel": "Drop a PPTX file here, or click to browse",
+          "dropzoneHint": "Only .pptx · Up to 10 MB",
+          "pptDetected": "This .ppt file needs to be converted. Follow one of the methods below to save it as .pptx, then upload again."
+        },
+        "conversion": {
+          "heading": "This file needs to be converted to .pptx",
+          "note": "Image extraction does work with .ppt files.",
+          "methods": [
+            {
+              "title": "Microsoft PowerPoint",
+              "steps": [
+                "Open the .ppt in PowerPoint",
+                "File → Save As",
+                "Choose PowerPoint Presentation (*.pptx) and save"
+              ]
+            },
+            {
+              "title": "Google Slides (free, no install)",
+              "steps": [
+                "Visit slides.google.com and upload the .ppt to Google Drive",
+                "Open the file in Google Slides",
+                "File → Download → Microsoft PowerPoint (.pptx)"
+              ],
+              "linkLabel": "slides.google.com",
+              "linkHref": "https://slides.google.com"
+            },
+            {
+              "title": "LibreOffice Impress (free desktop)",
+              "steps": [
+                "Install LibreOffice and open the .ppt",
+                "File → Save As",
+                "Choose PowerPoint 2007-365 (.pptx) and save"
+              ],
+              "linkLabel": "LibreOffice",
+              "linkHref": "https://www.libreoffice.org/download"
+            }
+          ]
+        },
+        "fileStatus": {
+          "slideCountTemplate": "{n} slides",
+          "changeFile": "Choose another file",
+          "analyzing": "Analyzing slide backgrounds…"
+        },
+        "mode": {
+          "label": "Apply to",
+          "optionAll": "All slides",
+          "optionMaster": "Master",
+          "optionSpecific": "Specific",
+          "masterNote": "Slides with their own backgrounds may override the master background.",
+          "specificInput": "e.g. 1, 3, 5-7",
+          "specificSelectAll": "Select all",
+          "specificClear": "Clear",
+          "specificHint": "Click thumbnails or type a range above"
+        },
+        "thumbnails": {
+          "heading": "Slides",
+          "empty": "No background",
+          "sourceSlide": "Slide",
+          "sourceLayout": "Layout",
+          "sourceMaster": "Master"
+        },
+        "background": {
+          "heading": "New background",
+          "preview": "Preview",
+          "empty": "No background selected yet",
+          "fromGallery": "From the gallery",
+          "fromUpload": "Uploaded image",
+          "clear": "Clear selection",
+          "uploadLabel": "Upload image",
+          "uploadHint": "JPG, PNG",
+          "sourceUpload": "Upload",
+          "sourceGallery": "Gallery"
+        },
+        "gallery": {
+          "heading": "Background gallery",
+          "countSuffixTemplate": "({n} images)",
+          "categoryAll": "All",
+          "categoryGradient": "Gradient",
+          "categoryNature": "Nature",
+          "categoryTexture": "Texture",
+          "categoryPattern": "Pattern",
+          "empty": "No images in this category"
+        },
+        "action": {
+          "apply": "Apply background",
+          "applyDisabledHint": "Choose an image first",
+          "specificEmpty": "Select at least one slide",
+          "reset": "Reset"
+        },
+        "processing": {
+          "processing": "Converting…",
+          "done": "Done",
+          "doneBody": "",
+          "download": "Download",
+          "error": "Error",
+          "errorBody": "Something went wrong. Please try again.",
+          "retry": "Retry",
+          "reset": "Reset"
+        }
+      }
+    },
     "ppt-extract": { "title": "Extract PPT images", "description": "Pull every embedded image out of a .pptx file." },
     "pdf-merge": { "title": "Merge PDFs", "description": "Combine multiple PDFs into one precise document." },
     "pdf-split": { "title": "Split PDF", "description": "Separate pages or extract ranges." },
