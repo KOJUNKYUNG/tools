@@ -62,7 +62,7 @@ export function BackgroundPicker({
   return (
     <div className="flex h-full min-h-0 flex-col gap-1.5">
       {/* Row 1: Preview (left, 240×135) + right column (Action fixed-height + Toggle) */}
-      <div className="flex shrink-0 items-stretch gap-3">
+      <div className="flex shrink-0 items-start gap-3">
         {/* Preview card — 240×135 (16:9) */}
         <div
           className="shrink-0 overflow-hidden rounded-[8px] border"
