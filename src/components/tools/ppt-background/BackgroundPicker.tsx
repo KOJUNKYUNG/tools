@@ -73,8 +73,8 @@ export function BackgroundPicker({
           }}
         >
           <div
-            className="relative"
-            style={{ background: "var(--surface-2)", height: "135px" }}
+            className="relative aspect-video overflow-hidden"
+            style={{ background: "var(--surface-2)" }}
           >
             {bgPreviewUrl ? (
               <>
@@ -82,8 +82,7 @@ export function BackgroundPicker({
                 <img
                   src={bgPreviewUrl}
                   alt="background preview"
-                  className="block object-cover"
-                  style={{ width: "240px", height: "135px" }}
+                  className="size-full object-cover"
                 />
                 <div
                   className="absolute bottom-1.5 left-1.5 flex max-w-[calc(100%-2.25rem)] items-center gap-1.5 rounded-[4px] px-2 py-0.5"
