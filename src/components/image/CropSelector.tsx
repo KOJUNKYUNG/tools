@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import {
   useCallback,
   useEffect,
@@ -8,12 +9,40 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
+import { maxFitCrop } from "@/lib/image/maxFitCrop";
+import {
+  aspectLockedResize,
+  type ResizeHandle,
+} from "@/lib/image/aspectLockedResize";
+
 export interface CropRect {
   x: number;
   y: number;
   width: number;
   height: number;
 }
+
+const HANDLE_POSITIONS: Record<ResizeHandle, React.CSSProperties> = {
+  nw: { top: -6, left: -6 },
+  n: { top: -6, left: "calc(50% - 6px)" },
+  ne: { top: -6, right: -6 },
+  e: { top: "calc(50% - 6px)", right: -6 },
+  se: { bottom: -6, right: -6 },
+  s: { bottom: -6, left: "calc(50% - 6px)" },
+  sw: { bottom: -6, left: -6 },
+  w: { top: "calc(50% - 6px)", left: -6 },
+};
+
+const HANDLE_CURSORS: Record<ResizeHandle, string> = {
+  nw: "nwse-resize",
+  n: "ns-resize",
+  ne: "nesw-resize",
+  e: "ew-resize",
+  se: "nwse-resize",
+  s: "ns-resize",
+  sw: "nesw-resize",
+  w: "ew-resize",
+};
 
 interface CropSelectorProps {
   imageUrl: string;
@@ -34,30 +63,18 @@ export function CropSelector({
   const [crop, setCrop] = useState<CropRect>({ x: 0, y: 0, width: 0, height: 0 });
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, cropX: 0, cropY: 0 });
-
-  const targetAspect = targetWidth / targetHeight;
+  const [resizing, setResizing] = useState<ResizeHandle | null>(null);
+  const resizeStart = useRef<{ rect: CropRect }>({
+    rect: { x: 0, y: 0, width: 0, height: 0 },
+  });
 
   const initCrop = useCallback(
     (natW: number, natH: number) => {
-      let cropW: number;
-      let cropH: number;
-      const imgAspect = natW / natH;
-
-      if (imgAspect > targetAspect) {
-        cropH = natH;
-        cropW = Math.round(natH * targetAspect);
-      } else {
-        cropW = natW;
-        cropH = Math.round(natW / targetAspect);
-      }
-
-      const x = Math.round((natW - cropW) / 2);
-      const y = Math.round((natH - cropH) / 2);
-      const rect = { x, y, width: cropW, height: cropH };
+      const rect = maxFitCrop({ w: natW, h: natH }, targetWidth, targetHeight);
       setCrop(rect);
       onCropChange(rect);
     },
-    [targetAspect, onCropChange],
+    [targetWidth, targetHeight, onCropChange],
   );
 
   const handleImgLoad = useCallback(
@@ -132,10 +149,47 @@ export function CropSelector({
     setDragging(false);
   };
 
+  const handleResizePointerDown = (
+    e: ReactPointerEvent<HTMLDivElement>,
+    handle: ResizeHandle,
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizing(handle);
+    resizeStart.current = { rect: crop };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handleResizePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!resizing) return;
+    const rectEl = containerRef.current?.querySelector("img");
+    if (!rectEl) return;
+    const rect = rectEl.getBoundingClientRect();
+    const mouseX = (e.clientX - rect.left) / scaleX;
+    const mouseY = (e.clientY - rect.top) / scaleY;
+
+    const next = aspectLockedResize(
+      resizing,
+      resizeStart.current.rect,
+      { x: mouseX, y: mouseY },
+      targetWidth / targetHeight,
+      { w: imgNatural.w, h: imgNatural.h },
+    );
+    setCrop(next);
+    onCropChange(next);
+  };
+
+  const handleResizePointerUp = () => {
+    setResizing(null);
+  };
+
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium">
-        영역 선택 <span className="text-xs font-normal text-muted-foreground">(드래그하여 이동)</span>
+        영역 선택{" "}
+        <span className="text-xs font-normal text-muted-foreground">
+          (드래그하여 이동, 모서리로 크기 조절)
+        </span>
       </p>
       <div
         ref={containerRef}
@@ -195,11 +249,28 @@ export function CropSelector({
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
             >
-              <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
+              <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3">
                 {Array.from({ length: 9 }).map((_, i) => (
                   <div key={i} className="border border-white/20" />
                 ))}
               </div>
+              {/* 8 resize handles */}
+              {(["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const).map((h) => (
+                <div
+                  key={h}
+                  role="button"
+                  aria-label={`Resize ${h}`}
+                  className="absolute size-3 rounded-sm border-2 border-white bg-white/90 shadow"
+                  style={{
+                    ...HANDLE_POSITIONS[h],
+                    cursor: HANDLE_CURSORS[h],
+                    touchAction: "none",
+                  }}
+                  onPointerDown={(e) => handleResizePointerDown(e, h)}
+                  onPointerMove={handleResizePointerMove}
+                  onPointerUp={handleResizePointerUp}
+                />
+              ))}
             </div>
           </>
         )}
