@@ -190,6 +190,14 @@
         "cropToggleHint": "켜면 원본 이미지에서 일부를 잘라내 비율을 맞춥니다. 끄면 이미지가 늘어나거나 찌부러질 수 있습니다.",
         "sizePresetsTitle": "크기 프리셋",
         "ratioPresetsTitle": "비율 프리셋",
+        "sizePreset": {
+          "fhd": "FHD (1920×1080)",
+          "hd": "HD (1280×720)",
+          "square": "정방형 (1080×1080)",
+          "mobile": "모바일 (390×844)",
+          "uhd4k": "4K UHD (3840×2160)",
+          "instaPortrait": "인스타 세로 (1080×1350)"
+        },
         "apply": "크기 변경하기",
         "doneTitle": "변경 완료",
         "download": "다운로드",

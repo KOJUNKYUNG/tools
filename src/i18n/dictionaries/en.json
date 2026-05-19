@@ -190,6 +190,14 @@
         "cropToggleHint": "When on, the image is cropped to match the target ratio. When off, the image is stretched.",
         "sizePresetsTitle": "Size presets",
         "ratioPresetsTitle": "Ratio presets",
+        "sizePreset": {
+          "fhd": "FHD (1920×1080)",
+          "hd": "HD (1280×720)",
+          "square": "Square (1080×1080)",
+          "mobile": "Mobile (390×844)",
+          "uhd4k": "4K UHD (3840×2160)",
+          "instaPortrait": "Insta portrait (1080×1350)"
+        },
         "apply": "Resize",
         "doneTitle": "Resized",
         "download": "Download",

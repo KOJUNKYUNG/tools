@@ -12,6 +12,7 @@ export type ActivePreset = { kind: "size" | "ratio"; idx: number } | null;
 interface ImageResizePresetsProps {
   sizePresetsTitle: string;
   ratioPresetsTitle: string;
+  sizePresetLabels: Record<string, string>;
   onSizePreset: (preset: ResizePreset, idx: number) => void;
   onRatioPreset: (preset: AspectPreset, idx: number) => void;
   activePreset: ActivePreset;
@@ -20,6 +21,7 @@ interface ImageResizePresetsProps {
 export function ImageResizePresets({
   sizePresetsTitle,
   ratioPresetsTitle,
+  sizePresetLabels,
   onSizePreset,
   onRatioPreset,
   activePreset,
@@ -32,11 +34,11 @@ export function ImageResizePresets({
             activePreset?.kind === "size" && activePreset.idx === i;
           return (
             <PresetChip
-              key={p.label}
+              key={p.labelKey}
               active={active}
               onClick={() => onSizePreset(p, i)}
             >
-              {p.label}
+              {sizePresetLabels[p.labelKey] ?? p.labelKey}
             </PresetChip>
           );
         })}

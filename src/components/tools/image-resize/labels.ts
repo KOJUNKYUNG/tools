@@ -27,6 +27,7 @@ export interface ImageResizeLabels {
   cropSelectionLabel: string;
   stretchModeLabel: string;
   cropFooterTemplate: string;
+  sizePresetLabels: Record<string, string>;
 }
 
 export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
@@ -58,5 +59,13 @@ export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
     cropSelectionLabel: page.cropSelectionLabel,
     stretchModeLabel: page.stretchModeLabel,
     cropFooterTemplate: page.cropFooterTemplate,
+    sizePresetLabels: {
+      fhd: page.sizePreset.fhd,
+      hd: page.sizePreset.hd,
+      square: page.sizePreset.square,
+      mobile: page.sizePreset.mobile,
+      uhd4k: page.sizePreset.uhd4k,
+      instaPortrait: page.sizePreset.instaPortrait,
+    },
   };
 }
