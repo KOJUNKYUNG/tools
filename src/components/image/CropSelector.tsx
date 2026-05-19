@@ -222,17 +222,10 @@ export function CropSelector({
   };
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium">
-        영역 선택{" "}
-        <span className="text-xs font-normal text-muted-foreground">
-          (드래그하여 이동, 모서리로 크기 조절)
-        </span>
-      </p>
-      <div
-        ref={containerRef}
-        className="relative inline-block w-full select-none overflow-hidden rounded-lg border bg-muted/30"
-      >
+    <div
+      ref={containerRef}
+      className="relative inline-block w-full select-none overflow-hidden rounded-lg border bg-muted/30"
+    >
         <img
           src={imageUrl}
           alt="원본 미리보기"
@@ -306,10 +299,6 @@ export function CropSelector({
             </div>
           </>
         )}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {targetWidth}×{targetHeight} 비율로 잘라냅니다 · 크롭 영역: {crop.width}×{crop.height}px
-      </p>
     </div>
   );
 }

@@ -198,7 +198,11 @@
         "compressLink": "압축/변환하러 가기",
         "resultSummary": "{w}×{h} ({size}, {format})",
         "uploadPrompt": "이미지를 드래그하거나 클릭하여 업로드",
-        "uploadHint": "JPG, PNG, WebP 파일을 지원합니다."
+        "uploadHint": "JPG, PNG, WebP 파일을 지원합니다.",
+        "tryAgain": "다시 변경",
+        "cropSelectionLabel": "영역 선택 (드래그하여 이동, 모서리로 크기 조절)",
+        "stretchModeLabel": "이미지를 지정한 크기에 강제로 맞춰 크기를 변경",
+        "cropFooterTemplate": "{w}×{h} 비율로 잘라냅니다 · 크롭 영역: {cw}×{ch}px"
       }
     }
   }

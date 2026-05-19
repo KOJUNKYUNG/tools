@@ -198,7 +198,11 @@
         "compressLink": "Compress / convert",
         "resultSummary": "{w}×{h} ({size}, {format})",
         "uploadPrompt": "Drag an image here, or click to upload",
-        "uploadHint": "JPG, PNG, WebP supported."
+        "uploadHint": "JPG, PNG, WebP supported.",
+        "tryAgain": "Try again",
+        "cropSelectionLabel": "Selection (drag to move, corners to resize)",
+        "stretchModeLabel": "The image is stretched to fit the given size.",
+        "cropFooterTemplate": "Crop to {w}×{h} ratio · selection: {cw}×{ch}px"
       }
     }
   }

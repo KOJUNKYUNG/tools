@@ -19,7 +19,7 @@ import { stageFiles } from "@/lib/common/toolHandoff";
 import type { CropRect } from "@/components/image/CropSelector";
 import type { ImageResizeLabels } from "./labels";
 import { ImageResizeControls } from "./ImageResizeControls";
-import { ImageResizePresets } from "./ImageResizePresets";
+import { ImageResizePresets, type ActivePreset } from "./ImageResizePresets";
 import { ImageResizePreview } from "./ImageResizePreview";
 import { ImageResizeResult } from "./ImageResizeResult";
 
@@ -50,6 +50,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   const [cropEnabled, setCropEnabled] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
   const [uploadKey, setUploadKey] = useState(0);
+  const [activePreset, setActivePreset] = useState<ActivePreset>(null);
 
   const {
     files,
@@ -148,6 +149,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   const hNum = parseInt(targetH || "0", 10) || 0;
 
   const handleWidthChange = (next: string) => {
+    setActivePreset(null);
     setTargetW(next);
     if (lockAspect && origDims) {
       const nw = parseInt(next || "0", 10) || 0;
@@ -161,6 +163,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   };
 
   const handleHeightChange = (next: string) => {
+    setActivePreset(null);
     setTargetH(next);
     if (lockAspect && origDims) {
       const nh = parseInt(next || "0", 10) || 0;
@@ -173,16 +176,18 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     }
   };
 
-  const handleSizePreset = (preset: ResizePreset) => {
+  const handleSizePreset = (preset: ResizePreset, idx: number) => {
     setTargetW(String(preset.width));
     setTargetH(String(preset.height));
+    setActivePreset({ kind: "size", idx });
   };
 
-  const handleRatioPreset = (preset: AspectPreset) => {
+  const handleRatioPreset = (preset: AspectPreset, idx: number) => {
     setLockAspect(true);
     if (!origDims) {
       setTargetW(String(preset.w));
       setTargetH(String(preset.h));
+      setActivePreset({ kind: "ratio", idx });
       return;
     }
     const rect = maxFitCrop(origDims, preset.w, preset.h);
@@ -191,6 +196,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     if (cropEnabled) {
       setCropRect(rect);
     }
+    setActivePreset({ kind: "ratio", idx });
   };
 
   const handleToggleCropEnabled = () => {
@@ -284,13 +290,11 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
               targetW={wNum}
               targetH={hNum}
               onCropChange={setCropRect}
+              cropRect={cropRect}
+              cropSelectionLabel={labels.cropSelectionLabel}
+              stretchModeLabel={labels.stretchModeLabel}
+              cropFooterTemplate={labels.cropFooterTemplate}
             />
-            <p
-              className="font-body text-[11.5px]"
-              style={{ color: "var(--ink-soft)" }}
-            >
-              {labels.originalSize}: {origDims.w} × {origDims.h}px
-            </p>
           </div>
 
           {/* Right: controls */}
@@ -307,6 +311,8 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                 mimeType={result.blob.type}
                 onDownload={download}
                 onCompressOrConvert={handleCompressOrConvert}
+                tryAgainLabel={labels.tryAgain}
+                onTryAgain={retry}
               />
             ) : status === "idle" ? (
               <button
@@ -346,11 +352,19 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
               onToggleCropEnabled={handleToggleCropEnabled}
             />
 
+            <p
+              className="font-body text-[11.5px]"
+              style={{ color: "var(--ink-soft)" }}
+            >
+              {labels.originalSize}: {origDims.w} × {origDims.h}px
+            </p>
+
             <ImageResizePresets
               sizePresetsTitle={labels.sizePresetsTitle}
               ratioPresetsTitle={labels.ratioPresetsTitle}
               onSizePreset={handleSizePreset}
               onRatioPreset={handleRatioPreset}
+              activePreset={activePreset}
             />
           </div>
         </div>

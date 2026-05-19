@@ -23,6 +23,10 @@ export interface ImageResizeLabels {
   uploadPrompt: string;
   uploadHint: string;
   uploadMaxSize: string;
+  tryAgain: string;
+  cropSelectionLabel: string;
+  stretchModeLabel: string;
+  cropFooterTemplate: string;
 }
 
 export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
@@ -50,5 +54,9 @@ export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
     uploadPrompt: page.uploadPrompt,
     uploadHint: page.uploadHint,
     uploadMaxSize: dict.common.fileUpload.maxSize,
+    tryAgain: page.tryAgain,
+    cropSelectionLabel: page.cropSelectionLabel,
+    stretchModeLabel: page.stretchModeLabel,
+    cropFooterTemplate: page.cropFooterTemplate,
   };
 }
