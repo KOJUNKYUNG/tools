@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { Button } from "@/components/ui/button";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
+import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import {
   compressImages,
   type CompressResult,
@@ -55,6 +56,14 @@ export default function ImageCompressPage() {
       downloadBlob(res.data, res.filename, mime);
     },
   });
+
+  useEffect(() => {
+    const staged = consumeStagedFiles();
+    if (staged && staged.files.length > 0) {
+      setFiles(staged.files);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
