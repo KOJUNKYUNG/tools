@@ -1,6 +1,7 @@
 "use client";
 
 import { LockIcon, UnlockIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface ImageResizeControlsProps {
   widthLabel: string;
@@ -35,6 +36,17 @@ export function ImageResizeControls({
   cropEnabled,
   onToggleCropEnabled,
 }: ImageResizeControlsProps) {
+  const [localW, setLocalW] = useState(widthValue);
+  const [localH, setLocalH] = useState(heightValue);
+
+  useEffect(() => {
+    setLocalW(widthValue);
+  }, [widthValue]);
+
+  useEffect(() => {
+    setLocalH(heightValue);
+  }, [heightValue]);
+
   return (
     <div className="space-y-3">
       <div className="flex items-end gap-3">
@@ -50,8 +62,16 @@ export function ImageResizeControls({
             id="ir-w"
             type="number"
             min={1}
-            value={widthValue}
-            onChange={(e) => onWidthChange(e.target.value)}
+            value={localW}
+            onChange={(e) => setLocalW(e.target.value)}
+            onBlur={() => {
+              if (localW !== widthValue) onWidthChange(localW);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.currentTarget.blur();
+              }
+            }}
             className="w-full rounded-[5px] border px-2.5 py-1.5 font-display text-[12px] outline-none focus:border-[color:var(--accent-electric)] focus:ring-1 focus:ring-[color:var(--accent-electric)]"
             style={{
               background: "var(--surface)",
@@ -96,8 +116,16 @@ export function ImageResizeControls({
             id="ir-h"
             type="number"
             min={1}
-            value={heightValue}
-            onChange={(e) => onHeightChange(e.target.value)}
+            value={localH}
+            onChange={(e) => setLocalH(e.target.value)}
+            onBlur={() => {
+              if (localH !== heightValue) onHeightChange(localH);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.currentTarget.blur();
+              }
+            }}
             className="w-full rounded-[5px] border px-2.5 py-1.5 font-display text-[12px] outline-none focus:border-[color:var(--accent-electric)] focus:ring-1 focus:ring-[color:var(--accent-electric)]"
             style={{
               background: "var(--surface)",
