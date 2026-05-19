@@ -35,7 +35,10 @@
     "openTool": "이 도구 열기",
     "drop": "파일을 여기에 놓으세요",
     "or": "또는",
-    "click": "클릭해서 찾아보기"
+    "click": "클릭해서 찾아보기",
+    "fileUpload": {
+      "maxSize": "최대 {size}"
+    }
   },
   "footer": {
     "copyright": "© 2026 온탭 · 브라우저 안에서 동작합니다",
