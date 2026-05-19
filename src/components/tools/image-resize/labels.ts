@@ -3,6 +3,7 @@ import type { Dictionary } from "@/i18n/config";
 export interface ImageResizeLabels {
   title: string;
   subtitle: string;
+  header: { title: string; description: string; reset: string };
   originalSize: string;
   widthLabel: string;
   heightLabel: string;
@@ -28,6 +29,7 @@ export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
   return {
     title: page.title,
     subtitle: page.subtitle,
+    header: page.header,
     originalSize: page.originalSize,
     widthLabel: page.widthLabel,
     heightLabel: page.heightLabel,

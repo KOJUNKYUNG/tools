@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { MaximizeIcon, RotateCcwIcon } from "lucide-react";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
@@ -36,8 +37,7 @@ interface ImageResizeToolProps {
   lang: string;
 }
 
-export function ImageResizeTool({ labels, inline, lang }: ImageResizeToolProps) {
-  void inline;
+export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToolProps) {
   const router = useRouter();
 
   const [origDims, setOrigDims] = useState<{ w: number; h: number } | null>(null);
@@ -221,10 +221,16 @@ export function ImageResizeTool({ labels, inline, lang }: ImageResizeToolProps) 
     ? `${file.name.replace(/\.[^.]+$/, "")}-resized.${file.name.split(".").pop()}`
     : "resized.png";
 
-  // The chrome (title + subtitle silver header) is rendered by the page or by
-  // Screen3 in inline mode. This component renders the body only.
-  return (
-    <div className="space-y-5">
+  const onReset = useCallback(() => {
+    retry();
+    handleFilesChange([]);
+  }, [retry, handleFilesChange]);
+
+  // In inline mode (Screen3 mount), the chrome/header/reset are suppressed —
+  // the surrounding surface provides chrome. In page-route mode, this component
+  // renders its own silver card chrome + header + reset, mirroring ppt-background.
+  const body = (
+    <div className={inline ? "space-y-5" : "space-y-5 px-6 py-4"}>
       {!file && (
         <FileUpload
           accept={IMAGE_ACCEPT}
@@ -336,6 +342,63 @@ export function ImageResizeTool({ labels, inline, lang }: ImageResizeToolProps) 
           </div>
         </div>
       )}
+    </div>
+  );
+
+  if (inline) return body;
+
+  return (
+    <div
+      className="relative flex flex-col overflow-hidden rounded-[14px] border"
+      style={{
+        background: "color-mix(in oklch, var(--surface) 92%, transparent)",
+        backdropFilter: "blur(10px) saturate(1.1)",
+        WebkitBackdropFilter: "blur(10px) saturate(1.1)",
+        borderColor: "var(--border)",
+        boxShadow:
+          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+      }}
+    >
+      <button
+        type="button"
+        onClick={onReset}
+        aria-label={labels.header.reset}
+        title={labels.header.reset}
+        className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
+        style={{ color: "var(--ink-soft)" }}
+      >
+        <RotateCcwIcon className="size-4" />
+      </button>
+      <div
+        className="flex items-start gap-3 border-b px-6 pt-3 pb-3"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <div
+          className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
+            color: "var(--ink-strong)",
+          }}
+        >
+          <MaximizeIcon size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div
+            className="font-display text-[16px] font-semibold leading-[1.2] tracking-[0.005em] font-ko"
+            style={{ color: "var(--headline)" }}
+          >
+            {labels.header.title}
+          </div>
+          <div
+            className="mt-1 font-body text-[12px] leading-[1.45]"
+            style={{ color: "var(--ink)" }}
+          >
+            {labels.header.description}
+          </div>
+        </div>
+      </div>
+      {body}
     </div>
   );
 }

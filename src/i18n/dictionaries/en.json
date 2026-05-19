@@ -173,6 +173,11 @@
       "page": {
         "title": "Resize image",
         "subtitle": "Change image dimensions by exact pixels or aspect ratio.",
+        "header": {
+          "title": "Resize image",
+          "description": "Change image dimensions by exact pixels or aspect ratio.",
+          "reset": "Reset"
+        },
         "originalSize": "Original size",
         "widthLabel": "Width (px)",
         "heightLabel": "Height (px)",

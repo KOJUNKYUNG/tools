@@ -173,6 +173,11 @@
       "page": {
         "title": "이미지 크기 변경",
         "subtitle": "이미지의 해상도를 원하는 크기 또는 비율로 변경합니다.",
+        "header": {
+          "title": "이미지 크기 변경",
+          "description": "이미지의 해상도를 원하는 크기 또는 비율로 변경합니다.",
+          "reset": "도구 초기화"
+        },
         "originalSize": "원본 크기",
         "widthLabel": "너비 (px)",
         "heightLabel": "높이 (px)",
