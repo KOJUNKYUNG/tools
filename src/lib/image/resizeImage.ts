@@ -8,8 +8,21 @@ export const RESIZE_PRESETS: ResizePreset[] = [
   { label: "FHD (1920×1080)", width: 1920, height: 1080 },
   { label: "HD (1280×720)", width: 1280, height: 720 },
   { label: "정방형 (1080×1080)", width: 1080, height: 1080 },
-  { label: "800×600", width: 800, height: 600 },
-  { label: "400×300", width: 400, height: 300 },
+  { label: "모바일 (390×844)", width: 390, height: 844 },
+];
+
+export interface AspectPreset {
+  label: string;
+  w: number;
+  h: number;
+}
+
+export const ASPECT_PRESETS: AspectPreset[] = [
+  { label: "1:1", w: 1, h: 1 },
+  { label: "16:9", w: 16, h: 9 },
+  { label: "9:16", w: 9, h: 16 },
+  { label: "4:3", w: 4, h: 3 },
+  { label: "3:4", w: 3, h: 4 },
 ];
 
 export type ResizeMode = "pixel" | "percent" | "preset";
