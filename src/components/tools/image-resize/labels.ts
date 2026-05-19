@@ -5,6 +5,7 @@ export interface ImageResizeLabels {
   subtitle: string;
   header: { title: string; description: string; reset: string };
   originalSize: string;
+  revertToOriginal: string;
   widthLabel: string;
   heightLabel: string;
   lockAspect: string;
@@ -37,6 +38,7 @@ export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
     subtitle: page.subtitle,
     header: page.header,
     originalSize: page.originalSize,
+    revertToOriginal: page.revertToOriginal,
     widthLabel: page.widthLabel,
     heightLabel: page.heightLabel,
     lockAspect: page.lockAspect,

@@ -371,14 +371,10 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
               onToggleLock={() => setLockAspect((v) => !v)}
               cropEnabled={cropEnabled}
               onToggleCropEnabled={handleToggleCropEnabled}
+              origDims={origDims}
+              originalSizeLabel={labels.originalSize}
+              revertToOriginalLabel={labels.revertToOriginal}
             />
-
-            <p
-              className="font-body text-[11.5px]"
-              style={{ color: "var(--ink-soft)" }}
-            >
-              {labels.originalSize}: {origDims.w} × {origDims.h}px
-            </p>
 
             <ImageResizePresets
               sizePresetsTitle={labels.sizePresetsTitle}

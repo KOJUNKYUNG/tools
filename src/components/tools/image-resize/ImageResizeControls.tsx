@@ -1,7 +1,8 @@
 "use client";
 
-import { LockIcon, UnlockIcon } from "lucide-react";
+import { LockIcon, RotateCcwIcon, UnlockIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { MAX_DIMENSION } from "@/lib/image/resizeImage";
 
 interface ImageResizeControlsProps {
   widthLabel: string;
@@ -18,6 +19,9 @@ interface ImageResizeControlsProps {
   onToggleLock: () => void;
   cropEnabled: boolean;
   onToggleCropEnabled: () => void;
+  originalSizeLabel: string;
+  revertToOriginalLabel: string;
+  origDims: { w: number; h: number } | null;
 }
 
 export function ImageResizeControls({
@@ -35,6 +39,9 @@ export function ImageResizeControls({
   onToggleLock,
   cropEnabled,
   onToggleCropEnabled,
+  originalSizeLabel,
+  revertToOriginalLabel,
+  origDims,
 }: ImageResizeControlsProps) {
   const [localW, setLocalW] = useState(widthValue);
   const [localH, setLocalH] = useState(heightValue);
@@ -62,10 +69,22 @@ export function ImageResizeControls({
             id="ir-w"
             type="number"
             min={1}
+            max={MAX_DIMENSION}
             value={localW}
             onChange={(e) => setLocalW(e.target.value)}
             onBlur={() => {
-              if (localW !== widthValue) onWidthChange(localW);
+              const parsed = parseInt(localW || "0", 10);
+              const clamped = Math.min(
+                MAX_DIMENSION,
+                Math.max(1, isNaN(parsed) ? 0 : parsed),
+              );
+              if (clamped === 0) {
+                if (localW !== widthValue) onWidthChange(localW);
+                return;
+              }
+              const clampedStr = String(clamped);
+              setLocalW(clampedStr);
+              if (clampedStr !== widthValue) onWidthChange(clampedStr);
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -116,10 +135,22 @@ export function ImageResizeControls({
             id="ir-h"
             type="number"
             min={1}
+            max={MAX_DIMENSION}
             value={localH}
             onChange={(e) => setLocalH(e.target.value)}
             onBlur={() => {
-              if (localH !== heightValue) onHeightChange(localH);
+              const parsed = parseInt(localH || "0", 10);
+              const clamped = Math.min(
+                MAX_DIMENSION,
+                Math.max(1, isNaN(parsed) ? 0 : parsed),
+              );
+              if (clamped === 0) {
+                if (localH !== heightValue) onHeightChange(localH);
+                return;
+              }
+              const clampedStr = String(clamped);
+              setLocalH(clampedStr);
+              if (clampedStr !== heightValue) onHeightChange(clampedStr);
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -135,6 +166,40 @@ export function ImageResizeControls({
           />
         </div>
       </div>
+
+      {origDims && (
+        <div className="flex items-center justify-between gap-2">
+          <p
+            className="font-body text-[11.5px]"
+            style={{ color: "var(--ink-soft)" }}
+          >
+            {originalSizeLabel}: {origDims.w} × {origDims.h}px
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const ws = String(origDims.w);
+              const hs = String(origDims.h);
+              setLocalW(ws);
+              setLocalH(hs);
+              onWidthChange(ws);
+              onHeightChange(hs);
+            }}
+            aria-label={revertToOriginalLabel}
+            title={revertToOriginalLabel}
+            className="rounded-[5px] border p-1 transition-colors hover:border-[color:var(--accent-electric)]"
+            style={{
+              background: "var(--surface-2)",
+              borderColor: "var(--border)",
+            }}
+          >
+            <RotateCcwIcon
+              className="size-3.5"
+              style={{ color: "var(--ink-soft)" }}
+            />
+          </button>
+        </div>
+      )}
 
       <label className="flex items-start gap-2 cursor-pointer">
         <input

@@ -1,3 +1,6 @@
+/** Practical cross-browser canvas dimension safe limit. */
+export const MAX_DIMENSION = 8192;
+
 export interface ResizePreset {
   labelKey: string;
   width: number;

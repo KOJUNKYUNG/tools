@@ -182,6 +182,7 @@
           "reset": "도구 초기화"
         },
         "originalSize": "원본 크기",
+        "revertToOriginal": "원본 크기로 되돌리기",
         "widthLabel": "너비 (px)",
         "heightLabel": "높이 (px)",
         "lockAspect": "비율 잠금",

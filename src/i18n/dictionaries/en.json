@@ -182,6 +182,7 @@
           "reset": "Reset"
         },
         "originalSize": "Original size",
+        "revertToOriginal": "Reset to original size",
         "widthLabel": "Width (px)",
         "heightLabel": "Height (px)",
         "lockAspect": "Lock aspect ratio",
