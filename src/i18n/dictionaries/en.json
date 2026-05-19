@@ -186,6 +186,7 @@
         "doneTitle": "Resized",
         "download": "Download",
         "downloadAgainLabel": "Start over",
+        "reupload": "Re-upload",
         "compressLink": "Compress / convert",
         "resultSummary": "{w}×{h} ({size}, {format})",
         "uploadPrompt": "Drag an image here, or click to upload",

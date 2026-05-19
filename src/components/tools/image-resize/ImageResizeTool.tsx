@@ -256,7 +256,7 @@ export function ImageResizeTool({ labels, inline, lang }: ImageResizeToolProps) 
                   color: "var(--ink-strong)",
                 }}
               >
-                다시 업로드
+                {labels.reupload}
               </button>
             </div>
             <ImageResizePreview

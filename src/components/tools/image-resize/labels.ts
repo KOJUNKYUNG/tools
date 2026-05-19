@@ -16,6 +16,7 @@ export interface ImageResizeLabels {
   doneTitle: string;
   download: string;
   downloadAgainLabel: string;
+  reupload: string;
   compressLink: string;
   resultSummary: string;
   uploadPrompt: string;
@@ -40,6 +41,7 @@ export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
     doneTitle: page.doneTitle,
     download: page.download,
     downloadAgainLabel: page.downloadAgainLabel,
+    reupload: page.reupload,
     compressLink: page.compressLink,
     resultSummary: page.resultSummary,
     uploadPrompt: page.uploadPrompt,
