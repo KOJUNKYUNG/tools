@@ -51,6 +51,38 @@ interface CropSelectorProps {
   onCropChange: (crop: CropRect) => void;
 }
 
+interface DisplayBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function computeDisplayBox(
+  elementW: number,
+  elementH: number,
+  naturalW: number,
+  naturalH: number,
+): DisplayBox {
+  if (elementW <= 0 || elementH <= 0 || naturalW <= 0 || naturalH <= 0) {
+    return { x: 0, y: 0, w: 0, h: 0 };
+  }
+  const elementRatio = elementW / elementH;
+  const naturalRatio = naturalW / naturalH;
+  let w: number;
+  let h: number;
+  if (elementRatio > naturalRatio) {
+    // element wider than image → image is height-limited, letterboxed horizontally
+    h = elementH;
+    w = elementH * naturalRatio;
+  } else {
+    // element taller than image → image is width-limited, letterboxed vertically
+    w = elementW;
+    h = elementW / naturalRatio;
+  }
+  return { x: (elementW - w) / 2, y: (elementH - h) / 2, w, h };
+}
+
 export function CropSelector({
   imageUrl,
   targetWidth,
@@ -59,7 +91,7 @@ export function CropSelector({
 }: CropSelectorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
-  const [displaySize, setDisplaySize] = useState({ w: 0, h: 0 });
+  const [displayBox, setDisplayBox] = useState<DisplayBox>({ x: 0, y: 0, w: 0, h: 0 });
   const [crop, setCrop] = useState<CropRect>({ x: 0, y: 0, width: 0, height: 0 });
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, cropX: 0, cropY: 0 });
@@ -83,7 +115,9 @@ export function CropSelector({
       const natW = img.naturalWidth;
       const natH = img.naturalHeight;
       setImgNatural({ w: natW, h: natH });
-      setDisplaySize({ w: img.clientWidth, h: img.clientHeight });
+      setDisplayBox(
+        computeDisplayBox(img.clientWidth, img.clientHeight, natW, natH),
+      );
       initCrop(natW, natH);
     },
     [initCrop],
@@ -99,20 +133,24 @@ export function CropSelector({
     if (!containerRef.current) return;
     const obs = new ResizeObserver((entries) => {
       const img = entries[0]?.target.querySelector("img");
-      if (img) setDisplaySize({ w: img.clientWidth, h: img.clientHeight });
+      if (img && imgNatural.w > 0 && imgNatural.h > 0) {
+        setDisplayBox(
+          computeDisplayBox(img.clientWidth, img.clientHeight, imgNatural.w, imgNatural.h),
+        );
+      }
     });
     obs.observe(containerRef.current);
     return () => obs.disconnect();
-  }, []);
+  }, [imgNatural.w, imgNatural.h]);
 
   const ready =
-    imgNatural.w > 0 && imgNatural.h > 0 && displaySize.w > 0 && displaySize.h > 0;
-  const scaleX = ready ? displaySize.w / imgNatural.w : 1;
-  const scaleY = ready ? displaySize.h / imgNatural.h : 1;
+    imgNatural.w > 0 && imgNatural.h > 0 && displayBox.w > 0 && displayBox.h > 0;
+  const scaleX = ready ? displayBox.w / imgNatural.w : 1;
+  const scaleY = ready ? displayBox.h / imgNatural.h : 1;
 
   const displayCrop = {
-    x: crop.x * scaleX,
-    y: crop.y * scaleY,
+    x: displayBox.x + crop.x * scaleX,
+    y: displayBox.y + crop.y * scaleY,
     w: crop.width * scaleX,
     h: crop.height * scaleY,
   };
@@ -165,8 +203,8 @@ export function CropSelector({
     const rectEl = containerRef.current?.querySelector("img");
     if (!rectEl) return;
     const rect = rectEl.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left) / scaleX;
-    const mouseY = (e.clientY - rect.top) / scaleY;
+    const mouseX = (e.clientX - rect.left - displayBox.x) / scaleX;
+    const mouseY = (e.clientY - rect.top - displayBox.y) / scaleY;
 
     const next = aspectLockedResize(
       resizing,
@@ -207,8 +245,8 @@ export function CropSelector({
           <>
             {/* Dim overlay — 4 rects around the crop */}
             <div
-              className="pointer-events-none absolute top-0 left-0 bg-black/50"
-              style={{ width: displaySize.w, height: displayCrop.y }}
+              className="pointer-events-none absolute top-0 left-0 right-0 bg-black/50"
+              style={{ height: displayCrop.y }}
             />
             <div
               className="pointer-events-none absolute left-0 bg-black/50"
@@ -223,16 +261,15 @@ export function CropSelector({
               style={{
                 top: displayCrop.y,
                 left: displayCrop.x + displayCrop.w,
-                width: displaySize.w - displayCrop.x - displayCrop.w,
+                right: 0,
                 height: displayCrop.h,
               }}
             />
             <div
-              className="pointer-events-none absolute left-0 bg-black/50"
+              className="pointer-events-none absolute left-0 right-0 bg-black/50"
               style={{
                 top: displayCrop.y + displayCrop.h,
-                width: displaySize.w,
-                height: displaySize.h - displayCrop.y - displayCrop.h,
+                bottom: 0,
               }}
             />
 
@@ -249,11 +286,6 @@ export function CropSelector({
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
             >
-              <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3">
-                {Array.from({ length: 9 }).map((_, i) => (
-                  <div key={i} className="border border-white/20" />
-                ))}
-              </div>
               {/* 8 resize handles */}
               {(["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const).map((h) => (
                 <div
