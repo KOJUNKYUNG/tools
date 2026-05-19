@@ -22,6 +22,7 @@ interface ImageResizeControlsProps {
   originalSizeLabel: string;
   revertToOriginalLabel: string;
   origDims: { w: number; h: number } | null;
+  onRevertToOriginal: () => void;
 }
 
 export function ImageResizeControls({
@@ -42,6 +43,7 @@ export function ImageResizeControls({
   originalSizeLabel,
   revertToOriginalLabel,
   origDims,
+  onRevertToOriginal,
 }: ImageResizeControlsProps) {
   const [localW, setLocalW] = useState(widthValue);
   const [localH, setLocalH] = useState(heightValue);
@@ -177,14 +179,7 @@ export function ImageResizeControls({
           </p>
           <button
             type="button"
-            onClick={() => {
-              const ws = String(origDims.w);
-              const hs = String(origDims.h);
-              setLocalW(ws);
-              setLocalH(hs);
-              onWidthChange(ws);
-              onHeightChange(hs);
-            }}
+            onClick={onRevertToOriginal}
             aria-label={revertToOriginalLabel}
             title={revertToOriginalLabel}
             className="rounded-[5px] border p-1 transition-colors hover:border-[color:var(--accent-electric)]"

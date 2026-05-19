@@ -180,6 +180,13 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     }
   };
 
+  const handleRevertToOriginal = useCallback(() => {
+    if (!origDims) return;
+    setActivePreset(null);
+    setTargetW(String(origDims.w));
+    setTargetH(String(origDims.h));
+  }, [origDims]);
+
   const handleSizePreset = (preset: ResizePreset, idx: number) => {
     setTargetW(String(preset.width));
     setTargetH(String(preset.height));
@@ -374,6 +381,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
               origDims={origDims}
               originalSizeLabel={labels.originalSize}
               revertToOriginalLabel={labels.revertToOriginal}
+              onRevertToOriginal={handleRevertToOriginal}
             />
 
             <ImageResizePresets
