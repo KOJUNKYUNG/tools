@@ -167,6 +167,30 @@
     "image-to-pdf": { "title": "이미지 → PDF", "description": "이미지 여러 장을 하나의 PDF로 묶습니다." },
     "pdf-to-image": { "title": "PDF → 이미지", "description": "PDF의 각 페이지를 고해상도 이미지로 변환합니다." },
     "image-compress": { "title": "이미지 압축·변환", "description": "여러 이미지를 한 번에 압축하고 포맷을 바꿉니다." },
-    "image-resize": { "title": "이미지 크기 변경", "description": "픽셀·비율을 유지하며 일괄 리사이즈합니다." }
+    "image-resize": {
+      "title": "이미지 크기 변경",
+      "description": "픽셀·비율을 유지하며 일괄 리사이즈합니다.",
+      "page": {
+        "title": "이미지 크기 변경",
+        "subtitle": "이미지의 해상도를 원하는 크기 또는 비율로 변경합니다.",
+        "originalSize": "원본 크기",
+        "widthLabel": "너비 (px)",
+        "heightLabel": "높이 (px)",
+        "lockAspect": "비율 잠금",
+        "unlockAspect": "비율 잠금 해제",
+        "cropToggle": "왜곡 없이 자르기",
+        "cropToggleHint": "켜면 원본 이미지에서 일부를 잘라내 비율을 맞춥니다. 끄면 이미지가 늘어나거나 찌부러질 수 있습니다.",
+        "sizePresetsTitle": "크기 프리셋",
+        "ratioPresetsTitle": "비율 프리셋",
+        "apply": "크기 변경하기",
+        "doneTitle": "변경 완료",
+        "download": "다운로드",
+        "downloadAgainLabel": "다시 작업하기",
+        "compressLink": "압축/변환하러 가기",
+        "resultSummary": "{w}×{h} ({size}, {format})",
+        "uploadPrompt": "이미지를 드래그하거나 클릭하여 업로드",
+        "uploadHint": "JPG, PNG, WebP 파일을 지원합니다."
+      }
+    }
   }
 }

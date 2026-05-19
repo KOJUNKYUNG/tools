@@ -167,6 +167,30 @@
     "image-to-pdf": { "title": "Image → PDF", "description": "Package images into a single PDF." },
     "pdf-to-image": { "title": "PDF → Image", "description": "Render each page as a high-res image." },
     "image-compress": { "title": "Compress & convert", "description": "Batch-compress and convert formats." },
-    "image-resize": { "title": "Resize images", "description": "Batch-resize while preserving ratio." }
+    "image-resize": {
+      "title": "Resize images",
+      "description": "Batch-resize while preserving ratio.",
+      "page": {
+        "title": "Resize image",
+        "subtitle": "Change image dimensions by exact pixels or aspect ratio.",
+        "originalSize": "Original size",
+        "widthLabel": "Width (px)",
+        "heightLabel": "Height (px)",
+        "lockAspect": "Lock aspect ratio",
+        "unlockAspect": "Unlock aspect ratio",
+        "cropToggle": "Crop without distortion",
+        "cropToggleHint": "When on, the image is cropped to match the target ratio. When off, the image is stretched.",
+        "sizePresetsTitle": "Size presets",
+        "ratioPresetsTitle": "Ratio presets",
+        "apply": "Resize",
+        "doneTitle": "Resized",
+        "download": "Download",
+        "downloadAgainLabel": "Start over",
+        "compressLink": "Compress / convert",
+        "resultSummary": "{w}×{h} ({size}, {format})",
+        "uploadPrompt": "Drag an image here, or click to upload",
+        "uploadHint": "JPG, PNG, WebP supported."
+      }
+    }
   }
 }
