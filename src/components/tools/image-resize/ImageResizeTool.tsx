@@ -49,8 +49,9 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   const [lockAspect, setLockAspect] = useState(true);
   const [cropEnabled, setCropEnabled] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
-  const [uploadKey, setUploadKey] = useState(0);
   const [activePreset, setActivePreset] = useState<ActivePreset>(null);
+
+  const reuploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
     files,
@@ -106,9 +107,12 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
 
   const handleFilesChange = useCallback(
     (newFiles: File[]) => {
+      retry();
       setFiles(newFiles);
       setOrigDims(null);
       setCropRect(null);
+      setActivePreset(null);
+      setCropEnabled(false);
 
       if (imageUrlRef.current) {
         URL.revokeObjectURL(imageUrlRef.current);
@@ -135,7 +139,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
       };
       img.src = url;
     },
-    [setFiles],
+    [setFiles, retry],
   );
 
   useEffect(
@@ -233,24 +237,41 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     handleFilesChange([]);
   }, [retry, handleFilesChange]);
 
-  // Body "다시 업로드" — same as onReset, plus re-mount FileUpload with
-  // openOnMount so the OS file picker opens immediately. Mirrors ppt-background's
-  // "다시 업로드" intent (reset → ready for next file in one click).
-  const handleResetAndReopen = useCallback(() => {
-    retry();
-    handleFilesChange([]);
-    setUploadKey((k) => k + 1);
-  }, [retry, handleFilesChange]);
+  // Body "다시 업로드" — open the OS file picker on the current view via a
+  // hidden <input type="file">. No remount, no upload-screen flash, no
+  // StrictMode-induced double-open.
+  const handleReupload = useCallback(() => {
+    reuploadInputRef.current?.click();
+  }, []);
+
+  const handleHiddenInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newFiles = e.target.files ? Array.from(e.target.files) : [];
+      if (newFiles.length > 0) {
+        handleFilesChange(newFiles);
+      }
+      // Allow re-selecting the same file in a row
+      e.target.value = "";
+    },
+    [handleFilesChange],
+  );
 
   // In inline mode (Screen3 mount), the chrome/header/reset are suppressed —
   // the surrounding surface provides chrome. In page-route mode, this component
   // renders its own silver card chrome + header + reset, mirroring ppt-background.
   const body = (
     <div className={inline ? "space-y-5" : "space-y-5 px-6 py-4"}>
+      <input
+        ref={reuploadInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={handleHiddenInputChange}
+        className="hidden"
+        aria-hidden="true"
+        tabIndex={-1}
+      />
       {!file && (
         <FileUpload
-          key={uploadKey}
-          openOnMount={uploadKey > 0}
           accept={IMAGE_ACCEPT}
           multiple={false}
           onFiles={handleFilesChange}
@@ -273,7 +294,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
               </div>
               <button
                 type="button"
-                onClick={handleResetAndReopen}
+                onClick={handleReupload}
                 className="rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)]"
                 style={{
                   background: "var(--surface-2)",
