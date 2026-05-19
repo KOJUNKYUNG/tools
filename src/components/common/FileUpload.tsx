@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDropzone, type Accept, type FileRejection } from "react-dropzone";
 import { UploadCloudIcon, XIcon, FileIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +18,8 @@ interface FileUploadProps {
   hideFileList?: boolean;
   /** Hide the auto-generated "{exts} · 최대 {size}" hint line. */
   hideAutoHint?: boolean;
+  /** When true, opens the OS file picker once on mount. Toggle by changing the component's React `key` to force a fresh mount. */
+  openOnMount?: boolean;
 }
 
 function formatBytes(bytes: number): string {
@@ -37,6 +39,7 @@ export function FileUpload({
   description,
   hideFileList = false,
   hideAutoHint = false,
+  openOnMount = false,
 }: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
 
@@ -75,12 +78,18 @@ export function FileUpload({
     onFiles([]);
   };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept,
     maxSize,
     multiple,
   });
+
+  useEffect(() => {
+    if (openOnMount) open();
+    // `open` is stable per react-dropzone; we only want to fire once per mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const acceptedExtensions = Object.values(accept).flat().join(", ");
 
