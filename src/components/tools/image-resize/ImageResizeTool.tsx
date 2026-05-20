@@ -216,6 +216,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     setTargetW(String(origDims.w));
     setTargetH(String(origDims.h));
     setLockedRatio(origDims.h > 0 ? origDims.w / origDims.h : null);
+    setCustomOpen(false);
   }, [origDims]);
 
   const handleToggleLock = useCallback(() => {
@@ -272,32 +273,30 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   };
 
   const handleCustomToggle = useCallback(() => {
-    setCustomOpen((prev) => {
-      const next = !prev;
-      if (next && customRatio) {
-        const rw = parseInt(customRatio.w || "0", 10) || 0;
-        const rh = parseInt(customRatio.h || "0", 10) || 0;
-        if (rw > 0 && rh > 0) {
-          applyRatio(rw, rh);
-          setActivePreset({ kind: "custom" });
-        }
-      }
-      return next;
-    });
-  }, [customRatio, applyRatio]);
-
-  const handleCustomRatioChange = useCallback(
-    (w: string, h: string) => {
-      setCustomRatio({ w, h });
-      const rw = parseInt(w || "0", 10) || 0;
-      const rh = parseInt(h || "0", 10) || 0;
+    setCustomOpen(true);
+    if (customRatio) {
+      const rw = parseInt(customRatio.w || "0", 10) || 0;
+      const rh = parseInt(customRatio.h || "0", 10) || 0;
       if (rw > 0 && rh > 0) {
         applyRatio(rw, rh);
         setActivePreset({ kind: "custom" });
       }
-    },
-    [applyRatio],
-  );
+    }
+  }, [customRatio, applyRatio]);
+
+  const handleCustomRatioInput = useCallback((w: string, h: string) => {
+    setCustomRatio({ w, h });
+  }, []);
+
+  const handleCustomRatioCommit = useCallback(() => {
+    if (!customRatio) return;
+    const rw = parseInt(customRatio.w || "0", 10) || 0;
+    const rh = parseInt(customRatio.h || "0", 10) || 0;
+    if (rw > 0 && rh > 0) {
+      applyRatio(rw, rh);
+      setActivePreset({ kind: "custom" });
+    }
+  }, [customRatio, applyRatio]);
 
   const handleToggleCropEnabled = () => {
     setCropEnabled((prev) => {
@@ -485,7 +484,8 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                   customOpen={customOpen}
                   customRatio={customRatio}
                   onCustomToggle={handleCustomToggle}
-                  onCustomRatioChange={handleCustomRatioChange}
+                  onCustomRatioInput={handleCustomRatioInput}
+                  onCustomRatioCommit={handleCustomRatioCommit}
                 />
               </>
             )}

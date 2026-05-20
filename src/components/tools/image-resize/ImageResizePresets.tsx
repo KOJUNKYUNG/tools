@@ -24,7 +24,8 @@ interface ImageResizePresetsProps {
   customOpen: boolean;
   customRatio: { w: string; h: string } | null;
   onCustomToggle: () => void;
-  onCustomRatioChange: (w: string, h: string) => void;
+  onCustomRatioInput: (w: string, h: string) => void;
+  onCustomRatioCommit: () => void;
 }
 
 export function ImageResizePresets({
@@ -38,7 +39,8 @@ export function ImageResizePresets({
   customOpen,
   customRatio,
   onCustomToggle,
-  onCustomRatioChange,
+  onCustomRatioInput,
+  onCustomRatioCommit,
 }: ImageResizePresetsProps) {
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -78,8 +80,12 @@ export function ImageResizePresets({
                 min={1}
                 value={customRatio?.w ?? ""}
                 onChange={(e) =>
-                  onCustomRatioChange(e.target.value, customRatio?.h ?? "")
+                  onCustomRatioInput(e.target.value, customRatio?.h ?? "")
                 }
+                onBlur={() => onCustomRatioCommit()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                }}
                 className="w-12 rounded-[5px] border px-1.5 py-1 font-display text-[11.5px] outline-none focus:border-[color:var(--accent-electric)]"
                 style={{
                   background: "var(--surface)",
@@ -94,8 +100,12 @@ export function ImageResizePresets({
                 min={1}
                 value={customRatio?.h ?? ""}
                 onChange={(e) =>
-                  onCustomRatioChange(customRatio?.w ?? "", e.target.value)
+                  onCustomRatioInput(customRatio?.w ?? "", e.target.value)
                 }
+                onBlur={() => onCustomRatioCommit()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                }}
                 className="w-12 rounded-[5px] border px-1.5 py-1 font-display text-[11.5px] outline-none focus:border-[color:var(--accent-electric)]"
                 style={{
                   background: "var(--surface)",
