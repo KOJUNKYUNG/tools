@@ -75,6 +75,18 @@ export function ImageResizeResult({
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
+          onClick={onDownload}
+          className="glint inline-flex items-center justify-start gap-1.5 rounded-[5px] px-3 h-8 font-display text-[11.5px] font-medium"
+          style={{
+            background: "var(--accent-electric)",
+            color: "#fff",
+          }}
+        >
+          <DownloadIcon className="size-3" />
+          {downloadLabel}
+        </button>
+        <button
+          type="button"
           onClick={onTryAgain}
           className="inline-flex items-center justify-start gap-1.5 rounded-[5px] border px-3 h-8 font-display text-[11.5px] transition-colors hover:border-[color:var(--accent-electric)]"
           style={{
@@ -85,18 +97,6 @@ export function ImageResizeResult({
         >
           <RotateCcwIcon className="size-3" />
           {tryAgainLabel}
-        </button>
-        <button
-          type="button"
-          onClick={onDownload}
-          className="glint inline-flex items-center justify-start gap-1.5 rounded-[5px] px-3 h-8 font-display text-[11.5px] font-medium"
-          style={{
-            background: "var(--accent-electric)",
-            color: "#fff",
-          }}
-        >
-          <DownloadIcon className="size-3" />
-          {downloadLabel}
         </button>
         <button
           type="button"
