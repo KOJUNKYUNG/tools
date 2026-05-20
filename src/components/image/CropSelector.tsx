@@ -9,18 +9,15 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
-import { maxFitCrop } from "@/lib/image/maxFitCrop";
+import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
   aspectLockedResize,
   type ResizeHandle,
 } from "@/lib/image/aspectLockedResize";
 
-export interface CropRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+// Single-source the CropRect type from the lib; re-export so existing
+// consumers importing it from this component keep working.
+export type { CropRect } from "@/lib/image/maxFitCrop";
 
 const HANDLE_POSITIONS: Record<ResizeHandle, React.CSSProperties> = {
   nw: { top: -6, left: -6 },
@@ -58,6 +55,10 @@ interface DisplayBox {
   h: number;
 }
 
+function sameRect(a: CropRect, b: CropRect): boolean {
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+}
+
 function computeDisplayBox(
   elementW: number,
   elementH: number,
@@ -90,6 +91,7 @@ export function CropSelector({
   onCropChange,
 }: CropSelectorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
   const [displayBox, setDisplayBox] = useState<DisplayBox>({ x: 0, y: 0, w: 0, h: 0 });
   const [crop, setCrop] = useState<CropRect>({ x: 0, y: 0, width: 0, height: 0 });
@@ -131,8 +133,8 @@ export function CropSelector({
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const obs = new ResizeObserver((entries) => {
-      const img = entries[0]?.target.querySelector("img");
+    const obs = new ResizeObserver(() => {
+      const img = imgRef.current;
       if (img && imgNatural.w > 0 && imgNatural.h > 0) {
         setDisplayBox(
           computeDisplayBox(img.clientWidth, img.clientHeight, imgNatural.w, imgNatural.h),
@@ -179,6 +181,7 @@ export function CropSelector({
     newY = Math.max(0, Math.min(newY, imgNatural.h - crop.height));
 
     const rect = { ...crop, x: newX, y: newY };
+    if (sameRect(rect, crop)) return;
     setCrop(rect);
     onCropChange(rect);
   };
@@ -200,7 +203,7 @@ export function CropSelector({
 
   const handleResizePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!resizing) return;
-    const rectEl = containerRef.current?.querySelector("img");
+    const rectEl = imgRef.current;
     if (!rectEl) return;
     const rect = rectEl.getBoundingClientRect();
     const mouseX = (e.clientX - rect.left - displayBox.x) / scaleX;
@@ -213,6 +216,7 @@ export function CropSelector({
       targetWidth / targetHeight,
       { w: imgNatural.w, h: imgNatural.h },
     );
+    if (sameRect(next, crop)) return;
     setCrop(next);
     onCropChange(next);
   };
@@ -227,6 +231,7 @@ export function CropSelector({
       className="relative inline-block w-full select-none overflow-hidden rounded-lg border bg-muted/30"
     >
         <img
+          ref={imgRef}
           src={imageUrl}
           alt="원본 미리보기"
           className="block h-auto max-h-80 w-full object-contain"

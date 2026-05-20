@@ -1,7 +1,7 @@
 import { getDictionary, type Locale } from "@/i18n/config";
 import { locales } from "@/i18n/locales";
 import { PptBackgroundTool } from "@/components/tools/ppt-background/PptBackgroundTool";
-import { buildPptBackgroundLabels } from "@/components/tools/ppt-background/labels";
+import { getPptBackgroundLabels } from "@/components/tools/ppt-background/labels";
 
 interface PageProps {
   params: Promise<{ lang: string }>;
@@ -14,7 +14,7 @@ function asLocale(lang: string): Locale {
 export default async function PptBackgroundPage({ params }: PageProps) {
   const { lang } = await params;
   const dict = await getDictionary(asLocale(lang));
-  const labels = buildPptBackgroundLabels(dict);
+  const labels = getPptBackgroundLabels(dict);
 
   return (
     <div
