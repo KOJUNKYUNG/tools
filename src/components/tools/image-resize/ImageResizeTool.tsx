@@ -427,17 +427,17 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                   revertToOriginalLabel={labels.revertToOriginal}
                   onRevertToOriginal={handleRevertToOriginal}
                 />
+
+                <ImageResizePresets
+                  sizePresetsTitle={labels.sizePresetsTitle}
+                  ratioPresetsTitle={labels.ratioPresetsTitle}
+                  sizePresetLabels={labels.sizePresetLabels}
+                  onSizePreset={handleSizePreset}
+                  onRatioPreset={handleRatioPreset}
+                  activePreset={activePreset}
+                />
               </>
             )}
-
-            <ImageResizePresets
-              sizePresetsTitle={labels.sizePresetsTitle}
-              ratioPresetsTitle={labels.ratioPresetsTitle}
-              sizePresetLabels={labels.sizePresetLabels}
-              onSizePreset={handleSizePreset}
-              onRatioPreset={handleRatioPreset}
-              activePreset={activePreset}
-            />
           </div>
         </div>
       )}
