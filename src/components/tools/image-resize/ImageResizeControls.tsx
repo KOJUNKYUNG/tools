@@ -1,7 +1,7 @@
 "use client";
 
 import { LockIcon, RotateCcwIcon, UnlockIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { MAX_DIMENSION } from "@/lib/image/resizeImage";
 
 interface ImageResizeControlsProps {
@@ -47,14 +47,8 @@ export function ImageResizeControls({
 }: ImageResizeControlsProps) {
   const [localW, setLocalW] = useState(widthValue);
   const [localH, setLocalH] = useState(heightValue);
-
-  useEffect(() => {
-    setLocalW(widthValue);
-  }, [widthValue]);
-
-  useEffect(() => {
-    setLocalH(heightValue);
-  }, [heightValue]);
+  const [wFocused, setWFocused] = useState(false);
+  const [hFocused, setHFocused] = useState(false);
 
   return (
     <div className="space-y-3">
@@ -72,21 +66,21 @@ export function ImageResizeControls({
             type="number"
             min={1}
             max={MAX_DIMENSION}
-            value={localW}
+            value={wFocused ? localW : widthValue}
+            onFocus={() => {
+              setWFocused(true);
+              setLocalW(widthValue);
+            }}
             onChange={(e) => setLocalW(e.target.value)}
             onBlur={() => {
+              setWFocused(false);
               const parsed = parseInt(localW || "0", 10);
-              const clamped = Math.min(
-                MAX_DIMENSION,
-                Math.max(1, isNaN(parsed) ? 0 : parsed),
-              );
-              if (clamped === 0) {
+              if (Number.isNaN(parsed) || parsed <= 0) {
                 if (localW !== widthValue) onWidthChange(localW);
                 return;
               }
-              const clampedStr = String(clamped);
-              setLocalW(clampedStr);
-              if (clampedStr !== widthValue) onWidthChange(clampedStr);
+              const clamped = String(Math.min(MAX_DIMENSION, Math.max(1, parsed)));
+              if (clamped !== widthValue) onWidthChange(clamped);
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -138,21 +132,21 @@ export function ImageResizeControls({
             type="number"
             min={1}
             max={MAX_DIMENSION}
-            value={localH}
+            value={hFocused ? localH : heightValue}
+            onFocus={() => {
+              setHFocused(true);
+              setLocalH(heightValue);
+            }}
             onChange={(e) => setLocalH(e.target.value)}
             onBlur={() => {
+              setHFocused(false);
               const parsed = parseInt(localH || "0", 10);
-              const clamped = Math.min(
-                MAX_DIMENSION,
-                Math.max(1, isNaN(parsed) ? 0 : parsed),
-              );
-              if (clamped === 0) {
+              if (Number.isNaN(parsed) || parsed <= 0) {
                 if (localH !== heightValue) onHeightChange(localH);
                 return;
               }
-              const clampedStr = String(clamped);
-              setLocalH(clampedStr);
-              if (clampedStr !== heightValue) onHeightChange(clampedStr);
+              const clamped = String(Math.min(MAX_DIMENSION, Math.max(1, parsed)));
+              if (clamped !== heightValue) onHeightChange(clamped);
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
