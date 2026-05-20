@@ -10,7 +10,7 @@ import { CategoryStrip } from "@/components/brand/CategoryStrip";
 import { TOOLS, type ToolInfo } from "@/lib/constants";
 import type { Dictionary } from "@/i18n/config";
 import { PptBackgroundTool } from "@/components/tools/ppt-background/PptBackgroundTool";
-import { buildPptBackgroundLabels } from "@/components/tools/ppt-background/labels";
+import { getPptBackgroundLabels } from "@/components/tools/ppt-background/labels";
 import { ImageResizeTool } from "@/components/tools/image-resize/ImageResizeTool";
 import { getImageResizeLabels } from "@/components/tools/image-resize/labels";
 
@@ -174,7 +174,7 @@ export function Screen3Workspace({
 
               <div className="px-6 py-3">
                 {tool.slug === "ppt-background" ? (
-                  <PptBackgroundTool key={pptBgResetKey} inline labels={buildPptBackgroundLabels(dict)} />
+                  <PptBackgroundTool key={pptBgResetKey} inline labels={getPptBackgroundLabels(dict)} />
                 ) : tool.slug === "image-resize" ? (
                   <ImageResizeTool inline labels={getImageResizeLabels(dict)} lang={locale} />
                 ) : (

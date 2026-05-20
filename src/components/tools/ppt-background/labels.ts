@@ -4,7 +4,7 @@ import type { PptBackgroundToolLabels } from "./PptBackgroundTool";
 
 type PptBgPageDict = Dictionary["tools"]["ppt-background"]["page"];
 
-export function buildPptBackgroundLabels(
+export function getPptBackgroundLabels(
   dict: Dictionary,
 ): PptBackgroundToolLabels {
   const p: PptBgPageDict = dict.tools["ppt-background"].page;
