@@ -55,6 +55,10 @@ interface DisplayBox {
   h: number;
 }
 
+function sameRect(a: CropRect, b: CropRect): boolean {
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+}
+
 function computeDisplayBox(
   elementW: number,
   elementH: number,
@@ -176,6 +180,7 @@ export function CropSelector({
     newY = Math.max(0, Math.min(newY, imgNatural.h - crop.height));
 
     const rect = { ...crop, x: newX, y: newY };
+    if (sameRect(rect, crop)) return;
     setCrop(rect);
     onCropChange(rect);
   };
@@ -210,6 +215,7 @@ export function CropSelector({
       targetWidth / targetHeight,
       { w: imgNatural.w, h: imgNatural.h },
     );
+    if (sameRect(next, crop)) return;
     setCrop(next);
     onCropChange(next);
   };
