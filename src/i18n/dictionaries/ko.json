@@ -191,6 +191,7 @@
         "cropToggleHint": "켜면 원본 이미지에서 일부를 잘라내 비율을 맞춥니다. 끄면 이미지가 늘어나거나 찌부러질 수 있습니다.",
         "sizePresetsTitle": "크기 프리셋",
         "ratioPresetsTitle": "비율 프리셋",
+        "customRatio": "사용자 지정",
         "sizePreset": {
           "fhd": "FHD (1920×1080)",
           "hd": "HD (1280×720)",

@@ -71,6 +71,8 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   const [cropEnabled, setCropEnabled] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
   const [activePreset, setActivePreset] = useState<ActivePreset>(null);
+  const [customRatio, setCustomRatio] = useState<{ w: string; h: string } | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
 
   const reuploadInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -135,6 +137,9 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
       setCropRect(null);
       setActivePreset(null);
       setCropEnabled(false);
+      // Keep customRatio (user's last custom value survives re-upload), only
+      // collapse the input row.
+      setCustomOpen(false);
 
       if (imageUrlRef.current) {
         URL.revokeObjectURL(imageUrlRef.current);
@@ -176,7 +181,9 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   const hNum = parseInt(targetH || "0", 10) || 0;
 
   const handleWidthChange = (next: string) => {
-    setActivePreset(null);
+    // Editing W/H clears a SIZE preset, but a ratio/custom preset represents a
+    // LOCKED RATIO that the edit preserves — keep it highlighted.
+    setActivePreset((prev) => (prev?.kind === "size" ? null : prev));
     setTargetW(next);
     if (lockAspect && lockedRatio && lockedRatio > 0) {
       const nw = parseInt(next || "0", 10) || 0;
@@ -190,7 +197,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   };
 
   const handleHeightChange = (next: string) => {
-    setActivePreset(null);
+    setActivePreset((prev) => (prev?.kind === "size" ? null : prev));
     setTargetH(next);
     if (lockAspect && lockedRatio && lockedRatio > 0) {
       const nh = parseInt(next || "0", 10) || 0;
@@ -219,12 +226,20 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
         const w = parseInt(targetW || "0", 10) || 0;
         const h = parseInt(targetH || "0", 10) || 0;
         if (w > 0 && h > 0) setLockedRatio(w / h);
+      } else {
+        // turning lock OFF — a ratio/custom preset only describes a locked
+        // ratio, so release un-highlights it and collapses the custom input.
+        setActivePreset((p) =>
+          p?.kind === "ratio" || p?.kind === "custom" ? null : p,
+        );
+        setCustomOpen(false);
       }
       return next;
     });
   }, [targetW, targetH]);
 
   const handleSizePreset = (preset: ResizePreset, idx: number) => {
+    setCustomOpen(false);
     setTargetW(String(preset.width));
     setTargetH(String(preset.height));
     setLockedRatio(
@@ -233,25 +248,56 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     setActivePreset({ kind: "size", idx });
   };
 
+  // Shared ratio-apply: turns lock ON, stores the EXACT ratio (not rounded
+  // maxFitCrop dims, so lock computations don't compound rounding error), and
+  // recomputes the fitting W/H. Used by ratio presets and the custom input.
+  const applyRatio = useCallback(
+    (rw: number, rh: number) => {
+      setLockAspect(true);
+      setLockedRatio(rw / rh);
+      if (origDims) {
+        const rect = maxFitCrop(origDims, rw, rh);
+        setTargetW(String(rect.width));
+        setTargetH(String(rect.height));
+        if (cropEnabled) setCropRect(rect);
+      }
+    },
+    [origDims, cropEnabled],
+  );
+
   const handleRatioPreset = (preset: AspectPreset, idx: number) => {
-    setLockAspect(true);
-    // EXACT preset ratio — not the rounded maxFitCrop dims — so lock-aspect
-    // computations don't compound rounding error.
-    setLockedRatio(preset.h > 0 ? preset.w / preset.h : null);
-    if (!origDims) {
-      setTargetW(String(preset.w));
-      setTargetH(String(preset.h));
-      setActivePreset({ kind: "ratio", idx });
-      return;
-    }
-    const rect = maxFitCrop(origDims, preset.w, preset.h);
-    setTargetW(String(rect.width));
-    setTargetH(String(rect.height));
-    if (cropEnabled) {
-      setCropRect(rect);
-    }
+    setCustomOpen(false);
+    applyRatio(preset.w, preset.h);
     setActivePreset({ kind: "ratio", idx });
   };
+
+  const handleCustomToggle = useCallback(() => {
+    setCustomOpen((prev) => {
+      const next = !prev;
+      if (next && customRatio) {
+        const rw = parseInt(customRatio.w || "0", 10) || 0;
+        const rh = parseInt(customRatio.h || "0", 10) || 0;
+        if (rw > 0 && rh > 0) {
+          applyRatio(rw, rh);
+          setActivePreset({ kind: "custom" });
+        }
+      }
+      return next;
+    });
+  }, [customRatio, applyRatio]);
+
+  const handleCustomRatioChange = useCallback(
+    (w: string, h: string) => {
+      setCustomRatio({ w, h });
+      const rw = parseInt(w || "0", 10) || 0;
+      const rh = parseInt(h || "0", 10) || 0;
+      if (rw > 0 && rh > 0) {
+        applyRatio(rw, rh);
+        setActivePreset({ kind: "custom" });
+      }
+    },
+    [applyRatio],
+  );
 
   const handleToggleCropEnabled = () => {
     setCropEnabled((prev) => {
@@ -435,6 +481,11 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                   onSizePreset={handleSizePreset}
                   onRatioPreset={handleRatioPreset}
                   activePreset={activePreset}
+                  customLabel={labels.customRatio}
+                  customOpen={customOpen}
+                  customRatio={customRatio}
+                  onCustomToggle={handleCustomToggle}
+                  onCustomRatioChange={handleCustomRatioChange}
                 />
               </>
             )}

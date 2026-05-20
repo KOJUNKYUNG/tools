@@ -14,6 +14,7 @@ export interface ImageResizeLabels {
   cropToggleHint: string;
   sizePresetsTitle: string;
   ratioPresetsTitle: string;
+  customRatio: string;
   apply: string;
   doneTitle: string;
   download: string;
@@ -46,6 +47,7 @@ export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
     cropToggleHint: page.cropToggleHint,
     sizePresetsTitle: page.sizePresetsTitle,
     ratioPresetsTitle: page.ratioPresetsTitle,
+    customRatio: page.customRatio,
     apply: page.apply,
     doneTitle: page.doneTitle,
     download: page.download,

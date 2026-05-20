@@ -191,6 +191,7 @@
         "cropToggleHint": "When on, the image is cropped to match the target ratio. When off, the image is stretched.",
         "sizePresetsTitle": "Size presets",
         "ratioPresetsTitle": "Ratio presets",
+        "customRatio": "Custom",
         "sizePreset": {
           "fhd": "FHD (1920×1080)",
           "hd": "HD (1280×720)",
