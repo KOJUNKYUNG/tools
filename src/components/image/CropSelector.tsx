@@ -91,6 +91,7 @@ export function CropSelector({
   onCropChange,
 }: CropSelectorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
   const [displayBox, setDisplayBox] = useState<DisplayBox>({ x: 0, y: 0, w: 0, h: 0 });
   const [crop, setCrop] = useState<CropRect>({ x: 0, y: 0, width: 0, height: 0 });
@@ -132,8 +133,8 @@ export function CropSelector({
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const obs = new ResizeObserver((entries) => {
-      const img = entries[0]?.target.querySelector("img");
+    const obs = new ResizeObserver(() => {
+      const img = imgRef.current;
       if (img && imgNatural.w > 0 && imgNatural.h > 0) {
         setDisplayBox(
           computeDisplayBox(img.clientWidth, img.clientHeight, imgNatural.w, imgNatural.h),
@@ -202,7 +203,7 @@ export function CropSelector({
 
   const handleResizePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!resizing) return;
-    const rectEl = containerRef.current?.querySelector("img");
+    const rectEl = imgRef.current;
     if (!rectEl) return;
     const rect = rectEl.getBoundingClientRect();
     const mouseX = (e.clientX - rect.left - displayBox.x) / scaleX;
@@ -230,6 +231,7 @@ export function CropSelector({
       className="relative inline-block w-full select-none overflow-hidden rounded-lg border bg-muted/30"
     >
         <img
+          ref={imgRef}
           src={imageUrl}
           alt="원본 미리보기"
           className="block h-auto max-h-80 w-full object-contain"
