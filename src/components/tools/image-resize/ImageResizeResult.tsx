@@ -102,12 +102,7 @@ export function ImageResizeResult({
         <button
           type="button"
           onClick={onCompressOrConvert}
-          className="inline-flex items-center justify-start gap-1.5 rounded-[5px] border px-3 h-8 font-display text-[11.5px] transition-colors hover:border-[color:var(--accent-electric)]"
-          style={{
-            background: "var(--surface-2)",
-            borderColor: "var(--border)",
-            color: "var(--ink-strong)",
-          }}
+          className="handoff-action inline-flex items-center justify-start gap-1.5 rounded-[5px] border px-3 h-8 font-display text-[11.5px]"
         >
           {compressLinkLabel}
           <ArrowRightIcon className="size-3" />

@@ -52,6 +52,8 @@
   --color-accent-electric: var(--accent-electric);
   --color-accent-electric-hi: var(--accent-electric-hi);
   --color-accent-copper: var(--accent-copper);
+  --color-surface-handoff: var(--surface-handoff);
+  --color-ink-handoff: var(--ink-handoff);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -135,6 +137,12 @@
   --ink-strong: var(--silver-700);
   --headline:   var(--silver-700);
 
+  /* Handoff buttons: cross-tool navigation. Slightly darker than --surface-2
+   * (silver-100, 0.94) — steps one rung down the silver scale to silver-200
+   * (0.88). Ink stays --ink-strong (silver-700) for readable contrast. */
+  --surface-handoff: var(--silver-200);
+  --ink-handoff:     var(--ink-strong);
+
   /* Shadows — narrow, cool-tinted */
   --shadow-sm: 0 1px 0 rgba(20, 30, 60, 0.04), 0 1px 2px rgba(20, 30, 60, 0.04);
   --shadow-md: 0 1px 0 rgba(20, 30, 60, 0.05), 0 4px 12px -2px rgba(20, 30, 60, 0.08);
@@ -186,6 +194,10 @@
   --ink:        oklch(0.72 0.010 250);
   --ink-strong: oklch(0.92 0.006 250);
   --headline:   oklch(0.95 0.005 250);
+  /* Handoff — slightly lighter than dark --surface-2 (0.25) so it reads as
+   * more prominent; ink stays --ink-strong (0.92) for contrast. */
+  --surface-handoff: oklch(0.30 0.009 250);
+  --ink-handoff:     oklch(0.92 0.006 250);
   --accent-electric: oklch(0.72 0.17 250);
   --shadow-sm: 0 1px 0 rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.4);
   --shadow-md: 0 1px 0 rgba(0,0,0,0.3), 0 6px 16px -4px rgba(0,0,0,0.5);
@@ -421,4 +433,18 @@ html.dark .dark-only,
 .focus-ring:focus-visible {
   outline: 2px solid var(--accent-electric);
   outline-offset: 2px;
+}
+
+/* Handoff action button — reusable cross-tool navigation treatment.
+ * Slightly darker silver than a regular secondary button (--surface-2) so
+ * "go to another tool" reads as a distinct, more prominent affordance.
+ * Add `handoff-action` to any cross-tool handoff button. */
+.handoff-action {
+  background: var(--surface-handoff);
+  border-color: var(--border);
+  color: var(--ink-handoff);
+  transition: border-color 0.15s, background 0.15s;
+}
+.handoff-action:hover {
+  border-color: var(--accent-electric);
 }
