@@ -205,7 +205,6 @@
         "downloadAgainLabel": "다시 작업하기",
         "reupload": "다시 업로드",
         "compressLink": "압축/변환하러 가기",
-        "resultSummary": "{w}×{h} ({size}, {format})",
         "uploadPrompt": "이미지를 드래그하거나 클릭하여 업로드",
         "uploadHint": "JPG, PNG, WebP 파일을 지원합니다.",
         "tryAgain": "다시 변경",

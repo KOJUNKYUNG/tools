@@ -1,12 +1,10 @@
 "use client";
 
 import { DownloadIcon, ArrowRightIcon, RotateCcwIcon } from "lucide-react";
-import { template } from "@/lib/common/template";
 
 interface ImageResizeResultProps {
   doneTitle: string;
   downloadLabel: string;
-  resultSummaryTemplate: string;
   compressLinkLabel: string;
   width: number;
   height: number;
@@ -36,7 +34,6 @@ function formatLabel(mime: string): string {
 export function ImageResizeResult({
   doneTitle,
   downloadLabel,
-  resultSummaryTemplate,
   compressLinkLabel,
   width,
   height,
@@ -47,13 +44,6 @@ export function ImageResizeResult({
   tryAgainLabel,
   onTryAgain,
 }: ImageResizeResultProps) {
-  const summary = template(resultSummaryTemplate, {
-    w: String(width),
-    h: String(height),
-    size: formatBytes(byteSize),
-    format: formatLabel(mimeType),
-  });
-
   return (
     <div
       className="rounded-[8px] border p-3 space-y-2"
@@ -69,8 +59,19 @@ export function ImageResizeResult({
       >
         {doneTitle}
       </div>
-      <div className="font-body text-[12px]" style={{ color: "var(--ink)" }}>
-        {summary}
+      <div className="flex items-baseline gap-1.5">
+        <span
+          className="font-display text-[15px] font-bold"
+          style={{ color: "var(--headline)" }}
+        >
+          {width}×{height}
+        </span>
+        <span
+          className="font-body text-[11.5px]"
+          style={{ color: "var(--ink-soft)" }}
+        >
+          ({formatBytes(byteSize)}, {formatLabel(mimeType)})
+        </span>
       </div>
       <div className="flex flex-wrap gap-1.5">
         <button

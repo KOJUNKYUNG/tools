@@ -374,7 +374,6 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
               <ImageResizeResult
                 doneTitle={labels.doneTitle}
                 downloadLabel={labels.download}
-                resultSummaryTemplate={labels.resultSummary}
                 compressLinkLabel={labels.compressLink}
                 width={result.width}
                 height={result.height}
@@ -385,47 +384,51 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                 tryAgainLabel={labels.tryAgain}
                 onTryAgain={retry}
               />
-            ) : status === "idle" ? (
-              <button
-                type="button"
-                onClick={run}
-                className="glint inline-flex w-full items-center justify-center gap-1.5 rounded-[5px] px-3 h-9 font-display text-[12px] font-medium"
-                style={{ background: "var(--accent-electric)", color: "#fff" }}
-              >
-                {labels.apply}
-              </button>
             ) : (
-              <ProcessingStatus
-                status={status}
-                progress={progress}
-                errorMessage={errorMessage}
-                onRetry={retry}
-                onDownload={download}
-                downloadFileName={downloadFileName}
-                onTryAnother={retry}
-              />
-            )}
+              <>
+                {status === "idle" ? (
+                  <button
+                    type="button"
+                    onClick={run}
+                    className="glint inline-flex w-full items-center justify-center gap-1.5 rounded-[5px] px-3 h-9 font-display text-[12px] font-medium"
+                    style={{ background: "var(--accent-electric)", color: "#fff" }}
+                  >
+                    {labels.apply}
+                  </button>
+                ) : (
+                  <ProcessingStatus
+                    status={status}
+                    progress={progress}
+                    errorMessage={errorMessage}
+                    onRetry={retry}
+                    onDownload={download}
+                    downloadFileName={downloadFileName}
+                    onTryAnother={retry}
+                  />
+                )}
 
-            <ImageResizeControls
-              widthLabel={labels.widthLabel}
-              heightLabel={labels.heightLabel}
-              lockAspectLabel={labels.lockAspect}
-              unlockAspectLabel={labels.unlockAspect}
-              cropToggleLabel={labels.cropToggle}
-              cropToggleHint={labels.cropToggleHint}
-              widthValue={targetW}
-              heightValue={targetH}
-              onWidthChange={handleWidthChange}
-              onHeightChange={handleHeightChange}
-              lockAspect={lockAspect}
-              onToggleLock={handleToggleLock}
-              cropEnabled={cropEnabled}
-              onToggleCropEnabled={handleToggleCropEnabled}
-              origDims={origDims}
-              originalSizeLabel={labels.originalSize}
-              revertToOriginalLabel={labels.revertToOriginal}
-              onRevertToOriginal={handleRevertToOriginal}
-            />
+                <ImageResizeControls
+                  widthLabel={labels.widthLabel}
+                  heightLabel={labels.heightLabel}
+                  lockAspectLabel={labels.lockAspect}
+                  unlockAspectLabel={labels.unlockAspect}
+                  cropToggleLabel={labels.cropToggle}
+                  cropToggleHint={labels.cropToggleHint}
+                  widthValue={targetW}
+                  heightValue={targetH}
+                  onWidthChange={handleWidthChange}
+                  onHeightChange={handleHeightChange}
+                  lockAspect={lockAspect}
+                  onToggleLock={handleToggleLock}
+                  cropEnabled={cropEnabled}
+                  onToggleCropEnabled={handleToggleCropEnabled}
+                  origDims={origDims}
+                  originalSizeLabel={labels.originalSize}
+                  revertToOriginalLabel={labels.revertToOriginal}
+                  onRevertToOriginal={handleRevertToOriginal}
+                />
+              </>
+            )}
 
             <ImageResizePresets
               sizePresetsTitle={labels.sizePresetsTitle}
