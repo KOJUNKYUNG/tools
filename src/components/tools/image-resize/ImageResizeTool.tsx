@@ -8,6 +8,7 @@ import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import {
   resizeImage,
+  MAX_DIMENSION,
   type ResizeResult,
   type CropArea,
   type ResizePreset,
@@ -29,6 +30,25 @@ const IMAGE_ACCEPT = {
   "image/webp": [".webp"],
 };
 
+/**
+ * Scale a (w, h) pair down so the largest side fits within `max`, preserving
+ * the aspect ratio. Used when lock-aspect computes a counterpart dimension that
+ * could exceed MAX_DIMENSION. No-op when both already fit.
+ */
+function clampPairToMax(
+  w: number,
+  h: number,
+  max: number,
+): { w: number; h: number } {
+  const largest = Math.max(w, h);
+  if (largest <= max) return { w, h };
+  const scale = max / largest;
+  return {
+    w: Math.max(1, Math.round(w * scale)),
+    h: Math.max(1, Math.round(h * scale)),
+  };
+}
+
 interface ImageResizeToolProps {
   labels: ImageResizeLabels;
   /** When mounted inline in Screen3Workspace, suppress the page-level header. */
@@ -47,6 +67,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   const [targetW, setTargetW] = useState("");
   const [targetH, setTargetH] = useState("");
   const [lockAspect, setLockAspect] = useState(true);
+  const [lockedRatio, setLockedRatio] = useState<number | null>(null);
   const [cropEnabled, setCropEnabled] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
   const [activePreset, setActivePreset] = useState<ActivePreset>(null);
@@ -110,6 +131,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
       retry();
       setFiles(newFiles);
       setOrigDims(null);
+      setLockedRatio(null);
       setCropRect(null);
       setActivePreset(null);
       setCropEnabled(false);
@@ -136,6 +158,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
         setOrigDims(dims);
         setTargetW(String(dims.w));
         setTargetH(String(dims.h));
+        setLockedRatio(dims.h > 0 ? dims.w / dims.h : null);
       };
       img.src = url;
     },
@@ -155,13 +178,13 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   const handleWidthChange = (next: string) => {
     setActivePreset(null);
     setTargetW(next);
-    if (lockAspect && origDims) {
+    if (lockAspect && lockedRatio && lockedRatio > 0) {
       const nw = parseInt(next || "0", 10) || 0;
       if (nw > 0) {
-        const ratio = (parseInt(targetW || "0", 10) || origDims.w) /
-          (parseInt(targetH || "0", 10) || origDims.h);
-        const nh = Math.max(1, Math.round(nw / ratio));
-        setTargetH(String(nh));
+        const rawH = Math.max(1, Math.round(nw / lockedRatio));
+        const pair = clampPairToMax(nw, rawH, MAX_DIMENSION);
+        setTargetW(String(pair.w));
+        setTargetH(String(pair.h));
       }
     }
   };
@@ -169,13 +192,13 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   const handleHeightChange = (next: string) => {
     setActivePreset(null);
     setTargetH(next);
-    if (lockAspect && origDims) {
+    if (lockAspect && lockedRatio && lockedRatio > 0) {
       const nh = parseInt(next || "0", 10) || 0;
       if (nh > 0) {
-        const ratio = (parseInt(targetW || "0", 10) || origDims.w) /
-          (parseInt(targetH || "0", 10) || origDims.h);
-        const nw = Math.max(1, Math.round(nh * ratio));
-        setTargetW(String(nw));
+        const rawW = Math.max(1, Math.round(nh * lockedRatio));
+        const pair = clampPairToMax(rawW, nh, MAX_DIMENSION);
+        setTargetW(String(pair.w));
+        setTargetH(String(pair.h));
       }
     }
   };
@@ -185,16 +208,36 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     setActivePreset(null);
     setTargetW(String(origDims.w));
     setTargetH(String(origDims.h));
+    setLockedRatio(origDims.h > 0 ? origDims.w / origDims.h : null);
   }, [origDims]);
+
+  const handleToggleLock = useCallback(() => {
+    setLockAspect((prev) => {
+      const next = !prev;
+      if (next) {
+        // turning lock ON — capture the current committed pair's exact ratio
+        const w = parseInt(targetW || "0", 10) || 0;
+        const h = parseInt(targetH || "0", 10) || 0;
+        if (w > 0 && h > 0) setLockedRatio(w / h);
+      }
+      return next;
+    });
+  }, [targetW, targetH]);
 
   const handleSizePreset = (preset: ResizePreset, idx: number) => {
     setTargetW(String(preset.width));
     setTargetH(String(preset.height));
+    setLockedRatio(
+      preset.height > 0 ? preset.width / preset.height : null,
+    );
     setActivePreset({ kind: "size", idx });
   };
 
   const handleRatioPreset = (preset: AspectPreset, idx: number) => {
     setLockAspect(true);
+    // EXACT preset ratio — not the rounded maxFitCrop dims — so lock-aspect
+    // computations don't compound rounding error.
+    setLockedRatio(preset.h > 0 ? preset.w / preset.h : null);
     if (!origDims) {
       setTargetW(String(preset.w));
       setTargetH(String(preset.h));
@@ -375,7 +418,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
               onWidthChange={handleWidthChange}
               onHeightChange={handleHeightChange}
               lockAspect={lockAspect}
-              onToggleLock={() => setLockAspect((v) => !v)}
+              onToggleLock={handleToggleLock}
               cropEnabled={cropEnabled}
               onToggleCropEnabled={handleToggleCropEnabled}
               origDims={origDims}
