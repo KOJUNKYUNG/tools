@@ -7,13 +7,15 @@ export interface ResizePreset {
   height: number;
 }
 
+// Ordered: landscape (w > h) by width desc, then square, then portrait (w < h)
+// by width desc.
 export const RESIZE_PRESETS: ResizePreset[] = [
+  { labelKey: "uhd4k", width: 3840, height: 2160 },
   { labelKey: "fhd", width: 1920, height: 1080 },
   { labelKey: "hd", width: 1280, height: 720 },
   { labelKey: "square", width: 1080, height: 1080 },
-  { labelKey: "mobile", width: 390, height: 844 },
-  { labelKey: "uhd4k", width: 3840, height: 2160 },
   { labelKey: "instaPortrait", width: 1080, height: 1350 },
+  { labelKey: "mobile", width: 390, height: 844 },
 ];
 
 export interface AspectPreset {
@@ -22,14 +24,16 @@ export interface AspectPreset {
   h: number;
 }
 
+// Ordered: landscape (w > h) by ratio desc, then square, then portrait (w < h)
+// by ratio desc.
 export const ASPECT_PRESETS: AspectPreset[] = [
-  { label: "1:1", w: 1, h: 1 },
   { label: "16:9", w: 16, h: 9 },
-  { label: "9:16", w: 9, h: 16 },
-  { label: "4:3", w: 4, h: 3 },
-  { label: "3:4", w: 3, h: 4 },
   { label: "3:2", w: 3, h: 2 },
+  { label: "4:3", w: 4, h: 3 },
+  { label: "1:1", w: 1, h: 1 },
+  { label: "3:4", w: 3, h: 4 },
   { label: "2:3", w: 2, h: 3 },
+  { label: "9:16", w: 9, h: 16 },
 ];
 
 export type ResizeMode = "pixel" | "percent" | "preset";
