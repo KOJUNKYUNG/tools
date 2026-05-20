@@ -9,18 +9,15 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
-import { maxFitCrop } from "@/lib/image/maxFitCrop";
+import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
   aspectLockedResize,
   type ResizeHandle,
 } from "@/lib/image/aspectLockedResize";
 
-export interface CropRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+// Single-source the CropRect type from the lib; re-export so existing
+// consumers importing it from this component keep working.
+export type { CropRect } from "@/lib/image/maxFitCrop";
 
 const HANDLE_POSITIONS: Record<ResizeHandle, React.CSSProperties> = {
   nw: { top: -6, left: -6 },
