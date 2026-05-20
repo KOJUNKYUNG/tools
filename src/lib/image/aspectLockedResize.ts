@@ -36,7 +36,8 @@ export function aspectLockedResize(
   bounds: ImageDims,
 ): CropRect {
   if (!HANDLES.has(handle)) return prev;
-  if (ratio <= 0 || bounds.w <= 0 || bounds.h <= 0) return prev;
+  if (!Number.isFinite(ratio) || ratio <= 0 || bounds.w <= 0 || bounds.h <= 0)
+    return prev;
 
   const px = clamp(mouse.x, 0, bounds.w);
   const py = clamp(mouse.y, 0, bounds.h);

@@ -70,6 +70,30 @@ describe("aspectLockedResize", () => {
     });
   });
 
+  describe("edge handle 's' (south)", () => {
+    it("changes height downward and adjusts width to preserve ratio, centred horizontally", () => {
+      const next = aspectLockedResize("s", baseRect, { x: 0, y: 500 }, 2, bounds);
+      // anchor = north edge midpoint (400, 200). Desired height = 500 - 200 = 300.
+      // width = 300*2 = 600. centreX = 400 → x = 100. y = 200.
+      expect(next).toEqual({ x: 100, y: 200, width: 600, height: 300 });
+    });
+  });
+
+  describe("edge handle 'w' (west)", () => {
+    it("changes width leftward and adjusts height to preserve ratio, centred vertically", () => {
+      const next = aspectLockedResize("w", baseRect, { x: 100, y: 0 }, 2, bounds);
+      // anchor = east edge (600, 300). Desired width = 600 - 100 = 500.
+      // height = 500/2 = 250. centreY = 300 → y = 175. x = 600 - 500 = 100.
+      expect(next).toEqual({ x: 100, y: 175, width: 500, height: 250 });
+    });
+  });
+
+  it("returns prev for a NaN ratio", () => {
+    expect(
+      aspectLockedResize("se", baseRect, { x: 800, y: 500 }, Number.NaN, bounds),
+    ).toEqual(baseRect);
+  });
+
   it("returns previous rect when the handle is unrecognised", () => {
     // @ts-expect-error testing runtime guard
     expect(aspectLockedResize("bogus", baseRect, { x: 0, y: 0 }, 2, bounds)).toEqual(
