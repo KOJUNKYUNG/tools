@@ -18,6 +18,11 @@ interface FileUploadProps {
   hideFileList?: boolean;
   /** Hide the auto-generated "{exts} · 최대 {size}" hint line. */
   hideAutoHint?: boolean;
+  /** Optional localisation override for the auto-generated hint line. */
+  labels?: {
+    /** Template for the max-size hint, with {size} substituted (e.g. "최대 {size}", "Max {size}"). */
+    maxSize?: string;
+  };
 }
 
 function formatBytes(bytes: number): string {
@@ -37,6 +42,7 @@ export function FileUpload({
   description,
   hideFileList = false,
   hideAutoHint = false,
+  labels,
 }: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
 
@@ -83,6 +89,8 @@ export function FileUpload({
   });
 
   const acceptedExtensions = Object.values(accept).flat().join(", ");
+  const maxSizeTemplate = labels?.maxSize ?? "최대 {size}";
+  const maxSizeHint = maxSizeTemplate.replace("{size}", formatBytes(maxSize));
 
   return (
     <div className="space-y-4">
@@ -109,7 +117,7 @@ export function FileUpload({
           )}
           {!hideAutoHint && (
             <p className="mt-1 text-xs text-muted-foreground">
-              {acceptedExtensions} · 최대 {formatBytes(maxSize)}
+              {acceptedExtensions} · {maxSizeHint}
             </p>
           )}
         </div>

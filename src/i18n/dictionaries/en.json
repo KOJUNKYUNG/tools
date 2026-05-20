@@ -35,7 +35,10 @@
     "openTool": "Open this tool",
     "drop": "Drop files here",
     "or": "or",
-    "click": "click to browse"
+    "click": "click to browse",
+    "fileUpload": {
+      "maxSize": "Max {size}"
+    }
   },
   "footer": {
     "copyright": "© 2026 Ontab · runs entirely in your browser",
@@ -167,6 +170,49 @@
     "image-to-pdf": { "title": "Image → PDF", "description": "Package images into a single PDF." },
     "pdf-to-image": { "title": "PDF → Image", "description": "Render each page as a high-res image." },
     "image-compress": { "title": "Compress & convert", "description": "Batch-compress and convert formats." },
-    "image-resize": { "title": "Resize images", "description": "Batch-resize while preserving ratio." }
+    "image-resize": {
+      "title": "Resize images",
+      "description": "Batch-resize while preserving ratio.",
+      "page": {
+        "title": "Resize image",
+        "subtitle": "Change image dimensions by exact pixels or aspect ratio.",
+        "header": {
+          "title": "Resize image",
+          "description": "Change image dimensions by exact pixels or aspect ratio.",
+          "reset": "Reset"
+        },
+        "originalSize": "Original size",
+        "revertToOriginal": "Reset to original size",
+        "widthLabel": "Width (px)",
+        "heightLabel": "Height (px)",
+        "lockAspect": "Lock aspect ratio",
+        "unlockAspect": "Unlock aspect ratio",
+        "cropToggle": "Crop without distortion",
+        "cropToggleHint": "When on, the image is cropped to match the target ratio. When off, the image is stretched.",
+        "sizePresetsTitle": "Size presets",
+        "ratioPresetsTitle": "Ratio presets",
+        "customRatio": "Custom",
+        "sizePreset": {
+          "fhd": "FHD (1920×1080)",
+          "hd": "HD (1280×720)",
+          "square": "Square (1080×1080)",
+          "mobile": "Mobile (390×844)",
+          "uhd4k": "4K UHD (3840×2160)",
+          "instaPortrait": "Insta portrait (1080×1350)"
+        },
+        "apply": "Resize",
+        "doneTitle": "Resized",
+        "download": "Download",
+        "downloadAgainLabel": "Start over",
+        "reupload": "Re-upload",
+        "compressLink": "Compress / convert",
+        "uploadPrompt": "Drag an image here, or click to upload",
+        "uploadHint": "JPG, PNG, WebP supported.",
+        "tryAgain": "Try again",
+        "cropSelectionLabel": "Selection (drag to move, corners to resize)",
+        "stretchModeLabel": "The image is stretched to fit the given size.",
+        "cropFooterTemplate": "Crop to {w}×{h} ratio · selection: {cw}×{ch}px"
+      }
+    }
   }
 }
