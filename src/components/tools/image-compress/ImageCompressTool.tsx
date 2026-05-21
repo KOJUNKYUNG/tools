@@ -136,8 +136,10 @@ export function ImageCompressTool({
       return;
     }
     // Only idle owns the live estimate/preview. While processing or done, retain
-    // the current preview (the done effect sets the actual result image).
+    // the current preview (the done effect sets the actual result image). Bump the
+    // token so any in-flight idle estimate is discarded instead of overwriting it.
     if (status !== "idle") {
+      estimateTokenRef.current++;
       setEstimating(false);
       return;
     }
@@ -360,9 +362,10 @@ export function ImageCompressTool({
       <button
         type="button"
         onClick={onReset}
+        disabled={busy}
         aria-label={labels.header.reset}
         title={labels.header.reset}
-        className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
+        className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)] disabled:cursor-not-allowed disabled:opacity-50"
         style={{ color: "var(--ink-soft)" }}
       >
         <RotateCcwIcon className="size-4" />
