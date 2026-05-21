@@ -15,6 +15,7 @@ interface ImageCompressPreviewProps {
   moreImagesTemplate: string;
   prevAria: string;
   nextAria: string;
+  disabled?: boolean;
 }
 
 export function ImageCompressPreview({
@@ -29,6 +30,7 @@ export function ImageCompressPreview({
   moreImagesTemplate,
   prevAria,
   nextAria,
+  disabled = false,
 }: ImageCompressPreviewProps) {
   const multi = totalCount > 1;
   return (
@@ -53,7 +55,8 @@ export function ImageCompressPreview({
         <button
           type="button"
           onClick={onReupload}
-          className="shrink-0 rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)]"
+          disabled={disabled}
+          className="shrink-0 rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)] disabled:cursor-not-allowed disabled:opacity-50"
           style={{
             background: "var(--surface-2)",
             borderColor: "var(--border)",

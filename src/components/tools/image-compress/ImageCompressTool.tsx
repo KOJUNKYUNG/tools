@@ -163,11 +163,15 @@ export function ImageCompressTool({
 
   const handleHiddenInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (status === "processing") {
+        e.target.value = "";
+        return;
+      }
       const newFiles = e.target.files ? Array.from(e.target.files) : [];
       if (newFiles.length > 0) handleFilesChange(newFiles);
       e.target.value = "";
     },
-    [handleFilesChange],
+    [handleFilesChange, status],
   );
 
   const onReset = useCallback(() => {
@@ -178,6 +182,7 @@ export function ImageCompressTool({
 
   const hasFiles = files.length > 0;
   const isDone = status === "done" && !!result;
+  const busy = status === "processing";
 
   const body = (
     <div className={inline ? "space-y-5" : "space-y-5 px-6 py-4"}>
@@ -218,6 +223,7 @@ export function ImageCompressTool({
             moreImagesTemplate={labels.moreImagesTemplate}
             prevAria={labels.prevAria}
             nextAria={labels.nextAria}
+            disabled={busy}
           />
 
           <div className="space-y-3">
@@ -284,6 +290,7 @@ export function ImageCompressTool({
               onRemove={handleRemove}
               removeAriaTemplate={labels.removeAria}
               sizeChangeTemplate={labels.sizeChangeTemplate}
+              disabled={busy}
             />
           </div>
         </div>

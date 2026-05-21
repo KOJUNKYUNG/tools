@@ -29,6 +29,7 @@ interface ImageCompressFileListProps {
   onRemove: (index: number) => void;
   removeAriaTemplate: string;
   sizeChangeTemplate: string;
+  disabled?: boolean;
 }
 
 export function ImageCompressFileList({
@@ -38,6 +39,7 @@ export function ImageCompressFileList({
   onRemove,
   removeAriaTemplate,
   sizeChangeTemplate,
+  disabled = false,
 }: ImageCompressFileListProps) {
   return (
     <div
@@ -67,8 +69,9 @@ export function ImageCompressFileList({
               <button
                 type="button"
                 onClick={() => onRemove(i)}
+                disabled={disabled}
                 aria-label={template(removeAriaTemplate, { name: f.name })}
-                className="shrink-0 rounded p-0.5 transition-colors hover:text-[color:var(--accent-copper)]"
+                className="shrink-0 rounded p-0.5 transition-colors hover:text-[color:var(--accent-copper)] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ color: "var(--ink-soft)" }}
               >
                 <XIcon className="size-3.5" />
