@@ -52,6 +52,8 @@ export function ImageCompressTool({
   );
   const [estimating, setEstimating] = useState(false);
   const estimateTokenRef = useRef(0);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
   const reuploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
@@ -81,6 +83,17 @@ export function ImageCompressTool({
     urlsRef.current = [];
   }, []);
 
+  // Swap the compressed-preview object URL (revoke-on-replace; null = show original).
+  const setCompressedPreview = useCallback((blob: Blob | null) => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    const url = blob ? URL.createObjectURL(blob) : null;
+    previewUrlRef.current = url;
+    setPreviewUrl(url);
+  }, []);
+
   const handleFilesChange = useCallback(
     (newFiles: File[]) => {
       retry();
@@ -91,8 +104,9 @@ export function ImageCompressTool({
       setFiles(newFiles);
       setCurrentIndex(0);
       setEstimate(null);
+      setCompressedPreview(null);
     },
-    [retry, revokeAll, setFiles],
+    [retry, revokeAll, setFiles, setCompressedPreview],
   );
 
   // Consume cross-tool handoff (e.g. files staged by image-resize). Once on mount.
@@ -103,17 +117,26 @@ export function ImageCompressTool({
   }, []);
 
   // Revoke all object URLs on unmount.
-  useEffect(() => () => revokeAll(), [revokeAll]);
+  useEffect(
+    () => () => {
+      revokeAll();
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    },
+    [revokeAll],
+  );
 
-  // Live estimated output size for the currently previewed image.
+  // Live estimated output size + compressed preview for the current image.
   useEffect(() => {
-    if (
-      !outputFormat ||
-      outputFormat === "image/png" ||
-      files.length === 0 ||
-      status !== "idle"
-    ) {
+    // No estimable compressed output → show the original, no spinner.
+    if (!outputFormat || outputFormat === "image/png" || files.length === 0) {
       setEstimate(null);
+      setEstimating(false);
+      setCompressedPreview(null);
+      return;
+    }
+    // Only idle owns the live estimate/preview. While processing or done, retain
+    // the current preview (the done effect sets the actual result image).
+    if (status !== "idle") {
       setEstimating(false);
       return;
     }
@@ -128,20 +151,32 @@ export function ImageCompressTool({
         const img = res.images[0];
         const { pct } = computeSavings(img.originalSize, img.compressedSize);
         setEstimate({ size: img.compressedSize, pct });
+        setCompressedPreview(img.blob);
       } catch {
-        if (token === estimateTokenRef.current) setEstimate(null);
+        if (token === estimateTokenRef.current) {
+          setEstimate(null);
+          setCompressedPreview(null);
+        }
       } finally {
         if (token === estimateTokenRef.current) setEstimating(false);
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [outputFormat, quality, currentIndex, files, status]);
+  }, [outputFormat, quality, currentIndex, files, status, setCompressedPreview]);
+
+  // In the done state, show the actual compressed result for the current image.
+  useEffect(() => {
+    if (status === "done" && result) {
+      setCompressedPreview(result.images[currentIndex]?.blob ?? null);
+    }
+  }, [status, result, currentIndex, setCompressedPreview]);
 
   const handleRemove = useCallback(
     (index: number) => {
       // Removing a file invalidates any prior compression result; reset so the
       // file list never shows stale done-mode rows for a now-missing file.
       retry();
+      setCompressedPreview(null);
       const removed = urlsRef.current[index];
       if (removed) URL.revokeObjectURL(removed);
       const nextUrls = urlsRef.current.filter((_, i) => i !== index);
@@ -153,7 +188,7 @@ export function ImageCompressTool({
         Math.max(0, Math.min(idx, nextFiles.length - 1)),
       );
     },
-    [files, setFiles, retry],
+    [files, setFiles, retry, setCompressedPreview],
   );
 
   const handleReupload = useCallback(
@@ -213,11 +248,15 @@ export function ImageCompressTool({
             fileName={files[currentIndex]?.name ?? ""}
             totalCount={files.length}
             currentIndex={currentIndex}
-            imageUrl={urls[currentIndex] ?? null}
-            onPrev={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-            onNext={() =>
-              setCurrentIndex((i) => Math.min(files.length - 1, i + 1))
-            }
+            imageUrl={previewUrl ?? urls[currentIndex] ?? null}
+            onPrev={() => {
+              if (status === "idle") setCompressedPreview(null);
+              setCurrentIndex((i) => Math.max(0, i - 1));
+            }}
+            onNext={() => {
+              if (status === "idle") setCompressedPreview(null);
+              setCurrentIndex((i) => Math.min(files.length - 1, i + 1));
+            }}
             onReupload={handleReupload}
             reuploadLabel={labels.reupload}
             moreImagesTemplate={labels.moreImagesTemplate}
