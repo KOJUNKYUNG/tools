@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FILE_SIZE_LIMIT } from "@/lib/constants";
+import { formatBytes } from "@/lib/common/formatBytes";
 
 interface FileUploadProps {
   accept: Accept;
@@ -23,14 +24,6 @@ interface FileUploadProps {
     /** Template for the max-size hint, with {size} substituted (e.g. "최대 {size}", "Max {size}"). */
     maxSize?: string;
   };
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
 export function FileUpload({
