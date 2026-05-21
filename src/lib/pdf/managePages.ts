@@ -1,10 +1,5 @@
 import { PDFDocument, degrees } from "pdf-lib";
-
-async function getPdfjsLib() {
-  const pdfjsLib = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-  return pdfjsLib;
-}
+import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 
 export interface PageInfo {
   id: string;
@@ -22,9 +17,7 @@ export async function generateThumbnails(
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({
     data: arrayBuffer,
-    cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/cmaps/`,
-    cMapPacked: true,
-    standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`,
+    ...pdfjsDocParams,
   }).promise;
 
   const totalPages = pdf.numPages;
