@@ -2,6 +2,7 @@
 
 import { template } from "@/lib/common/template";
 import type { OutputFormat } from "@/lib/image/compressImage";
+import { Loader2Icon } from "lucide-react";
 
 const FORMAT_OPTIONS: { value: OutputFormat; label: string }[] = [
   { value: "image/jpeg", label: "JPG" },
@@ -50,22 +51,6 @@ export function ImageCompressControls({
   estimatingLabel,
   pngLosslessLabel,
 }: ImageCompressControlsProps) {
-  let estimateLine: string;
-  if (outputFormat === "image/png") {
-    estimateLine = pngLosslessLabel;
-  } else if (!outputFormat) {
-    estimateLine = " ";
-  } else if (estimating) {
-    estimateLine = estimatingLabel;
-  } else if (estimate) {
-    estimateLine = template(estimateTemplate, {
-      size: formatBytes(estimate.size),
-      pct: pctText(estimate.pct),
-    });
-  } else {
-    estimateLine = " ";
-  }
-
   return (
     <div className="space-y-3">
       <div>
@@ -132,10 +117,26 @@ export function ImageCompressControls({
           style={{ accentColor: "var(--accent-electric)" }}
         />
         <div
-          className="mt-1 font-body text-[11px] leading-[1.4]"
+          className="mt-1 flex items-center gap-1.5 font-body text-[11px] leading-[1.4]"
           style={{ color: "var(--ink-soft)", minHeight: "16px" }}
         >
-          {estimateLine}
+          {outputFormat === "image/png" ? (
+            pngLosslessLabel
+          ) : !outputFormat ? (
+            " "
+          ) : estimating ? (
+            <>
+              <Loader2Icon className="size-3 shrink-0 animate-spin" />
+              {estimatingLabel}
+            </>
+          ) : estimate ? (
+            template(estimateTemplate, {
+              size: formatBytes(estimate.size),
+              pct: pctText(estimate.pct),
+            })
+          ) : (
+            " "
+          )}
         </div>
       </div>
     </div>
