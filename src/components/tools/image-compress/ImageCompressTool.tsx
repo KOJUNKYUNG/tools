@@ -139,6 +139,9 @@ export function ImageCompressTool({
 
   const handleRemove = useCallback(
     (index: number) => {
+      // Removing a file invalidates any prior compression result; reset so the
+      // file list never shows stale done-mode rows for a now-missing file.
+      retry();
       const removed = urlsRef.current[index];
       if (removed) URL.revokeObjectURL(removed);
       const nextUrls = urlsRef.current.filter((_, i) => i !== index);
@@ -150,7 +153,7 @@ export function ImageCompressTool({
         Math.max(0, Math.min(idx, nextFiles.length - 1)),
       );
     },
-    [files, setFiles],
+    [files, setFiles, retry],
   );
 
   const handleReupload = useCallback(
@@ -218,6 +221,8 @@ export function ImageCompressTool({
           />
 
           <div className="space-y-3">
+            {/* Reserve height so the file list below does not shift between the
+                idle (button + controls), processing, and done (result card) states. */}
             <div style={{ minHeight: "188px" }}>
               {isDone ? (
                 <ImageCompressResult
