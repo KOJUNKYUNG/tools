@@ -197,7 +197,8 @@
         "sizeChangeTemplate": "{from} → {to}",
         "removeAria": "Remove {name}",
         "prevAria": "Previous image",
-        "nextAria": "Next image"
+        "nextAria": "Next image",
+        "comparePreview": "Compressed preview"
       }
     },
     "image-resize": {

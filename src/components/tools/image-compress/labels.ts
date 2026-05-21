@@ -23,6 +23,7 @@ export interface ImageCompressLabels {
   removeAria: string;
   prevAria: string;
   nextAria: string;
+  comparePreview: string;
 }
 
 export function getImageCompressLabels(dict: Dictionary): ImageCompressLabels {
@@ -50,5 +51,6 @@ export function getImageCompressLabels(dict: Dictionary): ImageCompressLabels {
     removeAria: page.removeAria,
     prevAria: page.prevAria,
     nextAria: page.nextAria,
+    comparePreview: page.comparePreview,
   };
 }

@@ -16,6 +16,9 @@ interface ImageCompressPreviewProps {
   prevAria: string;
   nextAria: string;
   disabled?: boolean;
+  showCompressed: boolean;
+  onToggleCompressed: (checked: boolean) => void;
+  compareLabel: string;
 }
 
 export function ImageCompressPreview({
@@ -31,6 +34,9 @@ export function ImageCompressPreview({
   prevAria,
   nextAria,
   disabled = false,
+  showCompressed,
+  onToggleCompressed,
+  compareLabel,
 }: ImageCompressPreviewProps) {
   const multi = totalCount > 1;
   return (
@@ -80,44 +86,58 @@ export function ImageCompressPreview({
         )}
       </div>
 
-      {multi && (
-        <div className="flex items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={onPrev}
-            disabled={currentIndex === 0}
-            aria-label={prevAria}
-            className="rounded-[5px] border p-1 transition-colors hover:border-[color:var(--accent-electric)] disabled:opacity-40"
-            style={{
-              background: "var(--surface-2)",
-              borderColor: "var(--border)",
-              color: "var(--ink-strong)",
-            }}
-          >
-            <ChevronLeftIcon className="size-4" />
-          </button>
-          <span
-            className="font-mono text-[11px]"
-            style={{ color: "var(--ink-soft)" }}
-          >
-            {currentIndex + 1}/{totalCount}
-          </span>
-          <button
-            type="button"
-            onClick={onNext}
-            disabled={currentIndex === totalCount - 1}
-            aria-label={nextAria}
-            className="rounded-[5px] border p-1 transition-colors hover:border-[color:var(--accent-electric)] disabled:opacity-40"
-            style={{
-              background: "var(--surface-2)",
-              borderColor: "var(--border)",
-              color: "var(--ink-strong)",
-            }}
-          >
-            <ChevronRightIcon className="size-4" />
-          </button>
-        </div>
-      )}
+      <div className="relative flex min-h-[28px] items-center justify-center gap-3">
+        {multi && (
+          <>
+            <button
+              type="button"
+              onClick={onPrev}
+              disabled={currentIndex === 0}
+              aria-label={prevAria}
+              className="rounded-[5px] border p-1 transition-colors hover:border-[color:var(--accent-electric)] disabled:opacity-40"
+              style={{
+                background: "var(--surface-2)",
+                borderColor: "var(--border)",
+                color: "var(--ink-strong)",
+              }}
+            >
+              <ChevronLeftIcon className="size-4" />
+            </button>
+            <span
+              className="font-mono text-[11px]"
+              style={{ color: "var(--ink-soft)" }}
+            >
+              {currentIndex + 1}/{totalCount}
+            </span>
+            <button
+              type="button"
+              onClick={onNext}
+              disabled={currentIndex === totalCount - 1}
+              aria-label={nextAria}
+              className="rounded-[5px] border p-1 transition-colors hover:border-[color:var(--accent-electric)] disabled:opacity-40"
+              style={{
+                background: "var(--surface-2)",
+                borderColor: "var(--border)",
+                color: "var(--ink-strong)",
+              }}
+            >
+              <ChevronRightIcon className="size-4" />
+            </button>
+          </>
+        )}
+        <label
+          className="absolute right-0 inline-flex cursor-pointer select-none items-center gap-1.5 font-display text-[11px]"
+          style={{ color: "var(--ink-soft)" }}
+        >
+          {compareLabel}
+          <input
+            type="checkbox"
+            checked={showCompressed}
+            onChange={(e) => onToggleCompressed(e.target.checked)}
+            style={{ accentColor: "var(--accent-electric)" }}
+          />
+        </label>
+      </div>
     </div>
   );
 }

@@ -197,7 +197,8 @@
         "sizeChangeTemplate": "{from} → {to}",
         "removeAria": "{name} 제거",
         "prevAria": "이전 이미지",
-        "nextAria": "다음 이미지"
+        "nextAria": "다음 이미지",
+        "comparePreview": "압축 미리보기"
       }
     },
     "image-resize": {

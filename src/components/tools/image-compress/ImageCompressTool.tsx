@@ -54,6 +54,7 @@ export function ImageCompressTool({
   const estimateTokenRef = useRef(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const previewUrlRef = useRef<string | null>(null);
+  const [showCompressed, setShowCompressed] = useState(true);
   const reuploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
@@ -248,7 +249,9 @@ export function ImageCompressTool({
             fileName={files[currentIndex]?.name ?? ""}
             totalCount={files.length}
             currentIndex={currentIndex}
-            imageUrl={previewUrl ?? urls[currentIndex] ?? null}
+            imageUrl={
+              (showCompressed ? previewUrl : null) ?? urls[currentIndex] ?? null
+            }
             onPrev={() => {
               if (status === "idle") setCompressedPreview(null);
               setCurrentIndex((i) => Math.max(0, i - 1));
@@ -263,6 +266,9 @@ export function ImageCompressTool({
             prevAria={labels.prevAria}
             nextAria={labels.nextAria}
             disabled={busy}
+            showCompressed={showCompressed}
+            onToggleCompressed={setShowCompressed}
+            compareLabel={labels.comparePreview}
           />
 
           <div className="space-y-3">
