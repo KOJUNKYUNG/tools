@@ -45,7 +45,6 @@ export function ImageCompressTool({
   const [outputFormat, setOutputFormat] = useState<OutputFormat | null>(null);
   const [quality, setQuality] = useState(100);
   const [urls, setUrls] = useState<string[]>([]);
-  const urlsRef = useRef<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [estimate, setEstimate] = useState<{ size: number; pct: number } | null>(
     null,
@@ -79,11 +78,6 @@ export function ImageCompressTool({
     },
   });
 
-  const revokeAll = useCallback(() => {
-    for (const u of urlsRef.current) URL.revokeObjectURL(u);
-    urlsRef.current = [];
-  }, []);
-
   // Swap the compressed-preview object URL (revoke-on-replace; null = show original).
   const setCompressedPreview = useCallback((blob: Blob | null) => {
     if (previewUrlRef.current) {
@@ -98,16 +92,12 @@ export function ImageCompressTool({
   const handleFilesChange = useCallback(
     (newFiles: File[]) => {
       retry();
-      revokeAll();
-      const nextUrls = newFiles.map((f) => URL.createObjectURL(f));
-      urlsRef.current = nextUrls;
-      setUrls(nextUrls);
       setFiles(newFiles);
       setCurrentIndex(0);
       setEstimate(null);
       setCompressedPreview(null);
     },
-    [retry, revokeAll, setFiles, setCompressedPreview],
+    [retry, setFiles, setCompressedPreview],
   );
 
   // Consume cross-tool handoff (e.g. files staged by image-resize). Once on mount.
@@ -117,13 +107,25 @@ export function ImageCompressTool({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Revoke all object URLs on unmount.
+  // Manage object URLs for the original-image previews, keyed to `files`. Creating
+  // them in an effect (not imperatively) is StrictMode-safe: if the component
+  // remounts with the same files — e.g. after a cross-tool handoff, whose one-shot
+  // consume cannot re-run — the URLs are re-created instead of left revoked/dead.
+  useEffect(() => {
+    const created = files.map((f) => URL.createObjectURL(f));
+    setUrls(created);
+    return () => {
+      for (const u of created) URL.revokeObjectURL(u);
+    };
+  }, [files]);
+
+  // Revoke the compressed-preview URL on unmount (original URLs are handled by the
+  // files-keyed effect above).
   useEffect(
     () => () => {
-      revokeAll();
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     },
-    [revokeAll],
+    [],
   );
 
   // Live estimated output size + compressed preview for the current image.
@@ -180,11 +182,6 @@ export function ImageCompressTool({
       // file list never shows stale done-mode rows for a now-missing file.
       retry();
       setCompressedPreview(null);
-      const removed = urlsRef.current[index];
-      if (removed) URL.revokeObjectURL(removed);
-      const nextUrls = urlsRef.current.filter((_, i) => i !== index);
-      urlsRef.current = nextUrls;
-      setUrls(nextUrls);
       const nextFiles = files.filter((_, i) => i !== index);
       setFiles(nextFiles);
       setCurrentIndex((idx) =>
