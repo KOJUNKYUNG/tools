@@ -35,6 +35,10 @@
   - Acceptance: "전체 슬라이드" 외에 "슬라이드 지정" 모드 추가. 슬라이드 번호 입력(예: `1, 3, 5-7`) 또는 썸네일 선택으로 적용 대상 지정 가능.
   - Notes: 현재 전체·마스터 2가지 모드만 존재. 슬라이드 썸네일은 `extractCurrentBackgrounds.ts` 로직 활용 가능.
 
+- [ ] `/ppt-background` — 썸네일을 배경 대신 슬라이드 내용으로 (Phase 2 후보)
+  - Acceptance: 슬라이드 선택용 썸네일이 현재 "배경 이미지" 대신 "슬라이드 내용(텍스트·도형, 배경 제외)"을 보여줌.
+  - Notes: 서버 업로드 없는 브라우저 전용 원칙 유지하려면 클라이언트사이드 PPTX 렌더러 필요(부분 JS 렌더러 = 충실도 caveat, 또는 LibreOffice WASM = 무거움). 작은 tweak 아님 — 채택 전 실제 PPT로 프로토타입 충실도 확인 선행.
+
 - [ ] PPTX 파일 압축 기능 추가
   - Acceptance: PPTX 업로드 후 내부 이미지 품질 조정(압축 레벨 선택) 방식으로 파일 크기 감소. 압축 전·후 크기 비교 표시 후 다운로드.
   - Notes: PPTX는 ZIP 구조이므로 `jszip`으로 언패킹 후 이미지 리컴프레스(Canvas API or `browser-image-compression`) → 재패키징. 신규 도구(`/tools/ppt-compress`)로 추가하거나 기존 PPT 관련 도구에 통합.

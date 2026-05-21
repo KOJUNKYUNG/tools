@@ -39,6 +39,7 @@ export function useToolProcessor<TResult>({
   const processorRef = useRef(processor);
   const onDownloadRef = useRef(onDownload);
   const errorOptionsRef = useRef(errorOptions);
+  const generationRef = useRef(0);
 
   useEffect(() => {
     processorRef.current = processor;
@@ -47,22 +48,31 @@ export function useToolProcessor<TResult>({
   });
 
   const run = useCallback(async () => {
+    const gen = ++generationRef.current;
     setStatus("processing");
     setProgress(0);
     setErrorMessage("");
     setResult(null);
 
     try {
-      const res = await processorRef.current(files, setProgress);
+      const res = await processorRef.current(files, (value) => {
+        // Ignore progress from a superseded run.
+        if (gen === generationRef.current) setProgress(value);
+      });
+      // A newer run (or a reset via retry) started while we awaited — discard.
+      if (gen !== generationRef.current) return;
       setResult(res);
       setStatus("done");
     } catch (err) {
+      if (gen !== generationRef.current) return;
       setErrorMessage(getErrorMessage(err, errorOptionsRef.current).message);
       setStatus("error");
     }
   }, [files]);
 
   const retry = useCallback(() => {
+    // Invalidate any in-flight run so its late result can't overwrite this reset.
+    generationRef.current++;
     setStatus("idle");
     setProgress(0);
     setErrorMessage("");

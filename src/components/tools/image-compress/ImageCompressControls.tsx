@@ -1,6 +1,7 @@
 "use client";
 
 import { template } from "@/lib/common/template";
+import { formatBytes } from "@/lib/common/formatBytes";
 import type { OutputFormat } from "@/lib/image/compressImage";
 import { Loader2Icon } from "lucide-react";
 
@@ -9,14 +10,6 @@ const FORMAT_OPTIONS: { value: OutputFormat; label: string }[] = [
   { value: "image/png", label: "PNG" },
   { value: "image/webp", label: "WebP" },
 ];
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-}
 
 function pctText(pct: number): string {
   if (pct > 0) return `-${pct}%`;

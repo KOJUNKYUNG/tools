@@ -11,6 +11,7 @@ import {
   type CompressPdfResult,
 } from "@/lib/pdf/compressPdf";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { formatBytes } from "@/lib/common/formatBytes";
 import { ArchiveIcon } from "lucide-react";
 
 const PDF_ACCEPT = { "application/pdf": [".pdf"] };
@@ -20,14 +21,6 @@ const PRESET_OPTIONS: { value: CompressionPreset; label: string; desc: string }[
   { value: "medium", label: "Medium", desc: "범용, 30~60% 감소" },
   { value: "high", label: "Heavy", desc: "강한 압축, 60~80% 감소" },
 ];
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-}
 
 export default function PdfCompressPage() {
   const [preset, setPreset] = useState<CompressionPreset>("medium");
