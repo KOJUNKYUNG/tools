@@ -169,7 +169,38 @@
     "pdf-pages": { "title": "페이지 관리", "description": "페이지 순서 변경, 회전, 삭제를 한 곳에서." },
     "image-to-pdf": { "title": "이미지 → PDF", "description": "이미지 여러 장을 하나의 PDF로 묶습니다." },
     "pdf-to-image": { "title": "PDF → 이미지", "description": "PDF의 각 페이지를 고해상도 이미지로 변환합니다." },
-    "image-compress": { "title": "이미지 압축·변환", "description": "여러 이미지를 한 번에 압축하고 포맷을 바꿉니다." },
+    "image-compress": {
+      "title": "이미지 압축·변환",
+      "description": "여러 이미지를 한 번에 압축하고 포맷을 바꿉니다.",
+      "page": {
+        "title": "이미지 압축·변환",
+        "subtitle": "JPG·PNG·WebP 이미지를 압축하거나 다른 형식으로 변환합니다.",
+        "header": {
+          "title": "이미지 압축·변환",
+          "description": "JPG·PNG·WebP 이미지를 압축하거나 다른 형식으로 변환합니다.",
+          "reset": "도구 초기화"
+        },
+        "reupload": "다시 업로드",
+        "uploadPrompt": "이미지를 드래그하거나 클릭하여 업로드",
+        "uploadHint": "JPG, PNG, WebP 파일을 지원합니다. 여러 장을 한 번에 올릴 수 있습니다.",
+        "formatTitle": "포맷 선택",
+        "qualityTitle": "품질",
+        "compressTemplate": "이미지 압축하기 ({n}개)",
+        "moreImagesTemplate": "+{n}개 이미지",
+        "estimateTemplate": "예상 ~{size} · 원본 대비 {pct}",
+        "estimating": "예상 용량 계산 중…",
+        "pngLossless": "PNG는 무손실 — 품질 설정이 적용되지 않습니다.",
+        "doneTitle": "압축 완료",
+        "settingsTemplate": "{format} · 품질 {quality}%",
+        "download": "다운로드",
+        "recompress": "다시 압축",
+        "sizeChangeTemplate": "{from} → {to}",
+        "removeAria": "{name} 제거",
+        "prevAria": "이전 이미지",
+        "nextAria": "다음 이미지",
+        "comparePreview": "압축 미리보기"
+      }
+    },
     "image-resize": {
       "title": "이미지 크기 변경",
       "description": "픽셀·비율을 유지하며 일괄 리사이즈합니다.",

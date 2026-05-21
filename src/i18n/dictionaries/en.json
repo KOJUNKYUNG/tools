@@ -169,7 +169,38 @@
     "pdf-pages": { "title": "Manage PDF pages", "description": "Reorder, rotate, or delete pages in one place." },
     "image-to-pdf": { "title": "Image → PDF", "description": "Package images into a single PDF." },
     "pdf-to-image": { "title": "PDF → Image", "description": "Render each page as a high-res image." },
-    "image-compress": { "title": "Compress & convert", "description": "Batch-compress and convert formats." },
+    "image-compress": {
+      "title": "Compress & convert",
+      "description": "Batch-compress and convert formats.",
+      "page": {
+        "title": "Compress & convert images",
+        "subtitle": "Compress JPG/PNG/WebP images or convert them to another format.",
+        "header": {
+          "title": "Compress & convert images",
+          "description": "Compress JPG/PNG/WebP images or convert them to another format.",
+          "reset": "Reset"
+        },
+        "reupload": "Re-upload",
+        "uploadPrompt": "Drag images here, or click to upload",
+        "uploadHint": "JPG, PNG, WebP supported. Upload multiple at once.",
+        "formatTitle": "Output format",
+        "qualityTitle": "Quality",
+        "compressTemplate": "Compress images ({n})",
+        "moreImagesTemplate": "+{n} more",
+        "estimateTemplate": "Est. ~{size} · {pct} vs original",
+        "estimating": "Estimating size…",
+        "pngLossless": "PNG is lossless — the quality setting has no effect.",
+        "doneTitle": "Compression complete",
+        "settingsTemplate": "{format} · quality {quality}%",
+        "download": "Download",
+        "recompress": "Compress again",
+        "sizeChangeTemplate": "{from} → {to}",
+        "removeAria": "Remove {name}",
+        "prevAria": "Previous image",
+        "nextAria": "Next image",
+        "comparePreview": "Compressed preview"
+      }
+    },
     "image-resize": {
       "title": "Resize images",
       "description": "Batch-resize while preserving ratio.",
