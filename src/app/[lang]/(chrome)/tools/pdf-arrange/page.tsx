@@ -1,4 +1,4 @@
-import { type Locale } from "@/i18n/config";
+import { getDictionary, type Locale } from "@/i18n/config";
 import { locales } from "@/i18n/locales";
 import { PdfArrange } from "@/components/tools/pdf-arrange/PdfArrange";
 import { getPdfArrangeLabels } from "@/components/tools/pdf-arrange/labels";
@@ -13,7 +13,8 @@ function asLocale(lang: string): Locale {
 
 export default async function PdfArrangePage({ params }: PageProps) {
   const { lang } = await params;
-  const labels = getPdfArrangeLabels(asLocale(lang));
+  const dict = await getDictionary(asLocale(lang));
+  const labels = getPdfArrangeLabels(dict);
 
   return (
     <div

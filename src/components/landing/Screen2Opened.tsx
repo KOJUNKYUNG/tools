@@ -21,10 +21,12 @@ interface Screen2OpenedProps {
   zoomingToolSlug: string | null;
 }
 
+// Alias tools (aliasOf set) stay routable but are hidden from the desk so only
+// the canonical card shows.
 const TOOLS_BY_CATEGORY = {
-  presentation: TOOLS.filter((t) => t.category === "ppt"),
-  document: TOOLS.filter((t) => t.category === "pdf"),
-  image: TOOLS.filter((t) => t.category === "image"),
+  presentation: TOOLS.filter((t) => t.category === "ppt" && !t.aliasOf),
+  document: TOOLS.filter((t) => t.category === "pdf" && !t.aliasOf),
+  image: TOOLS.filter((t) => t.category === "image" && !t.aliasOf),
 };
 
 type ToolSlugKey = keyof Dictionary["tools"];
