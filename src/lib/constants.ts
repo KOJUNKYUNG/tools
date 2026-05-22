@@ -28,6 +28,12 @@ export interface ToolInfo {
   seoDescription?: string;
   keywords?: string[];
   ogImage?: string;
+  /**
+   * When set, this tool is an SEO/sharing alias of the canonical tool with the
+   * given slug. Alias routes stay live (and render the canonical tool) but are
+   * hidden from the desk grid so only the canonical card shows.
+   */
+  aliasOf?: string;
 }
 
 export const TOOLS: ToolInfo[] = [
@@ -50,6 +56,25 @@ export const TOOLS: ToolInfo[] = [
     category: "ppt",
   },
   {
+    slug: "pdf-arrange",
+    title: "PDF 합치기 / 나누기 / 정렬",
+    description: "여러 PDF를 하나로 합치거나, 구분선으로 여러 파일로 나눕니다.",
+    i18nKey: "tools.pdf-arrange",
+    href: "/tools/pdf-arrange",
+    icon: LayoutGrid,
+    category: "pdf",
+    keywords: [
+      "merge",
+      "split",
+      "arrange",
+      "combine",
+      "합치기",
+      "나누기",
+      "정렬",
+      "페이지",
+    ],
+  },
+  {
     slug: "pdf-merge",
     title: "PDF 합치기",
     description: "여러 PDF 파일을 하나로 정밀하게 병합합니다.",
@@ -57,6 +82,7 @@ export const TOOLS: ToolInfo[] = [
     href: "/tools/pdf-merge",
     icon: Files,
     category: "pdf",
+    aliasOf: "pdf-arrange",
   },
   {
     slug: "pdf-split",
@@ -66,6 +92,7 @@ export const TOOLS: ToolInfo[] = [
     href: "/tools/pdf-split",
     icon: Split,
     category: "pdf",
+    aliasOf: "pdf-arrange",
   },
   {
     slug: "pdf-compress",
@@ -84,6 +111,7 @@ export const TOOLS: ToolInfo[] = [
     href: "/tools/pdf-pages",
     icon: LayoutGrid,
     category: "pdf",
+    aliasOf: "pdf-arrange",
   },
   {
     slug: "image-to-pdf",

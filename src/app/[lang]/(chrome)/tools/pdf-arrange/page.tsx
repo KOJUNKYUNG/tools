@@ -1,5 +1,3 @@
-// pdf-split is an SEO/sharing alias of the unified pdf-arrange tool. The slug
-// stays live and renders the same editor (see ToolInfo.aliasOf in constants).
 import { getDictionary, type Locale } from "@/i18n/config";
 import { locales } from "@/i18n/locales";
 import { PdfArrange } from "@/components/tools/pdf-arrange/PdfArrange";
@@ -13,7 +11,7 @@ function asLocale(lang: string): Locale {
   return (locales as readonly string[]).includes(lang) ? (lang as Locale) : "ko";
 }
 
-export default async function PdfSplitPage({ params }: PageProps) {
+export default async function PdfArrangePage({ params }: PageProps) {
   const { lang } = await params;
   const dict = await getDictionary(asLocale(lang));
   const labels = getPdfArrangeLabels(dict);

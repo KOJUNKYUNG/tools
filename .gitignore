@@ -61,3 +61,7 @@ Desktop.ini
 # build caches
 .turbo/
 .swc/
+.gstack/
+
+# pdfjs-dist assets copied by scripts/copy-pdfjs.mjs (postinstall)
+public/pdfjs/
