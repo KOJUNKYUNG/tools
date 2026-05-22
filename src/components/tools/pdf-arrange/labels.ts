@@ -30,6 +30,11 @@ export interface PdfArrangeLabels {
   again: string;
   oversizeWarning: string;
   dismiss: string;
+  resultTitle: string;
+  outputCountTemplate: string;
+  downloadPdf: string;
+  downloadZipTemplate: string;
+  downloadOneAria: string;
 }
 
 const KO: PdfArrangeLabels = {
@@ -54,6 +59,11 @@ const KO: PdfArrangeLabels = {
   again: "다시 선택",
   oversizeWarning: "총 용량이 큽니다({size}). 브라우저에서 처리 시 느려질 수 있습니다.",
   dismiss: "닫기",
+  resultTitle: "적용 완료",
+  outputCountTemplate: "{n}개 파일 생성됨",
+  downloadPdf: "PDF 다운로드",
+  downloadZipTemplate: "ZIP 다운로드 ({n}개)",
+  downloadOneAria: "{name} 다운로드",
 };
 
 const EN: PdfArrangeLabels = {
@@ -80,6 +90,11 @@ const EN: PdfArrangeLabels = {
   oversizeWarning:
     "Large total size ({size}). In-browser processing may be slow.",
   dismiss: "Dismiss",
+  resultTitle: "Done",
+  outputCountTemplate: "{n} files created",
+  downloadPdf: "Download PDF",
+  downloadZipTemplate: "Download ZIP ({n})",
+  downloadOneAria: "Download {name}",
 };
 
 export function getPdfArrangeLabels(lang: Locale): PdfArrangeLabels {

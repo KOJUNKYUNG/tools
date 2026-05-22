@@ -24,15 +24,12 @@ import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { template } from "@/lib/common/template";
 import { getErrorMessage } from "@/lib/errors";
-import {
-  type PackagedOutput,
-  assembleSections,
-  packageOutputs,
-} from "@/lib/pdf/assembleSections";
+import { assembleSections, packageOutputs } from "@/lib/pdf/assembleSections";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import {
   type PageItem,
   type Rotation,
+  buildOutputNames,
   countSections,
   splitIntoSections,
 } from "@/lib/pdf/pageItem";
@@ -40,6 +37,11 @@ import { buildPageItems, deriveBaseName } from "./buildPageItems";
 import { Divider } from "./Divider";
 import { EditorTopStrip } from "./EditorTopStrip";
 import { PageItemCard, type SectionTint } from "./PageItemCard";
+import {
+  type ArrangeResult,
+  type OutputEntry,
+  PdfArrangeResult,
+} from "./PdfArrangeResult";
 import type { PdfArrangeLabels } from "./labels";
 import { clearThumbnailCache } from "./thumbnailCache";
 
@@ -139,27 +141,49 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
 
-  const { files, setFiles, status, progress, errorMessage, run, retry, download } =
-    useToolProcessor<PackagedOutput>({
-      processor: async (_files, onProgress) => {
-        const sections = splitIntoSections(items);
-        if (sections.length === 0) throw new Error("출력할 페이지가 없습니다.");
-        const outputs = await assembleSections(
-          { sections, sourceBytesById },
-          onProgress,
-        );
-        return packageOutputs(
-          outputs,
-          deriveBaseName(items[0]?.sourceFileName),
-        );
-      },
-      onDownload: (res) =>
-        downloadBlob(
-          res.data,
-          res.filename,
-          res.type === "zip" ? "application/zip" : "application/pdf",
-        ),
-    });
+  const {
+    files,
+    setFiles,
+    status,
+    progress,
+    errorMessage,
+    result,
+    run,
+    retry,
+    download,
+  } = useToolProcessor<ArrangeResult>({
+    processor: async (_files, onProgress) => {
+      const sections = splitIntoSections(items);
+      if (sections.length === 0) throw new Error("출력할 페이지가 없습니다.");
+      const outBytes = await assembleSections(
+        { sections, sourceBytesById },
+        onProgress,
+      );
+      const base = deriveBaseName(items[0]?.sourceFileName);
+      const { fileNames } = buildOutputNames(base, outBytes.length);
+      const outputs: OutputEntry[] = outBytes.map((data, i) => ({
+        name: fileNames[i],
+        data,
+        cover: sections[i][0],
+      }));
+      return { outputs, isZip: outBytes.length > 1, base };
+    },
+    onDownload: async (res) => {
+      const packaged = await packageOutputs(
+        res.outputs.map((o) => o.data),
+        res.base,
+      );
+      downloadBlob(
+        packaged.data,
+        packaged.filename,
+        packaged.type === "zip" ? "application/zip" : "application/pdf",
+      );
+    },
+  });
+
+  const handleDownloadOne = useCallback((entry: OutputEntry) => {
+    downloadBlob(entry.data, entry.name, "application/pdf");
+  }, []);
 
   // Drop cached pdfjs docs / object URLs when the editor unmounts.
   useEffect(() => () => clearThumbnailCache(), []);
@@ -406,6 +430,15 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
         />
       ) : status === "idle" ? (
         editor
+      ) : status === "done" && result ? (
+        <PdfArrangeResult
+          result={result}
+          sourceBytesById={sourceBytesById}
+          labels={labels}
+          onDownloadAll={download}
+          onDownloadOne={handleDownloadOne}
+          onAgain={retry}
+        />
       ) : (
         <ProcessingStatus
           status={status}
