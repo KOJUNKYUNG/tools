@@ -40,7 +40,7 @@ function CoverThumb({
   return (
     <div
       ref={thumb.ref}
-      className="flex h-[44px] w-[34px] shrink-0 items-center justify-center overflow-hidden rounded-[3px] bg-white"
+      className="flex h-[88px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-[4px] bg-white"
       style={{ border: "1px solid var(--silver-200)" }}
     >
       {thumb.status === "ready" && thumb.src ? (
@@ -52,7 +52,7 @@ function CoverThumb({
           style={{ transform: `rotate(${cover.rotation}deg)` }}
         />
       ) : (
-        <FileIcon className="size-4" style={{ color: "var(--silver-400)" }} />
+        <FileIcon className="size-6" style={{ color: "var(--silver-400)" }} />
       )}
     </div>
   );
@@ -83,10 +83,10 @@ export function PdfArrangeResult({
     : labels.downloadPdf;
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div className="grid min-h-[440px] grid-cols-1 gap-4 md:grid-cols-2">
       <div
         className="ob-scroll space-y-1.5 overflow-y-auto pr-1"
-        style={{ maxHeight: "320px" }}
+        style={{ maxHeight: "440px" }}
       >
         {outputs.map((o, i) => (
           <div
