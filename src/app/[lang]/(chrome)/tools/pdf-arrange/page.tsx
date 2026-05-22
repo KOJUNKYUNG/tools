@@ -1,0 +1,28 @@
+import { type Locale } from "@/i18n/config";
+import { locales } from "@/i18n/locales";
+import { PdfArrange } from "@/components/tools/pdf-arrange/PdfArrange";
+import { getPdfArrangeLabels } from "@/components/tools/pdf-arrange/labels";
+
+interface PageProps {
+  params: Promise<{ lang: string }>;
+}
+
+function asLocale(lang: string): Locale {
+  return (locales as readonly string[]).includes(lang) ? (lang as Locale) : "ko";
+}
+
+export default async function PdfArrangePage({ params }: PageProps) {
+  const { lang } = await params;
+  const labels = getPdfArrangeLabels(asLocale(lang));
+
+  return (
+    <div
+      className="mx-auto px-4 py-8"
+      style={{
+        width: "min(var(--tweak-workspace-width, 980px), calc(100vw - 32px))",
+      }}
+    >
+      <PdfArrange labels={labels} />
+    </div>
+  );
+}
