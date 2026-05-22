@@ -17,12 +17,14 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { LayoutGridIcon, PlusIcon, RotateCcwIcon } from "lucide-react";
+import { LayoutGridIcon, PlusIcon, RotateCcwIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
+import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
+import { FILE_SIZE_LIMIT } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { assembleSections, packageOutputs } from "@/lib/pdf/assembleSections";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
@@ -51,6 +53,9 @@ const ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
 };
 const ACCEPT_ATTR = "application/pdf,image/png,image/jpeg";
+
+/** Total upload size above which we show a soft (dismissible) slowness warning. */
+const OVERSIZE_THRESHOLD = 100 * 1024 * 1024;
 
 /** Per-section ring tints, cycled across sections (electric / copper / silver). */
 const TINTS: SectionTint[] = [
@@ -138,6 +143,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     Map<string, Uint8Array>
   >(new Map());
   const [loadingPages, setLoadingPages] = useState(false);
+  const [oversizeDismissed, setOversizeDismissed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
 
@@ -189,27 +195,46 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
   useEffect(() => () => clearThumbnailCache(), []);
 
   const ingest = useCallback(
-    async (newFiles: File[], mode: "replace" | "append") => {
-      if (newFiles.length === 0) return;
+    async (incoming: File[], mode: "replace" | "append") => {
+      if (incoming.length === 0) return;
+
+      // Per-file size guard — mirrors FileUpload's dropzone limit on the add path
+      // (the hidden <input> bypasses react-dropzone's maxSize check).
+      const accepted = incoming.filter((f) => f.size <= FILE_SIZE_LIMIT.guest);
+      for (const f of incoming) {
+        if (f.size > FILE_SIZE_LIMIT.guest) {
+          toast.error(
+            `${f.name}: 파일 크기가 ${formatBytes(FILE_SIZE_LIMIT.guest)}를 초과합니다.`,
+          );
+        }
+      }
+      if (accepted.length === 0) return;
+
       setLoadingPages(true);
       try {
-        const built = await buildPageItems(newFiles);
+        const built = await buildPageItems(accepted);
+        for (const name of built.failed) {
+          toast.error(`${name}: 손상되었거나 암호화된 PDF입니다.`);
+        }
+        if (built.items.length === 0) return;
+
         if (mode === "replace") {
           clearThumbnailCache();
           setItems(built.items);
           setSourceBytesById(built.sourceBytesById);
-          setFiles(newFiles);
+          setFiles(accepted);
+          setOversizeDismissed(false);
         } else {
           setItems((prev) => [...prev, ...built.items]);
           setSourceBytesById(
             (prev) => new Map([...prev, ...built.sourceBytesById]),
           );
-          setFiles([...files, ...newFiles]);
+          setFiles([...files, ...accepted]);
         }
       } catch (err) {
         toast.error(
           getErrorMessage(err, {
-            fallbackMessage: "파일을 읽을 수 없습니다. 손상되었거나 암호화된 PDF일 수 있습니다.",
+            fallbackMessage: "파일을 읽을 수 없습니다.",
           }).message,
         );
       } finally {
@@ -318,6 +343,13 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     return map;
   }, [items]);
 
+  const totalBytes = useMemo(() => {
+    let sum = 0;
+    for (const b of sourceBytesById.values()) sum += b.byteLength;
+    return sum;
+  }, [sourceBytesById]);
+  const showOversize = totalBytes > OVERSIZE_THRESHOLD && !oversizeDismissed;
+
   const sectionCount = countSections(items);
   const hasFiles = items.length > 0;
   const busy = status === "processing";
@@ -332,6 +364,31 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
 
   const editor = (
     <div className="space-y-3">
+      {showOversize && (
+        <div
+          className="flex items-center justify-between gap-2 rounded-[8px] border px-3 py-2 text-[12px]"
+          style={{
+            background: "var(--surface-2)",
+            borderColor: "var(--accent-copper)",
+            color: "var(--ink-strong)",
+          }}
+        >
+          <span>
+            {template(labels.oversizeWarning, { size: formatBytes(totalBytes) })}
+          </span>
+          <button
+            type="button"
+            onClick={() => setOversizeDismissed(true)}
+            aria-label={labels.dismiss}
+            title={labels.dismiss}
+            className="shrink-0 rounded p-1 transition-colors hover:text-[color:var(--ink-strong)]"
+            style={{ color: "var(--ink-soft)" }}
+          >
+            <XIcon className="size-3.5" />
+          </button>
+        </div>
+      )}
+
       <EditorTopStrip
         filesSummary={filesSummary}
         onReupload={handleReuploadPick}

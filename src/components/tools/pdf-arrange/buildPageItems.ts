@@ -5,6 +5,8 @@ export interface BuiltPages {
   items: PageItem[];
   /** Raw bytes per generated source file id (consumed by thumbnails + assembler). */
   sourceBytesById: Map<string, Uint8Array>;
+  /** Names of files that could not be read (corrupt/encrypted PDFs). */
+  failed: string[];
 }
 
 function isPdf(file: File): boolean {
@@ -15,21 +17,28 @@ function isPdf(file: File): boolean {
 
 /**
  * Read uploaded files into the editor's page model. PDFs expand to one PageItem
- * per page; images become a single page. Corrupt/encrypted PDFs throw from
- * PDFDocument.load — the caller surfaces that as an upload error (Task 2.6).
+ * per page; images become a single page. A corrupt/encrypted PDF is skipped (its
+ * name collected in `failed`) so one bad file never aborts the whole upload.
  */
 export async function buildPageItems(files: File[]): Promise<BuiltPages> {
   const items: PageItem[] = [];
   const sourceBytesById = new Map<string, Uint8Array>();
+  const failed: string[] = [];
 
   for (const file of files) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const fileId = crypto.randomUUID();
-    sourceBytesById.set(fileId, bytes);
 
     if (isPdf(file)) {
-      const doc = await PDFDocument.load(bytes);
-      const count = doc.getPageCount();
+      let count: number;
+      try {
+        const doc = await PDFDocument.load(bytes);
+        count = doc.getPageCount();
+      } catch {
+        failed.push(file.name);
+        continue;
+      }
+      sourceBytesById.set(fileId, bytes);
       for (let i = 0; i < count; i++) {
         items.push({
           id: crypto.randomUUID(),
@@ -43,6 +52,7 @@ export async function buildPageItems(files: File[]): Promise<BuiltPages> {
         });
       }
     } else {
+      sourceBytesById.set(fileId, bytes);
       items.push({
         id: crypto.randomUUID(),
         sourceFileId: fileId,
@@ -56,7 +66,7 @@ export async function buildPageItems(files: File[]): Promise<BuiltPages> {
     }
   }
 
-  return { items, sourceBytesById };
+  return { items, sourceBytesById, failed };
 }
 
 /** Output base name = first uploaded file name without its extension. */
