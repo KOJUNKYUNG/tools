@@ -43,7 +43,7 @@ function PageItemCardImpl({
 
   return (
     <div
-      className="group relative my-[9px] h-[204px] w-[150px] cursor-grab overflow-hidden rounded-lg bg-white active:cursor-grabbing"
+      className="group relative my-[9px] h-[204px] w-[150px] cursor-grab overflow-hidden rounded-[5px] bg-white active:cursor-grabbing"
       style={{
         border: "1px solid var(--silver-200)",
         boxShadow: `var(--shadow-sm), 0 0 0 3px ${tint.ring}`,

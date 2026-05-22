@@ -62,7 +62,7 @@ interface SortableCellProps {
   pageNumber: number;
   bytes: Uint8Array | undefined;
   tint: SectionTint;
-  showDivider: boolean;
+  isLast: boolean;
   onRotate: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleSplit: (id: string) => void;
@@ -76,7 +76,7 @@ function SortableCell({
   pageNumber,
   bytes,
   tint,
-  showDivider,
+  isLast,
   onRotate,
   onDelete,
   onToggleSplit,
@@ -109,7 +109,11 @@ function SortableCell({
         deleteAria={deleteAria}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
-      {showDivider && (
+      {isLast ? (
+        // Reserve the gutter so the last page keeps the uniform 168px column
+        // width (no divider after the final page — a trailing split is a no-op).
+        <div className="w-[18px] shrink-0" aria-hidden="true" />
+      ) : (
         <Divider
           active={item.splitAfter}
           onToggle={() => onToggleSplit(item.id)}
@@ -344,7 +348,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
                   pageNumber={i + 1}
                   bytes={sourceBytesById.get(item.sourceFileId)}
                   tint={tintById.get(item.id) ?? TINTS[0]}
-                  showDivider={i < items.length - 1}
+                  isLast={i === items.length - 1}
                   onRotate={handleRotate}
                   onDelete={handleDelete}
                   onToggleSplit={handleToggleSplit}
@@ -353,13 +357,13 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
                   dividerLabel={labels.clearSplits}
                 />
               ))}
-              <div className="flex items-stretch" style={{ marginLeft: "18px" }}>
+              <div className="flex items-stretch">
                 <button
                   type="button"
                   onClick={handleAddClick}
                   aria-label={labels.addAria}
                   title={labels.addAria}
-                  className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-lg border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--accent-electric)] hover:text-[color:var(--accent-electric)]"
+                  className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[5px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--accent-electric)] hover:text-[color:var(--accent-electric)]"
                   style={{
                     borderColor: "var(--hairline)",
                     background: "var(--bg-soft, var(--silver-100))",
@@ -367,6 +371,8 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
                 >
                   <PlusIcon className="size-7" />
                 </button>
+                {/* Match the page cells' trailing gutter for uniform columns. */}
+                <div className="w-[18px] shrink-0" aria-hidden="true" />
               </div>
             </div>
           </SortableContext>
