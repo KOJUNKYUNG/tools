@@ -22,7 +22,6 @@ import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
-import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { getErrorMessage } from "@/lib/errors";
 import {
@@ -133,7 +132,8 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     Map<string, Uint8Array>
   >(new Map());
   const [loadingPages, setLoadingPages] = useState(false);
-  const addInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingModeRef = useRef<"replace" | "append">("append");
 
   const { files, setFiles, status, progress, errorMessage, run, retry, download } =
     useToolProcessor<PackagedOutput>({
@@ -199,7 +199,8 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     [retry, ingest],
   );
 
-  const handleReupload = useCallback(() => {
+  // Header reset (top-right): clear everything back to the dropzone.
+  const handleReset = useCallback(() => {
     retry();
     clearThumbnailCache();
     setItems([]);
@@ -207,12 +208,23 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     setFiles([]);
   }, [retry, setFiles]);
 
-  const handleAddClick = useCallback(() => addInputRef.current?.click(), []);
+  // Re-upload button: open the picker directly and REPLACE the current files.
+  const handleReuploadPick = useCallback(() => {
+    pendingModeRef.current = "replace";
+    retry();
+    fileInputRef.current?.click();
+  }, [retry]);
 
-  const handleAddInput = useCallback(
+  // "+" add card: open the picker and APPEND to the current files.
+  const handleAddClick = useCallback(() => {
+    pendingModeRef.current = "append";
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const picked = e.target.files ? Array.from(e.target.files) : [];
-      if (picked.length > 0) void ingest(picked, "append");
+      if (picked.length > 0) void ingest(picked, pendingModeRef.current);
       e.target.value = "";
     },
     [ingest],
@@ -278,12 +290,6 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     return map;
   }, [items]);
 
-  const totalBytes = useMemo(() => {
-    let sum = 0;
-    for (const b of sourceBytesById.values()) sum += b.byteLength;
-    return sum;
-  }, [sourceBytesById]);
-
   const sectionCount = countSections(items);
   const hasFiles = items.length > 0;
   const busy = status === "processing";
@@ -300,7 +306,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     <div className="space-y-3">
       <EditorTopStrip
         filesSummary={filesSummary}
-        onReupload={handleReupload}
+        onReupload={handleReuploadPick}
         reuploadLabel={labels.reupload}
         onSplitAll={handleSplitAll}
         splitAllLabel={labels.splitAll}
@@ -313,7 +319,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
       />
 
       <div
-        className="ob-scroll max-h-[480px] overflow-y-auto rounded-2xl p-4"
+        className="ob-scroll max-h-[400px] overflow-y-auto rounded-2xl p-3"
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
@@ -370,13 +376,13 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
   );
 
   const body = (
-    <div className={inline ? "space-y-5" : "space-y-5 px-6 py-4"}>
+    <div className={inline ? "space-y-4" : "space-y-4 px-6 py-3"}>
       <input
-        ref={addInputRef}
+        ref={fileInputRef}
         type="file"
         accept={ACCEPT_ATTR}
         multiple
-        onChange={handleAddInput}
+        onChange={handleFileInput}
         className="hidden"
         aria-hidden="true"
         tabIndex={-1}
@@ -429,7 +435,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     >
       <button
         type="button"
-        onClick={handleReupload}
+        onClick={handleReset}
         disabled={busy}
         aria-label={labels.reset}
         title={labels.reset}
@@ -465,11 +471,6 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
           >
             {labels.description}
           </div>
-          {totalBytes > 0 && (
-            <div className="mt-1 text-[11px] text-[color:var(--ink-soft)]">
-              {formatBytes(totalBytes)}
-            </div>
-          )}
         </div>
       </div>
       {body}

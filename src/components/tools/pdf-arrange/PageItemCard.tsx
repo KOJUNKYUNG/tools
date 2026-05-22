@@ -79,7 +79,7 @@ function PageItemCardImpl({
 
       <span
         className="pointer-events-none absolute left-1.5 top-1.5 rounded-md px-[7px] py-px text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
-        style={{ background: "var(--ink-strong)" }}
+        style={{ background: "rgba(20,30,60,0.85)" }}
       >
         {pageNumber}
       </span>
@@ -91,8 +91,8 @@ function PageItemCardImpl({
           onClick={() => onRotate(item.id)}
           aria-label={rotateAria}
           title={rotateAria}
-          className="flex size-6 items-center justify-center rounded-md border bg-white/90 text-[color:var(--ink-strong)] shadow-sm"
-          style={{ borderColor: "var(--border)" }}
+          className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
+          style={{ borderColor: "var(--silver-200)", color: "var(--silver-700)" }}
         >
           <RotateCwIcon className="size-3.5" />
         </button>
@@ -102,16 +102,16 @@ function PageItemCardImpl({
           onClick={() => onDelete(item.id)}
           aria-label={deleteAria}
           title={deleteAria}
-          className="flex size-6 items-center justify-center rounded-md border bg-white/90 shadow-sm"
-          style={{ borderColor: "var(--border)", color: "var(--destructive)" }}
+          className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
+          style={{ borderColor: "var(--silver-200)", color: "oklch(0.55 0.22 27)" }}
         >
           <Trash2Icon className="size-3.5" />
         </button>
       </div>
 
       <div
-        className="pointer-events-none absolute inset-x-2 bottom-1.5 truncate rounded-md border bg-white/90 px-1 py-0.5 text-center text-[10px] text-[color:var(--ink-strong)] opacity-0 transition-opacity group-hover:opacity-100"
-        style={{ borderColor: "var(--border)" }}
+        className="pointer-events-none absolute inset-x-2 bottom-1.5 truncate rounded-md border bg-white/95 px-1 py-0.5 text-center text-[10px] opacity-0 transition-opacity group-hover:opacity-100"
+        style={{ borderColor: "var(--silver-200)", color: "var(--silver-700)" }}
       >
         {item.sourceFileName}
       </div>
