@@ -187,6 +187,7 @@
         "dismiss": "Dismiss",
         "resultTitle": "Done",
         "outputCountTemplate": "{n} files created",
+        "pageCountTemplate": "{n} pages",
         "downloadPdf": "Download PDF",
         "downloadZipTemplate": "Download ZIP ({n})",
         "downloadOneAria": "Download {name}"

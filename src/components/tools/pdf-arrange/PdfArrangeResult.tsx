@@ -11,6 +11,8 @@ import { useLazyThumbnail } from "./useLazyThumbnail";
 export interface OutputEntry {
   name: string;
   data: Uint8Array;
+  /** Number of pages in this output file. */
+  pageCount: number;
   /** First page of the section — reused as the row's cover thumbnail. */
   cover: PageItem;
 }
@@ -101,15 +103,21 @@ export function PdfArrangeResult({
               cover={o.cover}
               bytes={sourceBytesById.get(o.cover.sourceFileId)}
             />
-            <span
-              className="min-w-0 flex-1 truncate"
-              style={{ color: "var(--ink-strong)" }}
-            >
-              {o.name}
-            </span>
-            <span className="shrink-0" style={{ color: "var(--ink-soft)" }}>
-              {formatBytes(o.data.byteLength)}
-            </span>
+            <div className="min-w-0 flex-1">
+              <div
+                className="truncate"
+                style={{ color: "var(--ink-strong)" }}
+              >
+                {o.name}
+              </div>
+              <div
+                className="mt-0.5 text-[11px]"
+                style={{ color: "var(--ink-soft)" }}
+              >
+                {template(labels.pageCountTemplate, { n: o.pageCount })} ·{" "}
+                {formatBytes(o.data.byteLength)}
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => onDownloadOne(o)}

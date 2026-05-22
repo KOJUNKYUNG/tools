@@ -25,6 +25,7 @@ export interface PdfArrangeLabels {
   dismiss: string;
   resultTitle: string;
   outputCountTemplate: string;
+  pageCountTemplate: string;
   downloadPdf: string;
   downloadZipTemplate: string;
   downloadOneAria: string;
@@ -57,6 +58,7 @@ export function getPdfArrangeLabels(dict: Dictionary): PdfArrangeLabels {
     dismiss: page.dismiss,
     resultTitle: page.resultTitle,
     outputCountTemplate: page.outputCountTemplate,
+    pageCountTemplate: page.pageCountTemplate,
     downloadPdf: page.downloadPdf,
     downloadZipTemplate: page.downloadZipTemplate,
     downloadOneAria: page.downloadOneAria,

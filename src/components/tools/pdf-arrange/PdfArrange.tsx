@@ -170,6 +170,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
       const outputs: OutputEntry[] = outBytes.map((data, i) => ({
         name: fileNames[i],
         data,
+        pageCount: sections[i].length,
         cover: sections[i][0],
       }));
       return { outputs, isZip: outBytes.length > 1, base };
