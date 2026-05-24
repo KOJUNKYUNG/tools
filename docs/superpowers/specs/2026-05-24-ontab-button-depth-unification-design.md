@@ -1,7 +1,12 @@
 # Ontab — Button & Depth Design Unification (cross-cutting)
 
 Date: 2026-05-24
-Status: approved (design direction confirmed by user)
+Status: implemented (branch `worktree-design+button-depth-unification`)
+
+> **Update 2026-05-24 (post-implementation):** the "blue only on download" rule
+> was relaxed by the user to "blue is an accent for genuine emphasis, used
+> conservatively." Selected toggles use blue again (see the taxonomy table +
+> `.nameplate[data-active="true"]` below). The execute action stays dark.
 
 ## Problem
 
@@ -33,26 +38,38 @@ stop carrying inline `style={{ background: ... }}` and just apply a class.
 | Role | When | Treatment |
 |------|------|-----------|
 | **Secondary / toolbar** | re-upload, clear, again, any non-primary action | `.nameplate` (raised metallic) |
-| **Toggle (selected)** | format picker, mode picker — the active option | `.nameplate[data-active="true"]` (dark fill) |
+| **Toggle (selected)** | format picker, preset, mode — the active option | `.nameplate[data-active="true"]` (**blue accent** — "your current choice") |
 | **Primary execute** | 압축/변환/적용/실행 — runs the operation | `.btn-primary` (dark fill, theme-inverting label) |
 | **Primary download** | "결과 다운로드" — the result is ready | `.btn-download` (blue `--accent-electric` + glint) |
 
-Blue (`--accent-electric`) survives **only** on download buttons. Everywhere
-else the button emphasis is carried by the dark monochrome fill + metallic
-depth. (Scope note: this spec governs **buttons**. Non-button blue accents —
-range-slider `accentColor`, the live quality `%` readout, focus rings — are out
-of scope here and folded into the separate `--accent-electric` retune.)
+**Blue is the accent for genuine emphasis, used conservatively** (relaxed from
+the original "download only"). It marks two things: the user's *current
+selection* (active toggles) and the *result-ready download*. The screen's *main
+action* is the dark `.btn-primary`; secondary actions are the raised, fill-less
+`.nameplate`. So three weights read distinctly in one panel: blue = my choice /
+result, dark = the action, metallic = everything else. (Scope note: this spec
+governs **buttons**. Non-button blue accents — range-slider `accentColor`, the
+progress bar, the live `%` readout, selection badges, focus rings — are out of
+scope and folded into the separate `--accent-electric` retune.)
 
 ## Shared classes to add (`globals.css`)
 
-`.nameplate` and `.nameplate[data-active="true"]` already exist and stay as-is.
-Add two treatment classes. Color/depth reuse existing tokens only — **no new
-tokens, no new material classes** (per brand memory).
+`.nameplate` stays as-is. `.nameplate[data-active="true"]` is **repurposed** from
+its old dark fill to a **blue** fill (`--accent-electric` / `#fff`) so a selected
+toggle reads as the user's current choice. Add two treatment classes. Color/depth
+reuse existing tokens only — **no new tokens, no new material classes** (per brand
+memory).
 
 ```css
-/* Primary execute action: dark monochrome, theme-inverting label.
- * Mirrors .nameplate[data-active="true"] fill so primary buttons and active
- * toggles stay visually identical. */
+/* Active toggle (selected): blue accent — "your current choice". */
+.nameplate[data-active="true"] {
+  background: var(--accent-electric);
+  color: #fff;
+  border-color: var(--accent-electric);
+}
+
+/* Primary execute action: dark monochrome, theme-inverting label. The screen's
+ * main action — distinct from blue active toggles and the blue download button. */
 .btn-primary {
   background: var(--ink-strong);
   color: var(--bg);
@@ -113,11 +130,12 @@ secondary treatment — no visual change, optionally simplify.
 
 ## Verification
 
-- `pnpm exec tsc --noEmit`, `pnpm test`, `pnpm build` stay green.
-- Visual: user runs dev server; agent uses `/browse` + `/design-review` to
-  confirm light + dark mode on each of the 4 tools, before/after parity (no
-  unintended layout shift), and that primary/secondary/toggle/download all read
-  consistently across tools.
+- `pnpm exec tsc --noEmit`, `pnpm test` (78), `pnpm build` — all green.
+- Visual: agent-driven `/browse` was **blocked** in this environment (gstack
+  `browse.exe` denied by Windows Application Control), so the light/dark visual
+  pass across the 4 tools was done by the user on `localhost:3000`. Confirm:
+  selected toggles blue, execute buttons dark, downloads blue, secondary buttons
+  raised nameplate, and the four tools consistent side by side.
 
 ## Why this is future-proof
 
