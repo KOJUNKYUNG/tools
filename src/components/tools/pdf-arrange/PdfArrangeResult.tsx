@@ -158,8 +158,7 @@ export function PdfArrangeResult({
           <button
             type="button"
             onClick={onDownloadAll}
-            className="glint inline-flex h-9 items-center justify-center gap-1.5 rounded-[5px] px-4 font-display text-[12px] font-medium"
-            style={{ background: "var(--accent-electric)", color: "#fff" }}
+            className="btn-download glint inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[12px] font-medium"
           >
             <DownloadIcon className="size-3.5" />
             {primaryLabel}
@@ -167,12 +166,8 @@ export function PdfArrangeResult({
           <button
             type="button"
             onClick={onAgain}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[5px] border px-3 font-display text-[12px] transition-colors hover:border-[color:var(--accent-electric)]"
-            style={{
-              background: "var(--surface-2)",
-              borderColor: "var(--border)",
-              color: "var(--ink-strong)",
-            }}
+            className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-display text-[12px]"
+            style={{ color: "var(--ink-strong)" }}
           >
             <RotateCcwIcon className="size-3.5" />
             {labels.again}
