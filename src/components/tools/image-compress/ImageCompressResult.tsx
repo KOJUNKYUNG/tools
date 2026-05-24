@@ -41,8 +41,7 @@ export function ImageCompressResult({
         <button
           type="button"
           onClick={onDownload}
-          className="glint inline-flex h-8 items-center justify-start gap-1.5 rounded-[5px] px-3 font-display text-[11.5px] font-medium"
-          style={{ background: "var(--accent-electric)", color: "#fff" }}
+          className="btn-download glint inline-flex h-8 items-center justify-start gap-1.5 rounded-[9px] px-3 font-display text-[11.5px] font-medium"
         >
           <DownloadIcon className="size-3" />
           {downloadLabel}
@@ -50,12 +49,8 @@ export function ImageCompressResult({
         <button
           type="button"
           onClick={onRecompress}
-          className="inline-flex h-8 items-center justify-start gap-1.5 rounded-[5px] border px-3 font-display text-[11.5px] transition-colors hover:border-[color:var(--accent-electric)]"
-          style={{
-            background: "var(--surface-2)",
-            borderColor: "var(--border)",
-            color: "var(--ink-strong)",
-          }}
+          className="nameplate inline-flex h-8 items-center justify-start gap-1.5 rounded-[9px] px-3 font-display text-[11.5px]"
+          style={{ color: "var(--ink-strong)" }}
         >
           <RotateCcwIcon className="size-3" />
           {recompressLabel}
