@@ -37,7 +37,7 @@ export function ModeSelector({ value, onChange, labels }: ModeSelectorProps) {
             style={{
               background: active ? "var(--surface)" : "transparent",
               color: active ? "var(--ink-strong)" : "var(--ink-soft)",
-              boxShadow: active ? "inset 0 -2px 0 var(--accent-electric)" : undefined,
+              boxShadow: active ? "inset 0 -2px 0 var(--ink-strong)" : undefined,
             }}
           >
             {label}
