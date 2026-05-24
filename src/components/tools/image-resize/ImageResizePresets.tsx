@@ -170,20 +170,9 @@ function PresetChip({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-[5px] border px-2.5 py-1 font-display text-[11.5px] transition-colors hover:border-[color:var(--accent-electric)]"
-      style={
-        active
-          ? {
-              background: "var(--accent-electric)",
-              borderColor: "var(--accent-electric)",
-              color: "#fff",
-            }
-          : {
-              background: "var(--surface)",
-              borderColor: "var(--border)",
-              color: "var(--ink-strong)",
-            }
-      }
+      data-active={active}
+      className="nameplate rounded-[9px] px-2.5 py-1 font-display text-[11.5px]"
+      style={active ? undefined : { color: "var(--ink-strong)" }}
     >
       {children}
     </button>

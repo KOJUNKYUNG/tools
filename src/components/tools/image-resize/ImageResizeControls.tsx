@@ -101,11 +101,7 @@ export function ImageResizeControls({
           aria-pressed={lockAspect}
           aria-label={lockAspect ? unlockAspectLabel : lockAspectLabel}
           title={lockAspect ? unlockAspectLabel : lockAspectLabel}
-          className="mb-0.5 rounded-[5px] border p-1.5 transition-colors hover:border-[color:var(--accent-electric)]"
-          style={{
-            background: "var(--surface-2)",
-            borderColor: "var(--border)",
-          }}
+          className="nameplate mb-0.5 rounded-[9px] p-1.5"
         >
           {lockAspect ? (
             <LockIcon
@@ -176,11 +172,7 @@ export function ImageResizeControls({
             onClick={onRevertToOriginal}
             aria-label={revertToOriginalLabel}
             title={revertToOriginalLabel}
-            className="rounded-[5px] border p-1 transition-colors hover:border-[color:var(--accent-electric)]"
-            style={{
-              background: "var(--surface-2)",
-              borderColor: "var(--border)",
-            }}
+            className="nameplate rounded-[9px] p-1"
           >
             <RotateCcwIcon
               className="size-3.5"

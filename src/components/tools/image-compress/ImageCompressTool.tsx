@@ -292,8 +292,7 @@ export function ImageCompressTool({
                     type="button"
                     onClick={run}
                     disabled={!outputFormat}
-                    className="glint inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[5px] px-3 font-display text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
-                    style={{ background: "var(--accent-electric)", color: "#fff" }}
+                    className="btn-primary glint inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[9px] px-3 font-display text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {template(labels.compressTemplate, { n: files.length })}
                   </button>

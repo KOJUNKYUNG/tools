@@ -60,10 +60,7 @@ export function EditorTopStrip({
           type="button"
           onClick={onApply}
           disabled={applyDisabled || busy}
-          className="glint inline-flex h-9 min-w-[140px] items-center justify-center gap-1.5 rounded-[9px] px-4 text-[13px] font-semibold tabular-nums disabled:cursor-not-allowed disabled:opacity-50"
-          // color = var(--bg) so the label inverts with the theme (light text on
-          // the dark button in light mode; dark text in dark mode).
-          style={{ background: "var(--ink-strong)", color: "var(--bg)" }}
+          className="btn-primary glint inline-flex h-9 min-w-[140px] items-center justify-center gap-1.5 rounded-[9px] px-4 text-[13px] font-semibold tabular-nums disabled:cursor-not-allowed disabled:opacity-50"
         >
           {applyLabel}
         </button>

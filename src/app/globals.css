@@ -367,14 +367,12 @@ html.dark .dark-only,
   transform: translateY(0);
   box-shadow: var(--shadow-sm), inset 0 1px 2px rgba(20,30,60,0.12);
 }
+/* Active toggle (selected format/preset/mode): blue accent — the "this is your
+ * current choice" emphasis. Distinct from .btn-primary (dark execute action). */
 .nameplate[data-active="true"] {
-  background: var(--ink-strong);
-  color: var(--bg);
-  border-color: var(--ink-strong);
-}
-.dark .nameplate[data-active="true"] {
-  background: var(--silver-100);
-  color: var(--silver-900);
+  background: var(--accent-electric);
+  color: #fff;
+  border-color: var(--accent-electric);
 }
 /* Dark mode — active glass button: bright surface keeps the same look,
    but the label needs to be dark for contrast (silver-900 ink-on-white). */
@@ -449,3 +447,40 @@ html.dark .dark-only,
 .handoff-action:hover {
   border-color: var(--accent-electric);
 }
+
+/* ── Canonical button treatments ──────────────────────────────────────────
+ * Treatment only (color + depth). Compose with layout utilities on the
+ * element (inline-flex, height, px, gap, rounded-[9px], font size). Secondary
+ * buttons and active toggles use .nameplate / .nameplate[data-active="true"].
+ */
+
+/* Primary execute action (압축/변환/적용/실행): dark monochrome, theme-inverting
+ * label. The screen's main action — distinct from blue active toggles and the
+ * blue download button. */
+.btn-primary {
+  background: var(--ink-strong);
+  color: var(--bg);
+  border: 1px solid var(--ink-strong);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.btn-primary:hover  { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn-primary:active { transform: translateY(0);   box-shadow: var(--shadow-sm); }
+.btn-primary:disabled { cursor: not-allowed; opacity: 0.5; transform: none; box-shadow: var(--shadow-sm); }
+.dark .btn-primary {
+  background: var(--silver-100);
+  color: var(--silver-900);
+  border-color: var(--silver-100);
+}
+
+/* Primary download (결과 다운로드): the single sanctioned blue moment. */
+.btn-download {
+  background: var(--accent-electric);
+  color: #fff;
+  border: 1px solid var(--accent-electric);
+  box-shadow: 0 1px 2px rgba(20, 30, 60, 0.15);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.btn-download:hover  { transform: translateY(-1px); }
+.btn-download:active { transform: translateY(0); }
+.btn-download:disabled { cursor: not-allowed; opacity: 0.5; transform: none; }

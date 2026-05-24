@@ -61,21 +61,9 @@ export function ImageCompressControls({
                 key={opt.value}
                 type="button"
                 onClick={() => onSelectFormat(opt.value)}
-                className="h-8 flex-1 rounded-[5px] border px-3 font-display text-[12px] font-medium transition-colors"
-                style={
-                  active
-                    ? {
-                        background: "var(--accent-electric)",
-                        color: "#fff",
-                        borderColor: "var(--accent-electric)",
-                        boxShadow: "0 1px 2px rgba(20,30,60,0.15)",
-                      }
-                    : {
-                        background: "var(--surface-2)",
-                        color: "var(--ink-strong)",
-                        borderColor: "var(--border)",
-                      }
-                }
+                data-active={active}
+                className="nameplate h-8 flex-1 rounded-[9px] px-3 font-display text-[12px] font-medium"
+                style={active ? undefined : { color: "var(--ink-strong)" }}
               >
                 {opt.label}
               </button>

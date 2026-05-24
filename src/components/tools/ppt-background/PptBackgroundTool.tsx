@@ -575,13 +575,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       type="button"
                       onClick={canRun ? run : undefined}
                       disabled={!canRun}
-                      className="glint inline-flex w-full flex-1 items-center justify-center gap-2 rounded-[5px] font-display text-[13px] font-medium tracking-[0.02em] focus-ring disabled:cursor-not-allowed disabled:opacity-50"
-                      style={{
-                        background: "var(--accent-electric)",
-                        color: "#fff",
-                        boxShadow:
-                          "0 1px 0 rgba(255,255,255,0.2) inset, 0 1px 2px rgba(20,30,60,0.15), 0 6px 16px -6px color-mix(in oklch, var(--accent-electric) 60%, transparent)",
-                      }}
+                      className="btn-primary glint inline-flex w-full flex-1 items-center justify-center gap-2 rounded-[9px] font-display text-[13px] font-medium tracking-[0.02em] focus-ring disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <UploadCloud size={14} />
                       <span>{labels.action.apply}</span>
