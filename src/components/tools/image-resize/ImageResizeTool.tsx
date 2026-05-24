@@ -435,8 +435,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                   <button
                     type="button"
                     onClick={run}
-                    className="glint inline-flex w-full items-center justify-center gap-1.5 rounded-[5px] px-3 h-9 font-display text-[12px] font-medium"
-                    style={{ background: "var(--accent-electric)", color: "#fff" }}
+                    className="btn-primary glint inline-flex w-full items-center justify-center gap-1.5 rounded-[9px] px-3 h-9 font-display text-[12px] font-medium"
                   >
                     {labels.apply}
                   </button>
