@@ -157,7 +157,7 @@ export function BackgroundPicker({
                   style={{
                     background: active ? "var(--surface)" : "transparent",
                     color: active ? "var(--ink-strong)" : "var(--ink-soft)",
-                    boxShadow: active ? "inset 0 -2px 0 var(--ink-strong)" : undefined,
+                    boxShadow: active ? "inset 0 -2px 0 var(--accent-electric)" : undefined,
                   }}
                 >
                   {label}

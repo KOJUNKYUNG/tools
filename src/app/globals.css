@@ -367,14 +367,12 @@ html.dark .dark-only,
   transform: translateY(0);
   box-shadow: var(--shadow-sm), inset 0 1px 2px rgba(20,30,60,0.12);
 }
+/* Active toggle (selected format/preset/mode): blue accent — the "this is your
+ * current choice" emphasis. Distinct from .btn-primary (dark execute action). */
 .nameplate[data-active="true"] {
-  background: var(--ink-strong);
-  color: var(--bg);
-  border-color: var(--ink-strong);
-}
-.dark .nameplate[data-active="true"] {
-  background: var(--silver-100);
-  color: var(--silver-900);
+  background: var(--accent-electric);
+  color: #fff;
+  border-color: var(--accent-electric);
 }
 /* Dark mode — active glass button: bright surface keeps the same look,
    but the label needs to be dark for contrast (silver-900 ink-on-white). */
@@ -457,8 +455,8 @@ html.dark .dark-only,
  */
 
 /* Primary execute action (압축/변환/적용/실행): dark monochrome, theme-inverting
- * label. Mirrors .nameplate[data-active="true"] so primaries and active toggles
- * look identical. */
+ * label. The screen's main action — distinct from blue active toggles and the
+ * blue download button. */
 .btn-primary {
   background: var(--ink-strong);
   color: var(--bg);
