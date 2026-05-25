@@ -38,6 +38,11 @@ interface PageItemCardProps {
    * directly (pdf-arrange behavior, unchanged).
    */
   pageAspect?: number | null;
+  /**
+   * When false, omit the grab cursor (a non-reorderable grid like pdf-to-image).
+   * Default true preserves pdf-arrange / image-to-pdf behavior.
+   */
+  draggable?: boolean;
 }
 
 function PageItemCardImpl({
@@ -52,6 +57,7 @@ function PageItemCardImpl({
   dragHandleProps,
   frameBg = "#fff",
   pageAspect = null,
+  draggable = true,
 }: PageItemCardProps) {
   const thumb = useLazyThumbnail({
     fileId: item.sourceFileId,
@@ -140,7 +146,9 @@ function PageItemCardImpl({
 
   return (
     <div
-      className="group relative my-[9px] h-[204px] w-[150px] cursor-grab overflow-hidden rounded-[5px] active:cursor-grabbing"
+      className={`group relative my-[9px] h-[204px] w-[150px] overflow-hidden rounded-[5px] ${
+        draggable ? "cursor-grab active:cursor-grabbing" : ""
+      }`}
       style={{
         background: frameBg,
         border: "1px solid var(--silver-200)",
