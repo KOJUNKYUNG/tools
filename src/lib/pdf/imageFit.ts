@@ -30,6 +30,13 @@ export function computeImageFit(
   pageH: number,
   rotation: Rotation,
 ): ImageFit {
+  const rotateDegBase = (360 - rotation) % 360; // clockwise → counterclockwise
+
+  // Degenerate dimensions (corrupt decode, zero/NaN) → safe no-draw centered fit.
+  if (!(imgW > 0) || !(imgH > 0) || !(pageW > 0) || !(pageH > 0)) {
+    return { drawW: 0, drawH: 0, x: pageW / 2, y: pageH / 2, rotateDeg: rotateDegBase };
+  }
+
   const swapped = rotation === 90 || rotation === 270;
   const effW = swapped ? imgH : imgW;
   const effH = swapped ? imgW : imgH;
@@ -38,7 +45,7 @@ export function computeImageFit(
   const drawW = imgW * scale;
   const drawH = imgH * scale;
 
-  const rotateDeg = (360 - rotation) % 360; // clockwise → counterclockwise
+  const rotateDeg = rotateDegBase;
   const theta = (rotateDeg * Math.PI) / 180;
   const cos = Math.cos(theta);
   const sin = Math.sin(theta);

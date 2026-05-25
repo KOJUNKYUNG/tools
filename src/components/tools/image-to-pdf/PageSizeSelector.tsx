@@ -75,6 +75,7 @@ export function PageSizeSelector({
             <input
               type="number"
               min={1}
+              max={14400}
               value={custom.w}
               onChange={(e) => onCustomChange({ ...custom, w: e.target.value })}
               className="w-full rounded-[5px] border px-2.5 py-1.5 font-display text-[12px] outline-none focus:border-[color:var(--accent-electric)] focus:ring-1 focus:ring-[color:var(--accent-electric)]"
@@ -98,6 +99,7 @@ export function PageSizeSelector({
             <input
               type="number"
               min={1}
+              max={14400}
               value={custom.h}
               onChange={(e) => onCustomChange({ ...custom, h: e.target.value })}
               className="w-full rounded-[5px] border px-2.5 py-1.5 font-display text-[12px] outline-none focus:border-[color:var(--accent-electric)] focus:ring-1 focus:ring-[color:var(--accent-electric)]"

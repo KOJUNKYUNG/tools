@@ -5,6 +5,7 @@ import type { useRouter } from "next/navigation";
 import { ArrowRightIcon, DownloadIcon, RotateCcwIcon } from "lucide-react";
 import { buildPageItems } from "@/components/pdf-editor/buildPageItems";
 import { useLazyThumbnail } from "@/components/pdf-editor/useLazyThumbnail";
+import { clearThumbnailCache } from "@/components/pdf-editor/thumbnailCache";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { stageFiles } from "@/lib/common/toolHandoff";
@@ -83,6 +84,11 @@ export function ImageToPdfResult({
       cancelled = true;
     };
   }, [result]);
+
+  // The preview renders the output PDF via pdfjs into the module-scoped thumbnail
+  // cache. Drop it when the result view unmounts (e.g. "다시") so repeated
+  // convert→again cycles don't leak pdfjs worker docs.
+  useEffect(() => () => clearThumbnailCache(), []);
 
   const handleCompress = () => {
     const file = new File([result.bytes.slice().buffer as ArrayBuffer], result.name, {

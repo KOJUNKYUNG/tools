@@ -134,8 +134,11 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
   const imageLayout = useMemo<ImageLayout>(() => {
     if (sizeMode === "a4") return { mode: "fixed", widthPt: 595, heightPt: 842 };
     if (sizeMode === "custom") {
-      const w = Math.max(1, Math.round(Number(custom.w) || 0));
-      const h = Math.max(1, Math.round(Number(custom.h) || 0));
+      // Clamp to PDF's max page dimension (14400 pt ≈ 200in) so an absurd value
+      // can't produce a giant page / OOM.
+      const MAX_PT = 14400;
+      const w = Math.min(MAX_PT, Math.max(1, Math.round(Number(custom.w) || 0)));
+      const h = Math.min(MAX_PT, Math.max(1, Math.round(Number(custom.h) || 0)));
       return { mode: "fixed", widthPt: w, heightPt: h };
     }
     return { mode: "native" };
