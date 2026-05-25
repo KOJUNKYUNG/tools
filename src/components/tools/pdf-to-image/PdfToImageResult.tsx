@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRightIcon, DownloadIcon, RotateCcwIcon } from "lucide-react";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
-import type { ConvertedImage } from "@/lib/pdf/pdfToImage";
+import type { ConvertedImage, OutputFormat } from "@/lib/pdf/pdfToImage";
 import type { PdfToImageLabels } from "./labels";
 
 interface ResultCellProps {
@@ -71,6 +71,7 @@ function ResultCell({
 interface PdfToImageResultProps {
   images: ConvertedImage[];
   labels: PdfToImageLabels;
+  format: OutputFormat;
   onDownloadAll: () => void;
   onDownloadOne: (image: ConvertedImage) => void;
   onCompress: () => void;
@@ -80,6 +81,7 @@ interface PdfToImageResultProps {
 export function PdfToImageResult({
   images,
   labels,
+  format,
   onDownloadAll,
   onDownloadOne,
   onCompress,
@@ -101,6 +103,14 @@ export function PdfToImageResult({
     () => images.reduce((sum, img) => sum + img.blob.size, 0),
     [images],
   );
+
+  // Single page → "다운로드 (JPG/PNG)"; multiple → "전체 다운로드 (ZIP)".
+  const primaryDownloadLabel =
+    images.length === 1
+      ? template(labels.downloadSingleTemplate, {
+          format: format === "image/png" ? labels.formatPng : labels.formatJpg,
+        })
+      : labels.download;
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2" style={{ height: "52vh" }}>
@@ -141,7 +151,7 @@ export function PdfToImageResult({
             className="btn-download glint inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[12px] font-medium"
           >
             <DownloadIcon className="size-3.5" />
-            {labels.download}
+            {primaryDownloadLabel}
           </button>
           <button
             type="button"

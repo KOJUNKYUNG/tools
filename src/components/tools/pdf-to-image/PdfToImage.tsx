@@ -75,8 +75,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
     processor: async (_files, onProgress) => {
       const jobs = buildConversionJobs(items);
       if (jobs.length === 0) throw new Error("변환할 페이지가 없습니다.");
-      const baseName = deriveBaseName(items[0]?.sourceFileName);
-      return pdfToImages({ jobs, sourceBytesById, format, dpi, baseName, onProgress });
+      return pdfToImages({ jobs, sourceBytesById, format, dpi, onProgress });
     },
     onDownload: async (images) => {
       if (images.length === 0) return;
@@ -313,6 +312,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
         <PdfToImageResult
           images={result}
           labels={labels}
+          format={format}
           onDownloadAll={download}
           onDownloadOne={handleDownloadOne}
           onCompress={handleCompress}

@@ -22,9 +22,11 @@ export interface PdfToImageLabels {
   dpi150: string;
   dpi300: string;
   dpiHint: string;
+  dpiAbout: string;
   resultTitle: string;
   imageCountTemplate: string;
   download: string;
+  downloadSingleTemplate: string;
   downloadOneAria: string;
   compressHandoff: string;
   again: string;
@@ -55,9 +57,11 @@ export function getPdfToImageLabels(dict: Dictionary): PdfToImageLabels {
     dpi150: p.dpi150,
     dpi300: p.dpi300,
     dpiHint: p.dpiHint,
+    dpiAbout: p.dpiAbout,
     resultTitle: p.resultTitle,
     imageCountTemplate: p.imageCount,
     download: p.download,
+    downloadSingleTemplate: p.downloadSingle,
     downloadOneAria: p.downloadOneAria,
     compressHandoff: p.compressHandoff,
     again: p.again,

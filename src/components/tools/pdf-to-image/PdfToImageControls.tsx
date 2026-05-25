@@ -34,7 +34,7 @@ export function PdfToImageControls({
   ];
 
   return (
-    <div className="flex flex-wrap gap-4">
+    <div className="flex flex-wrap items-start gap-4">
       <div className="min-w-[160px] flex-1 space-y-2">
         <p className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
           {labels.formatLabel}
@@ -59,9 +59,19 @@ export function PdfToImageControls({
       </div>
 
       <div className="min-w-[220px] flex-[2] space-y-2">
-        <p className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
-          {labels.dpiLabel}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <p className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+            {labels.dpiLabel}
+          </p>
+          {dpi === 300 && (
+            <span
+              className="font-body text-[10.5px] leading-tight"
+              style={{ color: "var(--accent-copper)" }}
+            >
+              {labels.dpiHint}
+            </span>
+          )}
+        </div>
         <div className="flex gap-1.5">
           {dpis.map((opt) => {
             const active = dpi === opt.value;
@@ -79,11 +89,12 @@ export function PdfToImageControls({
             );
           })}
         </div>
-        {dpi === 300 && (
-          <p className="font-body text-[11px]" style={{ color: "var(--accent-copper)" }}>
-            {labels.dpiHint}
-          </p>
-        )}
+        <p
+          className="font-body text-[10.5px] leading-snug"
+          style={{ color: "var(--ink-soft)" }}
+        >
+          {labels.dpiAbout}
+        </p>
       </div>
     </div>
   );

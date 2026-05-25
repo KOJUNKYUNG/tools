@@ -1,18 +1,33 @@
 // Pure output-filename rules for pdf-to-image. No DOM/pdfjs — unit-testable.
 
+/** Source base name = file name without its extension; "output" as a fallback. */
+function stripExt(fileName: string): string {
+  const base = fileName.replace(/\.[^.]+$/, "").trim();
+  return base || "output";
+}
+
 /**
- * Per-image output name: `{base}-{NN}.{ext}`, the 1-based `index` zero-padded to
- * the digit width of `total` so files sort naturally (page 2 before page 10).
+ * Name every converted image after the PDF it came from, numbered within that
+ * source: `{sourceBase}-{NN}.{ext}`. The number restarts per source file and is
+ * zero-padded to that source's own page count width (so page 2 sorts before 10).
+ * Jobs are processed in order; counters are kept per `sourceFileId`.
  */
-export function deriveImageName(
-  base: string,
-  index: number,
-  total: number,
+export function assignImageNames(
+  jobs: { sourceFileId: string; sourceFileName: string }[],
   ext: string,
-): string {
-  const width = String(Math.max(1, total)).length;
-  const num = String(index).padStart(width, "0");
-  return `${base}-${num}.${ext}`;
+): string[] {
+  const totals = new Map<string, number>();
+  for (const j of jobs) {
+    totals.set(j.sourceFileId, (totals.get(j.sourceFileId) ?? 0) + 1);
+  }
+
+  const seen = new Map<string, number>();
+  return jobs.map((j) => {
+    const n = (seen.get(j.sourceFileId) ?? 0) + 1;
+    seen.set(j.sourceFileId, n);
+    const width = String(totals.get(j.sourceFileId) ?? 1).length;
+    return `${stripExt(j.sourceFileName)}-${String(n).padStart(width, "0")}.${ext}`;
+  });
 }
 
 /** Zip name when multiple images are produced. */

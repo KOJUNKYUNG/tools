@@ -1,6 +1,6 @@
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
-import { deriveImageName } from "./pdfToImageNaming";
+import { assignImageNames } from "./pdfToImageNaming";
 import type { ConversionJob } from "./buildConversionJobs";
 
 export type OutputFormat = "image/jpeg" | "image/png";
@@ -17,8 +17,6 @@ export interface PdfToImageOptions {
   sourceBytesById: Map<string, Uint8Array>;
   format: OutputFormat;
   dpi: DpiOption;
-  /** Output base name (first uploaded file, sans ext). */
-  baseName: string;
   onProgress?: (pct: number) => void;
 }
 
@@ -34,7 +32,6 @@ export async function pdfToImages({
   sourceBytesById,
   format,
   dpi,
-  baseName,
   onProgress,
 }: PdfToImageOptions): Promise<ConvertedImage[]> {
   if (jobs.length === 0) throw new Error("변환할 페이지가 없습니다.");
@@ -60,6 +57,8 @@ export async function pdfToImages({
   const ext = format === "image/png" ? "png" : "jpg";
   const quality = format === "image/jpeg" ? 0.92 : undefined;
   const total = jobs.length;
+  // Name every output after its own source PDF, numbered within that source.
+  const names = assignImageNames(jobs, ext);
   const images: ConvertedImage[] = [];
 
   try {
@@ -87,10 +86,7 @@ export async function pdfToImages({
         );
       });
 
-      images.push({
-        name: deriveImageName(baseName, i + 1, total, ext),
-        blob,
-      });
+      images.push({ name: names[i], blob });
 
       // Release the canvas backing store immediately (OOM guard for big PDFs).
       canvas.width = 0;

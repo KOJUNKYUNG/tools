@@ -23,9 +23,9 @@ describe("buildConversionJobs", () => {
       page({ sourceFileId: "f2", sourcePageIndex: 0 }),
     ]);
     expect(jobs).toEqual([
-      { sourceFileId: "f1", sourcePageIndex: 0, rotation: 0 },
-      { sourceFileId: "f1", sourcePageIndex: 1, rotation: 0 },
-      { sourceFileId: "f2", sourcePageIndex: 0, rotation: 0 },
+      { sourceFileId: "f1", sourceFileName: "a.pdf", sourcePageIndex: 0, rotation: 0 },
+      { sourceFileId: "f1", sourceFileName: "a.pdf", sourcePageIndex: 1, rotation: 0 },
+      { sourceFileId: "f2", sourceFileName: "a.pdf", sourcePageIndex: 0, rotation: 0 },
     ]);
   });
 
