@@ -248,7 +248,7 @@
         "dpi150": "150 DPI",
         "dpi300": "300 DPI",
         "dpiHint": "High resolution (300 DPI) can use a lot of memory on long PDFs.",
-        "dpiAbout": "DPI (dots per inch) sets each image's detail. 72 suits screens, 150 everyday documents and printing, and 300 photos and high-quality printing.",
+        "dpiAbout": "DPI (dots per inch) is the converted image's detail. 72: on-screen, 150: documents and general printing, 300: photos and high-quality printing.",
         "resultTitle": "Conversion complete",
         "imageCount": "{n} images",
         "download": "Download all (ZIP)",

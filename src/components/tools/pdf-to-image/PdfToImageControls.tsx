@@ -60,7 +60,11 @@ export function PdfToImageControls({
 
       <div className="min-w-[220px] flex-[2] space-y-2">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <p className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+          <p
+            className={`${GROUP_LABEL} cursor-help underline decoration-dotted underline-offset-2`}
+            style={{ color: "var(--ink-soft)" }}
+            title={labels.dpiAbout}
+          >
             {labels.dpiLabel}
           </p>
           {dpi === 300 && (
@@ -89,12 +93,6 @@ export function PdfToImageControls({
             );
           })}
         </div>
-        <p
-          className="font-body text-[10.5px] leading-snug"
-          style={{ color: "var(--ink-soft)" }}
-        >
-          {labels.dpiAbout}
-        </p>
       </div>
     </div>
   );
