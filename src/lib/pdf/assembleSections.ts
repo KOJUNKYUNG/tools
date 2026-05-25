@@ -4,14 +4,21 @@
 // sections produced by splitIntoSections and turns each into a PDF byte array.
 
 import JSZip from "jszip";
-import { PDFDocument, degrees } from "pdf-lib";
+import { PDFDocument, degrees, rgb } from "pdf-lib";
 import { type PageItem, buildOutputNames } from "./pageItem";
+import { computeImageFit } from "./imageFit";
+
+export type ImageLayout =
+  | { mode: "native" }
+  | { mode: "fixed"; widthPt: number; heightPt: number };
 
 export interface AssembleInput {
   /** Output sections, already split + deletion-filtered (see splitIntoSections). */
   sections: PageItem[][];
   /** Raw bytes per source file id: pdf bytes for pdf pages, image bytes for images. */
   sourceBytesById: Map<string, Uint8Array>;
+  /** Image placement. Default: native (page = image size, current behavior). */
+  imageLayout?: ImageLayout;
 }
 
 /** Detect raster format from magic bytes so PageItem need not carry a mime type. */
@@ -37,7 +44,7 @@ export function detectImageFormat(bytes: Uint8Array): "png" | "jpg" {
  * sections. Progress is reported across the total page count (0–100).
  */
 export async function assembleSections(
-  { sections, sourceBytesById }: AssembleInput,
+  { sections, sourceBytesById, imageLayout = { mode: "native" } }: AssembleInput,
   onProgress?: (pct: number) => void,
 ): Promise<Uint8Array[]> {
   const sourceDocCache = new Map<string, PDFDocument>();
@@ -75,10 +82,31 @@ export async function assembleSections(
           detectImageFormat(bytes) === "png"
             ? await out.embedPng(bytes)
             : await out.embedJpg(bytes);
-        const { width, height } = image.scale(1);
-        const page = out.addPage([width, height]);
-        page.drawImage(image, { x: 0, y: 0, width, height });
-        if (item.rotation !== 0) page.setRotation(degrees(item.rotation));
+        const { width: imgW, height: imgH } = image.scale(1);
+
+        if (imageLayout.mode === "native") {
+          const page = out.addPage([imgW, imgH]);
+          page.drawImage(image, { x: 0, y: 0, width: imgW, height: imgH });
+          if (item.rotation !== 0) page.setRotation(degrees(item.rotation));
+        } else {
+          const { widthPt, heightPt } = imageLayout;
+          const page = out.addPage([widthPt, heightPt]);
+          page.drawRectangle({
+            x: 0,
+            y: 0,
+            width: widthPt,
+            height: heightPt,
+            color: rgb(1, 1, 1),
+          });
+          const fit = computeImageFit(imgW, imgH, widthPt, heightPt, item.rotation);
+          page.drawImage(image, {
+            x: fit.x,
+            y: fit.y,
+            width: fit.drawW,
+            height: fit.drawH,
+            rotate: degrees(fit.rotateDeg),
+          });
+        }
       }
 
       done++;
