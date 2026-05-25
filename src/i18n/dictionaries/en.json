@@ -225,7 +225,37 @@
         "again": "Start over"
       }
     },
-    "pdf-to-image": { "title": "PDF → Image", "description": "Render each page as a high-res image." },
+    "pdf-to-image": {
+      "title": "PDF → Image",
+      "description": "Render each page as a high-res image.",
+      "page": {
+        "uploadPrompt": "Drag or click to upload a PDF",
+        "uploadHint": "You can add several PDFs at once.",
+        "uploadMaxSize": "Up to {size} per file",
+        "reupload": "Re-upload",
+        "addAria": "Add PDF",
+        "convert": "Convert to images ({n})",
+        "filesOne": "{name}",
+        "filesMany": "{name} +{rest} more",
+        "rotateAria": "Rotate",
+        "deleteAria": "Delete",
+        "processing": "Converting…",
+        "formatLabel": "Image format",
+        "formatJpg": "JPG",
+        "formatPng": "PNG",
+        "dpiLabel": "Resolution",
+        "dpi72": "72 DPI",
+        "dpi150": "150 DPI",
+        "dpi300": "300 DPI",
+        "dpiHint": "High resolution (300 DPI) can use a lot of memory on long PDFs.",
+        "resultTitle": "Conversion complete",
+        "imageCount": "{n} images",
+        "download": "Download all (ZIP)",
+        "downloadOneAria": "Download {name}",
+        "compressHandoff": "Compress images",
+        "again": "Again"
+      }
+    },
     "image-compress": {
       "title": "Compress & convert",
       "description": "Batch-compress and convert formats.",

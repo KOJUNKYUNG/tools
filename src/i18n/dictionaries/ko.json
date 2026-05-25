@@ -225,7 +225,37 @@
         "again": "다시"
       }
     },
-    "pdf-to-image": { "title": "PDF → 이미지", "description": "PDF의 각 페이지를 고해상도 이미지로 변환합니다." },
+    "pdf-to-image": {
+      "title": "PDF → 이미지",
+      "description": "PDF의 각 페이지를 고해상도 이미지로 변환합니다.",
+      "page": {
+        "uploadPrompt": "PDF를 드래그하거나 클릭하여 업로드",
+        "uploadHint": "PDF 여러 개를 한 번에 올릴 수 있어요.",
+        "uploadMaxSize": "파일당 최대 {size}",
+        "reupload": "다시 업로드",
+        "addAria": "PDF 추가",
+        "convert": "이미지로 변환 ({n}장)",
+        "filesOne": "{name}",
+        "filesMany": "{name} 외 {rest}개",
+        "rotateAria": "회전",
+        "deleteAria": "삭제",
+        "processing": "변환 중…",
+        "formatLabel": "이미지 형식",
+        "formatJpg": "JPG",
+        "formatPng": "PNG",
+        "dpiLabel": "해상도",
+        "dpi72": "72 DPI",
+        "dpi150": "150 DPI",
+        "dpi300": "300 DPI",
+        "dpiHint": "고해상도(300 DPI)는 페이지가 많은 PDF에서 메모리를 많이 사용할 수 있어요.",
+        "resultTitle": "변환 완료",
+        "imageCount": "{n}장",
+        "download": "전체 다운로드 (ZIP)",
+        "downloadOneAria": "{name} 다운로드",
+        "compressHandoff": "이미지 압축하기",
+        "again": "다시"
+      }
+    },
     "image-compress": {
       "title": "이미지 압축·변환",
       "description": "여러 이미지를 한 번에 압축하고 포맷을 바꿉니다.",
