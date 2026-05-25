@@ -10,6 +10,9 @@ export interface SectionTint {
   ring: string;
 }
 
+const CARD_W = 150;
+const CARD_H = 204;
+
 interface PageItemCardProps {
   item: PageItem;
   pageNumber: number;
@@ -21,6 +24,18 @@ interface PageItemCardProps {
   deleteAria: string;
   /** dnd-kit drag handle props (listeners + attributes) applied to the sheet. */
   dragHandleProps?: Record<string, unknown>;
+  /**
+   * Card surface color. Default white (pdf-arrange). image-to-pdf uses a light
+   * gray frame so the white output page stands out against it.
+   */
+  frameBg?: string;
+  /**
+   * When set (> 0), draw a white page rectangle of this width/height aspect
+   * (centered, fit within the card) and place the image inside it — previews the
+   * chosen output page size. When null/omitted, the image fills the card
+   * directly (pdf-arrange behavior, unchanged).
+   */
+  pageAspect?: number | null;
 }
 
 function PageItemCardImpl({
@@ -33,6 +48,8 @@ function PageItemCardImpl({
   rotateAria,
   deleteAria,
   dragHandleProps,
+  frameBg = "#fff",
+  pageAspect = null,
 }: PageItemCardProps) {
   const thumb = useLazyThumbnail({
     fileId: item.sourceFileId,
@@ -41,10 +58,35 @@ function PageItemCardImpl({
     bytes,
   });
 
+  // White page-rect dimensions when previewing a fixed output page size.
+  let boxW = CARD_W;
+  let boxH = CARD_H;
+  if (pageAspect != null && pageAspect > 0) {
+    if (pageAspect >= CARD_W / CARD_H) {
+      boxW = CARD_W;
+      boxH = CARD_W / pageAspect;
+    } else {
+      boxH = CARD_H;
+      boxW = CARD_H * pageAspect;
+    }
+  }
+
+  const img =
+    thumb.status === "ready" && thumb.src ? (
+      <img
+        src={thumb.src}
+        alt={`page ${pageNumber}`}
+        draggable={false}
+        className="max-h-full max-w-full object-contain"
+        style={{ transform: `rotate(${item.rotation}deg)` }}
+      />
+    ) : null;
+
   return (
     <div
-      className="group relative my-[9px] h-[204px] w-[150px] cursor-grab overflow-hidden rounded-[5px] bg-white active:cursor-grabbing"
+      className="group relative my-[9px] h-[204px] w-[150px] cursor-grab overflow-hidden rounded-[5px] active:cursor-grabbing"
       style={{
+        background: frameBg,
         border: "1px solid var(--silver-200)",
         boxShadow: `var(--shadow-sm), 0 0 0 3px ${tint.ring}`,
       }}
@@ -55,13 +97,16 @@ function PageItemCardImpl({
         className="absolute inset-0 flex items-center justify-center"
       >
         {thumb.status === "ready" && thumb.src ? (
-          <img
-            src={thumb.src}
-            alt={`page ${pageNumber}`}
-            draggable={false}
-            className="max-h-full max-w-full object-contain"
-            style={{ transform: `rotate(${item.rotation}deg)` }}
-          />
+          pageAspect != null && pageAspect > 0 ? (
+            <div
+              className="flex items-center justify-center overflow-hidden"
+              style={{ width: boxW, height: boxH, background: "#fff" }}
+            >
+              {img}
+            </div>
+          ) : (
+            img
+          )
         ) : thumb.status === "error" ? (
           <span className="px-2 text-center text-[10px] text-[color:var(--ink-soft)]">
             미리보기 실패

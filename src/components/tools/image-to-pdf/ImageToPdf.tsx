@@ -63,6 +63,8 @@ interface SortableCellProps {
   onDelete: (id: string) => void;
   rotateAria: string;
   deleteAria: string;
+  frameBg: string;
+  pageAspect: number | null;
 }
 
 function SortableCell({
@@ -73,6 +75,8 @@ function SortableCell({
   onDelete,
   rotateAria,
   deleteAria,
+  frameBg,
+  pageAspect,
 }: SortableCellProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
@@ -97,6 +101,8 @@ function SortableCell({
         onDelete={onDelete}
         rotateAria={rotateAria}
         deleteAria={deleteAria}
+        frameBg={frameBg}
+        pageAspect={pageAspect}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
       {/* No divider — image-to-pdf always produces one PDF. Keep the column gutter. */}
@@ -275,6 +281,15 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
   const hasFiles = items.length > 0;
   const busy = status === "processing";
 
+  // White page-rect aspect (w/h) shown inside each editor card. null = fit-image
+  // (no fixed page → image fills the card directly).
+  const editorPageAspect =
+    sizeMode === "a4"
+      ? 595 / 842
+      : sizeMode === "custom"
+        ? Math.max(1, Number(custom.w) || 0) / Math.max(1, Number(custom.h) || 0)
+        : null;
+
   const filesSummary =
     files.length <= 1
       ? template(labels.filesOneTemplate, { name: files[0]?.name ?? "" })
@@ -284,7 +299,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         });
 
   const editor = (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
       <ImageToPdfTopStrip
         filesSummary={filesSummary}
         onReupload={handleReuploadPick}
@@ -311,7 +326,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       />
 
       <div
-        className="ob-scroll max-h-[400px] overflow-y-auto rounded-2xl p-3"
+        className="ob-scroll min-h-0 flex-1 overflow-y-auto rounded-2xl p-3"
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
@@ -331,6 +346,8 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
                   onDelete={handleDelete}
                   rotateAria={labels.rotateAria}
                   deleteAria={labels.deleteAria}
+                  frameBg="var(--silver-100)"
+                  pageAspect={editorPageAspect}
                 />
               ))}
               <div className="flex items-stretch">
