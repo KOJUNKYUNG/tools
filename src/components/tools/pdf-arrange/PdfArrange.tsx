@@ -35,17 +35,17 @@ import {
   countSections,
   splitIntoSections,
 } from "@/lib/pdf/pageItem";
-import { buildPageItems, deriveBaseName } from "./buildPageItems";
+import { buildPageItems, deriveBaseName } from "@/components/pdf-editor/buildPageItems";
 import { Divider } from "./Divider";
 import { EditorTopStrip } from "./EditorTopStrip";
-import { PageItemCard, type SectionTint } from "./PageItemCard";
+import { PageItemCard, type SectionTint } from "@/components/pdf-editor/PageItemCard";
 import {
   type ArrangeResult,
   type OutputEntry,
   PdfArrangeResult,
 } from "./PdfArrangeResult";
 import type { PdfArrangeLabels } from "./labels";
-import { clearThumbnailCache } from "./thumbnailCache";
+import { clearThumbnailCache } from "@/components/pdf-editor/thumbnailCache";
 
 const ACCEPT = {
   "application/pdf": [".pdf"],
