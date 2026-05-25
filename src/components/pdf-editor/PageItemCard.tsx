@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { RotateCwIcon, Trash2Icon } from "lucide-react";
 import type { PageItem } from "@/lib/pdf/pageItem";
 import { useLazyThumbnail } from "./useLazyThumbnail";
@@ -12,6 +12,8 @@ export interface SectionTint {
 
 const CARD_W = 150;
 const CARD_H = 204;
+/** Cap the baked-rotation canvas so a full-res source can't make a huge data URL. */
+const BAKE_MAX = 600;
 
 interface PageItemCardProps {
   item: PageItem;
@@ -72,30 +74,69 @@ function PageItemCardImpl({
   }
 
   const hasPage = pageAspect != null && pageAspect > 0;
-  const rotated = item.rotation === 90 || item.rotation === 270;
-  const img =
+
+  // Page-frame mode bakes rotation into a bitmap (canvas) instead of CSS-rotating.
+  // CSS `transform: rotate()` on an element laid out wider than the card gets
+  // clipped by the card's overflow:hidden BEFORE the rotation applies, so a
+  // rotated image can't fill the page box. Baking matches how the result preview
+  // (pdfjs-rendered page) already works — the rotated bitmap fills via plain
+  // object-contain, no transform.
+  const [bakedSrc, setBakedSrc] = useState<string | null>(null);
+  useEffect(() => {
+    if (!hasPage || item.rotation === 0 || thumb.status !== "ready" || !thumb.src) {
+      setBakedSrc(null);
+      return;
+    }
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (cancelled) return;
+      const r = item.rotation;
+      const swap = r === 90 || r === 270;
+      const scale = Math.min(
+        1,
+        BAKE_MAX / Math.max(image.naturalWidth, image.naturalHeight),
+      );
+      const w = Math.max(1, Math.round(image.naturalWidth * scale));
+      const h = Math.max(1, Math.round(image.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = swap ? h : w;
+      canvas.height = swap ? w : h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((r * Math.PI) / 180); // clockwise, matches output
+      ctx.drawImage(image, -w / 2, -h / 2, w, h);
+      const url = canvas.toDataURL("image/png");
+      canvas.width = 0;
+      canvas.height = 0;
+      if (!cancelled) setBakedSrc(url);
+    };
+    image.onerror = () => {
+      if (!cancelled) setBakedSrc(null);
+    };
+    image.src = thumb.src;
+    return () => {
+      cancelled = true;
+    };
+  }, [hasPage, item.rotation, thumb.status, thumb.src]);
+
+  // Plain mode (pdf-arrange): image fills the card, CSS-rotated. No page frame,
+  // so no fill-on-rotate requirement — CSS transform is fine here.
+  const plainImg =
     thumb.status === "ready" && thumb.src ? (
       <img
         src={thumb.src}
         alt={`page ${pageNumber}`}
         draggable={false}
-        // Page-frame mode: size the image element to the page box (swapping w/h
-        // for 90/270 so a rotated image fills the box after the CSS rotate), then
-        // object-contain — matching the output's rotation-aware computeImageFit.
-        // Plain mode (pdf-arrange) keeps max-* so thumbnails aren't upscaled.
-        className={hasPage ? undefined : "max-h-full max-w-full object-contain"}
-        style={
-          hasPage
-            ? {
-                width: rotated ? boxH : boxW,
-                height: rotated ? boxW : boxH,
-                objectFit: "contain",
-                transform: `rotate(${item.rotation}deg)`,
-              }
-            : { transform: `rotate(${item.rotation}deg)` }
-        }
+        className="max-h-full max-w-full object-contain"
+        style={{ transform: `rotate(${item.rotation}deg)` }}
       />
     ) : null;
+
+  // Page-frame mode: show the (possibly rotation-baked) bitmap, contained in the
+  // white page box. No CSS transform.
+  const frameSrc = (item.rotation !== 0 && bakedSrc ? bakedSrc : thumb.src) ?? "";
 
   return (
     <div
@@ -117,10 +158,15 @@ function PageItemCardImpl({
               className="flex items-center justify-center overflow-hidden"
               style={{ width: boxW, height: boxH, background: "#fff" }}
             >
-              {img}
+              <img
+                src={frameSrc}
+                alt={`page ${pageNumber}`}
+                draggable={false}
+                className="h-full w-full object-contain"
+              />
             </div>
           ) : (
-            img
+            plainImg
           )
         ) : thumb.status === "error" ? (
           <span className="px-2 text-center text-[10px] text-[color:var(--ink-soft)]">
