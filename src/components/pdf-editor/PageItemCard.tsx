@@ -72,21 +72,28 @@ function PageItemCardImpl({
   }
 
   const hasPage = pageAspect != null && pageAspect > 0;
+  const rotated = item.rotation === 90 || item.rotation === 270;
   const img =
     thumb.status === "ready" && thumb.src ? (
       <img
         src={thumb.src}
         alt={`page ${pageNumber}`}
         draggable={false}
-        // In page-frame mode the image fills the white page box (h/w-full) so it
-        // upscales-to-fit exactly like the output (computeImageFit). Plain mode
-        // (pdf-arrange) keeps max-* so thumbnails aren't upscaled past native.
-        className={
+        // Page-frame mode: size the image element to the page box (swapping w/h
+        // for 90/270 so a rotated image fills the box after the CSS rotate), then
+        // object-contain — matching the output's rotation-aware computeImageFit.
+        // Plain mode (pdf-arrange) keeps max-* so thumbnails aren't upscaled.
+        className={hasPage ? undefined : "max-h-full max-w-full object-contain"}
+        style={
           hasPage
-            ? "h-full w-full object-contain"
-            : "max-h-full max-w-full object-contain"
+            ? {
+                width: rotated ? boxH : boxW,
+                height: rotated ? boxW : boxH,
+                objectFit: "contain",
+                transform: `rotate(${item.rotation}deg)`,
+              }
+            : { transform: `rotate(${item.rotation}deg)` }
         }
-        style={{ transform: `rotate(${item.rotation}deg)` }}
       />
     ) : null;
 
