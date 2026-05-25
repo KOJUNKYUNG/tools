@@ -21,6 +21,15 @@ export interface PdfToImageOptions {
 }
 
 const PDF_BASE_DPI = 72;
+/**
+ * Browser canvas safety caps. A large page (A0 / poster / scanned score) at
+ * 300 DPI can exceed the max canvas dimension or area, after which the browser
+ * silently allocates a blank backing store (or toBlob yields null). 8192 matches
+ * the dimension ceiling the image tools use; the area cap keeps mobile/Safari
+ * (which allow far less than desktop Chrome) from emitting blank images.
+ */
+const MAX_CANVAS_DIM = 8192;
+const MAX_CANVAS_AREA = 24_000_000;
 
 /**
  * Render each job (one source page) to an image. Pages are rendered in job order
@@ -64,37 +73,60 @@ export async function pdfToImages({
   try {
     for (let i = 0; i < jobs.length; i++) {
       const job = jobs[i];
-      const doc = await getDoc(job.sourceFileId);
-      const page = await doc.getPage(job.sourcePageIndex + 1);
-      // Match the thumbnail (rendered at page.rotate) + the card's CSS rotate.
-      const rotation = (page.rotate + job.rotation) % 360;
-      const viewport = page.getViewport({ scale, rotation });
+      try {
+        const doc = await getDoc(job.sourceFileId);
+        const page = await doc.getPage(job.sourcePageIndex + 1);
+        // Match the thumbnail (rendered at page.rotate) + the card's CSS rotate.
+        const rotation = (page.rotate + job.rotation) % 360;
 
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Canvas 2D 컨텍스트를 만들 수 없습니다.");
-
-      await page.render({ canvas, viewport }).promise;
-
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (b) => (b ? resolve(b) : reject(new Error("Canvas → Blob 변환 실패"))),
-          format,
-          quality,
+        // Downscale oversized pages to fit the browser canvas limits, so a huge
+        // page never produces a blank image instead of a smaller, valid one.
+        let viewport = page.getViewport({ scale, rotation });
+        const over = Math.max(
+          viewport.width / MAX_CANVAS_DIM,
+          viewport.height / MAX_CANVAS_DIM,
+          Math.sqrt((viewport.width * viewport.height) / MAX_CANVAS_AREA),
         );
-      });
+        if (over > 1) {
+          viewport = page.getViewport({ scale: scale / over, rotation });
+        }
 
-      images.push({ name: names[i], blob });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas 2D 컨텍스트를 만들 수 없습니다.");
 
-      // Release the canvas backing store immediately (OOM guard for big PDFs).
-      canvas.width = 0;
-      canvas.height = 0;
-      onProgress?.(Math.round(((i + 1) / total) * 100));
+        await page.render({ canvas, viewport }).promise;
+
+        const blob = await new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob(
+            (b) => (b ? resolve(b) : reject(new Error("Canvas → Blob 변환 실패"))),
+            format,
+            quality,
+          );
+        });
+
+        images.push({ name: names[i], blob });
+
+        // Release the canvas backing store immediately (OOM guard for big PDFs).
+        canvas.width = 0;
+        canvas.height = 0;
+      } catch (err) {
+        // Isolate per-page failures so one bad page never discards the whole
+        // batch (mirrors buildPageItems' per-file isolation). The slot's name is
+        // skipped, leaving a numbering gap that signals the dropped page.
+        console.warn(`pdf-to-image: page ${i + 1} 변환 실패`, err);
+      } finally {
+        onProgress?.(Math.round(((i + 1) / total) * 100));
+      }
     }
   } finally {
     for (const doc of docCache.values()) doc.destroy();
+  }
+
+  if (images.length === 0) {
+    throw new Error("변환된 페이지가 없습니다.");
   }
 
   return images;

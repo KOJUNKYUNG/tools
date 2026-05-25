@@ -118,7 +118,7 @@ export function PdfToImageResult({
         <div className="grid grid-cols-3 gap-2">
           {images.map((img, i) => (
             <ResultCell
-              key={img.name}
+              key={`${img.name}-${i}`}
               url={urls[i]}
               name={img.name}
               size={img.blob.size}

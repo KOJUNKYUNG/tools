@@ -17,7 +17,7 @@ import { stageFiles } from "@/lib/common/toolHandoff";
 import { FILE_SIZE_LIMIT } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { buildConversionJobs } from "@/lib/pdf/buildConversionJobs";
-import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { deriveZipName } from "@/lib/pdf/pdfToImageNaming";
 import {
   pdfToImages,
@@ -79,16 +79,17 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
     },
     onDownload: async (images) => {
       if (images.length === 0) return;
-      const base = deriveBaseName(items[0]?.sourceFileName);
       if (images.length === 1) {
-        const buf = await images[0].blob.arrayBuffer();
-        downloadBlob(new Uint8Array(buf), images[0].name, format);
+        downloadBlobObject(images[0].blob, images[0].name);
         return;
       }
+      const base = deriveBaseName(items[0]?.sourceFileName);
       const zip = new JSZip();
       for (const img of images) zip.file(img.name, img.blob);
-      const zipBytes = await zip.generateAsync({ type: "uint8array" });
-      downloadBlob(zipBytes, deriveZipName(base), "application/zip");
+      // Images are already compressed — STORE skips a pointless deflate pass and
+      // lets JSZip stream to a Blob instead of building one giant Uint8Array.
+      const zipBlob = await zip.generateAsync({ type: "blob", compression: "STORE" });
+      downloadBlobObject(zipBlob, deriveZipName(base));
     },
     errorOptions: {
       memoryHint:
@@ -188,13 +189,9 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
     setItems((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
-  const handleDownloadOne = useCallback(
-    async (image: ConvertedImage) => {
-      const buf = await image.blob.arrayBuffer();
-      downloadBlob(new Uint8Array(buf), image.name, format);
-    },
-    [format],
-  );
+  const handleDownloadOne = useCallback((image: ConvertedImage) => {
+    downloadBlobObject(image.blob, image.name);
+  }, []);
 
   const handleCompress = useCallback(() => {
     if (!result) return;
