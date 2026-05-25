@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
 } from "@/lib/pdf/compressPdf";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { formatBytes } from "@/lib/common/formatBytes";
+import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import { ArchiveIcon } from "lucide-react";
 
 const PDF_ACCEPT = { "application/pdf": [".pdf"] };
@@ -41,6 +42,13 @@ export default function PdfCompressPage() {
     onDownload: (res) =>
       downloadBlob(res.data, "compressed.pdf", "application/pdf"),
   });
+
+  // Load a PDF handed off from another tool (e.g. image-to-pdf). Once on mount.
+  useEffect(() => {
+    const staged = consumeStagedFiles();
+    if (staged && staged.files.length > 0) setFiles(staged.files);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const file = files[0];
 
