@@ -71,13 +71,21 @@ function PageItemCardImpl({
     }
   }
 
+  const hasPage = pageAspect != null && pageAspect > 0;
   const img =
     thumb.status === "ready" && thumb.src ? (
       <img
         src={thumb.src}
         alt={`page ${pageNumber}`}
         draggable={false}
-        className="max-h-full max-w-full object-contain"
+        // In page-frame mode the image fills the white page box (h/w-full) so it
+        // upscales-to-fit exactly like the output (computeImageFit). Plain mode
+        // (pdf-arrange) keeps max-* so thumbnails aren't upscaled past native.
+        className={
+          hasPage
+            ? "h-full w-full object-contain"
+            : "max-h-full max-w-full object-contain"
+        }
         style={{ transform: `rotate(${item.rotation}deg)` }}
       />
     ) : null;
@@ -97,7 +105,7 @@ function PageItemCardImpl({
         className="absolute inset-0 flex items-center justify-center"
       >
         {thumb.status === "ready" && thumb.src ? (
-          pageAspect != null && pageAspect > 0 ? (
+          hasPage ? (
             <div
               className="flex items-center justify-center overflow-hidden"
               style={{ width: boxW, height: boxH, background: "#fff" }}
