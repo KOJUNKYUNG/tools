@@ -35,6 +35,9 @@ describe("computeImageFit", () => {
     expect(f.drawW).toBeCloseTo(842, 3);
     expect(f.drawH).toBeCloseTo(421, 3);
     expect(f.rotateDeg).toBe(270); // clockwise 90 → counterclockwise 270
+    // anchor keeps the rotated image centered (the trickiest line)
+    expect(f.x).toBeCloseTo(87, 3);
+    expect(f.y).toBeCloseTo(842, 3);
   });
 
   it("maps clockwise rotation to counterclockwise pdf-lib degrees", () => {
