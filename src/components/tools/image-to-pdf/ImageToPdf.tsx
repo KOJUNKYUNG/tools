@@ -49,6 +49,21 @@ const ACCEPT_ATTR = "image/png,image/jpeg";
 
 const NEUTRAL_TINT = { ring: "transparent" } as const;
 
+/** Read an image file's natural pixel dimensions. Returns null if it can't be
+ *  decoded (used to seed the custom page-size default). */
+async function readImagePixelSize(
+  file: File,
+): Promise<{ w: number; h: number } | null> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const size = { w: bitmap.width, h: bitmap.height };
+    bitmap.close();
+    return size;
+  } catch {
+    return null;
+  }
+}
+
 export interface ImageToPdfResultData {
   bytes: Uint8Array;
   name: string;
@@ -198,6 +213,10 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
           setItems(built.items);
           setSourceBytesById(built.sourceBytesById);
           setFiles(accepted);
+          // Seed the custom page size with the first image's pixel dimensions, so
+          // "사용자 지정" starts from a meaningful basis (the user's own image).
+          const size = await readImagePixelSize(accepted[0]);
+          if (size) setCustom({ w: String(size.w), h: String(size.h) });
         } else {
           setItems((prev) => [...prev, ...built.items]);
           setSourceBytesById((prev) => new Map([...prev, ...built.sourceBytesById]));
