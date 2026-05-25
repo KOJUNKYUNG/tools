@@ -17,6 +17,8 @@ import { ImageCompressTool } from "@/components/tools/image-compress/ImageCompre
 import { getImageCompressLabels } from "@/components/tools/image-compress/labels";
 import { PdfArrange } from "@/components/tools/pdf-arrange/PdfArrange";
 import { getPdfArrangeLabels } from "@/components/tools/pdf-arrange/labels";
+import { ImageToPdf } from "@/components/tools/image-to-pdf/ImageToPdf";
+import { getImageToPdfLabels } from "@/components/tools/image-to-pdf/labels";
 
 type Category = "presentation" | "document" | "image";
 
@@ -72,6 +74,8 @@ export function Screen3Workspace({
         );
       case "image-compress":
         return <ImageCompressTool inline labels={getImageCompressLabels(dict)} />;
+      case "image-to-pdf":
+        return <ImageToPdf inline labels={getImageToPdfLabels(dict)} lang={locale} />;
       case "pdf-arrange":
       case "pdf-merge":
       case "pdf-split":

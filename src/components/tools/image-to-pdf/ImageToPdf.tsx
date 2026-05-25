@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   KeyboardSensor,
@@ -17,79 +18,80 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { LayoutGridIcon, PlusIcon, RotateCcwIcon, XIcon } from "lucide-react";
+import { ImagePlus, PlusIcon, RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
+import { PageItemCard } from "@/components/pdf-editor/PageItemCard";
+import { buildPageItems, deriveBaseName } from "@/components/pdf-editor/buildPageItems";
+import { clearThumbnailCache } from "@/components/pdf-editor/thumbnailCache";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { FILE_SIZE_LIMIT } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
-import { assembleSections, packageOutputs } from "@/lib/pdf/assembleSections";
+import {
+  assembleSections,
+  type ImageLayout,
+} from "@/lib/pdf/assembleSections";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
-import {
-  type PageItem,
-  type Rotation,
-  buildOutputNames,
-  countSections,
-  splitIntoSections,
-} from "@/lib/pdf/pageItem";
-import { buildPageItems, deriveBaseName } from "@/components/pdf-editor/buildPageItems";
-import { Divider } from "./Divider";
-import { EditorTopStrip } from "./EditorTopStrip";
-import { PageItemCard, type SectionTint } from "@/components/pdf-editor/PageItemCard";
-import {
-  type ArrangeResult,
-  type OutputEntry,
-  PdfArrangeResult,
-} from "./PdfArrangeResult";
-import type { PdfArrangeLabels } from "./labels";
-import { clearThumbnailCache } from "@/components/pdf-editor/thumbnailCache";
+import { type PageItem, type Rotation } from "@/lib/pdf/pageItem";
+import { ImageToPdfResult } from "./ImageToPdfResult";
+import { ImageToPdfTopStrip } from "./ImageToPdfTopStrip";
+import { PageSizeSelector, type CustomSize, type PageSizeMode } from "./PageSizeSelector";
+import type { ImageToPdfLabels } from "./labels";
 
 const ACCEPT = {
-  "application/pdf": [".pdf"],
-  "image/png": [".png"],
   "image/jpeg": [".jpg", ".jpeg"],
+  "image/png": [".png"],
 };
-const ACCEPT_ATTR = "application/pdf,image/png,image/jpeg";
+const ACCEPT_ATTR = "image/png,image/jpeg";
 
-/** Total upload size above which we show a soft (dismissible) slowness warning. */
-const OVERSIZE_THRESHOLD = 100 * 1024 * 1024;
+const NEUTRAL_TINT = { ring: "transparent" } as const;
 
-/** Per-section ring tints, cycled across sections (electric / copper / silver). */
-const TINTS: SectionTint[] = [
-  { ring: "oklch(0.62 0.15 250 / 0.08)" },
-  { ring: "oklch(0.68 0.13 55 / 0.10)" },
-  { ring: "oklch(0.52 0.012 250 / 0.11)" },
-];
+/** Read an image file's natural pixel dimensions. Returns null if it can't be
+ *  decoded (used to seed the custom page-size default). */
+async function readImagePixelSize(
+  file: File,
+): Promise<{ w: number; h: number } | null> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const size = { w: bitmap.width, h: bitmap.height };
+    bitmap.close();
+    return size;
+  } catch {
+    return null;
+  }
+}
+
+export interface ImageToPdfResultData {
+  bytes: Uint8Array;
+  name: string;
+  pageCount: number;
+}
 
 interface SortableCellProps {
   item: PageItem;
   pageNumber: number;
   bytes: Uint8Array | undefined;
-  tint: SectionTint;
-  isLast: boolean;
   onRotate: (id: string) => void;
   onDelete: (id: string) => void;
-  onToggleSplit: (id: string) => void;
   rotateAria: string;
   deleteAria: string;
-  dividerLabel: string;
+  frameBg: string;
+  pageAspect: number | null;
 }
 
 function SortableCell({
   item,
   pageNumber,
   bytes,
-  tint,
-  isLast,
   onRotate,
   onDelete,
-  onToggleSplit,
   rotateAria,
   deleteAria,
-  dividerLabel,
+  frameBg,
+  pageAspect,
 }: SortableCellProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
@@ -109,43 +111,53 @@ function SortableCell({
         item={item}
         pageNumber={pageNumber}
         bytes={bytes}
-        tint={tint}
+        tint={NEUTRAL_TINT}
         onRotate={onRotate}
         onDelete={onDelete}
         rotateAria={rotateAria}
         deleteAria={deleteAria}
+        frameBg={frameBg}
+        pageAspect={pageAspect}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
-      {isLast ? (
-        // Reserve the gutter so the last page keeps the uniform 168px column
-        // width (no divider after the final page — a trailing split is a no-op).
-        <div className="w-[18px] shrink-0" aria-hidden="true" />
-      ) : (
-        <Divider
-          active={item.splitAfter}
-          onToggle={() => onToggleSplit(item.id)}
-          label={dividerLabel}
-        />
-      )}
+      {/* No divider — image-to-pdf always produces one PDF. Keep the column gutter. */}
+      <div className="w-[18px] shrink-0" aria-hidden="true" />
     </div>
   );
 }
 
-interface PdfArrangeProps {
-  labels: PdfArrangeLabels;
-  /** When mounted inline in Screen3Workspace, suppress page-level card chrome. */
+interface ImageToPdfProps {
+  labels: ImageToPdfLabels;
+  /** Locale for cross-tool handoff navigation (matches ImageResizeTool). */
+  lang: string;
   inline?: boolean;
 }
 
-export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
+export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
+  const router = useRouter();
+
   const [items, setItems] = useState<PageItem[]>([]);
-  const [sourceBytesById, setSourceBytesById] = useState<
-    Map<string, Uint8Array>
-  >(new Map());
+  const [sourceBytesById, setSourceBytesById] = useState<Map<string, Uint8Array>>(
+    new Map(),
+  );
   const [loadingPages, setLoadingPages] = useState(false);
-  const [oversizeDismissed, setOversizeDismissed] = useState(false);
+  const [sizeMode, setSizeMode] = useState<PageSizeMode>("fit");
+  const [custom, setCustom] = useState<CustomSize>({ w: "595", h: "842" });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
+
+  const imageLayout = useMemo<ImageLayout>(() => {
+    if (sizeMode === "a4") return { mode: "fixed", widthPt: 595, heightPt: 842 };
+    if (sizeMode === "custom") {
+      // Clamp to PDF's max page dimension (14400 pt ≈ 200in) so an absurd value
+      // can't produce a giant page / OOM.
+      const MAX_PT = 14400;
+      const w = Math.min(MAX_PT, Math.max(1, Math.round(Number(custom.w) || 0)));
+      const h = Math.min(MAX_PT, Math.max(1, Math.round(Number(custom.h) || 0)));
+      return { mode: "fixed", widthPt: w, heightPt: h };
+    }
+    return { mode: "native" };
+  }, [sizeMode, custom]);
 
   const {
     files,
@@ -157,52 +169,33 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     run,
     retry,
     download,
-  } = useToolProcessor<ArrangeResult>({
+  } = useToolProcessor<ImageToPdfResultData>({
     processor: async (_files, onProgress) => {
-      const sections = splitIntoSections(items);
-      if (sections.length === 0) throw new Error("출력할 페이지가 없습니다.");
-      const outBytes = await assembleSections(
-        { sections, sourceBytesById },
+      const live = items.filter((p) => !p.deleted);
+      if (live.length === 0) throw new Error("변환할 이미지가 없습니다.");
+      const [bytes] = await assembleSections(
+        { sections: [live], sourceBytesById, imageLayout },
         onProgress,
       );
-      const base = deriveBaseName(items[0]?.sourceFileName);
-      const { fileNames } = buildOutputNames(base, outBytes.length);
-      const outputs: OutputEntry[] = outBytes.map((data, i) => ({
-        name: fileNames[i],
-        data,
-        pageCount: sections[i].length,
-        cover: sections[i][0],
-      }));
-      return { outputs, isZip: outBytes.length > 1, base };
+      const name = `${deriveBaseName(items[0]?.sourceFileName)}.pdf`;
+      return { bytes, name, pageCount: live.length };
     },
-    onDownload: async (res) => {
-      const packaged = await packageOutputs(
-        res.outputs.map((o) => o.data),
-        res.base,
-      );
-      downloadBlob(
-        packaged.data,
-        packaged.filename,
-        packaged.type === "zip" ? "application/zip" : "application/pdf",
-      );
-    },
+    onDownload: (res) => downloadBlob(res.bytes, res.name, "application/pdf"),
   });
 
-  const handleDownloadOne = useCallback((entry: OutputEntry) => {
-    downloadBlob(entry.data, entry.name, "application/pdf");
-  }, []);
-
-  // Drop cached pdfjs docs / object URLs when the editor unmounts.
   useEffect(() => () => clearThumbnailCache(), []);
 
   const ingest = useCallback(
     async (incoming: File[], mode: "replace" | "append") => {
-      if (incoming.length === 0) return;
-
-      // Per-file size guard — mirrors FileUpload's dropzone limit on the add path
-      // (the hidden <input> bypasses react-dropzone's maxSize check).
-      const accepted = incoming.filter((f) => f.size <= FILE_SIZE_LIMIT.guest);
+      // Images only — drop anything that isn't an accepted image.
+      const images = incoming.filter((f) => f.type === "image/png" || f.type === "image/jpeg");
       for (const f of incoming) {
+        if (!(f.type === "image/png" || f.type === "image/jpeg")) {
+          toast.error(`${f.name}: 이미지(JPG/PNG)만 추가할 수 있습니다.`);
+        }
+      }
+      const accepted = images.filter((f) => f.size <= FILE_SIZE_LIMIT.guest);
+      for (const f of images) {
         if (f.size > FILE_SIZE_LIMIT.guest) {
           toast.error(
             `${f.name}: 파일 크기가 ${formatBytes(FILE_SIZE_LIMIT.guest)}를 초과합니다.`,
@@ -214,29 +207,24 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
       setLoadingPages(true);
       try {
         const built = await buildPageItems(accepted);
-        for (const name of built.failed) {
-          toast.error(`${name}: 손상되었거나 암호화된 PDF입니다.`);
-        }
         if (built.items.length === 0) return;
-
         if (mode === "replace") {
           clearThumbnailCache();
           setItems(built.items);
           setSourceBytesById(built.sourceBytesById);
           setFiles(accepted);
-          setOversizeDismissed(false);
+          // Seed the custom page size with the first image's pixel dimensions, so
+          // "사용자 지정" starts from a meaningful basis (the user's own image).
+          const size = await readImagePixelSize(accepted[0]);
+          if (size) setCustom({ w: String(size.w), h: String(size.h) });
         } else {
           setItems((prev) => [...prev, ...built.items]);
-          setSourceBytesById(
-            (prev) => new Map([...prev, ...built.sourceBytesById]),
-          );
+          setSourceBytesById((prev) => new Map([...prev, ...built.sourceBytesById]));
           setFiles([...files, ...accepted]);
         }
       } catch (err) {
         toast.error(
-          getErrorMessage(err, {
-            fallbackMessage: "파일을 읽을 수 없습니다.",
-          }).message,
+          getErrorMessage(err, { fallbackMessage: "파일을 읽을 수 없습니다." }).message,
         );
       } finally {
         setLoadingPages(false);
@@ -253,7 +241,6 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     [retry, ingest],
   );
 
-  // Header reset (top-right): clear everything back to the dropzone.
   const handleReset = useCallback(() => {
     retry();
     clearThumbnailCache();
@@ -262,14 +249,12 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     setFiles([]);
   }, [retry, setFiles]);
 
-  // Re-upload button: open the picker directly and REPLACE the current files.
   const handleReuploadPick = useCallback(() => {
     pendingModeRef.current = "replace";
     retry();
     fileInputRef.current?.click();
   }, [retry]);
 
-  // "+" add card: open the picker and APPEND to the current files.
   const handleAddClick = useCallback(() => {
     pendingModeRef.current = "append";
     fileInputRef.current?.click();
@@ -287,37 +272,18 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
   const handleRotate = useCallback((id: string) => {
     setItems((prev) =>
       prev.map((p) =>
-        p.id === id
-          ? { ...p, rotation: (((p.rotation + 90) % 360) as Rotation) }
-          : p,
+        p.id === id ? { ...p, rotation: (((p.rotation + 90) % 360) as Rotation) } : p,
       ),
     );
   }, []);
 
   const handleDelete = useCallback((id: string) => {
-    // Hard removal so following pages pull forward (no gap, no dimmed ghost).
     setItems((prev) => prev.filter((p) => p.id !== id));
-  }, []);
-
-  const handleToggleSplit = useCallback((id: string) => {
-    setItems((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, splitAfter: !p.splitAfter } : p)),
-    );
-  }, []);
-
-  const handleSplitAll = useCallback(() => {
-    setItems((prev) => prev.map((p) => ({ ...p, splitAfter: true })));
-  }, []);
-
-  const handleClearSplits = useCallback(() => {
-    setItems((prev) => prev.map((p) => ({ ...p, splitAfter: false })));
   }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
@@ -334,26 +300,17 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     });
   }, []);
 
-  // Map each page id → its section tint (cycled), recomputed when items change.
-  const tintById = useMemo(() => {
-    const map = new Map<string, SectionTint>();
-    splitIntoSections(items).forEach((section, si) => {
-      const tint = TINTS[si % TINTS.length];
-      for (const it of section) map.set(it.id, tint);
-    });
-    return map;
-  }, [items]);
-
-  const totalBytes = useMemo(() => {
-    let sum = 0;
-    for (const b of sourceBytesById.values()) sum += b.byteLength;
-    return sum;
-  }, [sourceBytesById]);
-  const showOversize = totalBytes > OVERSIZE_THRESHOLD && !oversizeDismissed;
-
-  const sectionCount = countSections(items);
   const hasFiles = items.length > 0;
   const busy = status === "processing";
+
+  // White page-rect aspect (w/h) shown inside each editor card. null = fit-image
+  // (no fixed page → image fills the card directly).
+  const editorPageAspect =
+    sizeMode === "a4"
+      ? 595 / 842
+      : sizeMode === "custom"
+        ? Math.max(1, Number(custom.w) || 0) / Math.max(1, Number(custom.h) || 0)
+        : null;
 
   const filesSummary =
     files.length <= 1
@@ -364,64 +321,42 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
         });
 
   const editor = (
-    <div className="space-y-3">
-      {showOversize && (
-        <div
-          className="flex items-center justify-between gap-2 rounded-[8px] border px-3 py-2 text-[12px]"
-          style={{
-            background: "var(--surface-2)",
-            borderColor: "var(--accent-copper)",
-            color: "var(--ink-strong)",
-          }}
-        >
-          <span>
-            {template(labels.oversizeWarning, { size: formatBytes(totalBytes) })}
-          </span>
-          <button
-            type="button"
-            onClick={() => setOversizeDismissed(true)}
-            aria-label={labels.dismiss}
-            title={labels.dismiss}
-            className="shrink-0 rounded p-1 transition-colors hover:text-[color:var(--ink-strong)]"
-            style={{ color: "var(--ink-soft)" }}
-          >
-            <XIcon className="size-3.5" />
-          </button>
-        </div>
-      )}
-
-      <EditorTopStrip
+    <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
+      <ImageToPdfTopStrip
         filesSummary={filesSummary}
         onReupload={handleReuploadPick}
         reuploadLabel={labels.reupload}
-        onSplitAll={handleSplitAll}
-        splitAllLabel={labels.splitAll}
-        onClearSplits={handleClearSplits}
-        clearSplitsLabel={labels.clearSplits}
-        onApply={run}
-        applyLabel={template(labels.applyTemplate, { n: sectionCount })}
-        applyDisabled={!hasFiles}
+        onConvert={run}
+        convertLabel={template(labels.convertTemplate, { n: items.length })}
+        convertDisabled={!hasFiles}
         busy={busy}
       />
 
+      <PageSizeSelector
+        mode={sizeMode}
+        onModeChange={setSizeMode}
+        custom={custom}
+        onCustomChange={setCustom}
+        labels={{
+          sizeLabel: labels.sizeLabel,
+          sizeFit: labels.sizeFit,
+          sizeA4: labels.sizeA4,
+          sizeCustom: labels.sizeCustom,
+          customWidth: labels.customWidth,
+          customHeight: labels.customHeight,
+        }}
+      />
+
       <div
-        className="ob-scroll max-h-[400px] overflow-y-auto rounded-2xl p-3"
+        className="ob-scroll min-h-0 flex-1 overflow-y-auto rounded-2xl p-3"
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
-          boxShadow:
-            "var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.8)",
+          boxShadow: "var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.8)",
         }}
       >
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={items.map((p) => p.id)}
-            strategy={rectSortingStrategy}
-          >
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
             <div className="flex flex-wrap justify-center gap-0">
               {items.map((item, i) => (
                 <SortableCell
@@ -429,14 +364,12 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
                   item={item}
                   pageNumber={i + 1}
                   bytes={sourceBytesById.get(item.sourceFileId)}
-                  tint={tintById.get(item.id) ?? TINTS[0]}
-                  isLast={i === items.length - 1}
                   onRotate={handleRotate}
                   onDelete={handleDelete}
-                  onToggleSplit={handleToggleSplit}
                   rotateAria={labels.rotateAria}
                   deleteAria={labels.deleteAria}
-                  dividerLabel={labels.clearSplits}
+                  frameBg="var(--silver-100)"
+                  pageAspect={editorPageAspect}
                 />
               ))}
               <div className="flex items-stretch">
@@ -453,7 +386,6 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
                 >
                   <PlusIcon className="size-7" />
                 </button>
-                {/* Match the page cells' trailing gutter for uniform columns. */}
                 <div className="w-[18px] shrink-0" aria-hidden="true" />
               </div>
             </div>
@@ -489,13 +421,13 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
       ) : status === "idle" ? (
         editor
       ) : status === "done" && result ? (
-        <PdfArrangeResult
+        <ImageToPdfResult
           result={result}
-          sourceBytesById={sourceBytesById}
           labels={labels}
-          onDownloadAll={download}
-          onDownloadOne={handleDownloadOne}
+          onDownload={download}
           onAgain={retry}
+          lang={lang}
+          router={router}
         />
       ) : (
         <ProcessingStatus
@@ -534,38 +466,25 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
         type="button"
         onClick={handleReset}
         disabled={busy}
-        aria-label={labels.reset}
-        title={labels.reset}
+        aria-label={labels.reupload}
+        title={labels.reupload}
         className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
         style={{ color: "var(--ink-soft)" }}
       >
         <RotateCcwIcon className="size-4" />
       </button>
-      <div
-        className="flex items-start gap-3 border-b px-6 pb-3 pt-3"
-        style={{ borderColor: "var(--border)" }}
-      >
+      <div className="flex items-start gap-3 border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
         <div
           className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
-          style={{
-            background: "var(--surface-2)",
-            border: "1px solid var(--border)",
-            color: "var(--ink-strong)",
-          }}
+          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--ink-strong)" }}
         >
-          <LayoutGridIcon size={18} />
+          <ImagePlus size={18} />
         </div>
         <div className="min-w-0 flex-1">
-          <div
-            className="font-display font-ko text-[16px] font-semibold leading-[1.2] tracking-[0.005em]"
-            style={{ color: "var(--headline)" }}
-          >
+          <div className="font-display font-ko text-[16px] font-semibold leading-[1.2] tracking-[0.005em]" style={{ color: "var(--headline)" }}>
             {labels.title}
           </div>
-          <div
-            className="mt-1 font-body text-[12px] leading-[1.45]"
-            style={{ color: "var(--ink)" }}
-          >
+          <div className="mt-1 font-body text-[12px] leading-[1.45]" style={{ color: "var(--ink)" }}>
             {labels.description}
           </div>
         </div>

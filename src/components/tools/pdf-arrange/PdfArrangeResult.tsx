@@ -5,7 +5,7 @@ import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import type { PageItem } from "@/lib/pdf/pageItem";
 import type { PdfArrangeLabels } from "./labels";
-import { useLazyThumbnail } from "./useLazyThumbnail";
+import { useLazyThumbnail } from "@/components/pdf-editor/useLazyThumbnail";
 
 /** One produced output file (one section). */
 export interface OutputEntry {
