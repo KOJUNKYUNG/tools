@@ -15,6 +15,7 @@ import {
   type CompressPdfResult,
 } from "@/lib/pdf/compressPdf";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { extractPageOne } from "@/lib/pdf/extractPageOne";
 import { deriveCompressedName } from "@/lib/pdf/pdfCompressNaming";
 import { ComparePreview, renderPdfFirstPage } from "./ComparePreview";
 import { PdfCompressControls } from "./PdfCompressControls";
@@ -35,6 +36,12 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
   const [showCompressed, setShowCompressed] = useState(true);
   const reuploadInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Live preview state — driven by (file, preset) while in idle.
+  const [livePreviewUrl, setLivePreviewUrl] = useState<string | null>(null);
+  const [livePreviewLoading, setLivePreviewLoading] = useState(false);
+  const [liveRatio, setLiveRatio] = useState<number | null>(null);
+  const livePreviewTokenRef = useRef(0);
 
   // filesRef gives onDownload a stable reference to the current files array
   // without creating a circular type dependency (TS7022/7023).
@@ -134,6 +141,82 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     };
   }, [result]);
 
+  // Clear live preview when the file changes (the live effect will regenerate).
+  useEffect(() => {
+    setLivePreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setLiveRatio(null);
+  }, [file]);
+
+  // Generate a live compressed preview of page 1 while in idle state.
+  // Debounced 400ms; token-guarded against stale async responses.
+  useEffect(() => {
+    if (!file || status !== "idle") {
+      livePreviewTokenRef.current++;
+      setLivePreviewLoading(false);
+      return;
+    }
+    const token = ++livePreviewTokenRef.current;
+    setLivePreviewLoading(true);
+    let createdUrl: string | null = null;
+    const timer = setTimeout(async () => {
+      try {
+        const ab = await file.arrayBuffer();
+        const onePage = await extractPageOne(new Uint8Array(ab));
+        // pdf-lib returns Uint8Array<ArrayBufferLike>; File() requires a concrete
+        // ArrayBuffer — copy into a fresh buffer so TS strict-mode is satisfied.
+        const onePageBuf = onePage.buffer.slice(
+          onePage.byteOffset,
+          onePage.byteOffset + onePage.byteLength,
+        ) as ArrayBuffer;
+        const onePageFile = new File([onePageBuf], "page-1.pdf", {
+          type: "application/pdf",
+        });
+        const liveResult = await compressPdf({ file: onePageFile, preset });
+        if (token !== livePreviewTokenRef.current) return;
+        const blob = await renderPdfFirstPage(liveResult.data.slice());
+        if (token !== livePreviewTokenRef.current) return;
+        createdUrl = URL.createObjectURL(blob);
+        setLivePreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return createdUrl;
+        });
+        setLiveRatio(
+          liveResult.compressedSize / Math.max(liveResult.originalSize, 1),
+        );
+      } catch {
+        if (token === livePreviewTokenRef.current) {
+          setLiveRatio(null);
+          // Keep previous livePreviewUrl on failure — better than flicker.
+        }
+      } finally {
+        if (token === livePreviewTokenRef.current) setLivePreviewLoading(false);
+      }
+    }, 400);
+    return () => {
+      clearTimeout(timer);
+      // Don't revoke createdUrl here — it lives in livePreviewUrl state and is
+      // either still in use or replaced on the next successful run (which revokes
+      // the previous one via the setLivePreviewUrl updater above).
+    };
+  }, [file, preset, status]);
+
+  // Revoke livePreviewUrl on unmount only.
+  useEffect(() => {
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      livePreviewTokenRef.current++;
+      setLivePreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+    // empty deps — runs only on unmount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleFilesChange = useCallback(
     (newFiles: File[]) => {
       retry();
@@ -174,6 +257,11 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   const hasFile = !!file;
   const busy = status === "processing";
   const isDone = status === "done" && !!result;
+
+  // Unified compressed candidate: authoritative result in done state, live preview otherwise.
+  const compressedCandidate = isDone ? compressedUrl : livePreviewUrl;
+  // Checkbox is now active in idle too — once livePreviewUrl arrives, the user can toggle.
+  const showToggle = !!compressedCandidate;
 
   const fileInfo = file
     ? template(labels.fileInfoTemplate, {
@@ -246,28 +334,26 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
             {/* Preview frame — always occupies remaining flex space */}
             <ComparePreview
               originalUrl={originalUrl}
-              compressedUrl={compressedUrl}
-              showCompressed={showCompressed && isDone}
+              compressedUrl={compressedCandidate}
+              showCompressed={showCompressed && showToggle}
+              loading={livePreviewLoading && status === "idle"}
             />
 
-            {/* Checkbox row — always reserve space; enabled only when done + compressedUrl */}
+            {/* Checkbox row — always reserve space; enabled once a compressed candidate exists */}
             <div className="flex h-7 items-center justify-end">
               <label
                 className="inline-flex cursor-pointer select-none items-center gap-1.5 font-display text-[11px]"
                 style={{
-                  color:
-                    isDone && compressedUrl
-                      ? "var(--ink-strong)"
-                      : "var(--ink-soft)",
-                  opacity: isDone && compressedUrl ? 1 : 0.4,
-                  pointerEvents: isDone && compressedUrl ? "auto" : "none",
+                  color: showToggle ? "var(--ink-strong)" : "var(--ink-soft)",
+                  opacity: showToggle ? 1 : 0.4,
+                  pointerEvents: showToggle ? "auto" : "none",
                 }}
               >
                 <input
                   type="checkbox"
                   checked={showCompressed}
                   onChange={(e) => setShowCompressed(e.target.checked)}
-                  disabled={!(isDone && compressedUrl)}
+                  disabled={!showToggle}
                   aria-label={labels.compareToggleAria}
                   style={{ accentColor: "var(--accent-electric)" }}
                 />
@@ -312,6 +398,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
                   preset={preset}
                   originalSize={file.size}
                   labels={labels}
+                  liveRatio={liveRatio}
                 />
               )}
             </div>

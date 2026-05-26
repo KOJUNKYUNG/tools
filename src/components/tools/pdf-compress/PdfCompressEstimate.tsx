@@ -16,31 +16,40 @@ interface PdfCompressEstimateProps {
   preset: CompressionPreset;
   originalSize: number;
   labels: PdfCompressLabels;
+  /** When set, replaces the static range estimate with a real derived size. */
+  liveRatio?: number | null;
 }
 
 export function PdfCompressEstimate({
   preset,
   originalSize,
   labels,
+  liveRatio,
 }: PdfCompressEstimateProps) {
-  const [lo, hi] = PRESET_RANGE[preset];
-  const fromBytes = Math.round(originalSize * lo);
-  const toBytes = Math.round(originalSize * hi);
-
-  const fromStr = formatBytes(fromBytes);
-  const toStr = formatBytes(toBytes);
-
-  // If both endpoints round to the same display string, show a single value.
-  const rangeText =
-    fromStr === toStr
-      ? fromStr
-      : template(labels.estimateTemplate, { from: fromStr, to: toStr });
-
   const descMap: Record<CompressionPreset, string> = {
     low: labels.presetLightDesc,
     medium: labels.presetMediumDesc,
     high: labels.presetHeavyDesc,
   };
+
+  let rangeText: string;
+  if (liveRatio != null) {
+    const derived = Math.round(originalSize * liveRatio);
+    rangeText = template(labels.estimateActualTemplate, {
+      size: formatBytes(derived),
+    });
+  } else {
+    const [lo, hi] = PRESET_RANGE[preset];
+    const fromBytes = Math.round(originalSize * lo);
+    const toBytes = Math.round(originalSize * hi);
+    const fromStr = formatBytes(fromBytes);
+    const toStr = formatBytes(toBytes);
+    // If both endpoints round to the same display string, show a single value.
+    rangeText =
+      fromStr === toStr
+        ? fromStr
+        : template(labels.estimateTemplate, { from: fromStr, to: toStr });
+  }
 
   return (
     <div
