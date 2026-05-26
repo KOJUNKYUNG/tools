@@ -13,10 +13,14 @@ export interface CompressPdfResult {
   ratio: number;
 }
 
-const PRESET_MAP: Record<CompressionPreset, string> = {
-  low: "low",
-  medium: "medium",
-  high: "high",
+const ADVANCED_PARAMS: Record<
+  CompressionPreset,
+  { jpegQuality: number; maxDpi: number; stripMetadata: boolean }
+> = {
+  // jpegQuality=0 → skip image re-encoding; maxDpi=0 → skip downscaling.
+  low:    { jpegQuality: 0,  maxDpi: 0,   stripMetadata: false },
+  medium: { jpegQuality: 75, maxDpi: 0,   stripMetadata: false },
+  high:   { jpegQuality: 65, maxDpi: 150, stripMetadata: true  },
 };
 
 export async function compressPdf({
@@ -24,63 +28,6 @@ export async function compressPdf({
   preset,
   onProgress,
 }: CompressPdfOptions): Promise<CompressPdfResult> {
-  onProgress?.(10);
-
-  const init = (await import("@kihyun1998/justpdf-compress-wasm")).default;
-  const { compress } = await import("@kihyun1998/justpdf-compress-wasm");
-
-  await init();
-  onProgress?.(30);
-
-  const arrayBuffer = await file.arrayBuffer();
-  const pdfBytes = new Uint8Array(arrayBuffer);
-  onProgress?.(50);
-
-  const result = compress(pdfBytes, PRESET_MAP[preset]);
-  onProgress?.(90);
-
-  const compressedData = result.data();
-  const summary: CompressPdfResult = {
-    data: compressedData,
-    originalSize: result.original_size,
-    compressedSize: result.compressed_size,
-    ratio: result.ratio,
-  };
-
-  result.free();
-  onProgress?.(100);
-
-  return summary;
-}
-
-export interface CompressPdfLivePreviewOptions {
-  file: File;
-  preset: CompressionPreset;
-  onProgress?: (pct: number) => void;
-}
-
-const LIVE_PARAMS: Record<
-  CompressionPreset,
-  { jpegQuality: number; maxDpi: number; stripMetadata: boolean }
-> = {
-  low:    { jpegQuality: 0,  maxDpi: 0,   stripMetadata: false },
-  medium: { jpegQuality: 75, maxDpi: 0,   stripMetadata: false },
-  high:   { jpegQuality: 65, maxDpi: 150, stripMetadata: true  },
-};
-
-/**
- * Compress a single-page PDF extract for live preview purposes.
- *
- * Uses compress_advanced with font_subsetting=false to avoid a known CJK
- * glyph-map corruption that occurs when pdf-lib reconstructs a 1-page subset
- * and the WASM subsetter re-subsets the already-subset font tables.
- * Visual quality (JPEG + DPI) is identical to the full preset path.
- */
-export async function compressPdfLivePreview({
-  file,
-  preset,
-  onProgress,
-}: CompressPdfLivePreviewOptions): Promise<CompressPdfResult> {
   onProgress?.(10);
   const mod = await import("@kihyun1998/justpdf-compress-wasm");
   const init = mod.default;
@@ -92,10 +39,10 @@ export async function compressPdfLivePreview({
   const pdfBytes = new Uint8Array(arrayBuffer);
   onProgress?.(50);
 
-  const params = LIVE_PARAMS[preset];
-  // font_subsetting=false avoids a known CJK glyph-map corruption on
-  // pdf-lib-recreated 1-page subsets. The visual result is otherwise identical
-  // to compress(data, preset) for image quality and DPI.
+  const params = ADVANCED_PARAMS[preset];
+  // font_subsetting=false: the upstream WASM's subsetter corrupts glyph maps on
+  // several Korean fonts (full doc AND pdf-lib-extracted subsets). Skipping it
+  // gives reliable output across all PDFs at a modest compression-ratio cost.
   const result = compress_advanced(
     pdfBytes,
     params.jpegQuality,
@@ -119,3 +66,8 @@ export async function compressPdfLivePreview({
   onProgress?.(100);
   return summary;
 }
+
+// Re-export the same implementation so the live-preview call site doesn't need
+// to change. (They share identical semantics now — preview and final match.)
+export type CompressPdfLivePreviewOptions = CompressPdfOptions;
+export const compressPdfLivePreview = compressPdf;
