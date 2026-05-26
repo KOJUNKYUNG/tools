@@ -55,16 +55,19 @@ export async function compressPdf({
   );
   onProgress?.(90);
 
-  const data = result.data();
-  const summary: CompressPdfResult = {
-    data,
-    originalSize: result.original_size,
-    compressedSize: result.compressed_size,
-    ratio: result.ratio,
-  };
-  result.free();
-  onProgress?.(100);
-  return summary;
+  try {
+    const data = result.data();
+    const summary: CompressPdfResult = {
+      data,
+      originalSize: result.original_size,
+      compressedSize: result.compressed_size,
+      ratio: result.ratio,
+    };
+    onProgress?.(100);
+    return summary;
+  } finally {
+    result.free();
+  }
 }
 
 // Re-export the same implementation so the live-preview call site doesn't need

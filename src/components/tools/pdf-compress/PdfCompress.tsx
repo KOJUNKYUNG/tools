@@ -170,7 +170,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           return;
         }
         setImageShare(
-          analysis.totalImageBytes / Math.max(file.size, 1),
+          Math.min(1, analysis.totalImageBytes / Math.max(file.size, 1)),
         );
       } catch {
         if (!cancelled) setImageShare(null);
@@ -191,17 +191,14 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     }
     const token = ++livePreviewTokenRef.current;
     setLivePreviewLoading(true);
-    let createdUrl: string | null = null;
     const timer = setTimeout(async () => {
+      let createdUrl: string | null = null;
+      let committed = false;
       try {
         const ab = await file.arrayBuffer();
         const onePage = await extractPageOne(new Uint8Array(ab));
-        // pdf-lib returns Uint8Array<ArrayBufferLike>; File() requires a concrete
-        // ArrayBuffer — copy into a fresh buffer so TS strict-mode is satisfied.
-        const onePageBuf = onePage.buffer.slice(
-          onePage.byteOffset,
-          onePage.byteOffset + onePage.byteLength,
-        ) as ArrayBuffer;
+        // Use .slice(0).buffer to produce a concrete ArrayBuffer without a cast.
+        const onePageBuf = onePage.slice(0).buffer;
         const onePageFile = new File([onePageBuf], "page-1.pdf", {
           type: "application/pdf",
         });
@@ -210,23 +207,23 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
         const blob = await renderPdfFirstPage(liveResult.data.slice());
         if (token !== livePreviewTokenRef.current) return;
         createdUrl = URL.createObjectURL(blob);
+        if (token !== livePreviewTokenRef.current) return; // final check before commit
         setLivePreviewUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
           return createdUrl;
         });
+        committed = true;
       } catch {
-        if (token === livePreviewTokenRef.current) {
-          // Keep previous livePreviewUrl on failure — better than flicker.
-        }
+        // Keep previous livePreviewUrl on failure — better than flicker.
       } finally {
-        if (token === livePreviewTokenRef.current) setLivePreviewLoading(false);
+        // Revoke if we created a URL but never committed it (stale token race).
+        if (createdUrl && !committed) URL.revokeObjectURL(createdUrl);
+        // Always clear loading — fixes stuck spinner on encrypted/failed PDFs.
+        setLivePreviewLoading(false);
       }
     }, 400);
     return () => {
       clearTimeout(timer);
-      // Don't revoke createdUrl here — it lives in livePreviewUrl state and is
-      // either still in use or replaced on the next successful run (which revokes
-      // the previous one via the setLivePreviewUrl updater above).
     };
   }, [file, preset, status]);
 
