@@ -21,6 +21,8 @@ import { ImageToPdf } from "@/components/tools/image-to-pdf/ImageToPdf";
 import { getImageToPdfLabels } from "@/components/tools/image-to-pdf/labels";
 import { PdfToImage } from "@/components/tools/pdf-to-image/PdfToImage";
 import { getPdfToImageLabels } from "@/components/tools/pdf-to-image/labels";
+import { PdfCompress } from "@/components/tools/pdf-compress/PdfCompress";
+import { getPdfCompressLabels } from "@/components/tools/pdf-compress/labels";
 
 type Category = "presentation" | "document" | "image";
 
@@ -80,6 +82,8 @@ export function Screen3Workspace({
         return <ImageToPdf inline labels={getImageToPdfLabels(dict)} lang={locale} />;
       case "pdf-to-image":
         return <PdfToImage inline labels={getPdfToImageLabels(dict)} lang={locale} />;
+      case "pdf-compress":
+        return <PdfCompress inline labels={getPdfCompressLabels(dict)} />;
       case "pdf-arrange":
       case "pdf-merge":
       case "pdf-split":
