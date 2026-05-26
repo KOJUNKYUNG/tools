@@ -251,7 +251,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
             />
 
             {/* Checkbox row — always reserve space; enabled only when done + compressedUrl */}
-            <div className="flex h-7 items-center">
+            <div className="flex h-7 items-center justify-end">
               <label
                 className="inline-flex cursor-pointer select-none items-center gap-1.5 font-display text-[11px]"
                 style={{
@@ -278,13 +278,15 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
 
           {/* RIGHT column: compress button → preset row → estimate/result */}
           {isDone && result ? (
-            <PdfCompressResult
-              originalSize={result.originalSize}
-              compressedSize={result.compressedSize}
-              onDownload={download}
-              onAgain={handleAgain}
-              labels={labels}
-            />
+            <div className="self-start">
+              <PdfCompressResult
+                originalSize={result.originalSize}
+                compressedSize={result.compressedSize}
+                onDownload={download}
+                onAgain={handleAgain}
+                labels={labels}
+              />
+            </div>
           ) : status === "idle" ? (
             <div className="flex h-full flex-col gap-3">
               {/* Primary action at the top */}

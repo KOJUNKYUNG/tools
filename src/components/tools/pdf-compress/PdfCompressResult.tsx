@@ -24,7 +24,7 @@ export function PdfCompressResult({
 
   return (
     <div
-      className="flex h-full flex-col gap-3 rounded-[8px] border p-4"
+      className="flex flex-col gap-3 rounded-[8px] border p-4"
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",
@@ -83,7 +83,7 @@ export function PdfCompressResult({
         </div>
       </div>
 
-      <div className="mt-auto flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
           onClick={onDownload}
