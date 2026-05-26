@@ -1,152 +1,29 @@
-"use client";
+import { getDictionary, type Locale } from "@/i18n/config";
+import { locales } from "@/i18n/locales";
+import { PdfCompress } from "@/components/tools/pdf-compress/PdfCompress";
+import { getPdfCompressLabels } from "@/components/tools/pdf-compress/labels";
 
-import { useEffect, useState } from "react";
-import { FileUpload } from "@/components/common/FileUpload";
-import { ProcessingStatus } from "@/components/common/ProcessingStatus";
-import { Button } from "@/components/ui/button";
-import { useToolProcessor } from "@/hooks/useToolProcessor";
-import {
-  compressPdf,
-  type CompressionPreset,
-  type CompressPdfResult,
-} from "@/lib/pdf/compressPdf";
-import { downloadBlob } from "@/lib/pdf/downloadBlob";
-import { formatBytes } from "@/lib/common/formatBytes";
-import { consumeStagedFiles } from "@/lib/common/toolHandoff";
-import { ArchiveIcon } from "lucide-react";
+interface PageProps {
+  params: Promise<{ lang: string }>;
+}
 
-const PDF_ACCEPT = { "application/pdf": [".pdf"] };
+function asLocale(lang: string): Locale {
+  return (locales as readonly string[]).includes(lang) ? (lang as Locale) : "ko";
+}
 
-const PRESET_OPTIONS: { value: CompressionPreset; label: string; desc: string }[] = [
-  { value: "low", label: "Light", desc: "화질 유지, 10~30% 감소" },
-  { value: "medium", label: "Medium", desc: "범용, 30~60% 감소" },
-  { value: "high", label: "Heavy", desc: "강한 압축, 60~80% 감소" },
-];
-
-export default function PdfCompressPage() {
-  const [preset, setPreset] = useState<CompressionPreset>("medium");
-
-  const {
-    files,
-    setFiles,
-    status,
-    progress,
-    errorMessage,
-    result,
-    run,
-    retry,
-    download,
-  } = useToolProcessor<CompressPdfResult>({
-    processor: (files, onProgress) =>
-      compressPdf({ file: files[0], preset, onProgress }),
-    onDownload: (res) =>
-      downloadBlob(res.data, "compressed.pdf", "application/pdf"),
-  });
-
-  // Load a PDF handed off from another tool (e.g. image-to-pdf). Once on mount.
-  useEffect(() => {
-    const staged = consumeStagedFiles();
-    if (staged && staged.files.length > 0) setFiles(staged.files);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const file = files[0];
+export default async function PdfCompressPage({ params }: PageProps) {
+  const { lang } = await params;
+  const dict = await getDictionary(asLocale(lang));
+  const labels = getPdfCompressLabels(dict);
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12">
-      <div className="mb-8">
-        <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <ArchiveIcon className="size-6" />
-        </div>
-        <h1 className="font-heading text-2xl font-bold sm:text-3xl">
-          PDF 압축
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          PDF 파일 용량을 줄입니다. 파일이 서버에 전송되지 않아 안전합니다.
-        </p>
-      </div>
-
-      <div className="space-y-6">
-        <FileUpload
-          accept={PDF_ACCEPT}
-          multiple={false}
-          onFiles={setFiles}
-          label="PDF 파일을 드래그하거나 클릭하여 업로드"
-          description="단일 PDF 파일을 선택하세요."
-        />
-
-        {file && status === "idle" && (
-          <div className="space-y-4 rounded-xl border bg-muted/30 p-4">
-            <p className="mb-2 text-sm font-medium">압축 레벨</p>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setPreset(opt.value)}
-                  className={`flex flex-col items-start rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
-                    preset === opt.value
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-background hover:bg-muted"
-                  }`}
-                >
-                  <span className="font-medium">{opt.label}</span>
-                  <span
-                    className={`text-xs ${
-                      preset === opt.value
-                        ? "text-primary-foreground/80"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {opt.desc}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {file && status === "idle" && (
-          <Button className="w-full" size="lg" onClick={run}>
-            PDF 압축하기
-          </Button>
-        )}
-
-        {status === "done" && result && (
-          <div className="rounded-xl border bg-muted/30 p-4">
-            <p className="mb-3 text-sm font-medium">압축 결과</p>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-xs text-muted-foreground">원본 크기</p>
-                <p className="text-lg font-semibold">
-                  {formatBytes(result.originalSize)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">압축 후</p>
-                <p className="text-lg font-semibold text-primary">
-                  {formatBytes(result.compressedSize)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">절감률</p>
-                <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-                  {Math.round((1 - result.ratio) * 100)}%
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <ProcessingStatus
-          status={status}
-          progress={progress}
-          errorMessage={errorMessage}
-          onRetry={retry}
-          onDownload={download}
-          downloadFileName="compressed.pdf"
-        />
-      </div>
+    <div
+      className="mx-auto px-4 py-8"
+      style={{
+        width: "min(var(--tweak-workspace-width, 980px), calc(100vw - 32px))",
+      }}
+    >
+      <PdfCompress labels={labels} />
     </div>
   );
 }
