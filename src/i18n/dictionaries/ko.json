@@ -218,6 +218,7 @@
         "compareToggleAria": "압축 미리보기 전환",
         "estimateTemplate": "예상 ~{from}–{to}",
         "estimateActualTemplate": "예상 ~{size}",
+        "estimateNoChange": "~원본 크기와 유사",
         "resultTitle": "압축 결과",
         "originalSizeLabel": "원본 크기",
         "compressedSizeLabel": "압축 후",

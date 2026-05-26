@@ -2,43 +2,73 @@
 
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
-import type { CompressionPreset } from "@/lib/pdf/compressPdf";
+import { type CompressionPreset } from "@/lib/pdf/compressPdf";
 import type { PdfCompressLabels } from "./labels";
 
 /** Reduction factor ranges [min, max] for each preset (fraction of original kept). */
 const PRESET_RANGE: Record<CompressionPreset, [number, number]> = {
-  low: [0.7, 0.9],    // Light: 10–30% reduction → 70–90% of original remains
+  low:    [0.7, 0.9], // Light: 10–30% reduction → 70–90% of original remains
   medium: [0.4, 0.7], // Medium: 30–60% reduction → 40–70% remains
-  high: [0.2, 0.4],   // Heavy: 60–80% reduction → 20–40% remains
+  high:   [0.2, 0.4], // Heavy: 60–80% reduction → 20–40% remains
 };
+
+/**
+ * What fraction of original image bytes is left after re-encoding at this preset.
+ * Rough nominal values derived from JPEG quality + typical scan content.
+ */
+const PRESET_IMAGE_RATIO: Record<CompressionPreset, number> = {
+  low:    1.0,   // images untouched
+  medium: 0.5,
+  high:   0.35,
+};
+
+function estimateCompressedSize(
+  originalSize: number,
+  imageShare: number, // 0..1
+  preset: CompressionPreset,
+): number {
+  const presetRatio = PRESET_IMAGE_RATIO[preset];
+  // image portion shrinks to presetRatio; non-image portion stays ~unchanged
+  return originalSize * (1 - imageShare * (1 - presetRatio));
+}
 
 interface PdfCompressEstimateProps {
   preset: CompressionPreset;
   originalSize: number;
   labels: PdfCompressLabels;
-  /** When set, replaces the static range estimate with a real derived size. */
-  liveRatio?: number | null;
+  /**
+   * Fraction of the PDF's original bytes that are images (0..1).
+   * When set, replaces the static range estimate with a smarter derived size.
+   * null = analysis pending or failed → fall back to static range.
+   */
+  imageShare?: number | null;
 }
 
 export function PdfCompressEstimate({
   preset,
   originalSize,
   labels,
-  liveRatio,
+  imageShare,
 }: PdfCompressEstimateProps) {
   const descMap: Record<CompressionPreset, string> = {
-    low: labels.presetLightDesc,
+    low:    labels.presetLightDesc,
     medium: labels.presetMediumDesc,
-    high: labels.presetHeavyDesc,
+    high:   labels.presetHeavyDesc,
   };
 
   let rangeText: string;
-  if (liveRatio != null) {
-    const derived = Math.round(originalSize * liveRatio);
-    rangeText = template(labels.estimateActualTemplate, {
-      size: formatBytes(derived),
-    });
+  if (imageShare != null) {
+    if (imageShare >= 0.05 && preset !== "low") {
+      const derived = Math.round(estimateCompressedSize(originalSize, imageShare, preset));
+      rangeText = template(labels.estimateActualTemplate, {
+        size: formatBytes(derived),
+      });
+    } else {
+      // Negligible image content or "low" preset — compression won't change much
+      rangeText = labels.estimateNoChange;
+    }
   } else {
+    // Analysis pending or failed — fall back to static range
     const [lo, hi] = PRESET_RANGE[preset];
     const fromBytes = Math.round(originalSize * lo);
     const toBytes = Math.round(originalSize * hi);

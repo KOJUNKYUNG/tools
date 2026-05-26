@@ -9,8 +9,10 @@ import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
+import { analyzePdf } from "@/lib/pdf/analyzePdf";
 import {
   compressPdf,
+  compressPdfLivePreview,
   type CompressionPreset,
   type CompressPdfResult,
 } from "@/lib/pdf/compressPdf";
@@ -40,7 +42,8 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   // Live preview state — driven by (file, preset) while in idle.
   const [livePreviewUrl, setLivePreviewUrl] = useState<string | null>(null);
   const [livePreviewLoading, setLivePreviewLoading] = useState(false);
-  const [liveRatio, setLiveRatio] = useState<number | null>(null);
+  // imageShare: fraction of file bytes that are images (0..1); null = pending/failed.
+  const [imageShare, setImageShare] = useState<number | null>(null);
   const livePreviewTokenRef = useRef(0);
 
   // filesRef gives onDownload a stable reference to the current files array
@@ -147,7 +150,35 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
-    setLiveRatio(null);
+    setImageShare(null);
+  }, [file]);
+
+  // Analyze the PDF once per file to determine the image content share.
+  // This drives the smarter estimate in PdfCompressEstimate.
+  useEffect(() => {
+    if (!file) {
+      setImageShare(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const analysis = await analyzePdf(file);
+        if (cancelled) return;
+        if (analysis.isEncrypted) {
+          setImageShare(null);
+          return;
+        }
+        setImageShare(
+          analysis.totalImageBytes / Math.max(file.size, 1),
+        );
+      } catch {
+        if (!cancelled) setImageShare(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [file]);
 
   // Generate a live compressed preview of page 1 while in idle state.
@@ -174,7 +205,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
         const onePageFile = new File([onePageBuf], "page-1.pdf", {
           type: "application/pdf",
         });
-        const liveResult = await compressPdf({ file: onePageFile, preset });
+        const liveResult = await compressPdfLivePreview({ file: onePageFile, preset });
         if (token !== livePreviewTokenRef.current) return;
         const blob = await renderPdfFirstPage(liveResult.data.slice());
         if (token !== livePreviewTokenRef.current) return;
@@ -183,12 +214,8 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           if (prev) URL.revokeObjectURL(prev);
           return createdUrl;
         });
-        setLiveRatio(
-          liveResult.compressedSize / Math.max(liveResult.originalSize, 1),
-        );
       } catch {
         if (token === livePreviewTokenRef.current) {
-          setLiveRatio(null);
           // Keep previous livePreviewUrl on failure — better than flicker.
         }
       } finally {
@@ -398,7 +425,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
                   preset={preset}
                   originalSize={file.size}
                   labels={labels}
-                  liveRatio={liveRatio}
+                  imageShare={imageShare}
                 />
               )}
             </div>

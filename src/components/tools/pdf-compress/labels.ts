@@ -28,6 +28,7 @@ export interface PdfCompressLabels {
   compareToggleAria: string;
   estimateTemplate: string;
   estimateActualTemplate: string;
+  estimateNoChange: string;
   // Result
   resultTitle: string;
   originalSizeLabel: string;
@@ -64,6 +65,7 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     compareToggleAria: p.compareToggleAria,
     estimateTemplate: p.estimateTemplate,
     estimateActualTemplate: p.estimateActualTemplate,
+    estimateNoChange: p.estimateNoChange,
     resultTitle: p.resultTitle,
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,

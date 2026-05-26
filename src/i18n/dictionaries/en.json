@@ -218,6 +218,7 @@
         "compareToggleAria": "Toggle compressed preview",
         "estimateTemplate": "Est. ~{from}–{to}",
         "estimateActualTemplate": "Est. ~{size}",
+        "estimateNoChange": "~similar to original",
         "resultTitle": "Compression result",
         "originalSizeLabel": "Original size",
         "compressedSizeLabel": "After",
