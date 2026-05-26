@@ -13,10 +13,14 @@ export interface CompressPdfResult {
   ratio: number;
 }
 
-const PRESET_MAP: Record<CompressionPreset, string> = {
-  low: "low",
-  medium: "medium",
-  high: "high",
+const ADVANCED_PARAMS: Record<
+  CompressionPreset,
+  { jpegQuality: number; maxDpi: number; stripMetadata: boolean }
+> = {
+  // jpegQuality=0 → skip image re-encoding; maxDpi=0 → skip downscaling.
+  low:    { jpegQuality: 0,  maxDpi: 0,   stripMetadata: false },
+  medium: { jpegQuality: 75, maxDpi: 0,   stripMetadata: false },
+  high:   { jpegQuality: 65, maxDpi: 150, stripMetadata: true  },
 };
 
 export async function compressPdf({
@@ -25,10 +29,9 @@ export async function compressPdf({
   onProgress,
 }: CompressPdfOptions): Promise<CompressPdfResult> {
   onProgress?.(10);
-
-  const init = (await import("@kihyun1998/justpdf-compress-wasm")).default;
-  const { compress } = await import("@kihyun1998/justpdf-compress-wasm");
-
+  const mod = await import("@kihyun1998/justpdf-compress-wasm");
+  const init = mod.default;
+  const { compress_advanced } = mod;
   await init();
   onProgress?.(30);
 
@@ -36,19 +39,38 @@ export async function compressPdf({
   const pdfBytes = new Uint8Array(arrayBuffer);
   onProgress?.(50);
 
-  const result = compress(pdfBytes, PRESET_MAP[preset]);
+  const params = ADVANCED_PARAMS[preset];
+  // font_subsetting=false: the upstream WASM's subsetter corrupts glyph maps on
+  // several Korean fonts (full doc AND pdf-lib-extracted subsets). Skipping it
+  // gives reliable output across all PDFs at a modest compression-ratio cost.
+  const result = compress_advanced(
+    pdfBytes,
+    params.jpegQuality,
+    params.maxDpi,
+    /* font_subsetting */ false,
+    /* remove_unused_resources */ true,
+    /* strip_metadata */ params.stripMetadata,
+    /* strip_extras */ false,
+    /* grayscale */ false,
+  );
   onProgress?.(90);
 
-  const compressedData = result.data();
-  const summary: CompressPdfResult = {
-    data: compressedData,
-    originalSize: result.original_size,
-    compressedSize: result.compressed_size,
-    ratio: result.ratio,
-  };
-
-  result.free();
-  onProgress?.(100);
-
-  return summary;
+  try {
+    const data = result.data();
+    const summary: CompressPdfResult = {
+      data,
+      originalSize: result.original_size,
+      compressedSize: result.compressed_size,
+      ratio: result.ratio,
+    };
+    onProgress?.(100);
+    return summary;
+  } finally {
+    result.free();
+  }
 }
+
+// Re-export the same implementation so the live-preview call site doesn't need
+// to change. (They share identical semantics now — preview and final match.)
+export type CompressPdfLivePreviewOptions = CompressPdfOptions;
+export const compressPdfLivePreview = compressPdf;
