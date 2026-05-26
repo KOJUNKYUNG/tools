@@ -201,7 +201,7 @@
       "page": {
         "uploadPrompt": "Drag and drop a PDF, or click to upload",
         "uploadHint": "Select a single PDF file.",
-        "uploadMaxSize": "Up to 100MB",
+        "uploadMaxSize": "Up to {size} per file",
         "reupload": "Re-upload",
         "reset": "Start over",
         "fileInfo": "{name} · {size}",
