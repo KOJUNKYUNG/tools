@@ -181,13 +181,13 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       })
     : "";
 
-  const handleCompressClick = () => {
+  const handleCompressClick = useCallback(() => {
     if (!file) {
       toast.error(labels.uploadPrompt);
       return;
     }
     run();
-  };
+  }, [file, run, labels.uploadPrompt]);
 
   const body = (
     <div className={inline ? "space-y-4" : "space-y-4 px-6 py-3"}>
