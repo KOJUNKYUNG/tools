@@ -23,10 +23,10 @@ export interface PdfCompressLabels {
   // Action
   compress: string;
   processing: string;
-  // Compare
-  compareOriginal: string;
-  compareCompressed: string;
+  // Compare / estimate
+  comparePreview: string;
   compareToggleAria: string;
+  estimateTemplate: string;
   // Result
   resultTitle: string;
   originalSizeLabel: string;
@@ -59,9 +59,9 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     presetHeavyDesc: p.presetHeavyDesc,
     compress: p.compress,
     processing: p.processing,
-    compareOriginal: p.compareOriginal,
-    compareCompressed: p.compareCompressed,
+    comparePreview: p.comparePreview,
     compareToggleAria: p.compareToggleAria,
+    estimateTemplate: p.estimateTemplate,
     resultTitle: p.resultTitle,
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,

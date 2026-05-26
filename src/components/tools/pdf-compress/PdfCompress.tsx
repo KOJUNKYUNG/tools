@@ -18,6 +18,7 @@ import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { deriveCompressedName } from "@/lib/pdf/pdfCompressNaming";
 import { ComparePreview, renderPdfFirstPage } from "./ComparePreview";
 import { PdfCompressControls } from "./PdfCompressControls";
+import { PdfCompressEstimate } from "./PdfCompressEstimate";
 import { PdfCompressResult } from "./PdfCompressResult";
 import type { PdfCompressLabels } from "./labels";
 
@@ -216,19 +217,66 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           className="grid grid-cols-1 gap-5 md:grid-cols-2"
           style={{ height: "52vh" }}
         >
-          <ComparePreview
-            originalUrl={originalUrl}
-            compressedUrl={compressedUrl}
-            showToggle={isDone}
-            showCompressed={showCompressed}
-            onToggle={setShowCompressed}
-            labels={{
-              compareOriginal: labels.compareOriginal,
-              compareCompressed: labels.compareCompressed,
-              compareToggleAria: labels.compareToggleAria,
-            }}
-          />
+          {/* LEFT column: file info + reupload → preview frame → checkbox */}
+          <div className="flex h-full flex-col gap-2">
+            {/* File info row + reupload button */}
+            <div className="flex items-center justify-between gap-2">
+              <div
+                className="min-w-0 truncate font-body text-[12px]"
+                style={{ color: "var(--ink)" }}
+                title={fileInfo}
+              >
+                {fileInfo}
+              </div>
+              <button
+                type="button"
+                onClick={handleReupload}
+                disabled={busy}
+                className="shrink-0 rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)] disabled:cursor-not-allowed disabled:opacity-50"
+                style={{
+                  background: "var(--surface-2)",
+                  borderColor: "var(--border)",
+                  color: "var(--ink-strong)",
+                }}
+              >
+                {labels.reupload}
+              </button>
+            </div>
 
+            {/* Preview frame — always occupies remaining flex space */}
+            <ComparePreview
+              originalUrl={originalUrl}
+              compressedUrl={compressedUrl}
+              showCompressed={showCompressed && isDone}
+            />
+
+            {/* Checkbox row — always reserve space; enabled only when done + compressedUrl */}
+            <div className="flex h-7 items-center">
+              <label
+                className="inline-flex cursor-pointer select-none items-center gap-1.5 font-display text-[11px]"
+                style={{
+                  color:
+                    isDone && compressedUrl
+                      ? "var(--ink-strong)"
+                      : "var(--ink-soft)",
+                  opacity: isDone && compressedUrl ? 1 : 0.4,
+                  pointerEvents: isDone && compressedUrl ? "auto" : "none",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={showCompressed}
+                  onChange={(e) => setShowCompressed(e.target.checked)}
+                  disabled={!(isDone && compressedUrl)}
+                  aria-label={labels.compareToggleAria}
+                  style={{ accentColor: "var(--accent-electric)" }}
+                />
+                {labels.comparePreview}
+              </label>
+            </div>
+          </div>
+
+          {/* RIGHT column: compress button → preset row → estimate/result */}
           {isDone && result ? (
             <PdfCompressResult
               originalSize={result.originalSize}
@@ -238,36 +286,32 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
               labels={labels}
             />
           ) : status === "idle" ? (
-            <div className="flex flex-col gap-3">
+            <div className="flex h-full flex-col gap-3">
+              {/* Primary action at the top */}
+              <button
+                type="button"
+                onClick={handleCompressClick}
+                className="btn-primary glint inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[13px] font-semibold"
+              >
+                {labels.compress}
+              </button>
+
+              {/* Preset toggle — 3 columns in one row */}
               <PdfCompressControls
                 preset={preset}
                 onChange={setPreset}
                 labels={labels}
                 disabled={busy}
               />
-              <div
-                className="truncate font-body text-[12px]"
-                style={{ color: "var(--ink-soft)" }}
-                title={fileInfo}
-              >
-                {fileInfo}
-              </div>
-              <button
-                type="button"
-                onClick={handleCompressClick}
-                className="btn-primary glint inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[13px] font-semibold"
-              >
-                {labels.compress}
-              </button>
-              <button
-                type="button"
-                onClick={handleReupload}
-                disabled={busy}
-                className="nameplate inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[9px] px-3 font-display text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ color: "var(--ink-strong)" }}
-              >
-                {labels.reupload}
-              </button>
+
+              {/* Description + estimated size range for selected preset */}
+              {file && (
+                <PdfCompressEstimate
+                  preset={preset}
+                  originalSize={file.size}
+                  labels={labels}
+                />
+              )}
             </div>
           ) : (
             <ProcessingStatus
