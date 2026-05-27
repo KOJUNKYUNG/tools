@@ -1,6 +1,13 @@
 import JSZip from "jszip";
 import { extractImagesFromPpt } from "./extractImagesFromPpt";
 
+export interface ExtractedImage {
+  name: string;
+  data: Uint8Array;
+  mime: string;
+  size: number;
+}
+
 export interface ExtractImagesOptions {
   file: File;
   onProgress?: (pct: number) => void;
