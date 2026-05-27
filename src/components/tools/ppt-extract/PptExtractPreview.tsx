@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ImageDownIcon } from "lucide-react";
 import { template } from "@/lib/common/template";
 import {
@@ -12,12 +12,26 @@ import type { PptExtractLabels } from "./labels";
 interface PptExtractPreviewProps {
   file: File;
   labels: PptExtractLabels;
+  /** Called whenever analysis state changes (null while analyzing/before result). */
+  onAnalysisChange?: (analysis: PresentationAnalysis | null) => void;
 }
 
-export function PptExtractPreview({ file, labels }: PptExtractPreviewProps) {
+export function PptExtractPreview({
+  file,
+  labels,
+  onAnalysisChange,
+}: PptExtractPreviewProps) {
   const [analysis, setAnalysis] = useState<PresentationAnalysis | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+
+  // Keep the latest callback in a ref so analysis effect doesn't re-fire on
+  // every parent render (parent passes `setState`, which is stable, but be
+  // defensive in case a non-stable callback is passed).
+  const onAnalysisChangeRef = useRef(onAnalysisChange);
+  useEffect(() => {
+    onAnalysisChangeRef.current = onAnalysisChange;
+  });
 
   // Analyze whenever the file changes. Failure is non-fatal — we just show
   // the placeholder + extract button still works.
@@ -27,18 +41,22 @@ export function PptExtractPreview({ file, labels }: PptExtractPreviewProps) {
     setAnalyzing(true);
     setAnalysis(null);
     setThumbnailUrl(null);
+    onAnalysisChangeRef.current?.(null);
     (async () => {
       try {
         const result = await analyzePresentation(file);
         if (cancelled) return;
         setAnalysis(result);
+        onAnalysisChangeRef.current?.(result);
         if (result.thumbnailBlob) {
           createdUrl = URL.createObjectURL(result.thumbnailBlob);
           setThumbnailUrl(createdUrl);
         }
       } catch {
         if (!cancelled) {
-          // Analysis failed — leave analysis null, preview will show placeholder.
+          // Analysis failed — leave analysis null, preview shows placeholder
+          // and the parent's button stays enabled so extract can still surface
+          // the real error.
         }
       } finally {
         if (!cancelled) setAnalyzing(false);
@@ -101,20 +119,28 @@ export function PptExtractPreview({ file, labels }: PptExtractPreviewProps) {
         )}
       </div>
 
-      {/* Sub-row under thumbnail: count + breakdown when available */}
-      {analysis && analysis.imageCount > 0 && (
+      {/* Sub-row under thumbnail: count + breakdown. Always shown once analysis
+          completes — 0 images is informative too. */}
+      {analysis && (
         <div
           className="flex items-baseline justify-between gap-2 px-1 font-body text-[11.5px]"
           style={{ color: "var(--ink-soft)" }}
         >
           <span style={{ color: "var(--ink-strong)" }}>
             {labels.imagesLabel}:{" "}
-            <strong style={{ color: "var(--ink-strong)" }}>
+            <strong
+              style={{
+                color:
+                  analysis.imageCount === 0
+                    ? "var(--ink-soft)"
+                    : "var(--ink-strong)",
+              }}
+            >
               {template(labels.imageCountTemplate, { n: analysis.imageCount })}
             </strong>
           </span>
-          <span className="truncate" title={breakdown}>
-            {breakdown}
+          <span className="truncate" title={breakdown || labels.noImagesHint}>
+            {breakdown || labels.noImagesHint}
           </span>
         </div>
       )}

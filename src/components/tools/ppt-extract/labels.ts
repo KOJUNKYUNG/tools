@@ -27,6 +27,7 @@ export interface PptExtractLabels {
   analyzingHint: string;
   previewUnavailable: string;
   imagesLabel: string;
+  noImagesHint: string;
   // Errors
   errorNoImages: string;
 }
@@ -55,6 +56,7 @@ export function getPptExtractLabels(dict: Dictionary): PptExtractLabels {
     analyzingHint: p.analyzingHint,
     previewUnavailable: p.previewUnavailable,
     imagesLabel: p.imagesLabel,
+    noImagesHint: p.noImagesHint,
     errorNoImages: p.errorNoImages,
   };
 }

@@ -184,6 +184,7 @@
         "analyzingHint": "Analyzing…",
         "previewUnavailable": "No preview",
         "imagesLabel": "Images",
+        "noImagesHint": "No images",
         "errorNoImages": "No images found in this presentation."
       }
     },

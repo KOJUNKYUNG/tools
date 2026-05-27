@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ImageDownIcon, RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
@@ -10,6 +10,7 @@ import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { buildExtractZip } from "@/lib/ppt/buildExtractZip";
+import type { PresentationAnalysis } from "@/lib/ppt/analyzePresentation";
 import {
   extractPptImages,
   type ExtractedImage,
@@ -37,6 +38,9 @@ function baseName(name: string): string {
 export function PptExtract({ labels, inline = false }: PptExtractProps) {
   const reuploadInputRef = useRef<HTMLInputElement | null>(null);
   const filesRef = useRef<File[]>([]);
+  // Pulled up from PptExtractPreview so the right-column extract button can
+  // disable itself when analysis confirms there are 0 images to extract.
+  const [analysis, setAnalysis] = useState<PresentationAnalysis | null>(null);
 
   const {
     files,
@@ -75,6 +79,7 @@ export function PptExtract({ labels, inline = false }: PptExtractProps) {
     (newFiles: File[]) => {
       retry();
       setFiles(newFiles.slice(0, 1));
+      setAnalysis(null);
     },
     [retry, setFiles],
   );
@@ -186,20 +191,33 @@ export function PptExtract({ labels, inline = false }: PptExtractProps) {
                 {labels.reupload}
               </button>
             </div>
-            <PptExtractPreview file={file} labels={labels} />
+            <PptExtractPreview
+              file={file}
+              labels={labels}
+              onAnalysisChange={setAnalysis}
+            />
           </div>
 
           {/* RIGHT: extract button → processing status */}
           <div className="flex h-full flex-col gap-3">
-            {status === "idle" && (
-              <button
-                type="button"
-                onClick={handleExtract}
-                className="btn-primary glint inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[13px] font-semibold"
-              >
-                {labels.extract}
-              </button>
-            )}
+            {status === "idle" && (() => {
+              // Disable when analysis has resolved and confirmed 0 images.
+              // While analysis is null (loading, .ppt-analyze-failed) keep
+              // it enabled so the real extractor can still surface the error.
+              const noImagesConfirmed =
+                analysis !== null && analysis.imageCount === 0;
+              return (
+                <button
+                  type="button"
+                  onClick={handleExtract}
+                  disabled={noImagesConfirmed}
+                  title={noImagesConfirmed ? labels.errorNoImages : undefined}
+                  className="btn-primary glint inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {labels.extract}
+                </button>
+              );
+            })()}
             <ProcessingStatus
               status={status}
               progress={progress}
