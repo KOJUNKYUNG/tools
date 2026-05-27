@@ -18,7 +18,6 @@ export interface PptExtractLabels {
   // Result
   resultTitle: string;
   imageCountTemplate: string;
-  totalSizeLabel: string;
   downloadZip: string;
   downloadOneAria: string;
   again: string;
@@ -48,7 +47,6 @@ export function getPptExtractLabels(dict: Dictionary): PptExtractLabels {
     processing: p.processing,
     resultTitle: p.resultTitle,
     imageCountTemplate: p.imageCount,
-    totalSizeLabel: p.totalSizeLabel,
     downloadZip: p.downloadZip,
     downloadOneAria: p.downloadOneAria,
     again: p.again,

@@ -176,7 +176,6 @@
         "processing": "추출 중…",
         "resultTitle": "추출 결과",
         "imageCount": "{n}장",
-        "totalSizeLabel": "총 크기",
         "downloadZip": "ZIP 다운로드",
         "downloadOneAria": "{name} 다운로드",
         "again": "다시 작업",

@@ -5,7 +5,11 @@ import { DownloadIcon, RotateCcwIcon } from "lucide-react";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import type { ExtractedImage } from "@/lib/ppt/extractImages";
-import { getExt, isRenderable } from "@/lib/ppt/pptImageFormats";
+import {
+  formatBreakdownString,
+  getExt,
+  isRenderable,
+} from "@/lib/ppt/pptImageFormats";
 import { ExtractedImageCard } from "./ExtractedImageCard";
 import type { PptExtractLabels } from "./labels";
 
@@ -29,8 +33,10 @@ export function PptExtractResult({
   useEffect(() => {
     const next: (string | null)[] = images.map((img) => {
       if (!isRenderable(getExt(img.name))) return null;
-      // Copy buffer to ensure ArrayBuffer (not SharedArrayBuffer) for Blob compat.
-      return URL.createObjectURL(new Blob([new Uint8Array(img.data)], { type: img.mime }));
+      // new Uint8Array(...) required for TS strict (BlobPart needs ArrayBuffer).
+      return URL.createObjectURL(
+        new Blob([new Uint8Array(img.data)], { type: img.mime }),
+      );
     });
     setUrls(next);
     return () => {
@@ -43,17 +49,21 @@ export function PptExtractResult({
     [images],
   );
 
+  // Stable per-image download callbacks; prevents re-creating 200 closures per
+  // render once urls state updates (would defeat any memo on the card).
+  const downloadCallbacks = useMemo(
+    () => images.map((img) => () => onDownloadOne(img)),
+    [images, onDownloadOne],
+  );
+
   // Format breakdown chip — e.g. "PNG 12 · JPG 3 · EMF 2".
   const breakdown = useMemo(() => {
-    const counts = new Map<string, number>();
+    const counts: Record<string, number> = {};
     for (const img of images) {
       const ext = (getExt(img.name) || "?").toUpperCase();
-      counts.set(ext, (counts.get(ext) ?? 0) + 1);
+      counts[ext] = (counts[ext] ?? 0) + 1;
     }
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([ext, n]) => `${ext} ${n}`)
-      .join(" · ");
+    return formatBreakdownString(counts);
   }, [images]);
 
   return (
@@ -68,7 +78,7 @@ export function PptExtractResult({
               size={img.size}
               index={i + 1}
               placeholderLabel={labels.placeholderLabel}
-              onDownload={() => onDownloadOne(img)}
+              onDownload={downloadCallbacks[i]}
               downloadAria={template(labels.downloadOneAria, { name: img.name })}
             />
           ))}

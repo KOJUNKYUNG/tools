@@ -176,7 +176,6 @@
         "processing": "Extracting…",
         "resultTitle": "Extracted images",
         "imageCount": "{n} images",
-        "totalSizeLabel": "Total size",
         "downloadZip": "Download ZIP",
         "downloadOneAria": "Download {name}",
         "again": "Start over",

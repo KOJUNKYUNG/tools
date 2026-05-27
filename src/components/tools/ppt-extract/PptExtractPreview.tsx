@@ -7,6 +7,7 @@ import {
   analyzePresentation,
   type PresentationAnalysis,
 } from "@/lib/ppt/analyzePresentation";
+import { formatBreakdownString } from "@/lib/ppt/pptImageFormats";
 import type { PptExtractLabels } from "./labels";
 
 interface PptExtractPreviewProps {
@@ -70,10 +71,11 @@ export function PptExtractPreview({
 
   const breakdown = useMemo(() => {
     if (!analysis || analysis.imageCount === 0) return "";
-    return Object.entries(analysis.formatCounts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([ext, n]) => `${ext.toUpperCase()} ${n}`)
-      .join(" · ");
+    const upper: Record<string, number> = {};
+    for (const [ext, n] of Object.entries(analysis.formatCounts)) {
+      upper[ext.toUpperCase()] = n;
+    }
+    return formatBreakdownString(upper);
   }, [analysis]);
 
   return (

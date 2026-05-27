@@ -34,4 +34,25 @@ describe("buildExtractZip", () => {
     const names = Object.keys(zip.files).sort();
     expect(names).toEqual(["dup (2).png", "dup.png"]);
   });
+
+  it("increments suffix for 3+ duplicates", async () => {
+    const zipped = await buildExtractZip([
+      img("dup.png", [1]),
+      img("dup.png", [2]),
+      img("dup.png", [3]),
+    ]);
+    const zip = await JSZip.loadAsync(zipped);
+    const names = Object.keys(zip.files).sort();
+    expect(names).toEqual(["dup (2).png", "dup (3).png", "dup.png"]);
+  });
+
+  it("handles duplicate names without extension", async () => {
+    const zipped = await buildExtractZip([
+      img("noext", [1]),
+      img("noext", [2]),
+    ]);
+    const zip = await JSZip.loadAsync(zipped);
+    const names = Object.keys(zip.files).sort();
+    expect(names).toEqual(["noext", "noext (2)"]);
+  });
 });

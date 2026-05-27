@@ -53,6 +53,10 @@ describe("analyzePresentation pure helpers", () => {
       expect(pickThumbnailPath(["ppt/media/image1.png"])).toBe(null);
     });
 
+    it("returns null when only an unsupported thumbnail ext is present", () => {
+      expect(pickThumbnailPath(["docProps/thumbnail.webp"])).toBe(null);
+    });
+
     it("prefers jpeg over jpg over png", () => {
       const paths = [
         "docProps/thumbnail.png",

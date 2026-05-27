@@ -67,6 +67,7 @@ export function PptExtract({ labels, inline = false }: PptExtractProps) {
   const hasFile = !!file;
   const busy = status === "processing";
   const isDone = status === "done" && !!result;
+  const noImagesConfirmed = analysis !== null && analysis.imageCount === 0;
 
   const fileInfo = file
     ? template(labels.fileInfoTemplate, {
@@ -112,13 +113,17 @@ export function PptExtract({ labels, inline = false }: PptExtractProps) {
     run();
   }, [file, run, labels.uploadPrompt]);
 
-  const handleAgain = useCallback(() => {
-    retry();
-  }, [retry]);
+  // "Start over" semantics — clear file too, return to upload dropzone.
+  // (Label is "다시 작업" / "Start over"; pdf-compress's "다시 압축" only retried
+  // the same file, but ppt-extract's reset is a full reset.)
+  const handleAgain = onReset;
 
   const handleDownloadAll = useCallback(async () => {
     if (!result) return;
     const zip = await buildExtractZip(result);
+    // new Uint8Array(...) is required for TS strict (BlobPart needs
+    // Uint8Array<ArrayBuffer>, not <ArrayBufferLike>). Cost is one extra copy
+    // at download time only.
     const blob = new Blob([new Uint8Array(zip)], { type: "application/zip" });
     downloadBlobObject(blob, `${baseName(filesRef.current[0]?.name ?? "ppt")}-images.zip`);
   }, [result]);
@@ -198,26 +203,22 @@ export function PptExtract({ labels, inline = false }: PptExtractProps) {
             />
           </div>
 
-          {/* RIGHT: extract button → processing status */}
+          {/* RIGHT: extract button → processing status.
+              Disable extract when analysis has resolved and confirmed 0 images.
+              While analysis is null (loading or .ppt-analyze-failed) keep it
+              enabled so the real extractor can still surface the error. */}
           <div className="flex h-full flex-col gap-3">
-            {status === "idle" && (() => {
-              // Disable when analysis has resolved and confirmed 0 images.
-              // While analysis is null (loading, .ppt-analyze-failed) keep
-              // it enabled so the real extractor can still surface the error.
-              const noImagesConfirmed =
-                analysis !== null && analysis.imageCount === 0;
-              return (
-                <button
-                  type="button"
-                  onClick={handleExtract}
-                  disabled={noImagesConfirmed}
-                  title={noImagesConfirmed ? labels.errorNoImages : undefined}
-                  className="btn-primary glint inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {labels.extract}
-                </button>
-              );
-            })()}
+            {status === "idle" && (
+              <button
+                type="button"
+                onClick={handleExtract}
+                disabled={noImagesConfirmed}
+                title={noImagesConfirmed ? labels.errorNoImages : undefined}
+                className="btn-primary glint inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {labels.extract}
+              </button>
+            )}
             <ProcessingStatus
               status={status}
               progress={progress}

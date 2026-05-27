@@ -82,6 +82,7 @@ async function analyzePptx(file: File): Promise<PresentationAnalysis> {
     if (entry) {
       const bytes = await entry.async("uint8array");
       thumbnailMime = getMime(getExt(thumbPath));
+      // new Uint8Array(...) required for TS strict (BlobPart needs ArrayBuffer).
       thumbnailBlob = new Blob([new Uint8Array(bytes)], { type: thumbnailMime });
     }
   }
@@ -135,7 +136,8 @@ async function analyzePpt(file: File): Promise<PresentationAnalysis> {
       if (ext) {
         names.push(`x.${ext}`); // dummy name, only ext matters for aggregation
       } else if ((recVerInstance & 0x0f) === 0x0f) {
-        walk(data.slice(offset + 8, offset + 8 + recLen));
+        // subarray = zero-copy view; safe because walk() is read-only.
+        walk(data.subarray(offset + 8, offset + 8 + recLen));
       }
       offset += 8 + recLen;
     }

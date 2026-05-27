@@ -91,9 +91,11 @@ function parseBlipRecords(picturesData: Uint8Array): ExtractedImage[] {
         });
       }
     } else if ((recVerInstance & 0x0f) === 0x0f) {
+      // subarray = zero-copy view; recursive parse only reads, never retains.
+      // (Image-data slice() above still copies because the result IS retained.)
       const containerEnd = offset + 8 + recLen;
       const innerImages = parseBlipRecords(
-        picturesData.slice(offset + 8, containerEnd),
+        picturesData.subarray(offset + 8, containerEnd),
       );
       images.push(...innerImages);
     }
