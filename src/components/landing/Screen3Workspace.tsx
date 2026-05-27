@@ -23,6 +23,8 @@ import { PdfToImage } from "@/components/tools/pdf-to-image/PdfToImage";
 import { getPdfToImageLabels } from "@/components/tools/pdf-to-image/labels";
 import { PdfCompress } from "@/components/tools/pdf-compress/PdfCompress";
 import { getPdfCompressLabels } from "@/components/tools/pdf-compress/labels";
+import { PptExtract } from "@/components/tools/ppt-extract/PptExtract";
+import { getPptExtractLabels } from "@/components/tools/ppt-extract/labels";
 
 type Category = "presentation" | "document" | "image";
 
@@ -84,6 +86,8 @@ export function Screen3Workspace({
         return <PdfToImage inline labels={getPdfToImageLabels(dict)} lang={locale} />;
       case "pdf-compress":
         return <PdfCompress inline labels={getPdfCompressLabels(dict)} />;
+      case "ppt-extract":
+        return <PptExtract inline labels={getPptExtractLabels(dict)} />;
       case "pdf-arrange":
       case "pdf-merge":
       case "pdf-split":
