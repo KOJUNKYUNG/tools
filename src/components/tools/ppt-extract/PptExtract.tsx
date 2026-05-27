@@ -14,6 +14,7 @@ import {
   extractPptImages,
   type ExtractedImage,
 } from "@/lib/ppt/extractImages";
+import { PptExtractPreview } from "./PptExtractPreview";
 import { PptExtractResult } from "./PptExtractResult";
 import type { PptExtractLabels } from "./labels";
 
@@ -157,47 +158,56 @@ export function PptExtract({ labels, inline = false }: PptExtractProps) {
           onAgain={onReset}
         />
       ) : (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div
-              className="min-w-0 truncate font-body text-[12px]"
-              style={{ color: "var(--ink)" }}
-              title={fileInfo}
-            >
-              {fileInfo}
+        <div
+          className="grid grid-cols-1 gap-5 md:grid-cols-2"
+          style={{ height: "52vh" }}
+        >
+          {/* LEFT: file info row + reupload → analysis preview */}
+          <div className="flex h-full flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <div
+                className="min-w-0 truncate font-body text-[12px]"
+                style={{ color: "var(--ink)" }}
+                title={fileInfo}
+              >
+                {fileInfo}
+              </div>
+              <button
+                type="button"
+                onClick={handleReupload}
+                disabled={busy}
+                className="shrink-0 rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)] disabled:cursor-not-allowed disabled:opacity-50"
+                style={{
+                  background: "var(--surface-2)",
+                  borderColor: "var(--border)",
+                  color: "var(--ink-strong)",
+                }}
+              >
+                {labels.reupload}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={handleReupload}
-              disabled={busy}
-              className="shrink-0 rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)] disabled:cursor-not-allowed disabled:opacity-50"
-              style={{
-                background: "var(--surface-2)",
-                borderColor: "var(--border)",
-                color: "var(--ink-strong)",
-              }}
-            >
-              {labels.reupload}
-            </button>
+            <PptExtractPreview file={file} labels={labels} />
           </div>
 
-          {status === "idle" && (
-            <button
-              type="button"
-              onClick={handleExtract}
-              className="btn-primary glint inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[13px] font-semibold"
-            >
-              {labels.extract}
-            </button>
-          )}
-
-          <ProcessingStatus
-            status={status}
-            progress={progress}
-            errorMessage={displayError}
-            onRetry={handleAgain}
-            labels={{ processing: labels.processing }}
-          />
+          {/* RIGHT: extract button → processing status */}
+          <div className="flex h-full flex-col gap-3">
+            {status === "idle" && (
+              <button
+                type="button"
+                onClick={handleExtract}
+                className="btn-primary glint inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[13px] font-semibold"
+              >
+                {labels.extract}
+              </button>
+            )}
+            <ProcessingStatus
+              status={status}
+              progress={progress}
+              errorMessage={displayError}
+              onRetry={handleAgain}
+              labels={{ processing: labels.processing }}
+            />
+          </div>
         </div>
       )}
     </div>

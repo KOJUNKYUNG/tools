@@ -23,6 +23,10 @@ export interface PptExtractLabels {
   downloadOneAria: string;
   again: string;
   placeholderLabel: string;
+  // Preview (idle state)
+  analyzingHint: string;
+  previewUnavailable: string;
+  imagesLabel: string;
   // Errors
   errorNoImages: string;
 }
@@ -48,6 +52,9 @@ export function getPptExtractLabels(dict: Dictionary): PptExtractLabels {
     downloadOneAria: p.downloadOneAria,
     again: p.again,
     placeholderLabel: p.placeholderLabel,
+    analyzingHint: p.analyzingHint,
+    previewUnavailable: p.previewUnavailable,
+    imagesLabel: p.imagesLabel,
     errorNoImages: p.errorNoImages,
   };
 }

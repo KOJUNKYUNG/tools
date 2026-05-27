@@ -181,6 +181,9 @@
         "downloadOneAria": "Download {name}",
         "again": "Start over",
         "placeholderLabel": "Preview unavailable",
+        "analyzingHint": "Analyzing…",
+        "previewUnavailable": "No preview",
+        "imagesLabel": "Images",
         "errorNoImages": "No images found in this presentation."
       }
     },
