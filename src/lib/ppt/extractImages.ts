@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { extractImagesFromPpt } from "./extractImagesFromPpt";
+import { getExt, getMime, isRenderable } from "./pptImageFormats";
 
 export interface ExtractedImage {
   name: string;
@@ -13,23 +14,13 @@ export interface ExtractImagesOptions {
   onProgress?: (pct: number) => void;
 }
 
-const IMAGE_EXTENSIONS = new Set([
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".bmp",
-  ".tiff",
-  ".tif",
-  ".svg",
-  ".emf",
-  ".wmf",
+const SUPPORTED_EXTENSIONS = new Set([
+  "png", "jpg", "jpeg", "gif", "bmp",
+  "tiff", "tif", "svg", "emf", "wmf",
 ]);
 
 function isImageFile(name: string): boolean {
-  const dot = name.lastIndexOf(".");
-  if (dot === -1) return false;
-  return IMAGE_EXTENSIONS.has(name.slice(dot).toLowerCase());
+  return SUPPORTED_EXTENSIONS.has(getExt(name));
 }
 
 function isPptFile(file: File): boolean {
@@ -39,7 +30,7 @@ function isPptFile(file: File): boolean {
 async function extractFromPptx(
   file: File,
   onProgress?: (pct: number) => void,
-): Promise<Uint8Array> {
+): Promise<ExtractedImage[]> {
   const arrayBuffer = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
 
@@ -51,25 +42,33 @@ async function extractFromPptx(
   });
 
   if (mediaEntries.length === 0) {
-    throw new Error("PPTX 파일에서 이미지를 찾을 수 없습니다.");
+    throw new Error("NO_IMAGES");
   }
 
-  const output = new JSZip();
+  const images: ExtractedImage[] = [];
   for (let i = 0; i < mediaEntries.length; i++) {
     const data = await mediaEntries[i].entry.async("uint8array");
-    output.file(mediaEntries[i].name, data);
+    const name = mediaEntries[i].name;
+    images.push({
+      name,
+      data,
+      mime: getMime(getExt(name)),
+      size: data.length,
+    });
     onProgress?.(Math.round(((i + 1) / mediaEntries.length) * 100));
   }
-
-  return output.generateAsync({ type: "uint8array" });
+  return images;
 }
 
 export async function extractPptImages({
   file,
   onProgress,
-}: ExtractImagesOptions): Promise<Uint8Array> {
+}: ExtractImagesOptions): Promise<ExtractedImage[]> {
   if (isPptFile(file)) {
     return extractImagesFromPpt({ file, onProgress });
   }
   return extractFromPptx(file, onProgress);
 }
+
+// Re-export for downstream convenience.
+export { isRenderable, getExt, getMime };

@@ -1,4 +1,6 @@
 import CFB from "cfb";
+import type { ExtractedImage } from "./extractImages";
+import { getMime } from "./pptImageFormats";
 
 export interface ExtractPptOptions {
   file: File;
@@ -38,7 +40,6 @@ function matchesMagic(data: Uint8Array, offset: number, magic: number[]): boolea
 
 function findImageStart(data: Uint8Array, offset: number, ext: string): number {
   const searchEnd = Math.min(offset + 100, data.length);
-
   if (ext === "tiff") {
     for (let i = offset; i < searchEnd; i++) {
       if (matchesMagic(data, i, MAGIC_BYTES.tiff_le) || matchesMagic(data, i, MAGIC_BYTES.tiff_be)) {
@@ -47,19 +48,12 @@ function findImageStart(data: Uint8Array, offset: number, ext: string): number {
     }
     return -1;
   }
-
   const magic = MAGIC_BYTES[ext];
   if (!magic) return -1;
-
   for (let i = offset; i < searchEnd; i++) {
     if (matchesMagic(data, i, magic)) return i;
   }
   return -1;
-}
-
-interface ExtractedImage {
-  name: string;
-  data: Uint8Array;
 }
 
 function parseBlipRecords(picturesData: Uint8Array): ExtractedImage[] {
@@ -84,14 +78,16 @@ function parseBlipRecords(picturesData: Uint8Array): ExtractedImage[] {
     if (blipInfo) {
       const dataStart = offset + 8;
       const dataEnd = offset + 8 + recLen;
-
       const imgStart = findImageStart(picturesData, dataStart, blipInfo.ext);
       if (imgStart >= 0 && imgStart < dataEnd) {
         const imgData = picturesData.slice(imgStart, dataEnd);
         const count = (counters[blipInfo.ext] = (counters[blipInfo.ext] ?? 0) + 1);
+        const name = `image_${count}.${blipInfo.ext}`;
         images.push({
-          name: `image_${count}.${blipInfo.ext}`,
+          name,
           data: imgData,
+          mime: getMime(blipInfo.ext),
+          size: imgData.length,
         });
       }
     } else if ((recVerInstance & 0x0f) === 0x0f) {
@@ -111,7 +107,7 @@ function parseBlipRecords(picturesData: Uint8Array): ExtractedImage[] {
 export async function extractImagesFromPpt({
   file,
   onProgress,
-}: ExtractPptOptions): Promise<Uint8Array> {
+}: ExtractPptOptions): Promise<ExtractedImage[]> {
   const arrayBuffer = await file.arrayBuffer();
   const cfb = CFB.read(new Uint8Array(arrayBuffer), { type: "array" });
 
@@ -119,36 +115,20 @@ export async function extractImagesFromPpt({
   for (const entry of cfb.FileIndex) {
     if (entry.name === "Pictures" && entry.content) {
       const raw = entry.content;
-      if (raw instanceof Uint8Array) {
-        picturesData = raw;
-      } else {
-        picturesData = new Uint8Array(raw);
-      }
+      picturesData = raw instanceof Uint8Array ? raw : new Uint8Array(raw);
       break;
     }
   }
 
   if (!picturesData || picturesData.length === 0) {
-    throw new Error("PPT 파일에서 이미지를 찾을 수 없습니다.");
+    throw new Error("NO_IMAGES");
   }
 
-  onProgress?.(20);
-
+  onProgress?.(30);
   const images = parseBlipRecords(picturesData);
-
   if (images.length === 0) {
-    throw new Error("PPT 파일에서 이미지를 찾을 수 없습니다.");
+    throw new Error("NO_IMAGES");
   }
-
-  onProgress?.(50);
-
-  const JSZip = (await import("jszip")).default;
-  const output = new JSZip();
-
-  for (let i = 0; i < images.length; i++) {
-    output.file(images[i].name, images[i].data);
-    onProgress?.(50 + Math.round(((i + 1) / images.length) * 50));
-  }
-
-  return output.generateAsync({ type: "uint8array" });
+  onProgress?.(100);
+  return images;
 }
