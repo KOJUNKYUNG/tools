@@ -162,7 +162,31 @@
         }
       }
     },
-    "ppt-extract": { "title": "PPT 이미지 추출", "description": "프레젠테이션에 포함된 모든 이미지를 꺼내옵니다." },
+    "ppt-extract": {
+      "title": "PPT 이미지 추출",
+      "description": "프레젠테이션에 포함된 모든 이미지를 꺼내옵니다.",
+      "page": {
+        "uploadPrompt": "PPT/PPTX 파일을 드래그하거나 클릭하여 업로드",
+        "uploadHint": ".ppt 및 .pptx 형식을 지원합니다.",
+        "uploadMaxSize": "파일당 최대 {size}",
+        "reupload": "다시 업로드",
+        "reset": "다시 시작",
+        "fileInfo": "{name} · {size}",
+        "extract": "이미지 추출",
+        "processing": "추출 중…",
+        "resultTitle": "추출 결과",
+        "imageCount": "{n}장",
+        "downloadZip": "ZIP 다운로드",
+        "downloadOneAria": "{name} 다운로드",
+        "again": "다시 작업",
+        "placeholderLabel": "미리보기 불가",
+        "analyzingHint": "분석 중…",
+        "previewUnavailable": "미리보기 없음",
+        "imagesLabel": "이미지",
+        "noImagesHint": "이미지 없음",
+        "errorNoImages": "PPT 파일에서 이미지를 찾을 수 없습니다."
+      }
+    },
     "pdf-arrange": {
       "title": "PDF 합치기 / 나누기 / 정렬",
       "description": "여러 PDF를 하나의 파일로 합치거나, 구분선으로 여러 파일로 나눕니다.",

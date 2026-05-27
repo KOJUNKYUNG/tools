@@ -162,7 +162,31 @@
         }
       }
     },
-    "ppt-extract": { "title": "Extract PPT images", "description": "Pull every embedded image out of a .pptx file." },
+    "ppt-extract": {
+      "title": "Extract PPT images",
+      "description": "Pull every embedded image out of a .pptx file.",
+      "page": {
+        "uploadPrompt": "Drag and drop a PPT/PPTX, or click to upload",
+        "uploadHint": "Supports .ppt and .pptx.",
+        "uploadMaxSize": "Up to {size} per file",
+        "reupload": "Re-upload",
+        "reset": "Start over",
+        "fileInfo": "{name} · {size}",
+        "extract": "Extract images",
+        "processing": "Extracting…",
+        "resultTitle": "Extracted images",
+        "imageCount": "{n} images",
+        "downloadZip": "Download ZIP",
+        "downloadOneAria": "Download {name}",
+        "again": "Start over",
+        "placeholderLabel": "Preview unavailable",
+        "analyzingHint": "Analyzing…",
+        "previewUnavailable": "No preview",
+        "imagesLabel": "Images",
+        "noImagesHint": "No images",
+        "errorNoImages": "No images found in this presentation."
+      }
+    },
     "pdf-arrange": {
       "title": "Merge / Split / Arrange PDF",
       "description": "Combine PDFs into one file, or use dividers to split into several.",
