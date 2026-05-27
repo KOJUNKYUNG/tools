@@ -69,6 +69,22 @@ export function extractPptImages(opts: ExtractImagesOptions): Promise<ExtractedI
 
 ZIP composition moves to download time via `buildExtractZip(images): Promise<Uint8Array>`. The current `Uint8Array` return is dropped (only consumer is this page).
 
+### Idle preview (added 2026-05-28, user feedback)
+
+The post-upload pre-extract screen previously showed only file info + extract button — visually thin compared to pdf-compress. To match the silver "left preview, right info+action" pattern:
+
+- New pure helper `src/lib/ppt/analyzePresentation.ts` exposing `analyzePresentation(file): Promise<PresentationAnalysis>` where `PresentationAnalysis = { imageCount, formatCounts: Record<string, number>, thumbnailBlob: Blob | null, thumbnailMime: string | null }`.
+  - PPTX path: JSZip scan of `ppt/media/*` for counts/formats (no per-entry decompression for size — size is summed in extracted-result screen). Thumbnail picked from `docProps/thumbnail.{jpeg,jpg,png}` (case-insensitive), returned as `Blob` of the raw entry bytes.
+  - .ppt (CFB) path: re-run `parseBlipRecords` for counts/formats; `thumbnailBlob = null`.
+  - Failure is non-fatal: analysis errors yield `null` state in UI, extract still works.
+- New component `src/components/tools/ppt-extract/PptExtractPreview.tsx` — 2-col `52vh`:
+  - Left: thumbnail frame (`--silver-100` letterbox, `object-contain`). When `thumbnailBlob === null` → `FileImage` placeholder with `previewUnavailable` label (matches `ExtractedImageCard` non-renderable style).
+  - Right: count summary (`{n} 장 / {n} images`), format breakdown chip (reuses `PptExtractResult` breakdown composer — extract to a tiny shared helper `formatBreakdown(images-or-names) → string` to avoid drift).
+- `PptExtract.tsx` idle layout (file present, `status === "idle"`) becomes the 2-col grid; extract button moves to the right column above the count summary, reupload row moves to top of left column (matches pdf-compress).
+- Object URL for thumbnail follows the StrictMode-safe `useEffect` pattern (single URL, revoke on cleanup, re-key on `file`).
+
+i18n keys added: `analyzingHint`, `previewUnavailable`, `imagesLabel` (right-column header). `formatBreakdown` reuses existing data — no new key.
+
 ### Format table (`pptImageFormats.ts`)
 
 | ext            | mime                       | renderable |

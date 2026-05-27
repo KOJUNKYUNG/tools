@@ -1370,6 +1370,22 @@ git commit -m "feat(ppt-extract): mount inline inside Screen3 (bridge replaced)"
 
 ---
 
+## Task 12.5: Idle preview (added 2026-05-28)
+
+Added in response to user feedback. See spec §"Idle preview". Three sub-deliverables:
+
+**Files:**
+- Create: `src/lib/ppt/analyzePresentation.ts`
+- Create: `src/lib/ppt/analyzePresentation.test.ts`
+- Create: `src/components/tools/ppt-extract/PptExtractPreview.tsx`
+- Modify: `src/components/tools/ppt-extract/PptExtract.tsx` (idle layout → 2-col)
+- Modify: `src/i18n/dictionaries/ko.json` + `en.json` (3 new keys)
+- Modify: `src/components/tools/ppt-extract/labels.ts` (3 new fields)
+
+Spec details and i18n key list live in the spec doc. Implementation is dispatched as one or two subagent tasks (helper TDD first, then UI integration), not pre-written here to keep the plan readable.
+
+---
+
 ## Task 13: Full verification pass
 
 **Files:** none (verification only)
