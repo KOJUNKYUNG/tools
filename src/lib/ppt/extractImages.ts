@@ -45,18 +45,37 @@ async function extractFromPptx(
     throw new Error("NO_IMAGES");
   }
 
-  const images: ExtractedImage[] = [];
-  for (let i = 0; i < mediaEntries.length; i++) {
-    const data = await mediaEntries[i].entry.async("uint8array");
-    const name = mediaEntries[i].name;
-    images.push({
-      name,
-      data,
-      mime: getMime(getExt(name)),
-      size: data.length,
-    });
-    onProgress?.(Math.round(((i + 1) / mediaEntries.length) * 100));
+  // Inflate up to INFLATE_CONCURRENCY entries at a time. Sequential awaits
+  // were ~linear in entry count; full Promise.all spikes memory on large
+  // decks (e.g. 200 entries × ~2MB each). 8 keeps the working set bounded
+  // while still hiding I/O latency across cores.
+  const INFLATE_CONCURRENCY = 8;
+  const images: ExtractedImage[] = new Array(mediaEntries.length);
+  let done = 0;
+  let cursor = 0;
+
+  async function worker() {
+    while (true) {
+      const i = cursor++;
+      if (i >= mediaEntries.length) return;
+      const { name, entry } = mediaEntries[i];
+      const data = await entry.async("uint8array");
+      images[i] = {
+        name,
+        data,
+        mime: getMime(getExt(name)),
+        size: data.length,
+      };
+      done++;
+      onProgress?.(Math.round((done / mediaEntries.length) * 100));
+    }
   }
+
+  await Promise.all(
+    Array.from({ length: Math.min(INFLATE_CONCURRENCY, mediaEntries.length) }, () =>
+      worker(),
+    ),
+  );
   return images;
 }
 
