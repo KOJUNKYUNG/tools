@@ -48,6 +48,12 @@ export function useToolProcessor<TResult>({
     errorOptionsRef.current = errorOptions;
   });
 
+  useEffect(() => {
+    return () => {
+      generationRef.current++;
+    };
+  }, []);
+
   const run = useCallback(async () => {
     const gen = ++generationRef.current;
     setStatus("processing");
