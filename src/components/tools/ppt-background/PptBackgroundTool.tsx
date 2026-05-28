@@ -69,7 +69,7 @@ async function galleryImageToPngFile(url: string, id: string): Promise<File> {
 
 export interface PptBackgroundToolLabels {
   header: { title: string; description: string };
-  upload: { dropzoneLabel: string; dropzoneHint: string; pptDetected: string };
+  upload: { dropzoneLabel: string; dropzoneHint: string };
   conversion: { heading: string; note: string; methods: ConversionMethodLabels[] };
   fileStatus: { slideCountTemplate: string; changeFile: string; analyzing: string };
   mode: {
@@ -139,6 +139,9 @@ interface PptBackgroundToolProps {
 
 export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolProps) {
   const [showConversionGuide, setShowConversionGuide] = useState(false);
+  // Controlled accordion state — when the guide expands it covers the
+  // dropzone, so the parent has to own this to drive the layout.
+  const [guideOpen, setGuideOpen] = useState(false);
   const [bgFiles, setBgFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<BgMode>("all-slides");
   const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
@@ -192,7 +195,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         setPptxFilesRaw([]);
         return;
       }
+      // Successful .pptx — reset both the guide visibility and its open state
+      // so a future .ppt drop starts collapsed again.
       setShowConversionGuide(false);
+      setGuideOpen(false);
       setPptxFilesRaw(files);
     },
     [setPptxFilesRaw],
@@ -328,6 +334,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     // Keep pptxFile, currentBgs, bgObjectUrls, mode, selectedSlides.
   }, [retry, bgPreviewUrl]);
 
+  // When the .ppt rejection guide is showing, lock the outer panel to its
+  // full 50vh so the body's flex-1 children (the accordion in particular)
+  // have a definite height to flex against — without this the outer is
+  // content-sized and flex-1 has nothing to grow into, so the accordion's
+  // scroll never engages and content bleeds past the panel bottom.
+  const lockHeight = showConversionGuide && !pptxFile;
+
   // ───────── Render ─────────
   return (
     <div
@@ -338,7 +351,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       }
       style={
         inline
-          ? { maxHeight: "calc(50vh)" }
+          ? { maxHeight: "calc(50vh)", ...(lockHeight ? { height: "calc(50vh)" } : {}) }
           : {
               background: "color-mix(in oklch, var(--surface) 92%, transparent)",
               backdropFilter: "blur(10px) saturate(1.1)",
@@ -347,6 +360,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               boxShadow:
                 "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
               maxHeight: "calc(50vh)",
+              ...(lockHeight ? { height: "calc(50vh)" } : {}),
             }
       }
     >
@@ -396,34 +410,39 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
       {/* Body */}
       {!pptxFile ? (
-        // Empty state — centered dropzone, optional conversion guide below.
-        <div className="space-y-4 px-6 py-4">
-          {showConversionGuide && (
-            <div
-              className="rounded-[6px] border px-3 py-2 font-body text-[11.5px]"
-              style={{
-                background: "var(--surface-2)",
-                borderColor: "var(--border)",
-                color: "var(--ink-strong)",
-              }}
-            >
-              {labels.upload.pptDetected}
-            </div>
-          )}
-          <FileUpload
-            accept={PPTX_ACCEPT}
-            multiple={false}
-            onFiles={setPptxFiles}
-            label={labels.upload.dropzoneLabel}
-            description={labels.upload.dropzoneHint}
-            hideAutoHint
-            labels={labels.fileUpload}
-          />
+        // Empty state — natural-size dropzone normally (matches the other
+        // tools). When a .ppt is rejected, the outer panel is locked to
+        // 50vh above (see lockHeight) and this body uses flex-1 to fill
+        // that space, so the accordion's expanded body scrolls within the
+        // panel instead of bleeding past it. Collapsed and expanded states
+        // share the same vertical footprint by construction.
+        <div
+          className={
+            lockHeight
+              ? "flex min-h-0 flex-1 flex-col gap-4 px-6 py-4"
+              : "flex flex-col gap-4 px-6 py-4"
+          }
+        >
           {showConversionGuide && (
             <PptConversionGuide
               heading={labels.conversion.heading}
               methods={labels.conversion.methods}
               note={labels.conversion.note}
+              open={guideOpen}
+              onOpenChange={setGuideOpen}
+              className={guideOpen ? "min-h-0 flex-1" : "shrink-0"}
+            />
+          )}
+          {!guideOpen && (
+            <FileUpload
+              accept={PPTX_ACCEPT}
+              multiple={false}
+              onFiles={setPptxFiles}
+              label={labels.upload.dropzoneLabel}
+              description={labels.upload.dropzoneHint}
+              hideAutoHint
+              hideFileList
+              labels={labels.fileUpload}
             />
           )}
         </div>

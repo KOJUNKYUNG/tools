@@ -67,8 +67,7 @@
         },
         "upload": {
           "dropzoneLabel": "PPTX 파일을 드래그하거나 클릭하여 업로드",
-          "dropzoneHint": ".pptx 형식만 지원 · 최대 10 MB",
-          "pptDetected": "이 파일(.ppt)은 변환이 필요합니다. 아래 안내를 따라 .pptx로 변환 후 다시 업로드하세요."
+          "dropzoneHint": ".pptx 형식만 지원 · 최대 10 MB"
         },
         "conversion": {
           "heading": "이 파일은 .pptx로 변환이 필요합니다",

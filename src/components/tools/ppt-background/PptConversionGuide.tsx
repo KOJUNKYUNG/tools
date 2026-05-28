@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ChevronDownIcon, InfoIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,20 +14,24 @@ interface PptConversionGuideProps {
   heading: string;
   methods: ConversionMethodLabels[];
   note: string;
-  defaultOpen?: boolean;
+  /** Controlled open state — parent owns it so the layout can react. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Extra classes on the outer element (used by callers to set h-full etc.). */
+  className?: string;
 }
 
 export function PptConversionGuide({
   heading,
   methods,
   note,
-  defaultOpen = true,
+  open,
+  onOpenChange,
+  className,
 }: PptConversionGuideProps) {
-  const [open, setOpen] = useState(defaultOpen);
-
   return (
     <div
-      className="rounded-[12px] border"
+      className={cn("flex flex-col rounded-[12px] border", className)}
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",
@@ -37,8 +40,8 @@ export function PptConversionGuide({
     >
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
+        onClick={() => onOpenChange(!open)}
+        className="flex w-full shrink-0 items-center justify-between px-4 py-3 text-left"
         style={{ color: "var(--ink-strong)" }}
       >
         <div className="flex items-center gap-2">
@@ -52,7 +55,10 @@ export function PptConversionGuide({
       </button>
 
       {open && (
-        <div className="space-y-3 border-t px-4 py-3" style={{ borderColor: "var(--border)" }}>
+        <div
+          className="min-h-0 flex-1 space-y-3 overflow-y-auto border-t px-4 py-3"
+          style={{ borderColor: "var(--border)" }}
+        >
           {methods.map((m, idx) => (
             <div
               key={idx}
