@@ -220,7 +220,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         } else {
           setItems((prev) => [...prev, ...built.items]);
           setSourceBytesById((prev) => new Map([...prev, ...built.sourceBytesById]));
-          setFiles([...files, ...accepted]);
+          setFiles((prev) => [...prev, ...accepted]);
         }
       } catch (err) {
         toast.error(

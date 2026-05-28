@@ -230,7 +230,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
           setSourceBytesById(
             (prev) => new Map([...prev, ...built.sourceBytesById]),
           );
-          setFiles([...files, ...accepted]);
+          setFiles((prev) => [...prev, ...accepted]);
         }
       } catch (err) {
         toast.error(
