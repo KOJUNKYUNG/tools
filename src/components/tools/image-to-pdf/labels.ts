@@ -25,6 +25,7 @@ export interface ImageToPdfLabels {
   download: string;
   compressHandoff: string;
   again: string;
+  fileUpload: Dictionary["common"]["fileUpload"];
 }
 
 export function getImageToPdfLabels(dict: Dictionary): ImageToPdfLabels {
@@ -55,5 +56,6 @@ export function getImageToPdfLabels(dict: Dictionary): ImageToPdfLabels {
     download: p.download,
     compressHandoff: p.compressHandoff,
     again: p.again,
+    fileUpload: dict.common.fileUpload,
   };
 }

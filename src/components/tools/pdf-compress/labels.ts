@@ -38,6 +38,8 @@ export interface PdfCompressLabels {
   again: string;
   // Errors
   errorMemory: string;
+  // Shared FileUpload labels (toasts + file list i18n)
+  fileUpload: Dictionary["common"]["fileUpload"];
 }
 
 export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
@@ -73,5 +75,6 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     download: p.download,
     again: p.again,
     errorMemory: p.errorMemory,
+    fileUpload: dict.common.fileUpload,
   };
 }

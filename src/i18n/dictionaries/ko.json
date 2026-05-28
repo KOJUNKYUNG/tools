@@ -36,7 +36,13 @@
     "or": "또는",
     "click": "클릭해서 찾아보기",
     "fileUpload": {
-      "maxSize": "최대 {size}"
+      "maxSize": "최대 {size}",
+      "tooLargeTemplate": "{name}: 파일 크기가 {size}를 초과합니다.",
+      "invalidTypeTemplate": "{name}: 지원하지 않는 파일 형식입니다.",
+      "errorTemplate": "{name}: {message}",
+      "selectedCountTemplate": "{n}개 파일 선택됨",
+      "clearAll": "전체 삭제",
+      "removeAriaTemplate": "{name} 제거"
     }
   },
   "footer": {

@@ -30,6 +30,7 @@ export interface PdfToImageLabels {
   downloadOneAria: string;
   compressHandoff: string;
   again: string;
+  fileUpload: Dictionary["common"]["fileUpload"];
 }
 
 export function getPdfToImageLabels(dict: Dictionary): PdfToImageLabels {
@@ -65,5 +66,6 @@ export function getPdfToImageLabels(dict: Dictionary): PdfToImageLabels {
     downloadOneAria: p.downloadOneAria,
     compressHandoff: p.compressHandoff,
     again: p.again,
+    fileUpload: dict.common.fileUpload,
   };
 }

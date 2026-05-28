@@ -372,7 +372,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
           onFiles={handleFilesChange}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
-          labels={{ maxSize: labels.uploadMaxSize }}
+          labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       )}
 

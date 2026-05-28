@@ -157,7 +157,7 @@ export function PptExtract({ labels, inline = false }: PptExtractProps) {
           onFiles={handleFilesChange}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
-          labels={{ maxSize: labels.uploadMaxSize }}
+          labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : isDone && result ? (
         <PptExtractResult

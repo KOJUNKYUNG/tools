@@ -29,6 +29,7 @@ export interface ImageResizeLabels {
   stretchModeLabel: string;
   cropFooterTemplate: string;
   sizePresetLabels: Record<string, string>;
+  fileUpload: Dictionary["common"]["fileUpload"];
 }
 
 export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
@@ -69,5 +70,6 @@ export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
       uhd4k: page.sizePreset.uhd4k,
       instaPortrait: page.sizePreset.instaPortrait,
     },
+    fileUpload: dict.common.fileUpload,
   };
 }

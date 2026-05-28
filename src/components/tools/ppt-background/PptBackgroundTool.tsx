@@ -17,6 +17,7 @@ import {
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
+import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
 import { SlideThumbStrip } from "./SlideThumbStrip";
 import { BackgroundPicker } from "./BackgroundPicker";
@@ -122,6 +123,7 @@ export interface PptBackgroundToolLabels {
     retry: string;
     reset: string;
   };
+  fileUpload: Dictionary["common"]["fileUpload"];
 }
 
 interface PptBackgroundToolProps {
@@ -415,6 +417,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             label={labels.upload.dropzoneLabel}
             description={labels.upload.dropzoneHint}
             hideAutoHint
+            labels={labels.fileUpload}
           />
           {showConversionGuide && (
             <PptConversionGuide
@@ -610,6 +613,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 sourceUpload: labels.background.sourceUpload,
                 sourceGallery: labels.background.sourceGallery,
                 gallery: labels.gallery,
+                fileUpload: labels.fileUpload,
               }}
             />
           </div>
