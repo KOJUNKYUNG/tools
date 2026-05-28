@@ -43,7 +43,12 @@ export function estimateCompressedSize(
 ): number {
   const presetRatio = PRESET_IMAGE_RATIO[preset];
   // image portion shrinks to presetRatio; non-image portion stays ~unchanged
-  return originalSize * (1 - imageShare * (1 - presetRatio));
+  const formula = originalSize * (1 - imageShare * (1 - presetRatio));
+  // Clamp by the static upper bound — the formula only accounts for image
+  // re-encoding, but the WASM also strips metadata / removes unused resources,
+  // so the real output never exceeds the conservative static range.
+  const staticUpper = originalSize * PRESET_RANGE[preset][1];
+  return Math.min(formula, staticUpper);
 }
 
 interface PdfCompressEstimateProps {

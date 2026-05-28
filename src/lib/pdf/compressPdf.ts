@@ -45,20 +45,21 @@ export async function compressPdfFromBytes({
   preset,
   onProgress,
 }: CompressPdfFromBytesOptions): Promise<CompressPdfResult> {
-  onProgress?.(30);
   const mod = await import("@kihyun1998/justpdf-compress-wasm");
   const init = mod.default;
   const { compress_advanced } = mod;
   await init();
+  // Emit 30% only after the slow WASM init resolves — otherwise the bar
+  // jumps to 30 instantly and stalls during init on first run.
+  onProgress?.(30);
   onProgress?.(50);
 
-  const pdfBytes = bytes;
   const params = ADVANCED_PARAMS[preset];
   // font_subsetting=false: the upstream WASM's subsetter corrupts glyph maps on
   // several Korean fonts (full doc AND pdf-lib-extracted subsets). Skipping it
   // gives reliable output across all PDFs at a modest compression-ratio cost.
   const result = compress_advanced(
-    pdfBytes,
+    bytes,
     params.jpegQuality,
     params.maxDpi,
     /* font_subsetting */ false,
