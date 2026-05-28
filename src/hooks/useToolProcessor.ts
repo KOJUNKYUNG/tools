@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { getErrorMessage, type GetErrorMessageOptions } from "@/lib/errors";
 import type { ProcessingState } from "@/types";
 
@@ -15,7 +16,7 @@ export interface UseToolProcessorConfig<TResult> {
 
 export interface UseToolProcessorReturn<TResult> {
   files: File[];
-  setFiles: (files: File[]) => void;
+  setFiles: Dispatch<SetStateAction<File[]>>;
   status: ProcessingState;
   progress: number;
   errorMessage: string;
@@ -46,6 +47,12 @@ export function useToolProcessor<TResult>({
     onDownloadRef.current = onDownload;
     errorOptionsRef.current = errorOptions;
   });
+
+  useEffect(() => {
+    return () => {
+      generationRef.current++;
+    };
+  }, []);
 
   const run = useCallback(async () => {
     const gen = ++generationRef.current;

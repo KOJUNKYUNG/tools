@@ -7,25 +7,54 @@
  * cleared on consume; lost on full page reload (acceptable — user reloading
  * the destination tool is interpreted as "start fresh").
  *
- * No persistence layer (sessionStorage / IndexedDB) by design — that would
- * require Blob serialisation or a dedicated wrapper for marginal benefit.
+ * Guards:
+ *  - TTL: payloads older than HANDOFF_TTL_MS are dropped on next access, so
+ *    a user who stages then closes the destination tab does not pin bytes
+ *    for the rest of the SPA session.
+ *  - Size cap: stageFiles refuses payloads whose total byte size exceeds
+ *    HANDOFF_MAX_BYTES — guards against accidental hundreds-of-megabytes
+ *    handoffs being parked in memory.
  */
+
+export const HANDOFF_TTL_MS = 10 * 60 * 1000; // 10 minutes
+export const HANDOFF_MAX_BYTES = 500 * 1024 * 1024; // 500 MB
 
 interface HandoffPayload {
   files: File[];
   source: string;
+  stagedAt: number;
 }
 
 let staged: HandoffPayload | null = null;
 
-export function stageFiles(files: File[], source: string): void {
-  staged = { files, source };
+function dropIfExpired(now: number): void {
+  if (staged && now - staged.stagedAt > HANDOFF_TTL_MS) {
+    staged = null;
+  }
 }
 
-export function consumeStagedFiles(): HandoffPayload | null {
+function totalBytes(files: File[]): number {
+  let sum = 0;
+  for (const f of files) sum += f.size;
+  return sum;
+}
+
+export function stageFiles(files: File[], source: string): void {
+  const now = Date.now();
+  dropIfExpired(now);
+  if (totalBytes(files) > HANDOFF_MAX_BYTES) {
+    staged = null;
+    return;
+  }
+  staged = { files, source, stagedAt: now };
+}
+
+export function consumeStagedFiles(): { files: File[]; source: string } | null {
+  dropIfExpired(Date.now());
   const s = staged;
   staged = null;
-  return s;
+  if (!s) return null;
+  return { files: s.files, source: s.source };
 }
 
 /** Test-only escape hatch. Do not call from app code. */
