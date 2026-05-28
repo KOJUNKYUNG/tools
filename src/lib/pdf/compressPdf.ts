@@ -29,16 +29,30 @@ export async function compressPdf({
   onProgress,
 }: CompressPdfOptions): Promise<CompressPdfResult> {
   onProgress?.(10);
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfBytes = new Uint8Array(arrayBuffer);
+  return compressPdfFromBytes({ bytes: pdfBytes, preset, onProgress });
+}
+
+export interface CompressPdfFromBytesOptions {
+  bytes: Uint8Array;
+  preset: CompressionPreset;
+  onProgress?: (pct: number) => void;
+}
+
+export async function compressPdfFromBytes({
+  bytes,
+  preset,
+  onProgress,
+}: CompressPdfFromBytesOptions): Promise<CompressPdfResult> {
+  onProgress?.(30);
   const mod = await import("@kihyun1998/justpdf-compress-wasm");
   const init = mod.default;
   const { compress_advanced } = mod;
   await init();
-  onProgress?.(30);
-
-  const arrayBuffer = await file.arrayBuffer();
-  const pdfBytes = new Uint8Array(arrayBuffer);
   onProgress?.(50);
 
+  const pdfBytes = bytes;
   const params = ADVANCED_PARAMS[preset];
   // font_subsetting=false: the upstream WASM's subsetter corrupts glyph maps on
   // several Korean fonts (full doc AND pdf-lib-extracted subsets). Skipping it
@@ -70,7 +84,7 @@ export async function compressPdf({
   }
 }
 
-// Re-export the same implementation so the live-preview call site doesn't need
-// to change. (They share identical semantics now — preview and final match.)
-export type CompressPdfLivePreviewOptions = CompressPdfOptions;
-export const compressPdfLivePreview = compressPdf;
+// Live-preview path skips the redundant File→arrayBuffer roundtrip: callers
+// pass already-decoded bytes (e.g. the output of extractPageOne).
+export type CompressPdfLivePreviewOptions = CompressPdfFromBytesOptions;
+export const compressPdfLivePreview = compressPdfFromBytes;
