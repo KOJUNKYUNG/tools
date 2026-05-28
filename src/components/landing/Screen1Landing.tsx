@@ -14,18 +14,6 @@ interface Screen1LandingProps {
   onOpen: (cat: "presentation" | "document" | "image") => void;
 }
 
-function InteriorHint({ locale, dict }: { locale: "ko" | "en"; dict: Dictionary }) {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center opacity-70">
-      <div className="text-center" style={{ color: "var(--ink-soft)" }}>
-        <div className="font-body text-[10px] tracking-[0.3em] uppercase">
-          {dict.landing.interiorHint}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function Screen1Landing({ locale, theme, dict, lidState, onOpen }: Screen1LandingProps) {
   return (
     <div className="flex flex-col h-screen relative overflow-hidden" style={{ background: "var(--bg)" }}>
@@ -66,9 +54,7 @@ export function Screen1Landing({ locale, theme, dict, lidState, onOpen }: Screen
               transition: "opacity 600ms ease 200ms",
             }}
           >
-            <Tray className="w-full h-full" style={{ position: "absolute", inset: 0 }}>
-              <InteriorHint locale={locale} dict={dict} />
-            </Tray>
+            <Tray className="w-full h-full" style={{ position: "absolute", inset: 0 }} />
           </div>
         )}
 

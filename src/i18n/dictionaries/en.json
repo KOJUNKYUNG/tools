@@ -23,8 +23,7 @@
       "image": "Image tools"
     },
     "selectCategory": "Select a category",
-    "descriptor": "The toolbox that lives in your browser tab",
-    "interiorHint": "Toolbox · 10 tools"
+    "descriptor": "The toolbox that lives in your browser tab"
   },
   "common": {
     "reset": "Reset",
