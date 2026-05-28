@@ -197,12 +197,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       try {
         const ab = await file.arrayBuffer();
         const onePage = await extractPageOne(new Uint8Array(ab));
-        // Use .slice(0).buffer to produce a concrete ArrayBuffer without a cast.
-        const onePageBuf = onePage.slice(0).buffer;
-        const onePageFile = new File([onePageBuf], "page-1.pdf", {
-          type: "application/pdf",
-        });
-        const liveResult = await compressPdfLivePreview({ file: onePageFile, preset });
+        const liveResult = await compressPdfLivePreview({ bytes: onePage, preset });
         if (token !== livePreviewTokenRef.current) return;
         const blob = await renderPdfFirstPage(liveResult.data.slice());
         if (token !== livePreviewTokenRef.current) return;

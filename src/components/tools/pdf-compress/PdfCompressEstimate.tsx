@@ -22,14 +22,33 @@ const PRESET_IMAGE_RATIO: Record<CompressionPreset, number> = {
   high:   0.35,
 };
 
-function estimateCompressedSize(
+/**
+ * Minimum imageShare required before the derived estimate is shown for a
+ * preset. Below the cutoff we fall back to "no meaningful change".
+ *
+ * "high" downscales + re-encodes, so it pays back even on image-light PDFs.
+ * "medium" only re-encodes — needs more image content to show a real gain.
+ * "low" never touches images, so we always show "no change".
+ */
+const PRESET_IMAGE_SHARE_CUTOFF: Record<CompressionPreset, number> = {
+  low:    Number.POSITIVE_INFINITY,
+  medium: 0.05,
+  high:   0.02,
+};
+
+export function estimateCompressedSize(
   originalSize: number,
   imageShare: number, // 0..1
   preset: CompressionPreset,
 ): number {
   const presetRatio = PRESET_IMAGE_RATIO[preset];
   // image portion shrinks to presetRatio; non-image portion stays ~unchanged
-  return originalSize * (1 - imageShare * (1 - presetRatio));
+  const formula = originalSize * (1 - imageShare * (1 - presetRatio));
+  // Clamp by the static upper bound — the formula only accounts for image
+  // re-encoding, but the WASM also strips metadata / removes unused resources,
+  // so the real output never exceeds the conservative static range.
+  const staticUpper = originalSize * PRESET_RANGE[preset][1];
+  return Math.min(formula, staticUpper);
 }
 
 interface PdfCompressEstimateProps {
@@ -58,13 +77,13 @@ export function PdfCompressEstimate({
 
   let rangeText: string;
   if (imageShare != null) {
-    if (imageShare >= 0.05 && preset !== "low") {
+    if (imageShare >= PRESET_IMAGE_SHARE_CUTOFF[preset]) {
       const derived = Math.round(estimateCompressedSize(originalSize, imageShare, preset));
       rangeText = template(labels.estimateActualTemplate, {
         size: formatBytes(derived),
       });
     } else {
-      // Negligible image content or "low" preset — compression won't change much
+      // Below the per-preset image-share cutoff — compression won't change much
       rangeText = labels.estimateNoChange;
     }
   } else {

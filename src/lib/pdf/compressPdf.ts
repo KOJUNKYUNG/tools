@@ -29,14 +29,29 @@ export async function compressPdf({
   onProgress,
 }: CompressPdfOptions): Promise<CompressPdfResult> {
   onProgress?.(10);
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfBytes = new Uint8Array(arrayBuffer);
+  return compressPdfFromBytes({ bytes: pdfBytes, preset, onProgress });
+}
+
+export interface CompressPdfFromBytesOptions {
+  bytes: Uint8Array;
+  preset: CompressionPreset;
+  onProgress?: (pct: number) => void;
+}
+
+export async function compressPdfFromBytes({
+  bytes,
+  preset,
+  onProgress,
+}: CompressPdfFromBytesOptions): Promise<CompressPdfResult> {
   const mod = await import("@kihyun1998/justpdf-compress-wasm");
   const init = mod.default;
   const { compress_advanced } = mod;
   await init();
+  // Emit 30% only after the slow WASM init resolves — otherwise the bar
+  // jumps to 30 instantly and stalls during init on first run.
   onProgress?.(30);
-
-  const arrayBuffer = await file.arrayBuffer();
-  const pdfBytes = new Uint8Array(arrayBuffer);
   onProgress?.(50);
 
   const params = ADVANCED_PARAMS[preset];
@@ -44,7 +59,7 @@ export async function compressPdf({
   // several Korean fonts (full doc AND pdf-lib-extracted subsets). Skipping it
   // gives reliable output across all PDFs at a modest compression-ratio cost.
   const result = compress_advanced(
-    pdfBytes,
+    bytes,
     params.jpegQuality,
     params.maxDpi,
     /* font_subsetting */ false,
@@ -70,7 +85,7 @@ export async function compressPdf({
   }
 }
 
-// Re-export the same implementation so the live-preview call site doesn't need
-// to change. (They share identical semantics now — preview and final match.)
-export type CompressPdfLivePreviewOptions = CompressPdfOptions;
-export const compressPdfLivePreview = compressPdf;
+// Live-preview path skips the redundant File→arrayBuffer roundtrip: callers
+// pass already-decoded bytes (e.g. the output of extractPageOne).
+export type CompressPdfLivePreviewOptions = CompressPdfFromBytesOptions;
+export const compressPdfLivePreview = compressPdfFromBytes;
