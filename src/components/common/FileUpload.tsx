@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FILE_SIZE_LIMIT } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
+import { template } from "@/lib/common/template";
 
 interface FileUploadProps {
   accept: Accept;
@@ -19,10 +20,27 @@ interface FileUploadProps {
   hideFileList?: boolean;
   /** Hide the auto-generated "{exts} · 최대 {size}" hint line. */
   hideAutoHint?: boolean;
-  /** Optional localisation override for the auto-generated hint line. */
+  /**
+   * Localisation overrides. Korean defaults are kept for backwards-compat,
+   * but EN locale callers MUST inject all keys to avoid KR leaking into
+   * toasts and the file list. Templates support {name}, {size}, {message},
+   * and {n} placeholders as documented per key.
+   */
   labels?: {
-    /** Template for the max-size hint, with {size} substituted (e.g. "최대 {size}", "Max {size}"). */
+    /** "{size}" — auto-hint suffix. e.g. "최대 {size}" / "Max {size}". */
     maxSize?: string;
+    /** "{name}", "{size}" — toast on oversize drop. */
+    tooLargeTemplate?: string;
+    /** "{name}" — toast on bad MIME/extension. */
+    invalidTypeTemplate?: string;
+    /** "{name}", "{message}" — toast fallback for any other rejection. */
+    errorTemplate?: string;
+    /** "{n}" — selected-file count header. */
+    selectedCountTemplate?: string;
+    /** Button text to clear the in-component file list. */
+    clearAll?: string;
+    /** "{name}" — aria-label on the per-file remove button. */
+    removeAriaTemplate?: string;
   };
 }
 
@@ -39,17 +57,21 @@ export function FileUpload({
 }: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
 
+  const tooLargeTpl = labels?.tooLargeTemplate ?? "{name}: 파일 크기가 {size}를 초과합니다.";
+  const invalidTypeTpl = labels?.invalidTypeTemplate ?? "{name}: 지원하지 않는 파일 형식입니다.";
+  const errorTpl = labels?.errorTemplate ?? "{name}: {message}";
+
   const onDrop = useCallback(
     (accepted: File[], rejections: FileRejection[]) => {
       for (const rejection of rejections) {
         const name = rejection.file.name;
         for (const err of rejection.errors) {
           if (err.code === "file-too-large") {
-            toast.error(`${name}: 파일 크기가 ${formatBytes(maxSize)}를 초과합니다.`);
+            toast.error(template(tooLargeTpl, { name, size: formatBytes(maxSize) }));
           } else if (err.code === "file-invalid-type") {
-            toast.error(`${name}: 지원하지 않는 파일 형식입니다.`);
+            toast.error(template(invalidTypeTpl, { name }));
           } else {
-            toast.error(`${name}: ${err.message}`);
+            toast.error(template(errorTpl, { name, message: err.message }));
           }
         }
       }
@@ -60,7 +82,7 @@ export function FileUpload({
         onFiles(next);
       }
     },
-    [files, maxSize, multiple, onFiles],
+    [files, maxSize, multiple, onFiles, tooLargeTpl, invalidTypeTpl, errorTpl],
   );
 
   const removeFile = (index: number) => {
@@ -83,7 +105,10 @@ export function FileUpload({
 
   const acceptedExtensions = Object.values(accept).flat().join(", ");
   const maxSizeTemplate = labels?.maxSize ?? "최대 {size}";
-  const maxSizeHint = maxSizeTemplate.replace("{size}", formatBytes(maxSize));
+  const maxSizeHint = template(maxSizeTemplate, { size: formatBytes(maxSize) });
+  const selectedCountTpl = labels?.selectedCountTemplate ?? "{n}개 파일 선택됨";
+  const clearAllLabel = labels?.clearAll ?? "전체 삭제";
+  const removeAriaTpl = labels?.removeAriaTemplate ?? "{name} 제거";
 
   return (
     <div className="space-y-4">
@@ -120,10 +145,10 @@ export function FileUpload({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">
-              {files.length}개 파일 선택됨
+              {template(selectedCountTpl, { n: files.length })}
             </p>
             <Button variant="ghost" size="xs" onClick={clearAll}>
-              전체 삭제
+              {clearAllLabel}
             </Button>
           </div>
           <ul className="space-y-1.5">
@@ -141,7 +166,7 @@ export function FileUpload({
                   variant="ghost"
                   size="icon-xs"
                   onClick={() => removeFile(i)}
-                  aria-label={`${file.name} 제거`}
+                  aria-label={template(removeAriaTpl, { name: file.name })}
                 >
                   <XIcon className="size-3.5" />
                 </Button>

@@ -240,7 +240,7 @@ export function ImageCompressTool({
           onFiles={handleFilesChange}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
-          labels={{ maxSize: labels.uploadMaxSize }}
+          labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">

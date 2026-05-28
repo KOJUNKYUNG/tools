@@ -5,6 +5,7 @@ import { ImageIcon, UploadCloudIcon, XIcon } from "lucide-react";
 import { FileUpload } from "@/components/common/FileUpload";
 import { InlineGallery } from "@/components/ppt/InlineGallery";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
+import type { Dictionary } from "@/i18n/config";
 
 const IMAGE_ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
@@ -44,6 +45,7 @@ interface BackgroundPickerProps {
       categoryByKey: Record<GalleryCategory, string>;
       empty: string;
     };
+    fileUpload: Dictionary["common"]["fileUpload"];
   };
 }
 
@@ -178,6 +180,7 @@ export function BackgroundPicker({
             label={labels.uploadLabel}
             description={labels.uploadHint}
             hideFileList
+            labels={labels.fileUpload}
           />
         ) : (
           <InlineGallery

@@ -416,7 +416,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
           onFiles={handleUpload}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
-          labels={{ maxSize: labels.uploadMaxSize }}
+          labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : status === "idle" ? (
         editor

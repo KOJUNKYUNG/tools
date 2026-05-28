@@ -29,6 +29,8 @@ export interface PptExtractLabels {
   noImagesHint: string;
   // Errors
   errorNoImages: string;
+  // Shared FileUpload labels (toasts + file list i18n)
+  fileUpload: Dictionary["common"]["fileUpload"];
 }
 
 export function getPptExtractLabels(dict: Dictionary): PptExtractLabels {
@@ -56,5 +58,6 @@ export function getPptExtractLabels(dict: Dictionary): PptExtractLabels {
     imagesLabel: p.imagesLabel,
     noImagesHint: p.noImagesHint,
     errorNoImages: p.errorNoImages,
+    fileUpload: dict.common.fileUpload,
   };
 }

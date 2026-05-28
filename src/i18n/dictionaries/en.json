@@ -36,7 +36,13 @@
     "or": "or",
     "click": "click to browse",
     "fileUpload": {
-      "maxSize": "Max {size}"
+      "maxSize": "Max {size}",
+      "tooLargeTemplate": "{name}: file exceeds the {size} limit.",
+      "invalidTypeTemplate": "{name}: unsupported file type.",
+      "errorTemplate": "{name}: {message}",
+      "selectedCountTemplate": "{n} file(s) selected",
+      "clearAll": "Clear all",
+      "removeAriaTemplate": "Remove {name}"
     }
   },
   "footer": {

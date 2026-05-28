@@ -24,6 +24,7 @@ export interface ImageCompressLabels {
   prevAria: string;
   nextAria: string;
   comparePreview: string;
+  fileUpload: Dictionary["common"]["fileUpload"];
 }
 
 export function getImageCompressLabels(dict: Dictionary): ImageCompressLabels {
@@ -52,5 +53,6 @@ export function getImageCompressLabels(dict: Dictionary): ImageCompressLabels {
     prevAria: page.prevAria,
     nextAria: page.nextAria,
     comparePreview: page.comparePreview,
+    fileUpload: dict.common.fileUpload,
   };
 }

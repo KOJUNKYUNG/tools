@@ -322,7 +322,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           onFiles={handleFilesChange}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
-          labels={{ maxSize: labels.uploadMaxSize }}
+          labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : (
         <div

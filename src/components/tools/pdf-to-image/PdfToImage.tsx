@@ -301,7 +301,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
           onFiles={handleUpload}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
-          labels={{ maxSize: labels.uploadMaxSize }}
+          labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : status === "idle" ? (
         editor

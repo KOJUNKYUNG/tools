@@ -29,6 +29,7 @@ export interface PdfArrangeLabels {
   downloadPdf: string;
   downloadZipTemplate: string;
   downloadOneAria: string;
+  fileUpload: Dictionary["common"]["fileUpload"];
 }
 
 export function getPdfArrangeLabels(dict: Dictionary): PdfArrangeLabels {
@@ -62,5 +63,6 @@ export function getPdfArrangeLabels(dict: Dictionary): PdfArrangeLabels {
     downloadPdf: page.downloadPdf,
     downloadZipTemplate: page.downloadZipTemplate,
     downloadOneAria: page.downloadOneAria,
+    fileUpload: dict.common.fileUpload,
   };
 }
