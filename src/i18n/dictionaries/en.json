@@ -67,8 +67,7 @@
         },
         "upload": {
           "dropzoneLabel": "Drop a PPTX file here, or click to browse",
-          "dropzoneHint": "Only .pptx · Up to 10 MB",
-          "pptDetected": "This .ppt file needs to be converted. Follow one of the methods below to save it as .pptx, then upload again."
+          "dropzoneHint": "Only .pptx · Up to 10 MB"
         },
         "conversion": {
           "heading": "This file needs to be converted to .pptx",

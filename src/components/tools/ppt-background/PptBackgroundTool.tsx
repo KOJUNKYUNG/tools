@@ -69,7 +69,7 @@ async function galleryImageToPngFile(url: string, id: string): Promise<File> {
 
 export interface PptBackgroundToolLabels {
   header: { title: string; description: string };
-  upload: { dropzoneLabel: string; dropzoneHint: string; pptDetected: string };
+  upload: { dropzoneLabel: string; dropzoneHint: string };
   conversion: { heading: string; note: string; methods: ConversionMethodLabels[] };
   fileStatus: { slideCountTemplate: string; changeFile: string; analyzing: string };
   mode: {
@@ -397,19 +397,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       {/* Body */}
       {!pptxFile ? (
         // Empty state — centered dropzone, optional conversion guide below.
+        // A .ppt drop is rejected upstream (pptxFile stays null) and toggles
+        // `showConversionGuide`. FileUpload's inner file list is hidden so a
+        // rejected file does not appear "selected"; the reason surfaces only
+        // via the PptConversionGuide accordion below — no duplicate banner.
         <div className="space-y-4 px-6 py-4">
-          {showConversionGuide && (
-            <div
-              className="rounded-[6px] border px-3 py-2 font-body text-[11.5px]"
-              style={{
-                background: "var(--surface-2)",
-                borderColor: "var(--border)",
-                color: "var(--ink-strong)",
-              }}
-            >
-              {labels.upload.pptDetected}
-            </div>
-          )}
           <FileUpload
             accept={PPTX_ACCEPT}
             multiple={false}
@@ -417,6 +409,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             label={labels.upload.dropzoneLabel}
             description={labels.upload.dropzoneHint}
             hideAutoHint
+            hideFileList
             labels={labels.fileUpload}
           />
           {showConversionGuide && (
