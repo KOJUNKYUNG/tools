@@ -56,7 +56,16 @@ function findImageStart(data: Uint8Array, offset: number, ext: string): number {
   return -1;
 }
 
-export function parseBlipRecords(picturesData: Uint8Array): ExtractedImage[] {
+// Real PowerPoint files nest containers ≤ 2-3 levels deep. Cap at 16 to
+// prevent a hostile .ppt from blowing the JS call stack via pathological
+// 0x0f-container nesting.
+const MAX_CONTAINER_DEPTH = 16;
+
+export function parseBlipRecords(
+  picturesData: Uint8Array,
+  depth = 0,
+): ExtractedImage[] {
+  if (depth > MAX_CONTAINER_DEPTH) return [];
   const images: ExtractedImage[] = [];
   let offset = 0;
   const counters: Record<string, number> = {};
@@ -96,6 +105,7 @@ export function parseBlipRecords(picturesData: Uint8Array): ExtractedImage[] {
       const containerEnd = offset + 8 + recLen;
       const innerImages = parseBlipRecords(
         picturesData.subarray(offset + 8, containerEnd),
+        depth + 1,
       );
       images.push(...innerImages);
     }
