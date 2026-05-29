@@ -56,7 +56,16 @@ function findImageStart(data: Uint8Array, offset: number, ext: string): number {
   return -1;
 }
 
-function parseBlipRecords(picturesData: Uint8Array): ExtractedImage[] {
+// Real PowerPoint files nest containers ≤ 2-3 levels deep. Cap at 16 to
+// prevent a hostile .ppt from blowing the JS call stack via pathological
+// 0x0f-container nesting.
+const MAX_CONTAINER_DEPTH = 16;
+
+export function parseBlipRecords(
+  picturesData: Uint8Array,
+  depth = 0,
+): ExtractedImage[] {
+  if (depth > MAX_CONTAINER_DEPTH) return [];
   const images: ExtractedImage[] = [];
   let offset = 0;
   const counters: Record<string, number> = {};
@@ -96,6 +105,7 @@ function parseBlipRecords(picturesData: Uint8Array): ExtractedImage[] {
       const containerEnd = offset + 8 + recLen;
       const innerImages = parseBlipRecords(
         picturesData.subarray(offset + 8, containerEnd),
+        depth + 1,
       );
       images.push(...innerImages);
     }
@@ -127,10 +137,77 @@ export async function extractImagesFromPpt({
   }
 
   onProgress?.(30);
-  const images = parseBlipRecords(picturesData);
+  const images = await parseBlipRecordsStreaming(picturesData, onProgress);
   if (images.length === 0) {
     throw new Error("NO_IMAGES");
   }
   onProgress?.(100);
+  return images;
+}
+
+/**
+ * Async variant of `parseBlipRecords` that yields to the event loop every
+ * `YIELD_EVERY` top-level records and reports interpolated progress in the
+ * 30..100 band. Sync parsing on large (50MB+) .ppt files blocks the UI long
+ * enough that the bar appears stuck at 30%.
+ */
+async function parseBlipRecordsStreaming(
+  picturesData: Uint8Array,
+  onProgress?: (pct: number) => void,
+): Promise<ExtractedImage[]> {
+  const YIELD_EVERY = 16;
+  const images: ExtractedImage[] = [];
+  let offset = 0;
+  let recordsSeen = 0;
+  const counters: Record<string, number> = {};
+  const total = picturesData.length;
+
+  while (offset + 8 <= picturesData.length) {
+    const recVerInstance =
+      picturesData[offset] | (picturesData[offset + 1] << 8);
+    const recType =
+      picturesData[offset + 2] | (picturesData[offset + 3] << 8);
+    const recLen =
+      picturesData[offset + 4] |
+      (picturesData[offset + 5] << 8) |
+      (picturesData[offset + 6] << 16) |
+      (picturesData[offset + 7] << 24);
+
+    if (recLen <= 0 || offset + 8 + recLen > picturesData.length) break;
+
+    const blipInfo = BLIP_META[recType];
+    if (blipInfo) {
+      const dataStart = offset + 8;
+      const dataEnd = offset + 8 + recLen;
+      const imgStart = findImageStart(picturesData, dataStart, blipInfo.ext);
+      if (imgStart >= 0 && imgStart < dataEnd) {
+        const imgData = picturesData.slice(imgStart, dataEnd);
+        const count = (counters[blipInfo.ext] = (counters[blipInfo.ext] ?? 0) + 1);
+        images.push({
+          name: `image_${count}.${blipInfo.ext}`,
+          data: imgData,
+          mime: getMime(blipInfo.ext),
+          size: imgData.length,
+        });
+      }
+    } else if ((recVerInstance & 0x0f) === 0x0f) {
+      const containerEnd = offset + 8 + recLen;
+      // Containers are parsed synchronously — they are bounded and typically
+      // small. The yield cadence applies to top-level records only.
+      const innerImages = parseBlipRecords(
+        picturesData.subarray(offset + 8, containerEnd),
+      );
+      images.push(...innerImages);
+    }
+
+    offset += 8 + recLen;
+    recordsSeen++;
+    if (recordsSeen % YIELD_EVERY === 0) {
+      const pct = 30 + Math.round((offset / total) * 70);
+      onProgress?.(Math.min(99, pct));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
   return images;
 }
