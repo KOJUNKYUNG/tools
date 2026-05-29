@@ -98,20 +98,27 @@ export async function compressPdfFromBytes({
     // Defense against upstream WASM silent corruption (3.2MB → 24KB pattern).
     let sourcePageCount = 0;
     let outputPageCount = 0;
+    let outputAnalyzed = false;
+    let srcResult: ReturnType<typeof analyze> | null = null;
     try {
-      const src = analyze(bytes);
-      sourcePageCount = src.pages;
-      src.free();
+      srcResult = analyze(bytes);
+      sourcePageCount = srcResult.pages;
     } catch {
-      // Source unanalyzable — fall back to header+ratio checks only.
+      // Source unanalyzable — fall back to header + ratio checks.
+    } finally {
+      srcResult?.free();
     }
+    let outResult: ReturnType<typeof analyze> | null = null;
     try {
-      const out = analyze(data);
-      outputPageCount = out.pages;
-      out.free();
+      outResult = analyze(data);
+      outputPageCount = outResult.pages;
+      outputAnalyzed = true;
     } catch {
-      // Output unanalyzable — assertCompressedPdfIntegrity will catch it
-      // via header / ratio if the bytes are truly bad.
+      // Output unanalyzable — ratio + header branches still run; the
+      // page-drop branch is gated on outputAnalyzed to avoid false-
+      // positiving a healthy output whose structure trips the analyzer.
+    } finally {
+      outResult?.free();
     }
     assertCompressedPdfIntegrity({
       data,
@@ -119,6 +126,7 @@ export async function compressPdfFromBytes({
       compressedSize: summary.compressedSize,
       sourcePageCount,
       outputPageCount,
+      outputAnalyzed,
     });
   }
 

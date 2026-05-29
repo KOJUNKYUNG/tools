@@ -20,6 +20,7 @@ describe("assertCompressedPdfIntegrity", () => {
         compressedSize: 5_000,
         sourcePageCount: 10,
         outputPageCount: 10,
+        outputAnalyzed: true,
       }),
     ).not.toThrow();
   });
@@ -32,6 +33,7 @@ describe("assertCompressedPdfIntegrity", () => {
         compressedSize: 0,
         sourcePageCount: 5,
         outputPageCount: 0,
+        outputAnalyzed: false,
       }),
     ).toThrow(CORRUPT_OUTPUT_MARKER);
   });
@@ -45,11 +47,12 @@ describe("assertCompressedPdfIntegrity", () => {
         compressedSize: garbage.length,
         sourcePageCount: 5,
         outputPageCount: 5,
+        outputAnalyzed: true,
       }),
     ).toThrow(/missing %PDF header/);
   });
 
-  it("throws when the output has fewer pages than the source", () => {
+  it("throws when the output has fewer pages than the source (analyze succeeded)", () => {
     expect(() =>
       assertCompressedPdfIntegrity({
         data: pdfLike(500),
@@ -57,19 +60,37 @@ describe("assertCompressedPdfIntegrity", () => {
         compressedSize: 500_000,
         sourcePageCount: 10,
         outputPageCount: 3,
+        outputAnalyzed: true,
       }),
     ).toThrow(/page count dropped/);
   });
 
+  it("does NOT throw page-drop when output analyze threw (gated on outputAnalyzed)", () => {
+    // Healthy-but-unparseable-by-analyzer output should not false-positive
+    // the page-drop branch. Ratio is healthy (50%) so ratio branch also stays quiet.
+    expect(() =>
+      assertCompressedPdfIntegrity({
+        data: pdfLike(500),
+        originalSize: 1_000_000,
+        compressedSize: 500_000,
+        sourcePageCount: 10,
+        outputPageCount: 0,
+        outputAnalyzed: false,
+      }),
+    ).not.toThrow();
+  });
+
   it("throws on the documented 3.2MB → 24KB silent-corruption pattern", () => {
-    // The reported case: 0.78% ratio, multi-page source, near-empty output.
+    // The reported case: 0.78% ratio, multi-page source, output unanalyzable.
+    // Ratio branch catches it regardless of outputAnalyzed.
     expect(() =>
       assertCompressedPdfIntegrity({
         data: pdfLike(20_000),
         originalSize: 3_200_000,
         compressedSize: 24_600,
         sourcePageCount: 13,
-        outputPageCount: 0, // analyze() couldn't find any pages
+        outputPageCount: 0,
+        outputAnalyzed: false,
       }),
     ).toThrow(CORRUPT_OUTPUT_MARKER);
   });
@@ -83,6 +104,7 @@ describe("assertCompressedPdfIntegrity", () => {
         compressedSize: 14_000_000,
         sourcePageCount: 41,
         outputPageCount: 41,
+        outputAnalyzed: true,
       }),
     ).not.toThrow();
   });
@@ -96,6 +118,7 @@ describe("assertCompressedPdfIntegrity", () => {
         compressedSize: 500_000,
         sourcePageCount: 0,
         outputPageCount: 0,
+        outputAnalyzed: true,
       }),
     ).not.toThrow();
   });
@@ -110,6 +133,7 @@ describe("assertCompressedPdfIntegrity", () => {
         compressedSize: 20_000,
         sourcePageCount: 1,
         outputPageCount: 1,
+        outputAnalyzed: true,
       }),
     ).not.toThrow();
   });

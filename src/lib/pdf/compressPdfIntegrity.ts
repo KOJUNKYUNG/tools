@@ -19,6 +19,15 @@ export interface IntegrityCheckInput {
   sourcePageCount: number;
   /** Page count from running `analyze()` on the compressed output. */
   outputPageCount: number;
+  /**
+   * Whether `analyze()` on the compressed output actually completed. When
+   * false, the analyzer threw on the output bytes and `outputPageCount`
+   * is meaningless — skip the page-drop check to avoid false-positiving
+   * a healthy output whose structure happens to choke the analyzer. The
+   * ratio + page-collapse branch still fires because `outputPageCount=0`
+   * also satisfies the `<= 1` predicate.
+   */
+  outputAnalyzed: boolean;
 }
 
 /**
@@ -43,6 +52,7 @@ export function assertCompressedPdfIntegrity({
   compressedSize,
   sourcePageCount,
   outputPageCount,
+  outputAnalyzed,
 }: IntegrityCheckInput): void {
   if (compressedSize <= 4 || data.length <= 4) {
     throw new Error(`${CORRUPT_OUTPUT_MARKER}: empty output (${compressedSize} bytes)`);
@@ -57,7 +67,11 @@ export function assertCompressedPdfIntegrity({
     throw new Error(`${CORRUPT_OUTPUT_MARKER}: missing %PDF header`);
   }
 
-  if (sourcePageCount > 0 && outputPageCount < sourcePageCount) {
+  if (
+    outputAnalyzed &&
+    sourcePageCount > 0 &&
+    outputPageCount < sourcePageCount
+  ) {
     throw new Error(
       `${CORRUPT_OUTPUT_MARKER}: page count dropped (${sourcePageCount} → ${outputPageCount})`,
     );
