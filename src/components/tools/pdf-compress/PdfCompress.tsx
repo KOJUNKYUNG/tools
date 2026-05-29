@@ -69,7 +69,10 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
         deriveCompressedName(filesRef.current[0]?.name ?? ""),
         "application/pdf",
       ),
-    errorOptions: { memoryHint: labels.errorMemory },
+    errorOptions: {
+      memoryHint: labels.errorMemory,
+      corruptOutputHint: labels.errorCorrupt,
+    },
   });
 
   // Keep filesRef in sync so onDownload always sees the current file name.
@@ -197,7 +200,13 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       try {
         const ab = await file.arrayBuffer();
         const onePage = await extractPageOne(new Uint8Array(ab));
-        const liveResult = await compressPdfLivePreview({ bytes: onePage, preset });
+        // skipIntegrityCheck: live preview operates on a single extracted
+        // page, where the multi-page ratio guard would false-positive.
+        const liveResult = await compressPdfLivePreview({
+          bytes: onePage,
+          preset,
+          skipIntegrityCheck: true,
+        });
         if (token !== livePreviewTokenRef.current) return;
         const blob = await renderPdfFirstPage(liveResult.data.slice());
         if (token !== livePreviewTokenRef.current) return;

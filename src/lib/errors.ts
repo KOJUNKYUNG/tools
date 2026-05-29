@@ -11,6 +11,12 @@ const ERROR_MESSAGES: Record<ToolErrorCode, string> = {
 export interface GetErrorMessageOptions {
   fallbackMessage?: string;
   memoryHint?: string;
+  /**
+   * Override message for outputs flagged by the pdf-compress integrity
+   * guard (header check, page-count drop, suspicious ratio). Detected by
+   * the `CORRUPT_OUTPUT:` prefix on the thrown error message.
+   */
+  corruptOutputHint?: string;
 }
 
 export function getErrorMessage(
@@ -18,6 +24,14 @@ export function getErrorMessage(
   options: GetErrorMessageOptions = {},
 ): ToolError {
   const rawMessage = err instanceof Error ? err.message : "";
+
+  if (rawMessage.startsWith("CORRUPT_OUTPUT")) {
+    return {
+      code: ToolErrorCode.INVALID_FILE,
+      message:
+        options.corruptOutputHint ?? ERROR_MESSAGES[ToolErrorCode.INVALID_FILE],
+    };
+  }
 
   if (rawMessage.includes("memory") || rawMessage.includes("OOM")) {
     return {
