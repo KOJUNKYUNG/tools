@@ -253,7 +253,8 @@
         "savingsLabel": "절감률",
         "download": "다운로드",
         "again": "다시 압축",
-        "errorMemory": "브라우저 메모리가 부족합니다. 더 작은 PDF를 사용해 주세요."
+        "errorMemory": "브라우저 메모리가 부족합니다. 더 작은 PDF를 사용해 주세요.",
+        "errorCorrupt": "압축 결과가 손상되어 사용할 수 없습니다. 다른 압축 강도로 시도해 주세요."
       }
     },
     "pdf-pages": { "title": "페이지 관리", "description": "페이지 순서 변경, 회전, 삭제를 한 곳에서." },

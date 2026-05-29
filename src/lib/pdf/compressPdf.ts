@@ -1,3 +1,5 @@
+import { assertCompressedPdfIntegrity } from "./compressPdfIntegrity";
+
 export type CompressionPreset = "low" | "medium" | "high";
 
 export interface CompressPdfOptions {
@@ -38,16 +40,23 @@ export interface CompressPdfFromBytesOptions {
   bytes: Uint8Array;
   preset: CompressionPreset;
   onProgress?: (pct: number) => void;
+  /**
+   * Skip the post-compress page-count integrity check. The live preview
+   * path passes `true` because it operates on a single extracted page and
+   * the ratio guard would false-positive on perfectly valid output.
+   */
+  skipIntegrityCheck?: boolean;
 }
 
 export async function compressPdfFromBytes({
   bytes,
   preset,
   onProgress,
+  skipIntegrityCheck = false,
 }: CompressPdfFromBytesOptions): Promise<CompressPdfResult> {
   const mod = await import("@kihyun1998/justpdf-compress-wasm");
   const init = mod.default;
-  const { compress_advanced } = mod;
+  const { compress_advanced, analyze } = mod;
   await init();
   // Emit 30% only after the slow WASM init resolves — otherwise the bar
   // jumps to 30 instantly and stalls during init on first run.
@@ -70,19 +79,51 @@ export async function compressPdfFromBytes({
   );
   onProgress?.(90);
 
+  let data: Uint8Array;
+  let summary: CompressPdfResult;
   try {
-    const data = result.data();
-    const summary: CompressPdfResult = {
+    data = result.data();
+    summary = {
       data,
       originalSize: result.original_size,
       compressedSize: result.compressed_size,
       ratio: result.ratio,
     };
-    onProgress?.(100);
-    return summary;
   } finally {
     result.free();
   }
+
+  if (!skipIntegrityCheck) {
+    // Run analyze() on source + output and verify page count survived.
+    // Defense against upstream WASM silent corruption (3.2MB → 24KB pattern).
+    let sourcePageCount = 0;
+    let outputPageCount = 0;
+    try {
+      const src = analyze(bytes);
+      sourcePageCount = src.pages;
+      src.free();
+    } catch {
+      // Source unanalyzable — fall back to header+ratio checks only.
+    }
+    try {
+      const out = analyze(data);
+      outputPageCount = out.pages;
+      out.free();
+    } catch {
+      // Output unanalyzable — assertCompressedPdfIntegrity will catch it
+      // via header / ratio if the bytes are truly bad.
+    }
+    assertCompressedPdfIntegrity({
+      data,
+      originalSize: summary.originalSize,
+      compressedSize: summary.compressedSize,
+      sourcePageCount,
+      outputPageCount,
+    });
+  }
+
+  onProgress?.(100);
+  return summary;
 }
 
 // Live-preview path skips the redundant File→arrayBuffer roundtrip: callers

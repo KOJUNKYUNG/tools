@@ -253,7 +253,8 @@
         "savingsLabel": "Savings",
         "download": "Download",
         "again": "Compress again",
-        "errorMemory": "Browser ran out of memory. Try a smaller PDF."
+        "errorMemory": "Browser ran out of memory. Try a smaller PDF.",
+        "errorCorrupt": "The compressed file is unusable. Try a different compression level."
       }
     },
     "pdf-pages": { "title": "Manage PDF pages", "description": "Reorder, rotate, or delete pages in one place." },
