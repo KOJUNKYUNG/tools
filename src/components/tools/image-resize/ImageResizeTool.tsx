@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MaximizeIcon, RotateCcwIcon } from "lucide-react";
+import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
@@ -17,6 +18,7 @@ import {
 import { maxFitCrop } from "@/lib/image/maxFitCrop";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { stageFiles } from "@/lib/common/toolHandoff";
+import { normalizeImageFile } from "@/lib/image/heic";
 import type { CropRect } from "@/components/image/CropSelector";
 import type { ImageResizeLabels } from "./labels";
 import { ImageResizeControls } from "./ImageResizeControls";
@@ -28,6 +30,8 @@ const IMAGE_ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
   "image/png": [".png"],
   "image/webp": [".webp"],
+  "image/heic": [".heic"],
+  "image/heif": [".heif"],
 };
 
 /**
@@ -63,6 +67,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   const [origDims, setOrigDims] = useState<{ w: number; h: number } | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const imageUrlRef = useRef<string | null>(null);
+  const [normalizing, setNormalizing] = useState(false);
 
   const [targetW, setTargetW] = useState("");
   const [targetH, setTargetH] = useState("");
@@ -175,6 +180,25 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
       if (imageUrlRef.current) URL.revokeObjectURL(imageUrlRef.current);
     },
     [],
+  );
+
+  /** Normalize HEIC/HEIF → JPEG, then hand off to handleFilesChange. */
+  const handleUpload = useCallback(
+    async (newFiles: File[]) => {
+      if (newFiles.length === 0) return;
+      setNormalizing(true);
+      try {
+        const normalized = await normalizeImageFile(newFiles[0]);
+        handleFilesChange([normalized]);
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "HEIC 파일을 변환할 수 없습니다.";
+        toast.error(msg);
+      } finally {
+        setNormalizing(false);
+      }
+    },
+    [handleFilesChange],
   );
 
   const wNum = parseInt(targetW || "0", 10) || 0;
@@ -343,12 +367,12 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newFiles = e.target.files ? Array.from(e.target.files) : [];
       if (newFiles.length > 0) {
-        handleFilesChange(newFiles);
+        void handleUpload(newFiles);
       }
       // Allow re-selecting the same file in a row
       e.target.value = "";
     },
-    [handleFilesChange],
+    [handleUpload],
   );
 
   // In inline mode (Screen3 mount), the chrome/header/reset are suppressed —
@@ -359,17 +383,24 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
       <input
         ref={reuploadInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
         onChange={handleHiddenInputChange}
         className="hidden"
         aria-hidden="true"
         tabIndex={-1}
       />
+      {normalizing && (
+        <div className="flex items-center gap-2 text-sm text-[color:var(--ink)]">
+          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--accent-electric)] border-t-transparent" />
+          처리 중…
+        </div>
+      )}
+
       {!file && (
         <FileUpload
           accept={IMAGE_ACCEPT}
           multiple={false}
-          onFiles={handleFilesChange}
+          onFiles={(fs) => void handleUpload(fs)}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}

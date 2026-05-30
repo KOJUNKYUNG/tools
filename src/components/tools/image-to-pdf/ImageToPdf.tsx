@@ -30,6 +30,7 @@ import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { FILE_SIZE_LIMIT } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
+import { normalizeImageFiles } from "@/lib/image/heic";
 import {
   assembleSections,
   type ImageLayout,
@@ -44,8 +45,10 @@ import type { ImageToPdfLabels } from "./labels";
 const ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
   "image/png": [".png"],
+  "image/heic": [".heic"],
+  "image/heif": [".heif"],
 };
-const ACCEPT_ATTR = "image/png,image/jpeg";
+const ACCEPT_ATTR = "image/png,image/jpeg,image/heic,image/heif,.heic,.heif";
 
 const NEUTRAL_TINT = { ring: "transparent" } as const;
 
@@ -187,9 +190,22 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
 
   const ingest = useCallback(
     async (incoming: File[], mode: "replace" | "append") => {
+      // Normalize HEIC/HEIF → JPEG before any further processing.
+      setLoadingPages(true);
+      let normalized: File[];
+      try {
+        normalized = await normalizeImageFiles(incoming);
+      } catch (err) {
+        toast.error(
+          getErrorMessage(err, { fallbackMessage: "HEIC 파일을 변환할 수 없습니다." }).message,
+        );
+        setLoadingPages(false);
+        return;
+      }
+
       // Images only — drop anything that isn't an accepted image.
-      const images = incoming.filter((f) => f.type === "image/png" || f.type === "image/jpeg");
-      for (const f of incoming) {
+      const images = normalized.filter((f) => f.type === "image/png" || f.type === "image/jpeg");
+      for (const f of normalized) {
         if (!(f.type === "image/png" || f.type === "image/jpeg")) {
           toast.error(`${f.name}: 이미지(JPG/PNG)만 추가할 수 있습니다.`);
         }
@@ -202,9 +218,11 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
           );
         }
       }
-      if (accepted.length === 0) return;
+      if (accepted.length === 0) {
+        setLoadingPages(false);
+        return;
+      }
 
-      setLoadingPages(true);
       try {
         const built = await buildPageItems(accepted);
         if (built.items.length === 0) return;

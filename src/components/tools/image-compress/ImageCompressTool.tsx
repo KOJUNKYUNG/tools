@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ShrinkIcon, RotateCcwIcon } from "lucide-react";
+import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
@@ -11,6 +12,7 @@ import {
   type CompressResult,
   type OutputFormat,
 } from "@/lib/image/compressImage";
+import { normalizeImageFiles } from "@/lib/image/heic";
 import { computeSavings } from "@/lib/image/computeSavings";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
@@ -24,6 +26,8 @@ const IMAGE_ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
   "image/png": [".png"],
   "image/webp": [".webp"],
+  "image/heic": [".heic"],
+  "image/heif": [".heif"],
 };
 
 function formatLabel(format: OutputFormat): string {
@@ -46,6 +50,7 @@ export function ImageCompressTool({
   const [quality, setQuality] = useState(100);
   const [urls, setUrls] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [normalizing, setNormalizing] = useState(false);
   const [estimate, setEstimate] = useState<{ size: number; pct: number } | null>(
     null,
   );
@@ -100,10 +105,28 @@ export function ImageCompressTool({
     [retry, setFiles, setCompressedPreview],
   );
 
+  /** Normalize HEIC/HEIF → JPEG, then hand off to handleFilesChange. */
+  const handleUpload = useCallback(
+    async (newFiles: File[]) => {
+      setNormalizing(true);
+      try {
+        const normalized = await normalizeImageFiles(newFiles);
+        handleFilesChange(normalized);
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "HEIC 파일을 변환할 수 없습니다.";
+        toast.error(msg);
+      } finally {
+        setNormalizing(false);
+      }
+    },
+    [handleFilesChange],
+  );
+
   // Consume cross-tool handoff (e.g. files staged by image-resize). Once on mount.
   useEffect(() => {
     const staged = consumeStagedFiles();
-    if (staged && staged.files.length > 0) handleFilesChange(staged.files);
+    if (staged && staged.files.length > 0) void handleUpload(staged.files);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -203,10 +226,10 @@ export function ImageCompressTool({
         return;
       }
       const newFiles = e.target.files ? Array.from(e.target.files) : [];
-      if (newFiles.length > 0) handleFilesChange(newFiles);
+      if (newFiles.length > 0) void handleUpload(newFiles);
       e.target.value = "";
     },
-    [handleFilesChange, status],
+    [handleUpload, status],
   );
 
   const onReset = useCallback(() => {
@@ -224,7 +247,7 @@ export function ImageCompressTool({
       <input
         ref={reuploadInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
         multiple
         onChange={handleHiddenInputChange}
         className="hidden"
@@ -232,12 +255,19 @@ export function ImageCompressTool({
         tabIndex={-1}
       />
 
+      {normalizing && (
+        <div className="flex items-center gap-2 text-sm text-[color:var(--ink)]">
+          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--accent-electric)] border-t-transparent" />
+          처리 중…
+        </div>
+      )}
+
       {!hasFiles ? (
         <FileUpload
           accept={IMAGE_ACCEPT}
           multiple
           hideFileList
-          onFiles={handleFilesChange}
+          onFiles={(fs) => void handleUpload(fs)}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
