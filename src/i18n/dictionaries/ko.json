@@ -258,6 +258,38 @@
       }
     },
     "pdf-pages": { "title": "페이지 관리", "description": "페이지 순서 변경, 회전, 삭제를 한 곳에서." },
+    "image-to-pptx": {
+      "title": "이미지 → PPT",
+      "description": "이미지를 배경 위 원하는 위치·크기로 배치해 PPTX로 만듭니다.",
+      "page": {
+        "uploadPrompt": "이미지를 끌어다 놓거나 선택하세요",
+        "uploadHint": "JPG·PNG, 여러 장 가능",
+        "uploadMaxSize": "최대 {maxSize}",
+        "reupload": "다시 선택",
+        "convert": "PPTX 만들기 ({n}장)",
+        "filesOne": "{name}",
+        "filesMany": "{name} 외 {rest}장",
+        "addAria": "이미지 추가",
+        "deleteAria": "삭제",
+        "processing": "처리 중…",
+        "slideAspectLabel": "슬라이드 비율",
+        "aspect169": "16:9",
+        "aspect43": "4:3",
+        "bgLabel": "배경",
+        "bgImage": "이미지",
+        "bgColor": "단색",
+        "bgPick": "배경 이미지 선택",
+        "placeLabel": "위치·크기 (%)",
+        "posX": "X",
+        "posY": "Y",
+        "sizeW": "너비",
+        "sizeH": "높이",
+        "resultTitle": "PPTX 완성",
+        "slideCount": "슬라이드 {n}장",
+        "download": "다운로드",
+        "again": "다시 하기"
+      }
+    },
     "image-to-pdf": {
       "title": "이미지 → PDF",
       "description": "이미지 여러 장을 하나의 PDF로 묶습니다.",
