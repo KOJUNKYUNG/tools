@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import type { Box } from "@/lib/pptx/slidePlacement";
+import { clampBox, type Box } from "@/lib/pptx/slidePlacement";
 
 interface Props {
   box: Box;
@@ -20,15 +20,6 @@ interface Props {
   };
 }
 
-const MIN_IN = 0.1;
-function clampBox(b: Box, slideW: number, slideH: number): Box {
-  const w = Math.max(MIN_IN, Math.min(slideW, b.w));
-  const h = Math.max(MIN_IN, Math.min(slideH, b.h));
-  const x = Math.max(0, Math.min(b.x, slideW - w));
-  const y = Math.max(0, Math.min(b.y, slideH - h));
-  return { x, y, w, h };
-}
-
 type FieldKey = keyof Box;
 
 const FIELDS: { key: FieldKey; lab: "posX" | "posY" | "sizeW" | "sizeH" }[] = [
@@ -40,12 +31,15 @@ export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, l
   const [draft, setDraft] = useState<Record<FieldKey, string>>({ x: "", y: "", w: "", h: "" });
   const [editing, setEditing] = useState<FieldKey | null>(null);
 
+  // Guard against degenerate refSize (computeSlidePlacement returns {w:0,h:0} for degenerate inputs)
+  const validRef = refSize && refSize.w > 0 && refSize.h > 0 ? refSize : null;
+
   // Display values as percentages
   function toDisplay(key: FieldKey): number {
     if (key === "x") return Math.round((box.x / slideW) * 100);
     if (key === "y") return Math.round((box.y / slideH) * 100);
-    if (key === "w") return refSize ? Math.round((box.w / refSize.w) * 100) : Math.round((box.w / slideW) * 100);
-    /* h */ return refSize ? Math.round((box.h / refSize.h) * 100) : Math.round((box.h / slideH) * 100);
+    if (key === "w") return validRef ? Math.round((box.w / validRef.w) * 100) : Math.round((box.w / slideW) * 100);
+    /* h */ return validRef ? Math.round((box.h / validRef.h) * 100) : Math.round((box.h / slideH) * 100);
   }
 
   useEffect(() => {
@@ -64,8 +58,8 @@ export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, l
     let inches: number;
     if (key === "x") inches = (pct / 100) * slideW;
     else if (key === "y") inches = (pct / 100) * slideH;
-    else if (key === "w") inches = refSize ? (pct / 100) * refSize.w : (pct / 100) * slideW;
-    else /* h */ inches = refSize ? (pct / 100) * refSize.h : (pct / 100) * slideH;
+    else if (key === "w") inches = validRef ? (pct / 100) * validRef.w : (pct / 100) * slideW;
+    else /* h */ inches = validRef ? (pct / 100) * validRef.h : (pct / 100) * slideH;
     const updated = clampBox({ ...box, [key]: inches }, slideW, slideH);
     onBoxChange(updated);
     setEditing(null);

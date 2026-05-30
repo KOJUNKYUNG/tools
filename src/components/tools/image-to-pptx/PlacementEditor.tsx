@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useRef, useState, type PointerEvent as RPE, type CSSProperties } from "react";
-import type { Box, PlacementAlign } from "@/lib/pptx/slidePlacement";
+import { clampBox, type Box, type PlacementAlign } from "@/lib/pptx/slidePlacement";
 
 type Handle = "nw" | "ne" | "se" | "sw" | "n" | "e" | "s" | "w";
 
@@ -14,14 +14,6 @@ interface PlacementEditorProps {
   align: PlacementAlign;
 }
 
-const MIN_IN = 0.1;
-function clampBox(b: Box, slideW: number, slideH: number): Box {
-  const w = Math.max(MIN_IN, Math.min(slideW, b.w));
-  const h = Math.max(MIN_IN, Math.min(slideH, b.h));
-  const x = Math.max(0, Math.min(b.x, slideW - w));
-  const y = Math.max(0, Math.min(b.y, slideH - h));
-  return { x, y, w, h };
-}
 
 const HANDLE_POS: Record<Handle, CSSProperties> = {
   nw: { top: -6, left: -6 }, n: { top: -6, left: "calc(50% - 6px)" },

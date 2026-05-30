@@ -160,11 +160,11 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   } = useToolProcessor<ImageToPptxResultData>({
     processor: async (_files, onProgress) => {
       const live = items.filter((p) => !p.deleted);
-      if (live.length === 0) throw new Error("슬라이드로 만들 이미지가 없습니다.");
+      if (live.length === 0) throw new Error(labels.errNoImages);
       const orderedFiles = live
         .map((p) => fileById.get(p.sourceFileId))
         .filter((f): f is File => !!f);
-      if (orderedFiles.length === 0) throw new Error("슬라이드로 만들 이미지가 없습니다.");
+      if (orderedFiles.length === 0) throw new Error(labels.errNoImages);
       const background: BuildPptxInput["background"] =
         bg.kind === "color"
           ? { kind: "color", color: bg.color.replace("#", "") }
@@ -188,36 +188,42 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   // Cleanup thumbnail cache on unmount
   useEffect(() => () => clearThumbnailCache(), []);
 
-  // Manage object URLs for source images (for PlacementEditor refImageUrl)
-  // Keyed on sourceUrlById entries so we only recreate when files change
+  // Per-key object URL manager: only creates URLs for new ids, revokes removed ids.
+  const urlsRef = useRef<Map<string, string>>(new Map());
   useEffect(() => {
-    if (items.length === 0) return;
-    // Build new URL map for all current non-deleted items
-    const newUrlMap = new Map<string, string>();
-    for (const item of items) {
-      const file = fileById.get(item.sourceFileId);
-      if (file && !newUrlMap.has(item.sourceFileId)) {
-        newUrlMap.set(item.sourceFileId, URL.createObjectURL(file));
+    const live = urlsRef.current;
+    // add URLs for new ids
+    for (const [id, file] of fileById) {
+      if (!live.has(id)) live.set(id, URL.createObjectURL(file));
+    }
+    // revoke + drop URLs for removed ids
+    for (const id of [...live.keys()]) {
+      if (!fileById.has(id)) {
+        URL.revokeObjectURL(live.get(id)!);
+        live.delete(id);
       }
     }
-    setSourceUrlById(newUrlMap);
-    return () => {
-      for (const url of newUrlMap.values()) {
-        URL.revokeObjectURL(url);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setSourceUrlById(new Map(live));
   }, [fileById]);
+  // revoke all on unmount
+  useEffect(() => () => {
+    for (const url of urlsRef.current.values()) URL.revokeObjectURL(url);
+    urlsRef.current.clear();
+  }, []);
 
-  // Track and revoke previous background image URL when bg changes to a new image
+  // Track and revoke previous background image URL when bg changes
   useEffect(() => {
     if (bg.kind === "image") {
-      if (prevBgUrlRef.current && prevBgUrlRef.current !== bg.url) {
-        URL.revokeObjectURL(prevBgUrlRef.current);
-      }
+      if (prevBgUrlRef.current && prevBgUrlRef.current !== bg.url) URL.revokeObjectURL(prevBgUrlRef.current);
       prevBgUrlRef.current = bg.url;
+    } else {
+      if (prevBgUrlRef.current) { URL.revokeObjectURL(prevBgUrlRef.current); prevBgUrlRef.current = null; }
     }
   }, [bg]);
+  // revoke background URL on unmount
+  useEffect(() => () => {
+    if (prevBgUrlRef.current) { URL.revokeObjectURL(prevBgUrlRef.current); prevBgUrlRef.current = null; }
+  }, []);
 
   const liveItems = items.filter((p) => !p.deleted);
   const firstId = liveItems[0]?.sourceFileId ?? null;
@@ -286,15 +292,13 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
       );
       for (const f of incoming) {
         if (!(f.type === "image/png" || f.type === "image/jpeg")) {
-          toast.error(`${f.name}: 이미지(JPG/PNG)만 추가할 수 있습니다.`);
+          toast.error(template(labels.errNotImage, { name: f.name }));
         }
       }
       const accepted = images.filter((f) => f.size <= FILE_SIZE_LIMIT.guest);
       for (const f of images) {
         if (f.size > FILE_SIZE_LIMIT.guest) {
-          toast.error(
-            `${f.name}: 파일 크기가 ${formatBytes(FILE_SIZE_LIMIT.guest)}를 초과합니다.`,
-          );
+          toast.error(template(labels.errTooLarge, { name: f.name, size: formatBytes(FILE_SIZE_LIMIT.guest) }));
         }
       }
       if (accepted.length === 0) return;
@@ -329,13 +333,13 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         }
       } catch (err) {
         toast.error(
-          getErrorMessage(err, { fallbackMessage: "파일을 읽을 수 없습니다." }).message,
+          getErrorMessage(err, { fallbackMessage: labels.errReadFailed }).message,
         );
       } finally {
         setLoadingPages(false);
       }
     },
-    [files, setFiles],
+    [labels, setFiles],
   );
 
   // Consume staged files on mount (StrictMode-safe via consumedRef)
