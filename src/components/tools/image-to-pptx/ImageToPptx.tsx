@@ -31,10 +31,11 @@ import { FILE_SIZE_LIMIT } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { type PageItem } from "@/lib/pdf/pageItem";
 import { buildPptx, type BuildPptxInput } from "@/lib/pptx/assemblePptx";
-import { type Box, computeSlidePlacement } from "@/lib/pptx/slidePlacement";
+import { type Box, computeSlidePlacement, type PlacementAlign } from "@/lib/pptx/slidePlacement";
 import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
+import { AlignSelector } from "./AlignSelector";
 import { BackgroundPicker, type BgChoice } from "./BackgroundPicker";
 import { PlacementControls } from "./PlacementControls";
 import { PlacementEditor } from "./PlacementEditor";
@@ -134,6 +135,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   const [box, setBox] = useState<Box>({ x: 1.33, y: 0.75, w: 10.67, h: 6 });
   const [slideKind, setSlideKind] = useState<SlideKind>("16:9");
   const [bg, setBg] = useState<BgChoice>({ kind: "color", color: "#FFFFFF" });
+  const [align, setAlign] = useState<PlacementAlign>("top-left");
 
   // Natural pixel dimensions of the first (reference) image
   const [refNatural, setRefNatural] = useState<{ w: number; h: number } | null>(null);
@@ -166,7 +168,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           ? { kind: "color", color: bg.color.replace("#", "") }
           : { kind: "image", file: bg.file };
       const bytes = await buildPptx(
-        { files: orderedFiles, box, slideKind, background },
+        { files: orderedFiles, box, slideKind, background, align },
         onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pptx`;
@@ -510,6 +512,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           }}
         >
           <SlideAspectSelector value={slideKind} onChange={setSlideKind} labels={labels} />
+          <AlignSelector value={align} onChange={setAlign} labels={labels} />
           <BackgroundPicker value={bg} onChange={setBg} labels={labels} />
           <PlacementEditor
             box={box}
@@ -522,6 +525,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
                 : { kind: "image", url: bg.url }
             }
             refImageUrl={refImageUrl}
+            align={align}
           />
           <PlacementControls
             box={box}

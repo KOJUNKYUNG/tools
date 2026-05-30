@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useRef, useState, type PointerEvent as RPE, type CSSProperties } from "react";
-import type { Box } from "@/lib/pptx/slidePlacement";
+import type { Box, PlacementAlign } from "@/lib/pptx/slidePlacement";
 
 type Handle = "nw" | "ne" | "se" | "sw" | "n" | "e" | "s" | "w";
 
@@ -11,6 +11,7 @@ interface PlacementEditorProps {
   slideH: number; // inches
   background: { kind: "color"; color: string } | { kind: "image"; url: string };
   refImageUrl: string | null;
+  align: PlacementAlign;
 }
 
 const MIN_IN = 0.1;
@@ -96,7 +97,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
       >
         {props.refImageUrl && (
           <img src={props.refImageUrl} alt="" draggable={false}
-            className="pointer-events-none absolute left-0 top-0 h-full w-full object-contain object-left-top" />
+            className={`pointer-events-none absolute left-0 top-0 h-full w-full object-contain ${props.align === "center" ? "object-center" : "object-left-top"}`} />
         )}
         {(["nw","n","ne","e","se","s","sw","w"] as Handle[]).map((h) => (
           <div key={h} role="button" aria-label={`resize ${h}`}

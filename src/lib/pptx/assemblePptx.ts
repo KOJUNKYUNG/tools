@@ -1,6 +1,6 @@
 import PptxGenJS from "pptxgenjs";
 import { SLIDE_SIZES, type SlideKind } from "./slideSize";
-import { computeSlidePlacement, type Box } from "./slidePlacement";
+import { computeSlidePlacement, type Box, type PlacementAlign } from "./slidePlacement";
 import { downscaleForSlide, SLIDE_IMAGE_MAX_LONG_EDGE } from "./downscaleForSlide";
 
 export type Background =
@@ -30,6 +30,7 @@ export interface BuildPptxInput {
   box: Box; // inches on the slide
   slideKind: SlideKind;
   background: { kind: "color"; color: string } | { kind: "image"; file: File };
+  align: PlacementAlign;
 }
 /** High-level: downscale each file, compute placement, assemble. */
 export async function buildPptx(input: BuildPptxInput, onProgress?: (pct: number) => void): Promise<Uint8Array> {
@@ -44,7 +45,7 @@ export async function buildPptx(input: BuildPptxInput, onProgress?: (pct: number
   const total = input.files.length;
   for (let i = 0; i < total; i++) {
     const d = await downscaleForSlide(input.files[i], SLIDE_IMAGE_MAX_LONG_EDGE);
-    placed.push({ dataUrl: d.dataUrl, placement: computeSlidePlacement(boxInches, d.w, d.h) });
+    placed.push({ dataUrl: d.dataUrl, placement: computeSlidePlacement(boxInches, d.w, d.h, input.align) });
     onProgress?.(Math.round(((i + 1) / total) * 90));
   }
   const bytes = await assemblePptxFromPlaced(placed, { slideKind: input.slideKind, background });

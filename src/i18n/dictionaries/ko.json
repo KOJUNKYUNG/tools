@@ -291,7 +291,10 @@
         "resultTitle": "PPTX 완성",
         "slideCount": "슬라이드 {n}장",
         "download": "다운로드",
-        "again": "다시 하기"
+        "again": "다시 하기",
+        "alignLabel": "이미지 정렬",
+        "alignTopLeft": "왼쪽 위",
+        "alignCenter": "가운데"
       }
     },
     "image-to-pdf": {

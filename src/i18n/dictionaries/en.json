@@ -291,7 +291,10 @@
         "resultTitle": "PPTX ready",
         "slideCount": "{n} slides",
         "download": "Download",
-        "again": "Start over"
+        "again": "Start over",
+        "alignLabel": "Image align",
+        "alignTopLeft": "Top-left",
+        "alignCenter": "Center"
       }
     },
     "image-to-pdf": {
