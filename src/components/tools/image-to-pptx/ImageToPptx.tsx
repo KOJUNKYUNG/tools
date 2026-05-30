@@ -309,6 +309,9 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
         if (mode === "replace") {
           clearThumbnailCache();
+          // Force placement re-init for the new upload (even if the same file
+          // yields the same sourceFileId) → box recenters at 100% W/H.
+          initedForRef.current = null;
           setItems(built.items);
           setSourceBytesById(built.sourceBytesById);
           setFileById(newFileById);
