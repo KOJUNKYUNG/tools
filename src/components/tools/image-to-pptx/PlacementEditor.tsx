@@ -85,13 +85,17 @@ export function PlacementEditor(props: PlacementEditorProps) {
       onPointerUp={onUp}
     >
       <div
-        className="absolute cursor-move border-2"
+        className="absolute cursor-move"
         style={{
           left: `${(props.box.x / slideW) * 100}%`,
           top: `${(props.box.y / slideH) * 100}%`,
           width: `${(props.box.w / slideW) * 100}%`,
           height: `${(props.box.h / slideH) * 100}%`,
-          borderColor: "var(--accent-electric)",
+          // Outline (not border) so the box's content area stays exactly box.w×box.h;
+          // a border would shrink the inner image area and make object-contain
+          // letterbox even at 100% (preview-only artifact).
+          outline: "2px solid var(--accent-electric)",
+          outlineOffset: "-1px",
         }}
         onPointerDown={onMoveDown}
       >

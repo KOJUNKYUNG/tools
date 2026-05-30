@@ -137,8 +137,10 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   const [bg, setBg] = useState<BgChoice>({ kind: "color", color: "#FFFFFF" });
   const [align, setAlign] = useState<PlacementAlign>("top-left");
 
-  // Natural pixel dimensions of the first (reference) image
-  const [refNatural, setRefNatural] = useState<{ w: number; h: number } | null>(null);
+  // Natural pixel dimensions of the first (reference) image, tagged with the
+  // sourceFileId it was measured for so async loads can't be applied to the
+  // wrong image (reupload race).
+  const [refNatural, setRefNatural] = useState<{ id: string; w: number; h: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
@@ -218,49 +220,52 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   }, [bg]);
 
   const liveItems = items.filter((p) => !p.deleted);
+  const firstId = liveItems[0]?.sourceFileId ?? null;
 
   // The first live item's source URL for use in PlacementEditor preview
-  const refImageUrl = liveItems[0]
-    ? (sourceUrlById.get(liveItems[0].sourceFileId) ?? null)
-    : null;
+  const refImageUrl = firstId ? (sourceUrlById.get(firstId) ?? null) : null;
 
-  // Load natural dimensions of the reference (first) image
+  // Load natural dimensions of the reference (first) image, tagged with its id.
   useEffect(() => {
-    if (!refImageUrl) {
+    if (!refImageUrl || !firstId) {
       setRefNatural(null);
       return;
     }
     let cancelled = false;
     const img = new Image();
     img.onload = () => {
-      if (!cancelled) setRefNatural({ w: img.naturalWidth, h: img.naturalHeight });
+      if (!cancelled) setRefNatural({ id: firstId, w: img.naturalWidth, h: img.naturalHeight });
     };
     img.onerror = () => {
       if (!cancelled) setRefNatural(null);
     };
     img.src = refImageUrl;
     return () => { cancelled = true; };
-  }, [refImageUrl]);
+  }, [refImageUrl, firstId]);
 
-  // Derive slide dims and reference placement in inches
+  // Derive slide dims and reference placement in inches. Only trust refNatural
+  // when it matches the current first image (else it's a stale async load).
   const slide = SLIDE_SIZES[slideKind];
-  const ref = refNatural
-    ? computeSlidePlacement({ x: 0, y: 0, w: slide.w, h: slide.h }, refNatural.w, refNatural.h)
-    : null;
+  const ref =
+    refNatural && firstId && refNatural.id === firstId
+      ? computeSlidePlacement({ x: 0, y: 0, w: slide.w, h: slide.h }, refNatural.w, refNatural.h)
+      : null;
 
-  // Auto-init box once per reference-image identity (NOT on slide toggle)
+  // Auto-init box once per reference-image identity (NOT on slide toggle). `ref`
+  // is null until the correct image's natural size has loaded, so this never
+  // fires with stale dimensions on reupload.
   useEffect(() => {
-    if (!ref || !liveItems[0]) return;
-    if (initedForRef.current === liveItems[0].sourceFileId) return;
+    if (!ref || !firstId) return;
+    if (initedForRef.current === firstId) return;
     setBox({
       x: (slide.w - ref.w) / 2,
       y: (slide.h - ref.h) / 2,
       w: ref.w,
       h: ref.h,
     });
-    initedForRef.current = liveItems[0].sourceFileId;
+    initedForRef.current = firstId;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref, slideKind, liveItems[0]?.sourceFileId]);
+  }, [ref, firstId, slide.w, slide.h]);
 
   // Clamp box into new slide bounds when slide ratio toggles (image-invariant)
   useEffect(() => {
