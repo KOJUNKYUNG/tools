@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useEffect, useState } from "react";
-import { RotateCwIcon, Trash2Icon } from "lucide-react";
+import { CopyPlusIcon, RotateCwIcon, Trash2Icon } from "lucide-react";
 import type { PageItem } from "@/lib/pdf/pageItem";
 import { useLazyThumbnail } from "./useLazyThumbnail";
 
@@ -20,10 +20,12 @@ interface PageItemCardProps {
   pageNumber: number;
   bytes: Uint8Array | undefined;
   tint: SectionTint;
-  onRotate: (id: string) => void;
+  onRotate?: (id: string) => void;
   onDelete: (id: string) => void;
-  rotateAria: string;
+  rotateAria?: string;
   deleteAria: string;
+  onDuplicate?: (id: string) => void;
+  duplicateAria?: string;
   /** dnd-kit drag handle props (listeners + attributes) applied to the sheet. */
   dragHandleProps?: Record<string, unknown>;
   /**
@@ -54,6 +56,8 @@ function PageItemCardImpl({
   onDelete,
   rotateAria,
   deleteAria,
+  onDuplicate,
+  duplicateAria,
   dragHandleProps,
   frameBg = "#fff",
   pageAspect = null,
@@ -199,17 +203,32 @@ function PageItemCardImpl({
       </span>
 
       <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <button
-          type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => onRotate(item.id)}
-          aria-label={rotateAria}
-          title={rotateAria}
-          className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
-          style={{ borderColor: "var(--silver-200)", color: "var(--silver-700)" }}
-        >
-          <RotateCwIcon className="size-3.5" />
-        </button>
+        {onRotate && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => onRotate(item.id)}
+            aria-label={rotateAria}
+            title={rotateAria}
+            className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
+            style={{ borderColor: "var(--silver-200)", color: "var(--silver-700)" }}
+          >
+            <RotateCwIcon className="size-3.5" />
+          </button>
+        )}
+        {onDuplicate && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => onDuplicate(item.id)}
+            aria-label={duplicateAria}
+            title={duplicateAria}
+            className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
+            style={{ borderColor: "var(--silver-200)", color: "var(--silver-700)" }}
+          >
+            <CopyPlusIcon className="size-3.5" />
+          </button>
+        )}
         <button
           type="button"
           onPointerDown={(e) => e.stopPropagation()}
