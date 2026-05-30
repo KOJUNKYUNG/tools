@@ -77,13 +77,13 @@ export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, l
       <div className="grid grid-cols-2 gap-2">
         {FIELDS.map((f) => (
           <label key={f.key} className="flex items-center gap-1.5 text-[12px]">
-            <span style={{ color: "var(--ink-soft)" }} className="w-10">{labels[f.lab]}</span>
+            <span style={{ color: "var(--ink-soft)" }} className="w-9 shrink-0">{labels[f.lab]}</span>
             <input type="number" min={0} max={100} value={draft[f.key]}
               onFocus={() => setEditing(f.key)}
               onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
               onBlur={(e) => commit(f.key, e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") commit(f.key, (e.target as HTMLInputElement).value); }}
-              className="nameplate h-8 w-full rounded-[9px] px-2 text-right" />
+              className="nameplate h-8 w-full min-w-0 rounded-[9px] px-1.5 text-right text-[12px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
           </label>
         ))}
       </div>
