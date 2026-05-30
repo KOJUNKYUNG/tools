@@ -188,7 +188,8 @@
         "previewUnavailable": "No preview",
         "imagesLabel": "Images",
         "noImagesHint": "No images",
-        "errorNoImages": "No images found in this presentation."
+        "errorNoImages": "No images found in this presentation.",
+        "toPptx": "Send to Images → PPT"
       }
     },
     "pdf-arrange": {
@@ -258,6 +259,48 @@
       }
     },
     "pdf-pages": { "title": "Manage PDF pages", "description": "Reorder, rotate, or delete pages in one place." },
+    "image-to-pptx": {
+      "title": "Images → PPT",
+      "description": "Place images on a background at a set position and size, export PPTX.",
+      "page": {
+        "uploadPrompt": "Drag images here or browse",
+        "uploadHint": "JPG/PNG, multiple allowed",
+        "uploadMaxSize": "Max {maxSize}",
+        "reupload": "Choose again",
+        "convert": "Make PPTX ({n})",
+        "filesOne": "{name}",
+        "filesMany": "{name} +{rest} more",
+        "addAria": "Add image",
+        "deleteAria": "Delete",
+        "duplicateAria": "Duplicate",
+        "centerH": "Center H",
+        "centerV": "Center V",
+        "processing": "Processing…",
+        "slideAspectLabel": "Slide ratio",
+        "aspect169": "16:9",
+        "aspect43": "4:3",
+        "bgLabel": "Background",
+        "bgImage": "Image",
+        "bgColor": "Solid",
+        "bgPick": "Choose background image",
+        "placeLabel": "Position & size (%)",
+        "posX": "X",
+        "posY": "Y",
+        "sizeW": "Width",
+        "sizeH": "Height",
+        "resultTitle": "PPTX ready",
+        "slideCount": "{n} slides",
+        "download": "Download",
+        "again": "Start over",
+        "alignLabel": "Image align",
+        "alignTopLeft": "Top-left",
+        "alignCenter": "Center",
+        "errNotImage": "{name}: only images (JPG/PNG) can be added.",
+        "errTooLarge": "{name}: exceeds the {size} size limit.",
+        "errReadFailed": "Could not read the file.",
+        "errNoImages": "No images to turn into slides."
+      }
+    },
     "image-to-pdf": {
       "title": "Image → PDF",
       "description": "Package images into a single PDF.",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ImageDownIcon, RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
@@ -8,6 +9,7 @@ import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
+import { stageFiles } from "@/lib/common/toolHandoff";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { buildExtractZip } from "@/lib/ppt/buildExtractZip";
 import type { PresentationAnalysis } from "@/lib/ppt/analyzePresentation";
@@ -28,6 +30,7 @@ const PPTX_ACCEPT = {
 
 interface PptExtractProps {
   labels: PptExtractLabels;
+  lang?: string;
   inline?: boolean;
 }
 
@@ -35,7 +38,8 @@ function baseName(name: string): string {
   return name.replace(/\.pptx?$/i, "") || "ppt";
 }
 
-export function PptExtract({ labels, inline = false }: PptExtractProps) {
+export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractProps) {
+  const router = useRouter();
   const reuploadInputRef = useRef<HTMLInputElement | null>(null);
   const filesRef = useRef<File[]>([]);
   // Pulled up from PptExtractPreview so the right-column extract button can
@@ -133,6 +137,15 @@ export function PptExtract({ labels, inline = false }: PptExtractProps) {
     downloadBlobObject(blob, image.name);
   }, []);
 
+  const handleToPptx = useCallback(() => {
+    if (!result) return;
+    const files = result
+      .filter((img) => img.data.length > 0)
+      .map((img) => new File([new Uint8Array(img.data)], img.name, { type: img.mime }));
+    stageFiles(files, "ppt-extract");
+    router.push(`/${lang}/tools/image-to-pptx`);
+  }, [result, router, lang]);
+
   // Localise the NO_IMAGES sentinel from the extractors.
   const displayError =
     errorMessage === "NO_IMAGES" ? labels.errorNoImages : errorMessage;
@@ -166,6 +179,7 @@ export function PptExtract({ labels, inline = false }: PptExtractProps) {
           onDownloadAll={handleDownloadAll}
           onDownloadOne={handleDownloadOne}
           onAgain={onReset}
+          onToPptx={handleToPptx}
         />
       ) : (
         <div

@@ -9,6 +9,7 @@ import {
   FileImage,
   Shrink,
   Expand,
+  Presentation,
   type LucideIcon,
 } from "lucide-react";
 
@@ -121,6 +122,16 @@ export const TOOLS: ToolInfo[] = [
     href: "/tools/image-to-pdf",
     icon: ImagePlus,
     category: "pdf",
+  },
+  {
+    slug: "image-to-pptx",
+    title: "이미지 → PPT",
+    description: "이미지를 배경 위 원하는 위치·크기로 배치해 PPTX로 만듭니다.",
+    i18nKey: "tools.image-to-pptx",
+    href: "/tools/image-to-pptx",
+    icon: Presentation,
+    category: "ppt",
+    keywords: ["pptx", "slides", "ppt", "image to ppt", "이미지", "슬라이드", "악보"],
   },
   {
     slug: "pdf-to-image",
