@@ -23,7 +23,7 @@ export default async function PptExtractPage({ params }: PageProps) {
         width: "min(var(--tweak-workspace-width, 980px), calc(100vw - 32px))",
       }}
     >
-      <PptExtract labels={labels} />
+      <PptExtract labels={labels} lang={lang} />
     </div>
   );
 }

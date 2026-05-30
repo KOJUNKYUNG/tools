@@ -188,7 +188,8 @@
         "previewUnavailable": "No preview",
         "imagesLabel": "Images",
         "noImagesHint": "No images",
-        "errorNoImages": "No images found in this presentation."
+        "errorNoImages": "No images found in this presentation.",
+        "toPptx": "Send to Images → PPT"
       }
     },
     "pdf-arrange": {

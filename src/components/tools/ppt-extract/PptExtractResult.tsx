@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { DownloadIcon, RotateCcwIcon } from "lucide-react";
+import { ArrowRightIcon, DownloadIcon, RotateCcwIcon } from "lucide-react";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import type { ExtractedImage } from "@/lib/ppt/extractImages";
@@ -19,6 +19,7 @@ interface PptExtractResultProps {
   onDownloadAll: () => void;
   onDownloadOne: (image: ExtractedImage) => void;
   onAgain: () => void;
+  onToPptx: () => void;
 }
 
 export function PptExtractResult({
@@ -27,6 +28,7 @@ export function PptExtractResult({
   onDownloadAll,
   onDownloadOne,
   onAgain,
+  onToPptx,
 }: PptExtractResultProps) {
   // StrictMode-safe object URL batch — re-keyed on `images`.
   const [urls, setUrls] = useState<(string | null)[]>([]);
@@ -113,6 +115,16 @@ export function PptExtractResult({
             <DownloadIcon className="size-3.5" />
             {labels.downloadZip}
           </button>
+          {images.length > 0 && (
+            <button
+              type="button"
+              onClick={onToPptx}
+              className="handoff-action inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] border px-3 font-display text-[12px]"
+            >
+              {labels.toPptx}
+              <ArrowRightIcon className="size-3.5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={onAgain}
