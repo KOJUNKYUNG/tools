@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   DndContext,
   KeyboardSensor,
@@ -30,9 +29,9 @@ import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { FILE_SIZE_LIMIT } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
-import { type PageItem, type Rotation } from "@/lib/pdf/pageItem";
+import { type PageItem } from "@/lib/pdf/pageItem";
 import { buildPptx, type BuildPptxInput } from "@/lib/pptx/assemblePptx";
-import { type Box } from "@/lib/pptx/slidePlacement";
+import { type Box, computeSlidePlacement } from "@/lib/pptx/slidePlacement";
 import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
@@ -61,20 +60,22 @@ interface SortableCellProps {
   item: PageItem;
   pageNumber: number;
   bytes: Uint8Array | undefined;
-  onRotate: (id: string) => void;
+  onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
-  rotateAria: string;
+  duplicateAria: string;
   deleteAria: string;
+  pageAspect: number;
 }
 
 function SortableCell({
   item,
   pageNumber,
   bytes,
-  onRotate,
+  onDuplicate,
   onDelete,
-  rotateAria,
+  duplicateAria,
   deleteAria,
+  pageAspect,
 }: SortableCellProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
@@ -95,12 +96,12 @@ function SortableCell({
         pageNumber={pageNumber}
         bytes={bytes}
         tint={NEUTRAL_TINT}
-        onRotate={onRotate}
+        onDuplicate={onDuplicate}
         onDelete={onDelete}
-        rotateAria={rotateAria}
+        duplicateAria={duplicateAria}
         deleteAria={deleteAria}
         frameBg="var(--silver-100)"
-        pageAspect={null}
+        pageAspect={pageAspect}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
       <div className="w-[18px] shrink-0" aria-hidden="true" />
@@ -118,8 +119,6 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   // lang is passed through to result but not used directly here
   void lang;
 
-  const router = useRouter();
-
   const [items, setItems] = useState<PageItem[]>([]);
   const [sourceBytesById, setSourceBytesById] = useState<Map<string, Uint8Array>>(
     new Map(),
@@ -131,12 +130,18 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   const prevBgUrlRef = useRef<string | null>(null);
 
   const [loadingPages, setLoadingPages] = useState(false);
-  const [box, setBox] = useState<Box>({ x: 0.1, y: 0.1, w: 0.8, h: 0.8 });
+  // Box in INCHES on the slide
+  const [box, setBox] = useState<Box>({ x: 1.33, y: 0.75, w: 10.67, h: 6 });
   const [slideKind, setSlideKind] = useState<SlideKind>("16:9");
   const [bg, setBg] = useState<BgChoice>({ kind: "color", color: "#FFFFFF" });
 
+  // Natural pixel dimensions of the first (reference) image
+  const [refNatural, setRefNatural] = useState<{ w: number; h: number } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
+  // Track which sourceFileId the box was last auto-initialised for
+  const initedForRef = useRef<string | null>(null);
 
   const {
     files,
@@ -161,7 +166,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           ? { kind: "color", color: bg.color.replace("#", "") }
           : { kind: "image", file: bg.file };
       const bytes = await buildPptx(
-        { files: orderedFiles, boxFrac: box, slideKind, background },
+        { files: orderedFiles, box, slideKind, background },
         onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pptx`;
@@ -209,6 +214,63 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
       prevBgUrlRef.current = bg.url;
     }
   }, [bg]);
+
+  const liveItems = items.filter((p) => !p.deleted);
+
+  // The first live item's source URL for use in PlacementEditor preview
+  const refImageUrl = liveItems[0]
+    ? (sourceUrlById.get(liveItems[0].sourceFileId) ?? null)
+    : null;
+
+  // Load natural dimensions of the reference (first) image
+  useEffect(() => {
+    if (!refImageUrl) {
+      setRefNatural(null);
+      return;
+    }
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled) setRefNatural({ w: img.naturalWidth, h: img.naturalHeight });
+    };
+    img.onerror = () => {
+      if (!cancelled) setRefNatural(null);
+    };
+    img.src = refImageUrl;
+    return () => { cancelled = true; };
+  }, [refImageUrl]);
+
+  // Derive slide dims and reference placement in inches
+  const slide = SLIDE_SIZES[slideKind];
+  const ref = refNatural
+    ? computeSlidePlacement({ x: 0, y: 0, w: slide.w, h: slide.h }, refNatural.w, refNatural.h)
+    : null;
+
+  // Auto-init box once per reference-image identity (NOT on slide toggle)
+  useEffect(() => {
+    if (!ref || !liveItems[0]) return;
+    if (initedForRef.current === liveItems[0].sourceFileId) return;
+    setBox({
+      x: (slide.w - ref.w) / 2,
+      y: (slide.h - ref.h) / 2,
+      w: ref.w,
+      h: ref.h,
+    });
+    initedForRef.current = liveItems[0].sourceFileId;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ref, slideKind, liveItems[0]?.sourceFileId]);
+
+  // Clamp box into new slide bounds when slide ratio toggles (image-invariant)
+  useEffect(() => {
+    setBox((prev) => {
+      const w = Math.max(0.1, Math.min(slide.w, prev.w));
+      const h = Math.max(0.1, Math.min(slide.h, prev.h));
+      const x = Math.max(0, Math.min(prev.x, slide.w - w));
+      const y = Math.max(0, Math.min(prev.y, slide.h - h));
+      return { x, y, w, h };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slideKind]);
 
   const ingest = useCallback(
     async (incoming: File[], mode: "replace" | "append") => {
@@ -291,6 +353,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     setSourceBytesById(new Map());
     setFileById(new Map());
     setFiles([]);
+    initedForRef.current = null;
   }, [retry, setFiles]);
 
   const handleReuploadPick = useCallback(() => {
@@ -313,12 +376,19 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     [ingest],
   );
 
-  const handleRotate = useCallback((id: string) => {
-    setItems((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, rotation: (((p.rotation + 90) % 360) as Rotation) } : p,
-      ),
-    );
+  const handleDuplicate = useCallback((id: string) => {
+    setItems((prev) => {
+      const idx = prev.findIndex((p) => p.id === id);
+      if (idx === -1) return prev;
+      const orig = prev[idx];
+      const copy = {
+        ...orig,
+        id: `${orig.id}__dup_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      };
+      const next = [...prev];
+      next.splice(idx + 1, 0, copy);
+      return next;
+    });
   }, []);
 
   const handleDelete = useCallback((id: string) => {
@@ -356,12 +426,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         });
   }, [files, labels.filesOneTemplate, labels.filesManyTemplate]);
 
-  const liveItems = items.filter((p) => !p.deleted);
-
-  // The first live item's source URL for use in PlacementEditor preview
-  const refImageUrl = liveItems[0]
-    ? (sourceUrlById.get(liveItems[0].sourceFileId) ?? null)
-    : null;
+  const slideAspect = slide.w / slide.h;
 
   const editor = (
     <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
@@ -407,10 +472,11 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
                     item={item}
                     pageNumber={i + 1}
                     bytes={sourceBytesById.get(item.sourceFileId)}
-                    onRotate={handleRotate}
+                    onDuplicate={handleDuplicate}
                     onDelete={handleDelete}
-                    rotateAria={labels.deleteAria}
+                    duplicateAria={labels.duplicateAria}
                     deleteAria={labels.deleteAria}
+                    pageAspect={slideAspect}
                   />
                 ))}
                 <div className="flex items-stretch">
@@ -448,7 +514,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           <PlacementEditor
             box={box}
             onBoxChange={setBox}
-            slideAspect={SLIDE_SIZES[slideKind].w / SLIDE_SIZES[slideKind].h}
+            slideW={slide.w}
+            slideH={slide.h}
             background={
               bg.kind === "color"
                 ? { kind: "color", color: bg.color }
@@ -456,7 +523,14 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
             }
             refImageUrl={refImageUrl}
           />
-          <PlacementControls box={box} onBoxChange={setBox} labels={labels} />
+          <PlacementControls
+            box={box}
+            onBoxChange={setBox}
+            slideW={slide.w}
+            slideH={slide.h}
+            refSize={ref}
+            labels={labels}
+          />
         </div>
       </div>
     </div>

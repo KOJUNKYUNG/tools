@@ -27,17 +27,13 @@ export async function assemblePptxFromPlaced(images: PlacedImage[], opts: Assemb
 
 export interface BuildPptxInput {
   files: File[];
-  boxFrac: Box; // fractions of slide (0..1)
+  box: Box; // inches on the slide
   slideKind: SlideKind;
   background: { kind: "color"; color: string } | { kind: "image"; file: File };
 }
 /** High-level: downscale each file, compute placement, assemble. */
 export async function buildPptx(input: BuildPptxInput, onProgress?: (pct: number) => void): Promise<Uint8Array> {
-  const size = SLIDE_SIZES[input.slideKind];
-  const boxInches: Box = {
-    x: input.boxFrac.x * size.w, y: input.boxFrac.y * size.h,
-    w: input.boxFrac.w * size.w, h: input.boxFrac.h * size.h,
-  };
+  const boxInches: Box = input.box;
   let background: Background;
   if (input.background.kind === "color") background = { kind: "color", color: input.background.color };
   else {

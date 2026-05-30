@@ -7,16 +7,18 @@ type Handle = "nw" | "ne" | "se" | "sw" | "n" | "e" | "s" | "w";
 interface PlacementEditorProps {
   box: Box;
   onBoxChange: (box: Box) => void;
-  slideAspect: number; // w/h
+  slideW: number; // inches
+  slideH: number; // inches
   background: { kind: "color"; color: string } | { kind: "image"; url: string };
   refImageUrl: string | null;
 }
 
-function clamp01Box(b: Box): Box {
-  const w = Math.max(0.02, Math.min(1, b.w));
-  const h = Math.max(0.02, Math.min(1, b.h));
-  const x = Math.max(0, Math.min(b.x, 1 - w));
-  const y = Math.max(0, Math.min(b.y, 1 - h));
+const MIN_IN = 0.1;
+function clampBox(b: Box, slideW: number, slideH: number): Box {
+  const w = Math.max(MIN_IN, Math.min(slideW, b.w));
+  const h = Math.max(MIN_IN, Math.min(slideH, b.h));
+  const x = Math.max(0, Math.min(b.x, slideW - w));
+  const y = Math.max(0, Math.min(b.y, slideH - h));
   return { x, y, w, h };
 }
 
@@ -31,6 +33,8 @@ export function PlacementEditor(props: PlacementEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef({ px: 0, py: 0, box: props.box });
   const [mode, setMode] = useState<null | "move" | Handle>(null);
+
+  const { slideW, slideH } = props;
 
   const onMoveDown = (e: RPE<HTMLDivElement>) => {
     e.preventDefault();
@@ -50,19 +54,19 @@ export function PlacementEditor(props: PlacementEditorProps) {
       if (!mode || !ref.current) return;
       const r = ref.current.getBoundingClientRect();
       if (r.width <= 0 || r.height <= 0) return;
-      const dx = (e.clientX - drag.current.px) / r.width;
-      const dy = (e.clientY - drag.current.py) / r.height;
+      const dxIn = ((e.clientX - drag.current.px) / r.width) * slideW;
+      const dyIn = ((e.clientY - drag.current.py) / r.height) * slideH;
       const b = { ...drag.current.box };
-      if (mode === "move") { b.x += dx; b.y += dy; }
+      if (mode === "move") { b.x += dxIn; b.y += dyIn; }
       else {
-        if (mode.includes("w")) { b.x += dx; b.w -= dx; }
-        if (mode.includes("n")) { b.y += dy; b.h -= dy; }
-        if (mode.includes("e")) { b.w += dx; }
-        if (mode.includes("s")) { b.h += dy; }
+        if (mode.includes("w")) { b.x += dxIn; b.w -= dxIn; }
+        if (mode.includes("n")) { b.y += dyIn; b.h -= dyIn; }
+        if (mode.includes("e")) { b.w += dxIn; }
+        if (mode.includes("s")) { b.h += dyIn; }
       }
-      props.onBoxChange(clamp01Box(b));
+      props.onBoxChange(clampBox(b, slideW, slideH));
     },
-    [mode, props],
+    [mode, props, slideW, slideH],
   );
   const onUp = () => setMode(null);
 
@@ -75,15 +79,17 @@ export function PlacementEditor(props: PlacementEditorProps) {
     <div
       ref={ref}
       className="relative w-full select-none overflow-hidden rounded-lg border"
-      style={{ paddingTop: `${100 / props.slideAspect}%`, ...bg }}
+      style={{ paddingTop: `${(slideH / slideW) * 100}%`, ...bg }}
       onPointerMove={onMove}
       onPointerUp={onUp}
     >
       <div
         className="absolute cursor-move border-2"
         style={{
-          left: `${props.box.x * 100}%`, top: `${props.box.y * 100}%`,
-          width: `${props.box.w * 100}%`, height: `${props.box.h * 100}%`,
+          left: `${(props.box.x / slideW) * 100}%`,
+          top: `${(props.box.y / slideH) * 100}%`,
+          width: `${(props.box.w / slideW) * 100}%`,
+          height: `${(props.box.h / slideH) * 100}%`,
           borderColor: "var(--accent-electric)",
         }}
         onPointerDown={onMoveDown}

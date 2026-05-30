@@ -23,7 +23,7 @@ export function ImageToPptxResult({
   const sizeText = useMemo(() => formatBytes(result.bytes.byteLength), [result.bytes]);
 
   return (
-    <div className="flex items-center justify-center" style={{ height: "52vh" }}>
+    <div className="flex justify-end">
       <div
         className="flex w-full max-w-sm flex-col gap-2 rounded-[8px] border p-4"
         style={{
