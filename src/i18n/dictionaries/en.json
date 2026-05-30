@@ -394,6 +394,7 @@
         "comparePreview": "Compressed preview"
       }
     },
+    "heic-convert": { "title": "HEIC Converter", "description": "Convert iPhone HEIC photos to JPG or PNG." },
     "image-resize": {
       "title": "Resize images",
       "description": "Batch-resize while preserving ratio.",

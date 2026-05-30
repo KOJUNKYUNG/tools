@@ -394,6 +394,7 @@
         "comparePreview": "압축 미리보기"
       }
     },
+    "heic-convert": { "title": "HEIC 변환", "description": "아이폰 HEIC 사진을 JPG·PNG로 변환합니다." },
     "image-resize": {
       "title": "이미지 크기 변경",
       "description": "픽셀·비율을 유지하며 일괄 리사이즈합니다.",
