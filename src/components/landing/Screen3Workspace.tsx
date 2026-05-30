@@ -91,7 +91,7 @@ export function Screen3Workspace({
       case "pdf-compress":
         return <PdfCompress inline labels={getPdfCompressLabels(dict)} />;
       case "ppt-extract":
-        return <PptExtract inline labels={getPptExtractLabels(dict)} />;
+        return <PptExtract inline labels={getPptExtractLabels(dict)} lang={locale} />;
       case "pdf-arrange":
       case "pdf-merge":
       case "pdf-split":
