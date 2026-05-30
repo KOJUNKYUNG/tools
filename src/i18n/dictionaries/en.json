@@ -294,7 +294,11 @@
         "again": "Start over",
         "alignLabel": "Image align",
         "alignTopLeft": "Top-left",
-        "alignCenter": "Center"
+        "alignCenter": "Center",
+        "errNotImage": "{name}: only images (JPG/PNG) can be added.",
+        "errTooLarge": "{name}: exceeds the {size} size limit.",
+        "errReadFailed": "Could not read the file.",
+        "errNoImages": "No images to turn into slides."
       }
     },
     "image-to-pdf": {

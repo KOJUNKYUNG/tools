@@ -1,5 +1,14 @@
 export interface Box { x: number; y: number; w: number; h: number; }
 export type PlacementAlign = "top-left" | "center";
+
+export const MIN_PLACEMENT_IN = 0.1;
+export function clampBox(b: Box, slideW: number, slideH: number): Box {
+  const w = Math.max(MIN_PLACEMENT_IN, Math.min(slideW, b.w));
+  const h = Math.max(MIN_PLACEMENT_IN, Math.min(slideH, b.h));
+  const x = Math.max(0, Math.min(b.x, slideW - w));
+  const y = Math.max(0, Math.min(b.y, slideH - h));
+  return { x, y, w, h };
+}
 /**
  * Fit an `imgW`×`imgH` image (native px) into `box` (inches), preserving aspect
  * (contain — never overflow). Anchored to the box's TOP-LEFT corner by default,

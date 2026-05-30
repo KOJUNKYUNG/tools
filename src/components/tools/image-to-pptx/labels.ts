@@ -11,6 +11,7 @@ export interface ImageToPptxLabels {
   resultTitle: string; slideCountTemplate: string;
   download: string; again: string;
   alignLabel: string; alignTopLeft: string; alignCenter: string;
+  errNotImage: string; errTooLarge: string; errReadFailed: string; errNoImages: string;
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
@@ -31,6 +32,8 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     resultTitle: p.resultTitle, slideCountTemplate: p.slideCount,
     download: p.download, again: p.again,
     alignLabel: p.alignLabel, alignTopLeft: p.alignTopLeft, alignCenter: p.alignCenter,
+    errNotImage: p.errNotImage, errTooLarge: p.errTooLarge,
+    errReadFailed: p.errReadFailed, errNoImages: p.errNoImages,
     fileUpload: dict.common.fileUpload,
   };
 }
