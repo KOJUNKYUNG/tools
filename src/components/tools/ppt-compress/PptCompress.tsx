@@ -96,8 +96,8 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
         const res = await analyzePptxForCompress(file);
         if (cancelled) return;
         setAnalysis(res);
-        if (res.thumbnailBlob) {
-          createdUrl = URL.createObjectURL(res.thumbnailBlob);
+        if (res.previewBlob) {
+          createdUrl = URL.createObjectURL(res.previewBlob);
           setThumbnailUrl(createdUrl);
         }
       } catch {
@@ -258,9 +258,8 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
                   preset={preset}
                   originalSize={file.size}
                   labels={labels}
-                  recompressibleBytes={
-                    analysis ? analysis.recompressibleBytes : null
-                  }
+                  jpegBytes={analysis ? analysis.jpegBytes : null}
+                  pngBytes={analysis ? analysis.pngBytes : null}
                 />
               )}
             </div>

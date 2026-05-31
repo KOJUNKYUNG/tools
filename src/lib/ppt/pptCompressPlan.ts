@@ -63,18 +63,29 @@ export function deriveCompressedName(originalName: string): string {
   return `${base}-compressed.pptx`;
 }
 
-/** Fraction of recompressible bytes left after re-encoding at each preset. */
-export const PRESET_IMAGE_RATIO: Record<CompressionPreset, number> = {
-  low: 0.85,
-  medium: 0.6,
-  high: 0.45,
+/**
+ * Fraction of JPEG bytes left after re-encoding at each preset. Lossy, so the
+ * quality knob (preset) has a real effect here.
+ */
+export const PRESET_JPEG_RATIO: Record<CompressionPreset, number> = {
+  low: 0.78,
+  medium: 0.58,
+  high: 0.42,
 };
+
+/**
+ * Fraction of PNG bytes left after re-encoding. PNG re-encoding is lossless, so
+ * the preset has NO effect — a single preset-independent ratio keeps the
+ * estimate honest. Empirically PNG-heavy church decks land ~0.5–0.65; 0.6 is a
+ * middle-of-the-road value across files.
+ */
+export const PNG_RATIO = 0.6;
 
 /** Whole-file [min,max] remaining range used as a static fallback estimate. */
 export const PRESET_RANGE: Record<CompressionPreset, [number, number]> = {
-  low: [0.85, 0.98],
-  medium: [0.6, 0.9],
-  high: [0.45, 0.75],
+  low: [0.7, 0.98],
+  medium: [0.55, 0.9],
+  high: [0.45, 0.8],
 };
 
 /**
@@ -88,16 +99,24 @@ export const PRESET_IMAGE_SHARE_CUTOFF: Record<CompressionPreset, number> = {
 };
 
 /**
- * Estimate the compressed file size: the recompressible portion shrinks to
- * PRESET_IMAGE_RATIO, the rest is unchanged. Clamped by the static upper bound.
+ * Estimate the compressed file size. JPEG bytes shrink by the preset-dependent
+ * ratio; PNG bytes shrink by a fixed (preset-independent) ratio because their
+ * re-encode is lossless; everything else is unchanged. Clamped by the static
+ * upper bound.
+ *
+ * Splitting JPEG vs PNG matters: a PNG-dominated deck barely changes between
+ * presets in reality, so a single blended ratio would over-promise on "high"
+ * and the estimate would visibly miss.
  */
 export function estimatePptxSize(
   totalSize: number,
-  recompressibleBytes: number,
+  jpegBytes: number,
+  pngBytes: number,
   preset: CompressionPreset,
 ): number {
-  const ratio = PRESET_IMAGE_RATIO[preset];
-  const formula = totalSize - recompressibleBytes + recompressibleBytes * ratio;
+  const untouched = totalSize - jpegBytes - pngBytes;
+  const formula =
+    untouched + jpegBytes * PRESET_JPEG_RATIO[preset] + pngBytes * PNG_RATIO;
   const staticUpper = totalSize * PRESET_RANGE[preset][1];
   return Math.min(formula, staticUpper);
 }

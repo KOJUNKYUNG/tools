@@ -80,13 +80,19 @@ describe("deriveCompressedName", () => {
 });
 
 describe("estimatePptxSize", () => {
-  it("shrinks only the recompressible portion by the preset ratio", () => {
-    // 1000 total, 800 recompressible, medium ratio 0.6
-    // (1000-800) + 800*0.6 = 200 + 480 = 680, under static upper (900)
-    expect(estimatePptxSize(1000, 800, "medium")).toBe(680);
+  it("shrinks JPEG bytes by the preset-dependent ratio", () => {
+    // 1000 total, 800 jpeg, 0 png, medium jpeg ratio 0.58
+    // (1000-800) + 800*0.58 = 200 + 464 = 664, under static upper (900)
+    expect(estimatePptxSize(1000, 800, 0, "medium")).toBe(664);
+  });
+  it("shrinks PNG bytes by a fixed ratio regardless of preset", () => {
+    // png 0.6 fixed → medium and high give the same png contribution
+    // (1000-800) + 800*0.6 = 200 + 480 = 680 for both presets
+    expect(estimatePptxSize(1000, 0, 800, "medium")).toBe(680);
+    expect(estimatePptxSize(1000, 0, 800, "high")).toBe(680);
   });
   it("clamps to the static upper bound when the formula exceeds it", () => {
-    // tiny recompressible share → formula ~1000 but high upper = 1000*0.75=750
-    expect(estimatePptxSize(1000, 10, "high")).toBe(750);
+    // tiny recompressible share → formula ~1000 but high upper = 1000*0.8=800
+    expect(estimatePptxSize(1000, 5, 5, "high")).toBe(800);
   });
 });

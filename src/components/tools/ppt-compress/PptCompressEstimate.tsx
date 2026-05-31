@@ -14,15 +14,18 @@ interface PptCompressEstimateProps {
   preset: CompressionPreset;
   originalSize: number;
   labels: PptCompressLabels;
-  /** Recompressible (jpg/jpeg/png) media bytes. null = analysis pending/failed. */
-  recompressibleBytes?: number | null;
+  /** JPEG media bytes. null = analysis pending/failed. */
+  jpegBytes?: number | null;
+  /** PNG media bytes. null = analysis pending/failed. */
+  pngBytes?: number | null;
 }
 
 export function PptCompressEstimate({
   preset,
   originalSize,
   labels,
-  recompressibleBytes,
+  jpegBytes,
+  pngBytes,
 }: PptCompressEstimateProps) {
   const descMap: Record<CompressionPreset, string> = {
     low: labels.presetLightDesc,
@@ -31,11 +34,11 @@ export function PptCompressEstimate({
   };
 
   let rangeText: string;
-  if (recompressibleBytes != null && originalSize > 0) {
-    const share = recompressibleBytes / originalSize;
+  if (jpegBytes != null && pngBytes != null && originalSize > 0) {
+    const share = (jpegBytes + pngBytes) / originalSize;
     if (share >= PRESET_IMAGE_SHARE_CUTOFF[preset]) {
       const derived = Math.round(
-        estimatePptxSize(originalSize, recompressibleBytes, preset),
+        estimatePptxSize(originalSize, jpegBytes, pngBytes, preset),
       );
       rangeText = template(labels.estimateActualTemplate, {
         size: formatBytes(derived),

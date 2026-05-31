@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import imageCompression from "browser-image-compression";
 import { getExt, getMime } from "./pptImageFormats";
-import { aggregateFormats, pickThumbnailPath } from "./analyzePresentation";
+import { aggregateFormats } from "./analyzePresentation";
 import {
   classifyMedia,
   pickSmaller,
@@ -28,12 +28,20 @@ const IMAGE_EXTS = new Set([
 
 export interface PptxCompressAnalysis {
   totalSize: number;
-  /** Sum of jpg/jpeg/png media byte lengths — drives the derived estimate. */
-  recompressibleBytes: number;
+  /** Sum of jpg/jpeg media bytes (preset-sensitive in the estimate). */
+  jpegBytes: number;
+  /** Sum of png media bytes (preset-independent in the estimate). */
+  pngBytes: number;
   imageCount: number;
   formatCounts: Record<string, number>;
-  thumbnailBlob: Blob | null;
-  thumbnailMime: string | null;
+  /**
+   * The single largest recompressible image, decoded for the preview. PPTX
+   * slides can't be rendered in the browser, and the embedded docProps
+   * thumbnail is a ~2KB low-res image that reads as a blank box — the biggest
+   * real image (the score/photo that dominates the deck) is far more useful.
+   */
+  previewBlob: Blob | null;
+  previewMime: string | null;
 }
 
 export interface CompressPptxOptions {
@@ -59,13 +67,11 @@ export async function analyzePptxForCompress(
   const ab = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(ab);
 
-  const allPaths: string[] = [];
   const imageBaseNames: string[] = [];
   const recompressiblePaths: string[] = [];
 
   zip.forEach((path, entry) => {
     if (entry.dir) return;
-    allPaths.push(path);
     if (!path.startsWith(MEDIA_PREFIX)) return;
     const base = path.split("/").pop();
     if (!base) return;
@@ -76,34 +82,40 @@ export async function analyzePptxForCompress(
 
   const { imageCount, formatCounts } = aggregateFormats(imageBaseNames);
 
-  let recompressibleBytes = 0;
+  let jpegBytes = 0;
+  let pngBytes = 0;
+  // Track the largest recompressible image to use as the preview.
+  let largestBytes: Uint8Array | null = null;
+  let largestExt = "";
   for (const p of recompressiblePaths) {
     const entry = zip.file(p);
     if (!entry) continue;
     const bytes = await entry.async("uint8array");
-    recompressibleBytes += bytes.length;
+    const ext = getExt(p);
+    if (ext === "png") pngBytes += bytes.length;
+    else jpegBytes += bytes.length;
+    if (!largestBytes || bytes.length > largestBytes.length) {
+      largestBytes = bytes;
+      largestExt = ext;
+    }
   }
 
-  const thumbPath = pickThumbnailPath(allPaths);
-  let thumbnailBlob: Blob | null = null;
-  let thumbnailMime: string | null = null;
-  if (thumbPath) {
-    const entry = zip.file(thumbPath);
-    if (entry) {
-      const bytes = await entry.async("uint8array");
-      thumbnailMime = getMime(getExt(thumbPath));
-      // new Uint8Array(...) required for TS strict (BlobPart needs ArrayBuffer).
-      thumbnailBlob = new Blob([new Uint8Array(bytes)], { type: thumbnailMime });
-    }
+  let previewBlob: Blob | null = null;
+  let previewMime: string | null = null;
+  if (largestBytes) {
+    previewMime = getMime(largestExt);
+    // new Uint8Array(...) required for TS strict (BlobPart needs ArrayBuffer).
+    previewBlob = new Blob([new Uint8Array(largestBytes)], { type: previewMime });
   }
 
   return {
     totalSize: file.size,
-    recompressibleBytes,
+    jpegBytes,
+    pngBytes,
     imageCount,
     formatCounts,
-    thumbnailBlob,
-    thumbnailMime,
+    previewBlob,
+    previewMime,
   };
 }
 
