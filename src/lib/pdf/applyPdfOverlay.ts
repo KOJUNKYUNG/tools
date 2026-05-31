@@ -139,6 +139,15 @@ export async function applyOverlay({
   const pageSet = new Set(options.pages);
   const inRange = (i: number) => pageSet.has(i + 1);
 
+  // Nothing selected → return the ORIGINAL bytes untouched. Embedding a logo /
+  // rendered text and re-saving would otherwise grow the file even though no
+  // page changed (the 0-pages-applied size-bloat bug).
+  const applicable = options.pages.filter((p) => p >= 1 && p <= total);
+  if (applicable.length === 0) {
+    onProgress?.(100);
+    return { data: bytes, pageCount: total, appliedPages: 0 };
+  }
+
   onProgress?.(15);
   let applied = 0;
 

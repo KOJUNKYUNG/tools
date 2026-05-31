@@ -36,7 +36,7 @@ export function WatermarkControls({
   const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* source: text vs image */}
       <div className="flex gap-1.5">
         {(["text", "image"] as const).map((src) => {
