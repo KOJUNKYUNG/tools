@@ -31,7 +31,7 @@ export function PptCompressPreview({
   }, [formatCounts, imageCount]);
 
   return (
-    <div className="flex h-full flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div
         className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[8px] border"
         style={{ background: "var(--silver-100)", borderColor: "var(--silver-200)" }}
