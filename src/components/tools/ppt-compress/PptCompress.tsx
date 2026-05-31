@@ -197,12 +197,22 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
           {/* LEFT: file info row + reupload → thumbnail preview */}
           <div className="flex h-full min-h-0 flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
-              <div
-                className="min-w-0 truncate font-body text-[12px]"
-                style={{ color: "var(--ink)" }}
-                title={fileInfo}
-              >
-                {fileInfo}
+              <div className="flex min-w-0 items-baseline gap-1.5">
+                <span
+                  className="min-w-0 truncate font-body text-[12px]"
+                  style={{ color: "var(--ink)" }}
+                  title={fileInfo}
+                >
+                  {fileInfo}
+                </span>
+                {analysis && (
+                  <span
+                    className="shrink-0 font-body text-[12px]"
+                    style={{ color: "var(--ink-soft)" }}
+                  >
+                    · {template(labels.slideCountTemplate, { n: analysis.slideCount })}
+                  </span>
+                )}
               </div>
               <button
                 type="button"

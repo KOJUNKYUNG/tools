@@ -202,6 +202,7 @@
         "reupload": "다시 선택",
         "reset": "처음으로",
         "fileInfo": "{name} · {size}",
+        "slideCount": "슬라이드 {n}장",
         "presetGroupLabel": "압축 강도",
         "presetLightLabel": "약하게",
         "presetLightDesc": "품질 우선, 조금 줄어듦",

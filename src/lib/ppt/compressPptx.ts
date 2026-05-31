@@ -28,6 +28,8 @@ const IMAGE_EXTS = new Set([
 
 export interface PptxCompressAnalysis {
   totalSize: number;
+  /** Number of slides (ppt/slides/slideN.xml entries). */
+  slideCount: number;
   /** Sum of jpg/jpeg media bytes (preset-sensitive in the estimate). */
   jpegBytes: number;
   /** Sum of png media bytes (preset-independent in the estimate). */
@@ -69,9 +71,11 @@ export async function analyzePptxForCompress(
 
   const imageBaseNames: string[] = [];
   const recompressiblePaths: string[] = [];
+  let slideCount = 0;
 
   zip.forEach((path, entry) => {
     if (entry.dir) return;
+    if (SLIDE_RE.test(path)) slideCount++;
     if (!path.startsWith(MEDIA_PREFIX)) return;
     const base = path.split("/").pop();
     if (!base) return;
@@ -110,6 +114,7 @@ export async function analyzePptxForCompress(
 
   return {
     totalSize: file.size,
+    slideCount,
     jpegBytes,
     pngBytes,
     imageCount,

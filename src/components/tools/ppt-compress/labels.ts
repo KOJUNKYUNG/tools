@@ -9,6 +9,7 @@ export interface PptCompressLabels {
   reupload: string;
   reset: string;
   fileInfoTemplate: string;
+  slideCountTemplate: string;
   presetGroupLabel: string;
   presetLightLabel: string;
   presetLightDesc: string;
@@ -49,6 +50,7 @@ export function getPptCompressLabels(dict: Dictionary): PptCompressLabels {
     reupload: p.reupload,
     reset: p.reset,
     fileInfoTemplate: p.fileInfo,
+    slideCountTemplate: p.slideCount,
     presetGroupLabel: p.presetGroupLabel,
     presetLightLabel: p.presetLightLabel,
     presetLightDesc: p.presetLightDesc,
