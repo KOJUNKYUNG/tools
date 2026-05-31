@@ -37,11 +37,13 @@ export function PptCompressPreview({
         style={{ background: "var(--silver-100)", borderColor: "var(--silver-200)" }}
       >
         {thumbnailUrl ? (
+          // absolute so the (possibly tall) image can't grow the box — the box
+          // height stays fixed at flex-1 regardless of image aspect ratio.
           <img
             src={thumbnailUrl}
             alt=""
             draggable={false}
-            className="max-h-full max-w-full object-contain"
+            className="absolute inset-0 m-auto max-h-full max-w-full object-contain p-2"
           />
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 px-4 text-center">

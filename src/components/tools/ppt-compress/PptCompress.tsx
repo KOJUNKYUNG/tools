@@ -195,7 +195,7 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
           style={{ height: "52vh" }}
         >
           {/* LEFT: file info row + reupload → thumbnail preview */}
-          <div className="flex h-full flex-col gap-2">
+          <div className="flex h-full min-h-0 flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <div
                 className="min-w-0 truncate font-body text-[12px]"
