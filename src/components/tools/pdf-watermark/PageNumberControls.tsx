@@ -1,0 +1,129 @@
+"use client";
+
+import type { PageNumberOptions } from "@/lib/pdf/applyPdfOverlay";
+import type { PageNumberFormat } from "@/lib/pdf/pageNumberFormat";
+import type { GridPosition } from "@/lib/pdf/overlayLayout";
+import type { PdfWatermarkLabels } from "./labels";
+import { PositionGrid } from "./PositionGrid";
+
+export type PageNumberState = Omit<PageNumberOptions, "mode">;
+
+interface PageNumberControlsProps {
+  value: PageNumberState;
+  onChange: (patch: Partial<PageNumberState>) => void;
+  labels: PdfWatermarkLabels;
+  disabled?: boolean;
+}
+
+const GROUP_LABEL =
+  "font-display text-[11px] font-medium uppercase tracking-[0.08em]";
+
+export function PageNumberControls({
+  value,
+  onChange,
+  labels,
+  disabled,
+}: PageNumberControlsProps) {
+  const formats: { value: PageNumberFormat; label: string }[] = [
+    { value: "plain", label: labels.formatPlain },
+    { value: "fraction", label: labels.formatFraction },
+    { value: "dash", label: labels.formatDash },
+    { value: "ko", label: labels.formatKo },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-4">
+        <PositionGrid
+          value={value.grid}
+          onChange={(grid: GridPosition) => onChange({ grid })}
+          label={labels.positionLabel}
+          disabled={disabled}
+        />
+        <div className="flex-1 space-y-1.5">
+          <p className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+            {labels.formatLabel}
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {formats.map((f) => {
+              const active = value.format === f.value;
+              return (
+                <button
+                  key={f.value}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onChange({ format: f.value })}
+                  data-active={active}
+                  className="nameplate h-8 rounded-[7px] px-2 font-display text-[12px] tabular-nums disabled:cursor-not-allowed disabled:opacity-50"
+                  style={active ? undefined : { color: "var(--ink-strong)" }}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <label className="space-y-1">
+          <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+            {labels.startLabel}
+          </span>
+          <input
+            type="number"
+            min={0}
+            value={value.start}
+            disabled={disabled}
+            onChange={(e) => onChange({ start: Math.max(0, Number(e.target.value) || 0) })}
+            className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
+            style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--ink-strong)" }}
+          />
+        </label>
+        <label className="space-y-1">
+          <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+            {labels.fontSizeLabel}
+          </span>
+          <input
+            type="number"
+            min={6}
+            max={96}
+            value={value.fontPx}
+            disabled={disabled}
+            onChange={(e) => onChange({ fontPx: Math.min(96, Math.max(6, Number(e.target.value) || 12)) })}
+            className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
+            style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--ink-strong)" }}
+          />
+        </label>
+        <label className="space-y-1">
+          <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+            {labels.colorLabel}
+          </span>
+          <input
+            type="color"
+            value={value.color}
+            disabled={disabled}
+            onChange={(e) => onChange({ color: e.target.value })}
+            className="h-8 w-full cursor-pointer rounded-[6px] border"
+            style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+          />
+        </label>
+      </div>
+
+      <label className="block space-y-1">
+        <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+          {labels.rangeLabel}
+        </span>
+        <input
+          type="text"
+          value={value.rangeInput}
+          disabled={disabled}
+          placeholder={labels.rangePlaceholder}
+          onChange={(e) => onChange({ rangeInput: e.target.value })}
+          className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px]"
+          style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--ink-strong)" }}
+        />
+      </label>
+    </div>
+  );
+}
