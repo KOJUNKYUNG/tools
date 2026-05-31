@@ -11,6 +11,7 @@ import {
   Expand,
   Presentation,
   Minimize2,
+  Stamp,
   type LucideIcon,
 } from "lucide-react";
 
@@ -114,6 +115,24 @@ export const TOOLS: ToolInfo[] = [
     href: "/tools/pdf-compress",
     icon: Archive,
     category: "pdf",
+  },
+  {
+    slug: "pdf-watermark",
+    title: "PDF 워터마크 / 페이지번호",
+    description: "PDF에 페이지 번호를 찍거나 워터마크를 넣습니다.",
+    i18nKey: "tools.pdf-watermark",
+    href: "/tools/pdf-watermark",
+    icon: Stamp,
+    category: "pdf",
+    keywords: [
+      "watermark",
+      "page number",
+      "워터마크",
+      "페이지번호",
+      "쪽번호",
+      "도장",
+      "기밀",
+    ],
   },
   {
     slug: "pdf-pages",
