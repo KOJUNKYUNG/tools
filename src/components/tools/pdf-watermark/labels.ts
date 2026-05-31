@@ -1,0 +1,111 @@
+import type { Dictionary } from "@/i18n/config";
+
+export interface PdfWatermarkLabels {
+  title: string;
+  description: string;
+  uploadPrompt: string;
+  uploadHint: string;
+  uploadMaxSize: string;
+  reupload: string;
+  reset: string;
+  fileInfoTemplate: string;
+  pageCountTemplate: string;
+  modeNumber: string;
+  modeWatermark: string;
+  positionLabel: string;
+  formatLabel: string;
+  formatPlain: string;
+  formatFraction: string;
+  formatDash: string;
+  formatKo: string;
+  startLabel: string;
+  fontSizeLabel: string;
+  colorLabel: string;
+  rangeLabel: string;
+  rangePlaceholder: string;
+  rangeSelectAll: string;
+  rangeClear: string;
+  rangeCountTemplate: string;
+  pageUnitSuffix: string;
+  sourceText: string;
+  sourceImage: string;
+  textLabel: string;
+  textPlaceholder: string;
+  needText: string;
+  needLogo: string;
+  logoSelect: string;
+  logoHint: string;
+  logoScaleLabel: string;
+  opacityLabel: string;
+  angleLabel: string;
+  tileLabel: string;
+  apply: string;
+  processing: string;
+  analyzingHint: string;
+  previewUnavailable: string;
+  resultTitle: string;
+  resultPagesTemplate: string;
+  resultSizeTemplate: string;
+  download: string;
+  again: string;
+  errorMemory: string;
+  errorCorrupt: string;
+  fileUpload: Dictionary["common"]["fileUpload"];
+}
+
+export function getPdfWatermarkLabels(dict: Dictionary): PdfWatermarkLabels {
+  const t = dict.tools["pdf-watermark"];
+  const p = t.page;
+  return {
+    title: t.title,
+    description: t.description,
+    uploadPrompt: p.uploadPrompt,
+    uploadHint: p.uploadHint,
+    uploadMaxSize: p.uploadMaxSize,
+    reupload: p.reupload,
+    reset: p.reset,
+    fileInfoTemplate: p.fileInfo,
+    pageCountTemplate: p.pageCount,
+    modeNumber: p.modeNumber,
+    modeWatermark: p.modeWatermark,
+    positionLabel: p.positionLabel,
+    formatLabel: p.formatLabel,
+    formatPlain: p.formatPlain,
+    formatFraction: p.formatFraction,
+    formatDash: p.formatDash,
+    formatKo: p.formatKo,
+    startLabel: p.startLabel,
+    fontSizeLabel: p.fontSizeLabel,
+    colorLabel: p.colorLabel,
+    rangeLabel: p.rangeLabel,
+    rangePlaceholder: p.rangePlaceholder,
+    rangeSelectAll: p.rangeSelectAll,
+    rangeClear: p.rangeClear,
+    rangeCountTemplate: p.rangeCount,
+    pageUnitSuffix: p.pageUnitSuffix,
+    sourceText: p.sourceText,
+    sourceImage: p.sourceImage,
+    textLabel: p.textLabel,
+    textPlaceholder: p.textPlaceholder,
+    needText: p.needText,
+    needLogo: p.needLogo,
+    logoSelect: p.logoSelect,
+    logoHint: p.logoHint,
+    logoScaleLabel: p.logoScaleLabel,
+    opacityLabel: p.opacityLabel,
+    angleLabel: p.angleLabel,
+    tileLabel: p.tileLabel,
+    apply: p.apply,
+    processing: p.processing,
+    analyzingHint: p.analyzingHint,
+    previewUnavailable: p.previewUnavailable,
+    resultTitle: p.resultTitle,
+    resultPagesTemplate: p.resultPages,
+    resultSizeTemplate: p.resultSize,
+    download: p.download,
+    again: p.again,
+    errorMemory: p.errorMemory,
+    errorCorrupt: p.errorCorrupt,
+    fileUpload: dict.common.fileUpload,
+  };
+}
