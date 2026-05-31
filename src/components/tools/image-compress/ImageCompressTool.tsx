@@ -124,7 +124,11 @@ export function ImageCompressTool({
   );
 
   // Consume cross-tool handoff (e.g. files staged by image-resize). Once on mount.
+  // consumedRef guards StrictMode's double-invoke (matches image-to-pptx).
+  const consumedRef = useRef(false);
   useEffect(() => {
+    if (consumedRef.current) return;
+    consumedRef.current = true;
     const staged = consumeStagedFiles();
     if (staged && staged.files.length > 0) void handleUpload(staged.files);
     // eslint-disable-next-line react-hooks/exhaustive-deps
