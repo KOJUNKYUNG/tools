@@ -146,45 +146,61 @@ export function WatermarkControls({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <Slider
-          label={labels.opacityLabel}
-          min={5}
-          max={100}
-          value={Math.round(value.opacity * 100)}
-          disabled={disabled}
-          onChange={(v) => onChange({ opacity: v / 100 })}
-          suffix="%"
-        />
-        <Slider
-          label={labels.angleLabel}
-          min={-90}
-          max={90}
-          value={value.angle}
-          disabled={disabled}
-          onChange={(v) => onChange({ angle: v })}
-          suffix="°"
-        />
-      </div>
+      {/*
+        Fixed 2-column layout, identical for text + image modes:
+          LEFT  — opacity over rotation (stacked)
+          RIGHT — tile-repeat toggle over the position grid
+        The position grid is ALWAYS rendered (dimmed + disabled while tiling),
+        so toggling tile repeat never changes the height — no layout jump, no
+        scrollbar appearing/disappearing.
+      */}
+      <div className="grid grid-cols-2 gap-x-4">
+        <div className="space-y-3">
+          <Slider
+            label={labels.opacityLabel}
+            min={5}
+            max={100}
+            value={Math.round(value.opacity * 100)}
+            disabled={disabled}
+            onChange={(v) => onChange({ opacity: v / 100 })}
+            suffix="%"
+          />
+          <Slider
+            label={labels.angleLabel}
+            min={-90}
+            max={90}
+            value={value.angle}
+            disabled={disabled}
+            onChange={(v) => onChange({ angle: v })}
+            suffix="°"
+          />
+        </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <label className="flex items-center gap-2 font-body text-[12px]" style={{ color: "var(--ink-strong)" }}>
-          <input
-            type="checkbox"
-            checked={value.tile}
-            disabled={disabled}
-            onChange={(e) => onChange({ tile: e.target.checked })}
-          />
-          {labels.tileLabel}
-        </label>
-        {!value.tile && (
-          <PositionGrid
-            value={value.grid}
-            onChange={(grid: GridPosition) => onChange({ grid })}
-            label={labels.positionLabel}
-            disabled={disabled}
-          />
-        )}
+        <div className="space-y-2">
+          <label
+            className="flex items-center gap-2 font-body text-[12px]"
+            style={{ color: "var(--ink-strong)" }}
+          >
+            <input
+              type="checkbox"
+              checked={value.tile}
+              disabled={disabled}
+              onChange={(e) => onChange({ tile: e.target.checked })}
+            />
+            {labels.tileLabel}
+          </label>
+          <div
+            style={{ opacity: value.tile ? 0.4 : 1 }}
+            aria-hidden={value.tile}
+          >
+            <PositionGrid
+              value={value.grid}
+              onChange={(grid: GridPosition) => onChange({ grid })}
+              label={labels.positionLabel}
+              disabled={disabled || value.tile}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
