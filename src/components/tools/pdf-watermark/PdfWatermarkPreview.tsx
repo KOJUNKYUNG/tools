@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StampIcon } from "lucide-react";
 import { getPdfjsLib, pdfjsDocParams } from "@/lib/pdf/pdfjs";
 import { formatPageNumber } from "@/lib/pdf/pageNumberFormat";
 import {
   computeAnchor,
   computeTilePositions,
+  defaultTileGaps,
   clampOpacity,
   degToRad,
   type Point,
@@ -65,6 +66,13 @@ export function PdfWatermarkPreview({
   const pageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const logoBitmapRef = useRef<ImageBitmap | null>(null);
   const renderTokenRef = useRef(0);
+  // Bumped when the page bitmap / logo bitmap become ready, so the compositing
+  // effect re-runs with a FRESH closure (latest `analysis`). Calling draw()
+  // directly from the async render would use a stale closure — the first-upload
+  // blank-preview bug, where analysis resolved after the page render captured
+  // analysis=null.
+  const [pageTick, setPageTick] = useState(0);
+  const [logoTick, setLogoTick] = useState(0);
 
   // Render page 1 to an offscreen canvas whenever the file changes.
   useEffect(() => {
@@ -90,7 +98,7 @@ export function PdfWatermarkPreview({
           await page.render({ canvas: c, viewport }).promise;
           if (cancelled || token !== renderTokenRef.current) return;
           pageCanvasRef.current = c;
-          draw();
+          setPageTick((t) => t + 1);
         } finally {
           void doc.destroy();
         }
@@ -109,7 +117,7 @@ export function PdfWatermarkPreview({
     const logo = wmOpts.logo;
     if (!logo) {
       logoBitmapRef.current = null;
-      draw();
+      setLogoTick((t) => t + 1);
       return;
     }
     let cancelled = false;
@@ -121,7 +129,7 @@ export function PdfWatermarkPreview({
         const bmp = await createImageBitmap(blob);
         if (cancelled) return;
         logoBitmapRef.current = bmp;
-        draw();
+        setLogoTick((t) => t + 1);
       } catch {
         if (!cancelled) logoBitmapRef.current = null;
       }
@@ -132,11 +140,11 @@ export function PdfWatermarkPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wmOpts.logo]);
 
-  // Re-composite whenever any option changes.
+  // Re-composite whenever any option changes OR a bitmap becomes ready.
   useEffect(() => {
     draw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, pageOpts, wmOpts, analysis]);
+  }, [mode, pageOpts, wmOpts, analysis, pageTick, logoTick]);
 
   function draw() {
     const canvas = canvasRef.current;
@@ -160,6 +168,7 @@ export function PdfWatermarkPreview({
         total: analysis.numPages,
         start: pageOpts.start,
         format: pageOpts.format,
+        suffix: labels.pageUnitSuffix,
       });
       const fpx = pageOpts.fontPx * s;
       ctx.font = `${fpx}px ${family}`;
@@ -215,8 +224,9 @@ export function PdfWatermarkPreview({
       drawH = box.height;
     }
 
+    const tileGaps = defaultTileGaps(drawW, drawH);
     const centers: Point[] = wmOpts.tile
-      ? computeTilePositions(pageW, pageH, drawW, drawH, Math.max(drawW * 0.6, 60), Math.max(drawH * 3, 120))
+      ? computeTilePositions(pageW, pageH, drawW, drawH, tileGaps.gapX, tileGaps.gapY)
       : [
           (() => {
             const corner = computeAnchor(wmOpts.grid, pageW, pageH, drawW, drawH, wmOpts.margin * s);

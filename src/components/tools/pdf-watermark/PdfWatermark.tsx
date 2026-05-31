@@ -5,6 +5,7 @@ import { StampIcon, RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
+import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { FILE_SIZE_LIMIT } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
@@ -35,7 +36,6 @@ const DEFAULT_PAGE: PageNumberState = {
   fontPx: 12,
   color: "#444444",
   margin: 24,
-  rangeInput: "",
 };
 
 const DEFAULT_WM: WatermarkState = {
@@ -50,7 +50,6 @@ const DEFAULT_WM: WatermarkState = {
   tile: false,
   grid: "center",
   margin: 24,
-  rangeInput: "",
 };
 
 interface PdfWatermarkProps {
@@ -65,14 +64,18 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
   const [logoName, setLogoName] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<PdfOverlayAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
   const reuploadInputRef = useRef<HTMLInputElement | null>(null);
   const filesRef = useRef<File[]>([]);
   const modeRef = useRef<WatermarkMode>(mode);
 
   const buildOptions = useCallback((): OverlayOptions => {
-    if (mode === "number") return { mode: "number", ...pageOpts };
-    return { mode: "watermark", ...wmOpts };
-  }, [mode, pageOpts, wmOpts]);
+    const pages = [...selectedPages].sort((a, b) => a - b);
+    if (mode === "number") {
+      return { mode: "number", ...pageOpts, suffix: labels.pageUnitSuffix, pages };
+    }
+    return { mode: "watermark", ...wmOpts, pages };
+  }, [mode, pageOpts, wmOpts, selectedPages, labels.pageUnitSuffix]);
 
   const {
     files,
@@ -109,6 +112,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
   useEffect(() => {
     if (!file) {
       setAnalysis(null);
+      setSelectedPages(new Set());
       return;
     }
     let cancelled = false;
@@ -117,7 +121,12 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
     (async () => {
       try {
         const res = await analyzePdfForOverlay(file);
-        if (!cancelled) setAnalysis(res);
+        if (cancelled) return;
+        setAnalysis(res);
+        // Default to applying to every page; the user can narrow it.
+        const all = new Set<number>();
+        for (let i = 1; i <= res.numPages; i++) all.add(i);
+        setSelectedPages(all);
       } catch {
         if (!cancelled) setAnalysis(null);
       } finally {
@@ -146,10 +155,23 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
         return;
       }
       const picked = e.target.files ? Array.from(e.target.files) : [];
+      // The dropzone enforces maxSize, but this hidden re-upload input bypasses
+      // it — guard here so an oversized file can't slip in via "다시 업로드".
+      const tooLarge = picked.find((f) => f.size > FILE_SIZE_LIMIT.user);
+      if (tooLarge) {
+        toast.error(
+          template(labels.fileUpload.tooLargeTemplate, {
+            name: tooLarge.name,
+            size: formatBytes(FILE_SIZE_LIMIT.user),
+          }),
+        );
+        e.target.value = "";
+        return;
+      }
       if (picked.length > 0) handleFilesChange(picked);
       e.target.value = "";
     },
-    [handleFilesChange, status],
+    [handleFilesChange, status, labels.fileUpload.tooLargeTemplate],
   );
 
   const onReset = useCallback(() => {
@@ -158,6 +180,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
     setPageOpts(DEFAULT_PAGE);
     setWmOpts(DEFAULT_WM);
     setLogoName(null);
+    setSelectedPages(new Set());
   }, [handleFilesChange]);
 
   const handleAgain = useCallback(() => retry(), [retry]);
@@ -268,14 +291,22 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
               <PdfWatermarkResult
                 appliedPages={result.appliedPages}
                 pageCount={result.pageCount}
+                outputSize={result.data.length}
                 onDownload={download}
                 onAgain={handleAgain}
                 labels={labels}
               />
             </div>
           ) : status === "idle" ? (
-            <div className="flex h-full flex-col gap-3 overflow-y-auto pr-1">
-              <PdfWatermarkModeToggle value={mode} onChange={setMode} labels={labels} disabled={busy} />
+            // Mode toggle + apply stay pinned; only the controls scroll, so the
+            // taller watermark controls never clip the top of the card.
+            <div className="flex h-full min-h-0 flex-col gap-3">
+              <PdfWatermarkModeToggle
+                value={mode}
+                onChange={setMode}
+                labels={labels}
+                disabled={busy}
+              />
               <button
                 type="button"
                 onClick={handleApplyClick}
@@ -283,18 +314,43 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
               >
                 {labels.apply}
               </button>
-              {mode === "number" ? (
-                <PageNumberControls value={pageOpts} onChange={patchPage} labels={labels} disabled={busy} />
-              ) : (
-                <WatermarkControls
-                  value={wmOpts}
-                  onChange={patchWm}
-                  labels={labels}
-                  logoName={logoName}
-                  onPickLogo={onPickLogo}
-                  disabled={busy}
-                />
-              )}
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                {mode === "number" ? (
+                  <PageNumberControls value={pageOpts} onChange={patchPage} labels={labels} disabled={busy} />
+                ) : (
+                  <WatermarkControls
+                    value={wmOpts}
+                    onChange={patchWm}
+                    labels={labels}
+                    logoName={logoName}
+                    onPickLogo={onPickLogo}
+                    disabled={busy}
+                  />
+                )}
+                {analysis && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className="font-display text-[11px] font-medium uppercase tracking-[0.08em]"
+                        style={{ color: "var(--ink-soft)" }}
+                      >
+                        {labels.rangeLabel}
+                      </span>
+                      <span className="font-body text-[11px] tabular-nums" style={{ color: "var(--ink)" }}>
+                        {template(labels.rangeCountTemplate, { n: selectedPages.size })}
+                      </span>
+                    </div>
+                    <PageRangeSelector
+                      totalPages={analysis.numPages}
+                      selected={selectedPages}
+                      onChange={setSelectedPages}
+                      inputPlaceholder={labels.rangePlaceholder}
+                      selectAllLabel={labels.rangeSelectAll}
+                      clearLabel={labels.rangeClear}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <ProcessingStatus

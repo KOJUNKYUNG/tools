@@ -23,6 +23,10 @@ export interface PdfWatermarkLabels {
   colorLabel: string;
   rangeLabel: string;
   rangePlaceholder: string;
+  rangeSelectAll: string;
+  rangeClear: string;
+  rangeCountTemplate: string;
+  pageUnitSuffix: string;
   sourceText: string;
   sourceImage: string;
   textLabel: string;
@@ -39,6 +43,7 @@ export interface PdfWatermarkLabels {
   previewUnavailable: string;
   resultTitle: string;
   resultPagesTemplate: string;
+  resultSizeTemplate: string;
   download: string;
   again: string;
   errorMemory: string;
@@ -72,6 +77,10 @@ export function getPdfWatermarkLabels(dict: Dictionary): PdfWatermarkLabels {
     colorLabel: p.colorLabel,
     rangeLabel: p.rangeLabel,
     rangePlaceholder: p.rangePlaceholder,
+    rangeSelectAll: p.rangeSelectAll,
+    rangeClear: p.rangeClear,
+    rangeCountTemplate: p.rangeCount,
+    pageUnitSuffix: p.pageUnitSuffix,
     sourceText: p.sourceText,
     sourceImage: p.sourceImage,
     textLabel: p.textLabel,
@@ -88,6 +97,7 @@ export function getPdfWatermarkLabels(dict: Dictionary): PdfWatermarkLabels {
     previewUnavailable: p.previewUnavailable,
     resultTitle: p.resultTitle,
     resultPagesTemplate: p.resultPages,
+    resultSizeTemplate: p.resultSize,
     download: p.download,
     again: p.again,
     errorMemory: p.errorMemory,

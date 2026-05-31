@@ -7,7 +7,8 @@ import type { GridPosition } from "@/lib/pdf/overlayLayout";
 import type { PdfWatermarkLabels } from "./labels";
 import { PositionGrid } from "./PositionGrid";
 
-export type WatermarkState = Omit<WatermarkOptions, "mode">;
+// `pages` is the shared selection, injected at apply time — not edited here.
+export type WatermarkState = Omit<WatermarkOptions, "mode" | "pages">;
 
 interface WatermarkControlsProps {
   value: WatermarkState;
@@ -185,21 +186,6 @@ export function WatermarkControls({
           />
         )}
       </div>
-
-      <label className="block space-y-1">
-        <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
-          {labels.rangeLabel}
-        </span>
-        <input
-          type="text"
-          value={value.rangeInput}
-          disabled={disabled}
-          placeholder={labels.rangePlaceholder}
-          onChange={(e) => onChange({ rangeInput: e.target.value })}
-          className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px]"
-          style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--ink-strong)" }}
-        />
-      </label>
     </div>
   );
 }
@@ -215,17 +201,34 @@ interface SliderProps {
 }
 
 function Slider({ label, min, max, value, onChange, suffix, disabled }: SliderProps) {
+  const clamp = (v: number) => Math.min(max, Math.max(min, v));
   return (
-    <label className="space-y-1">
-      <span className="flex items-center justify-between">
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
         <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
           {label}
         </span>
-        <span className="font-body text-[11px] tabular-nums" style={{ color: "var(--ink)" }}>
-          {value}
-          {suffix}
+        <span className="flex items-center gap-0.5">
+          <input
+            type="number"
+            min={min}
+            max={max}
+            value={value}
+            disabled={disabled}
+            onChange={(e) => {
+              const raw = Number(e.target.value);
+              if (Number.isFinite(raw)) onChange(clamp(raw));
+            }}
+            className="h-6 w-12 rounded-[5px] border px-1 text-right font-body text-[11px] tabular-nums"
+            style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--ink-strong)" }}
+          />
+          {suffix && (
+            <span className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
+              {suffix}
+            </span>
+          )}
         </span>
-      </span>
+      </div>
       <input
         type="range"
         min={min}
@@ -235,6 +238,6 @@ function Slider({ label, min, max, value, onChange, suffix, disabled }: SliderPr
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full accent-[color:var(--accent-electric)]"
       />
-    </label>
+    </div>
   );
 }

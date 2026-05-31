@@ -3,6 +3,7 @@ import {
   computeAnchor,
   computeTilePositions,
   cornerForCenter,
+  defaultTileGaps,
   clampOpacity,
   degToRad,
   GRID_POSITIONS,
@@ -80,6 +81,24 @@ describe("cornerForCenter (rotate about the image center)", () => {
     const c = cornerForCenter(100, 50, 40, 20, degToRad(180));
     expect(c.x).toBeCloseTo(120);
     expect(c.y).toBeCloseTo(60);
+  });
+});
+
+describe("defaultTileGaps", () => {
+  it("derives gaps from the tile size with sensible floors", () => {
+    // big tile → proportional gaps
+    expect(defaultTileGaps(200, 100)).toEqual({ gapX: 100, gapY: 50 });
+  });
+  it("keeps the vertical step from running wider than the horizontal step", () => {
+    // step = size + gap. For a wide-but-short text box, vertical step must not
+    // exceed horizontal step (issue: tile rows too far apart).
+    const w = 160;
+    const h = 60;
+    const { gapX, gapY } = defaultTileGaps(w, h);
+    expect(w + gapX).toBeGreaterThanOrEqual(h + gapY);
+  });
+  it("applies minimum floors for tiny tiles", () => {
+    expect(defaultTileGaps(10, 10)).toEqual({ gapX: 48, gapY: 48 });
   });
 });
 

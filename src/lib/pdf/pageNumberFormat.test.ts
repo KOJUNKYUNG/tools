@@ -14,8 +14,15 @@ describe("formatPageNumber", () => {
   it("dash wraps the number", () => {
     expect(formatPageNumber({ index: 1, total: 3, start: 1, format: "dash" })).toBe("- 2 -");
   });
-  it("ko appends 쪽 (Korean glyph survives — canvas path)", () => {
+  it("ko appends the default 쪽 suffix (Korean glyph survives — canvas path)", () => {
     expect(formatPageNumber({ index: 0, total: 3, start: 1, format: "ko" })).toBe("1쪽");
+  });
+  it("ko uses a locale-supplied suffix (e.g. 'p' for English)", () => {
+    expect(formatPageNumber({ index: 0, total: 3, start: 1, format: "ko", suffix: "p" })).toBe("1p");
+    expect(formatPageNumber({ index: 4, total: 9, start: 1, format: "ko", suffix: "쪽" })).toBe("5쪽");
+  });
+  it("suffix is ignored by non-suffix formats", () => {
+    expect(formatPageNumber({ index: 0, total: 3, start: 1, format: "plain", suffix: "p" })).toBe("1");
   });
   it("exposes the format list for the controls", () => {
     expect(PAGE_NUMBER_FORMATS).toContain("plain");

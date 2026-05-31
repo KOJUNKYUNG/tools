@@ -2,11 +2,13 @@
 
 import { DownloadIcon, RotateCcwIcon } from "lucide-react";
 import { template } from "@/lib/common/template";
+import { formatBytes } from "@/lib/common/formatBytes";
 import type { PdfWatermarkLabels } from "./labels";
 
 interface PdfWatermarkResultProps {
   appliedPages: number;
   pageCount: number;
+  outputSize: number;
   onDownload: () => void;
   onAgain: () => void;
   labels: PdfWatermarkLabels;
@@ -15,6 +17,7 @@ interface PdfWatermarkResultProps {
 export function PdfWatermarkResult({
   appliedPages,
   pageCount,
+  outputSize,
   onDownload,
   onAgain,
   labels,
@@ -39,6 +42,9 @@ export function PdfWatermarkResult({
           applied: appliedPages,
           total: pageCount,
         })}
+      </p>
+      <p className="font-body text-[12px] tabular-nums" style={{ color: "var(--ink-soft)" }}>
+        {template(labels.resultSizeTemplate, { size: formatBytes(outputSize) })}
       </p>
       <div className="flex flex-wrap gap-1.5">
         <button

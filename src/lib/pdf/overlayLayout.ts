@@ -120,6 +120,22 @@ export function cornerForCenter(
   return { x: cx - dx, y: cy - dy };
 }
 
+/**
+ * Default spacing between tiled watermarks, derived from the tile size with a
+ * minimum floor. Gaps scale with HALF the tile size so the vertical step
+ * (tileH + gapY) never runs wider than the horizontal step for wide-but-short
+ * text boxes — keeping the tiled pattern visually balanced.
+ */
+export function defaultTileGaps(
+  tileW: number,
+  tileH: number,
+): { gapX: number; gapY: number } {
+  return {
+    gapX: Math.max(tileW * 0.5, 48),
+    gapY: Math.max(tileH * 0.5, 48),
+  };
+}
+
 /** Clamp an opacity value into pdf-lib's accepted [0, 1] range. */
 export function clampOpacity(value: number): number {
   return Math.min(1, Math.max(0, value));

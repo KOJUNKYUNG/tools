@@ -6,7 +6,9 @@ import type { GridPosition } from "@/lib/pdf/overlayLayout";
 import type { PdfWatermarkLabels } from "./labels";
 import { PositionGrid } from "./PositionGrid";
 
-export type PageNumberState = Omit<PageNumberOptions, "mode">;
+// `suffix` is locale-derived and `pages` is the shared selection — both are
+// injected at apply time, not edited here.
+export type PageNumberState = Omit<PageNumberOptions, "mode" | "suffix" | "pages">;
 
 interface PageNumberControlsProps {
   value: PageNumberState;
@@ -109,21 +111,6 @@ export function PageNumberControls({
           />
         </label>
       </div>
-
-      <label className="block space-y-1">
-        <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
-          {labels.rangeLabel}
-        </span>
-        <input
-          type="text"
-          value={value.rangeInput}
-          disabled={disabled}
-          placeholder={labels.rangePlaceholder}
-          onChange={(e) => onChange({ rangeInput: e.target.value })}
-          className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px]"
-          style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--ink-strong)" }}
-        />
-      </label>
     </div>
   );
 }

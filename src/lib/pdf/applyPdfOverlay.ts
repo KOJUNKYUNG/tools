@@ -1,11 +1,11 @@
 import { PDFDocument, degrees } from "pdf-lib";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
-import { parseRange } from "@/lib/common/pageRange";
 import { formatPageNumber, type PageNumberFormat } from "./pageNumberFormat";
 import {
   computeAnchor,
   computeTilePositions,
   cornerForCenter,
+  defaultTileGaps,
   clampOpacity,
   degToRad,
   type GridPosition,
@@ -28,13 +28,15 @@ export interface LogoInput {
 export interface PageNumberOptions {
   mode: "number";
   format: PageNumberFormat;
+  /** Unit suffix for the "ko" format, locale-resolved ("쪽" / "p"). */
+  suffix: string;
   start: number;
   grid: GridPosition;
   fontPx: number;
   color: string;
   margin: number;
-  /** 1-based range like "1,3,5-7". Empty = every page. */
-  rangeInput: string;
+  /** Explicit 1-based pages to apply to. */
+  pages: number[];
 }
 
 export interface WatermarkOptions {
@@ -54,7 +56,8 @@ export interface WatermarkOptions {
   /** Anchor used when not tiling. */
   grid: GridPosition;
   margin: number;
-  rangeInput: string;
+  /** Explicit 1-based pages to apply to. */
+  pages: number[];
 }
 
 export type OverlayOptions = PageNumberOptions | WatermarkOptions;
@@ -93,8 +96,7 @@ export async function analyzePdfForOverlay(
 }
 
 function tileCenters(pw: number, ph: number, w: number, h: number): Point[] {
-  const gapX = Math.max(w * 0.6, 60);
-  const gapY = Math.max(h * 3, 120);
+  const { gapX, gapY } = defaultTileGaps(w, h);
   // The grid points double as tile CENTERS; edge tiles clip naturally.
   return computeTilePositions(pw, ph, w, h, gapX, gapY);
 }
@@ -133,10 +135,9 @@ export async function applyOverlay({
   const total = pages.length;
   if (total === 0) throw new Error("CORRUPT_OUTPUT: PDF에 페이지가 없습니다.");
 
-  const range = options.rangeInput.trim()
-    ? parseRange(options.rangeInput, total)
-    : null; // null = all pages
-  const inRange = (i: number) => (range ? range.has(i + 1) : true);
+  // Explicit 1-based page set (empty = nothing to do).
+  const pageSet = new Set(options.pages);
+  const inRange = (i: number) => pageSet.has(i + 1);
 
   onProgress?.(15);
   let applied = 0;
@@ -156,6 +157,7 @@ export async function applyOverlay({
           total,
           start: options.start,
           format: options.format,
+          suffix: options.suffix,
         });
         let entry = cache.get(text);
         if (!entry) {

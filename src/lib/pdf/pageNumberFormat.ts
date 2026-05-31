@@ -9,6 +9,8 @@ export interface FormatPageNumberInput {
   /** Displayed number for the first page (1 = natural). */
   start: number;
   format: PageNumberFormat;
+  /** Unit suffix for the "ko" format. Locale-supplied ("쪽" / "p"). Default "쪽". */
+  suffix?: string;
 }
 
 /**
@@ -20,6 +22,7 @@ export function formatPageNumber({
   total,
   start,
   format,
+  suffix,
 }: FormatPageNumberInput): string {
   const n = index + start;
   switch (format) {
@@ -28,7 +31,7 @@ export function formatPageNumber({
     case "dash":
       return `- ${n} -`;
     case "ko":
-      return `${n}쪽`;
+      return `${n}${suffix ?? "쪽"}`;
     case "plain":
     default:
       return `${n}`;
