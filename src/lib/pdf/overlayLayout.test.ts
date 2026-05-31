@@ -4,6 +4,9 @@ import {
   computeTilePositions,
   cornerForCenter,
   defaultTileGaps,
+  visualSize,
+  visualPointToUser,
+  normalizeRotation,
   clampOpacity,
   degToRad,
   GRID_POSITIONS,
@@ -99,6 +102,54 @@ describe("defaultTileGaps", () => {
   });
   it("applies minimum floors for tiny tiles", () => {
     expect(defaultTileGaps(10, 10)).toEqual({ gapX: 48, gapY: 48 });
+  });
+});
+
+describe("normalizeRotation", () => {
+  it("snaps to 0/90/180/270 and wraps negatives", () => {
+    expect(normalizeRotation(0)).toBe(0);
+    expect(normalizeRotation(90)).toBe(90);
+    expect(normalizeRotation(-90)).toBe(270);
+    expect(normalizeRotation(450)).toBe(90);
+    expect(normalizeRotation(44)).toBe(0);
+    expect(normalizeRotation(46)).toBe(90);
+  });
+});
+
+describe("visualSize", () => {
+  it("keeps dims for 0/180, swaps for 90/270", () => {
+    expect(visualSize(0, 200, 100)).toEqual({ vw: 200, vh: 100 });
+    expect(visualSize(180, 200, 100)).toEqual({ vw: 200, vh: 100 });
+    expect(visualSize(90, 200, 100)).toEqual({ vw: 100, vh: 200 });
+    expect(visualSize(270, 200, 100)).toEqual({ vw: 100, vh: 200 });
+  });
+});
+
+describe("visualPointToUser (upright-view point → pdf user space)", () => {
+  const W = 200;
+  const H = 100;
+  it("is identity at rotation 0", () => {
+    expect(visualPointToUser(0, W, H, 30, 40)).toEqual({ x: 30, y: 40 });
+  });
+  it("maps the visual bottom-left to the right user-space corner for 90", () => {
+    // forward 90: user(200,0) → visual(0,0); so inverse visual(0,0) → user(200,0)
+    expect(visualPointToUser(90, W, H, 0, 0)).toEqual({ x: 200, y: 0 });
+    expect(visualPointToUser(90, W, H, 50, 100)).toEqual({ x: 100, y: 50 });
+  });
+  it("maps correctly for 180", () => {
+    expect(visualPointToUser(180, W, H, 0, 0)).toEqual({ x: 200, y: 100 });
+    expect(visualPointToUser(180, W, H, 30, 40)).toEqual({ x: 170, y: 60 });
+  });
+  it("maps correctly for 270", () => {
+    // forward 270: user(0,0) → visual(H,0)=(100,0); inverse visual(100,0) → user(0,0)
+    expect(visualPointToUser(270, W, H, 100, 0)).toEqual({ x: 0, y: 0 });
+    expect(visualPointToUser(270, W, H, 0, 0)).toEqual({ x: 0, y: 100 });
+  });
+  it("round-trips visual→user→visual through the forward 90 map", () => {
+    // forward 90: Vx=Uy, Vy=W-Ux
+    const u = visualPointToUser(90, W, H, 70, 120);
+    const vBack = { x: u.y, y: W - u.x };
+    expect(vBack).toEqual({ x: 70, y: 120 });
   });
 });
 

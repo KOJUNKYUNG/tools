@@ -328,6 +328,8 @@
         "sourceImage": "Logo image",
         "textLabel": "Watermark text",
         "textPlaceholder": "e.g. CONFIDENTIAL, COPY",
+        "needText": "Enter watermark text.",
+        "needLogo": "Choose a logo image.",
         "logoSelect": "Choose logo",
         "logoHint": "PNG or JPG",
         "logoScaleLabel": "Logo size",

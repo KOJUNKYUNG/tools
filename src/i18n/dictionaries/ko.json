@@ -328,6 +328,8 @@
         "sourceImage": "로고 이미지",
         "textLabel": "워터마크 문구",
         "textPlaceholder": "예: 기밀, 사본",
+        "needText": "워터마크 문구를 입력하세요.",
+        "needLogo": "로고 이미지를 선택하세요.",
         "logoSelect": "로고 선택",
         "logoHint": "PNG 또는 JPG",
         "logoScaleLabel": "로고 크기",

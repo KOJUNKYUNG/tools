@@ -31,6 +31,8 @@ export interface PdfWatermarkLabels {
   sourceImage: string;
   textLabel: string;
   textPlaceholder: string;
+  needText: string;
+  needLogo: string;
   logoSelect: string;
   logoHint: string;
   logoScaleLabel: string;
@@ -85,6 +87,8 @@ export function getPdfWatermarkLabels(dict: Dictionary): PdfWatermarkLabels {
     sourceImage: p.sourceImage,
     textLabel: p.textLabel,
     textPlaceholder: p.textPlaceholder,
+    needText: p.needText,
+    needLogo: p.needLogo,
     logoSelect: p.logoSelect,
     logoHint: p.logoHint,
     logoScaleLabel: p.logoScaleLabel,

@@ -10,6 +10,11 @@
 // tested in overlayLayout.ts / pageNumberFormat.ts.
 
 const SCALE = 4;
+// Hard ceiling on the bitmap dimension. Browsers silently produce a BLANK
+// canvas past ~16384px (and less on Safari), which would make a long / large
+// watermark invisible with no error. We cap the bitmap and lower the effective
+// supersampling instead.
+const MAX_BITMAP_DIM = 4096;
 
 export interface RenderedText {
   bytes: Uint8Array;
@@ -71,13 +76,18 @@ export async function renderTextToPng({
   const logicalW = Math.max(1, Math.ceil(metrics.width + pad * 2));
   const logicalH = Math.max(1, Math.ceil(ascent + descent + pad * 2));
 
+  // Lower the supersampling factor if the bitmap would exceed the safe ceiling
+  // (long text / huge font), so we degrade sharpness instead of going blank.
+  const maxLogical = Math.max(logicalW, logicalH);
+  const scale = Math.max(1, Math.min(SCALE, Math.floor(MAX_BITMAP_DIM / maxLogical)));
+
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(logicalW * SCALE);
-  canvas.height = Math.round(logicalH * SCALE);
+  canvas.width = Math.round(logicalW * scale);
+  canvas.height = Math.round(logicalH * scale);
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D 컨텍스트를 만들 수 없습니다.");
 
-  ctx.scale(SCALE, SCALE);
+  ctx.scale(scale, scale);
   ctx.font = font;
   ctx.fillStyle = color;
   ctx.textBaseline = "alphabetic";

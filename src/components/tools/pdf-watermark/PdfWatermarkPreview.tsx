@@ -116,6 +116,7 @@ export function PdfWatermarkPreview({
   useEffect(() => {
     const logo = wmOpts.logo;
     if (!logo) {
+      logoBitmapRef.current?.close();
       logoBitmapRef.current = null;
       setLogoTick((t) => t + 1);
       return;
@@ -127,7 +128,12 @@ export function PdfWatermarkPreview({
           type: logo.kind === "png" ? "image/png" : "image/jpeg",
         });
         const bmp = await createImageBitmap(blob);
-        if (cancelled) return;
+        if (cancelled) {
+          bmp.close();
+          return;
+        }
+        // Release the previous bitmap (GPU-backed) before swapping in the new one.
+        logoBitmapRef.current?.close();
         logoBitmapRef.current = bmp;
         setLogoTick((t) => t + 1);
       } catch {
@@ -139,6 +145,15 @@ export function PdfWatermarkPreview({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wmOpts.logo]);
+
+  // Release the logo bitmap on unmount.
+  useEffect(
+    () => () => {
+      logoBitmapRef.current?.close();
+      logoBitmapRef.current = null;
+    },
+    [],
+  );
 
   // Re-composite whenever any option changes OR a bitmap becomes ready.
   useEffect(() => {

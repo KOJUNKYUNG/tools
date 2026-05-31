@@ -1,4 +1,4 @@
-import { PDFDocument, degrees } from "pdf-lib";
+import { PDFDocument, PDFImage, PDFPage, degrees } from "pdf-lib";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 import { formatPageNumber, type PageNumberFormat } from "./pageNumberFormat";
 import {
@@ -6,6 +6,9 @@ import {
   computeTilePositions,
   cornerForCenter,
   defaultTileGaps,
+  visualSize,
+  visualPointToUser,
+  normalizeRotation,
   clampOpacity,
   degToRad,
   type GridPosition,
@@ -101,6 +104,64 @@ function tileCenters(pw: number, ph: number, w: number, h: number): Point[] {
   return computeTilePositions(pw, ph, w, h, gapX, gapY);
 }
 
+interface DrawOpts {
+  grid: GridPosition;
+  margin: number;
+  tile: boolean;
+  /** Desired VISUAL angle in degrees (0 = upright as the user sees it). */
+  angleDeg: number;
+  opacity: number;
+}
+
+/**
+ * Draw an embedded image onto a page, honoring the page's `/Rotate`. We place
+ * the overlay in the upright "visual" space (so it lands where the user sees
+ * it), then map the point into user space and add the page rotation to the
+ * draw angle so it renders upright after the viewer rotates the page.
+ */
+function drawOverlayOnPage(
+  page: PDFPage,
+  img: PDFImage,
+  dw: number,
+  dh: number,
+  opts: DrawOpts,
+): void {
+  const { width: W, height: H } = page.getSize();
+  const rotation = normalizeRotation(page.getRotation().angle);
+  const { vw, vh } = visualSize(rotation, W, H);
+
+  const centersV: Point[] = opts.tile
+    ? tileCenters(vw, vh, dw, dh)
+    : [
+        (() => {
+          const c = computeAnchor(opts.grid, vw, vh, dw, dh, opts.margin);
+          return { x: c.x + dw / 2, y: c.y + dh / 2 };
+        })(),
+      ];
+
+  const alphaDeg = opts.angleDeg + rotation;
+  const alphaRad = degToRad(alphaDeg);
+
+  for (const cv of centersV) {
+    const cu = visualPointToUser(rotation, W, H, cv.x, cv.y);
+    const corner = cornerForCenter(cu.x, cu.y, dw, dh, alphaRad);
+    page.drawImage(img, {
+      x: corner.x,
+      y: corner.y,
+      width: dw,
+      height: dh,
+      opacity: opts.opacity,
+      rotate: degrees(alphaDeg),
+    });
+  }
+}
+
+/** Visual page width/height for an already-loaded page (for logo sizing). */
+function visualPageSize(page: PDFPage): { vw: number; vh: number } {
+  const { width, height } = page.getSize();
+  return visualSize(normalizeRotation(page.getRotation().angle), width, height);
+}
+
 /**
  * Draw page numbers or a watermark onto a PDF and return new bytes.
  *
@@ -179,17 +240,13 @@ export async function applyOverlay({
           entry = { img, w: r.width, h: r.height };
           cache.set(text, entry);
         }
-        const page = pages[i];
-        const { width: pw, height: ph } = page.getSize();
-        const { x, y } = computeAnchor(
-          options.grid,
-          pw,
-          ph,
-          entry.w,
-          entry.h,
-          options.margin,
-        );
-        page.drawImage(entry.img, { x, y, width: entry.w, height: entry.h });
+        drawOverlayOnPage(pages[i], entry.img, entry.w, entry.h, {
+          grid: options.grid,
+          margin: options.margin,
+          tile: false,
+          angleDeg: 0,
+          opacity: 1,
+        });
         applied++;
       }
       onProgress?.(15 + Math.round(((i + 1) / total) * 72));
@@ -222,48 +279,33 @@ export async function applyOverlay({
     }
 
     const opacity = clampOpacity(options.opacity);
-    const rot = degToRad(options.angle);
 
     for (let i = 0; i < total; i++) {
       if (inRange(i)) {
         const page = pages[i];
-        const { width: pw, height: ph } = page.getSize();
 
         let drawW = baseW;
         let drawH = baseH;
         if (options.source === "image") {
+          // Logo size is a fraction of the VISUAL page width (what the user
+          // sees); clamp to the visual height so a tall logo never overflows.
+          const { vw, vh } = visualPageSize(page);
           const frac = Math.min(1, Math.max(0.05, options.logoScale));
-          drawW = pw * frac;
+          drawW = vw * frac;
           drawH = (baseH / baseW) * drawW;
+          if (drawH > vh) {
+            drawH = vh;
+            drawW = (baseW / baseH) * drawH;
+          }
         }
 
-        const centers = options.tile
-          ? tileCenters(pw, ph, drawW, drawH)
-          : [
-              (() => {
-                const corner = computeAnchor(
-                  options.grid,
-                  pw,
-                  ph,
-                  drawW,
-                  drawH,
-                  options.margin,
-                );
-                return { x: corner.x + drawW / 2, y: corner.y + drawH / 2 };
-              })(),
-            ];
-
-        for (const c of centers) {
-          const { x, y } = cornerForCenter(c.x, c.y, drawW, drawH, rot);
-          page.drawImage(img, {
-            x,
-            y,
-            width: drawW,
-            height: drawH,
-            opacity,
-            rotate: degrees(options.angle),
-          });
-        }
+        drawOverlayOnPage(page, img, drawW, drawH, {
+          grid: options.grid,
+          margin: options.margin,
+          tile: options.tile,
+          angleDeg: options.angle,
+          opacity,
+        });
         applied++;
       }
       onProgress?.(15 + Math.round(((i + 1) / total) * 72));

@@ -136,6 +136,56 @@ export function defaultTileGaps(
   };
 }
 
+/**
+ * Page rotation handling (pdf `/Rotate`, clockwise when displayed).
+ *
+ * pdf-lib's `drawImage` draws in UNROTATED user space (MediaBox coords,
+ * bottom-left origin); the viewer then rotates the whole page by `/Rotate`
+ * for display. To place an overlay where the user SEES it (and upright), we
+ * compute the anchor in the upright "visual" space, then map the point back
+ * into user space and add the page rotation to the draw angle.
+ */
+export type PageRotation = 0 | 90 | 180 | 270;
+
+/** Snap any angle to the nearest 0/90/180/270 (PDF only allows multiples of 90). */
+export function normalizeRotation(angle: number): PageRotation {
+  const snapped = ((Math.round(angle / 90) * 90) % 360 + 360) % 360;
+  return snapped as PageRotation;
+}
+
+/** Visual (as-displayed) page dimensions: swapped for 90/270. */
+export function visualSize(
+  rotation: PageRotation,
+  w: number,
+  h: number,
+): { vw: number; vh: number } {
+  return rotation % 180 === 0 ? { vw: w, vh: h } : { vw: h, vh: w };
+}
+
+/**
+ * Map a point from upright visual coords (bottom-left origin, visual dims) to
+ * pdf user-space coords (MediaBox dims w×h). Inverse of the viewer's clockwise
+ * `/Rotate`.
+ */
+export function visualPointToUser(
+  rotation: PageRotation,
+  w: number,
+  h: number,
+  vx: number,
+  vy: number,
+): Point {
+  switch (rotation) {
+    case 90:
+      return { x: w - vy, y: vx };
+    case 180:
+      return { x: w - vx, y: h - vy };
+    case 270:
+      return { x: vy, y: h - vx };
+    default:
+      return { x: vx, y: vy };
+  }
+}
+
 /** Clamp an opacity value into pdf-lib's accepted [0, 1] range. */
 export function clampOpacity(value: number): number {
   return Math.min(1, Math.max(0, value));

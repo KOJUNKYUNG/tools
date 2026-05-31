@@ -219,8 +219,29 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
       toast.error(labels.uploadPrompt);
       return;
     }
+    // Pre-validate so the worker never throws hardcoded-Korean errors at EN users.
+    if (mode === "watermark") {
+      if (wmOpts.source === "text" && !wmOpts.text.trim()) {
+        toast.error(labels.needText);
+        return;
+      }
+      if (wmOpts.source === "image" && !wmOpts.logo) {
+        toast.error(labels.needLogo);
+        return;
+      }
+    }
     run();
-  }, [file, run, labels.uploadPrompt]);
+  }, [
+    file,
+    run,
+    mode,
+    wmOpts.source,
+    wmOpts.text,
+    wmOpts.logo,
+    labels.uploadPrompt,
+    labels.needText,
+    labels.needLogo,
+  ]);
 
   const body = (
     <div className={inline ? "space-y-4" : "space-y-4 px-6 py-3"}>
