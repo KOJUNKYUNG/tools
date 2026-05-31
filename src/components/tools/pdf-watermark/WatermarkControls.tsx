@@ -57,7 +57,26 @@ export function WatermarkControls({
         })}
       </div>
 
-      {value.source === "text" ? (
+      {/* Hidden logo picker — triggered by the Choose-logo button in the grid. */}
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/png,image/jpeg"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0] ?? null;
+          if (f && !/image\/(png|jpeg)/.test(f.type)) {
+            toast.error(labels.logoHint);
+            e.target.value = "";
+            return;
+          }
+          onPickLogo(f);
+          e.target.value = "";
+        }}
+      />
+
+      {/* Text mode only: the text field needs full width; font + color beside it. */}
+      {value.source === "text" && (
         <div className="grid grid-cols-[1fr_auto_auto] gap-2">
           <label className="space-y-1">
             <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
@@ -102,48 +121,6 @@ export function WatermarkControls({
             />
           </label>
         </div>
-      ) : (
-        <div className="space-y-2">
-          <input
-            ref={logoInputRef}
-            type="file"
-            accept="image/png,image/jpeg"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0] ?? null;
-              if (f && !/image\/(png|jpeg)/.test(f.type)) {
-                toast.error(labels.logoHint);
-                e.target.value = "";
-                return;
-              }
-              onPickLogo(f);
-              e.target.value = "";
-            }}
-          />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => logoInputRef.current?.click()}
-              className="nameplate h-8 rounded-[7px] px-3 font-display text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ color: "var(--ink-strong)" }}
-            >
-              {labels.logoSelect}
-            </button>
-            <span className="min-w-0 flex-1 truncate font-body text-[12px]" style={{ color: "var(--ink-soft)" }}>
-              {logoName ?? labels.logoHint}
-            </span>
-          </div>
-          <Slider
-            label={labels.logoScaleLabel}
-            min={5}
-            max={100}
-            value={Math.round(value.logoScale * 100)}
-            disabled={disabled}
-            onChange={(v) => onChange({ logoScale: v / 100 })}
-            suffix="%"
-          />
-        </div>
       )}
 
       {/*
@@ -156,6 +133,17 @@ export function WatermarkControls({
       */}
       <div className="grid grid-cols-2 gap-x-4">
         <div className="space-y-3">
+          {value.source === "image" && (
+            <Slider
+              label={labels.logoScaleLabel}
+              min={5}
+              max={100}
+              value={Math.round(value.logoScale * 100)}
+              disabled={disabled}
+              onChange={(v) => onChange({ logoScale: v / 100 })}
+              suffix="%"
+            />
+          )}
           <Slider
             label={labels.opacityLabel}
             min={5}
@@ -177,6 +165,26 @@ export function WatermarkControls({
         </div>
 
         <div className="space-y-2">
+          {value.source === "image" && (
+            <div className="space-y-1">
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => logoInputRef.current?.click()}
+                className="nameplate h-8 w-full rounded-[7px] px-3 font-display text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ color: "var(--ink-strong)" }}
+              >
+                {labels.logoSelect}
+              </button>
+              <span
+                className="block truncate font-body text-[11px]"
+                style={{ color: "var(--ink-soft)" }}
+                title={logoName ?? labels.logoHint}
+              >
+                {logoName ?? labels.logoHint}
+              </span>
+            </div>
+          )}
           <label
             className="flex items-center gap-2 font-body text-[12px]"
             style={{ color: "var(--ink-strong)" }}
