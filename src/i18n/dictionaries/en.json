@@ -192,6 +192,43 @@
         "toPptx": "Send to Images → PPT"
       }
     },
+    "ppt-compress": {
+      "title": "Compress PPT",
+      "description": "Re-compress the images inside a PPTX to shrink the file.",
+      "page": {
+        "uploadPrompt": "Drag and drop a PPTX, or click to upload",
+        "uploadHint": "Select a single PPTX file.",
+        "uploadMaxSize": "Up to {maxSize}",
+        "reupload": "Re-upload",
+        "reset": "Start over",
+        "fileInfo": "{name} · {size}",
+        "presetGroupLabel": "Compression level",
+        "presetLightLabel": "Light",
+        "presetLightDesc": "Preserve quality, slightly smaller",
+        "presetMediumLabel": "Medium",
+        "presetMediumDesc": "Balanced, 30–50% smaller",
+        "presetHeavyLabel": "Heavy",
+        "presetHeavyDesc": "Aggressive, smallest size",
+        "compress": "Compress PPT",
+        "processing": "Compressing…",
+        "estimateTemplate": "Est. ~{from}–{to}",
+        "estimateActualTemplate": "Est. ~{size}",
+        "estimateNoChange": "~similar to original",
+        "resultTitle": "Compression result",
+        "originalSizeLabel": "Original size",
+        "compressedSizeLabel": "After",
+        "savingsLabel": "Savings",
+        "download": "Download",
+        "again": "Compress again",
+        "analyzingHint": "Analyzing…",
+        "previewUnavailable": "Preview unavailable",
+        "imagesLabel": "Images",
+        "imageCount": "{n}",
+        "noImagesHint": "No images to compress",
+        "errorMemory": "Browser ran out of memory. Try a smaller file.",
+        "errorCorrupt": "The compressed file is unusable. Try a different compression level."
+      }
+    },
     "pdf-arrange": {
       "title": "Merge / Split / Arrange PDF",
       "description": "Combine PDFs into one file, or use dividers to split into several.",

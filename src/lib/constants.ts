@@ -10,6 +10,7 @@ import {
   Shrink,
   Expand,
   Presentation,
+  Minimize2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,6 +56,16 @@ export const TOOLS: ToolInfo[] = [
     href: "/tools/ppt-extract",
     icon: ImageDown,
     category: "ppt",
+  },
+  {
+    slug: "ppt-compress",
+    title: "PPT 용량 줄이기",
+    description: "PPTX 속 이미지를 다시 압축해 파일 크기를 줄입니다.",
+    i18nKey: "tools.ppt-compress",
+    href: "/tools/ppt-compress",
+    icon: Minimize2,
+    category: "ppt",
+    keywords: ["pptx", "compress", "압축", "용량", "ppt", "줄이기"],
   },
   {
     slug: "pdf-arrange",
