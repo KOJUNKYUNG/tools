@@ -36,6 +36,7 @@ import {
   splitIntoSections,
 } from "@/lib/pdf/pageItem";
 import { buildPageItems, deriveBaseName } from "@/components/pdf-editor/buildPageItems";
+import { normalizeImageFiles } from "@/lib/image/heic";
 import { Divider } from "./Divider";
 import { EditorTopStrip } from "./EditorTopStrip";
 import { PageItemCard, type SectionTint } from "@/components/pdf-editor/PageItemCard";
@@ -51,8 +52,11 @@ const ACCEPT = {
   "application/pdf": [".pdf"],
   "image/png": [".png"],
   "image/jpeg": [".jpg", ".jpeg"],
+  "image/heic": [".heic"],
+  "image/heif": [".heif"],
 };
-const ACCEPT_ATTR = "application/pdf,image/png,image/jpeg";
+const ACCEPT_ATTR =
+  "application/pdf,image/png,image/jpeg,image/heic,image/heif,.heic,.heif";
 
 /** Total upload size above which we show a soft (dismissible) slowness warning. */
 const OVERSIZE_THRESHOLD = 100 * 1024 * 1024;
@@ -199,19 +203,34 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     async (incoming: File[], mode: "replace" | "append") => {
       if (incoming.length === 0) return;
 
+      // Normalize HEIC/HEIF → JPEG first (PDFs and other images pass through).
+      setLoadingPages(true);
+      let normalized: File[];
+      try {
+        normalized = await normalizeImageFiles(incoming);
+      } catch (err) {
+        toast.error(
+          getErrorMessage(err, { fallbackMessage: "HEIC 파일을 변환할 수 없습니다." }).message,
+        );
+        setLoadingPages(false);
+        return;
+      }
+
       // Per-file size guard — mirrors FileUpload's dropzone limit on the add path
       // (the hidden <input> bypasses react-dropzone's maxSize check).
-      const accepted = incoming.filter((f) => f.size <= FILE_SIZE_LIMIT.guest);
-      for (const f of incoming) {
+      const accepted = normalized.filter((f) => f.size <= FILE_SIZE_LIMIT.guest);
+      for (const f of normalized) {
         if (f.size > FILE_SIZE_LIMIT.guest) {
           toast.error(
             `${f.name}: 파일 크기가 ${formatBytes(FILE_SIZE_LIMIT.guest)}를 초과합니다.`,
           );
         }
       }
-      if (accepted.length === 0) return;
+      if (accepted.length === 0) {
+        setLoadingPages(false);
+        return;
+      }
 
-      setLoadingPages(true);
       try {
         const built = await buildPageItems(accepted);
         for (const name of built.failed) {

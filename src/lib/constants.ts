@@ -150,6 +150,18 @@ export const TOOLS: ToolInfo[] = [
     href: "/tools/image-compress",
     icon: Shrink,
     category: "image",
+    keywords: ["heic", "heif", "iphone", "아이폰", "변환", "convert"],
+  },
+  {
+    slug: "heic-convert",
+    title: "HEIC 변환",
+    description: "아이폰 HEIC 사진을 JPG·PNG로 변환합니다.",
+    i18nKey: "tools.heic-convert",
+    href: "/tools/heic-convert",
+    icon: Shrink,
+    category: "image",
+    aliasOf: "image-compress",
+    keywords: ["heic", "heif", "iphone", "아이폰", "jpg", "png"],
   },
   {
     slug: "image-resize",

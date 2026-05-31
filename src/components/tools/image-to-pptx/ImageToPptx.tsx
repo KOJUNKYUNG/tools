@@ -35,6 +35,7 @@ import { type Box, computeSlidePlacement, type PlacementAlign } from "@/lib/pptx
 import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
+import { normalizeImageFiles } from "@/lib/image/heic";
 import { AlignSelector } from "./AlignSelector";
 import { BackgroundPicker, type BgChoice } from "./BackgroundPicker";
 import { PlacementControls } from "./PlacementControls";
@@ -46,8 +47,10 @@ import type { ImageToPptxLabels } from "./labels";
 const ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
   "image/png": [".png"],
+  "image/heic": [".heic"],
+  "image/heif": [".heif"],
 };
-const ACCEPT_ATTR = "image/png,image/jpeg";
+const ACCEPT_ATTR = "image/png,image/jpeg,image/heic,image/heif,.heic,.heif";
 
 const NEUTRAL_TINT = { ring: "transparent" } as const;
 
@@ -287,10 +290,23 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
   const ingest = useCallback(
     async (incoming: File[], mode: "replace" | "append") => {
-      const images = incoming.filter(
+      // Normalize HEIC/HEIF → JPEG before any further processing.
+      setLoadingPages(true);
+      let normalized: File[];
+      try {
+        normalized = await normalizeImageFiles(incoming);
+      } catch (err) {
+        toast.error(
+          getErrorMessage(err, { fallbackMessage: "HEIC 파일을 변환할 수 없습니다." }).message,
+        );
+        setLoadingPages(false);
+        return;
+      }
+
+      const images = normalized.filter(
         (f) => f.type === "image/png" || f.type === "image/jpeg",
       );
-      for (const f of incoming) {
+      for (const f of normalized) {
         if (!(f.type === "image/png" || f.type === "image/jpeg")) {
           toast.error(template(labels.errNotImage, { name: f.name }));
         }
@@ -301,9 +317,11 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           toast.error(template(labels.errTooLarge, { name: f.name, size: formatBytes(FILE_SIZE_LIMIT.guest) }));
         }
       }
-      if (accepted.length === 0) return;
+      if (accepted.length === 0) {
+        setLoadingPages(false);
+        return;
+      }
 
-      setLoadingPages(true);
       try {
         const built = await buildPageItems(accepted);
         if (built.items.length === 0) return;
