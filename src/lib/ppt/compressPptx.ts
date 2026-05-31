@@ -204,6 +204,21 @@ export async function compressPptx({
     compressionOptions: { level: 6 },
   });
 
+  // Whole-file floor: if repackaging didn't actually shrink the file (a deck
+  // whose images are already optimal, where re-deflating the XML can offset
+  // tiny image gains), hand back the untouched original. Never return a file
+  // larger than the input or a negative savings number. The original is a
+  // known-valid PPTX, so the integrity check below is unnecessary here.
+  if (data.length >= originalSize) {
+    onProgress?.(100);
+    return {
+      data: new Uint8Array(ab),
+      originalSize,
+      compressedSize: originalSize,
+      ratio: 1,
+    };
+  }
+
   // Integrity: re-open the output and confirm nothing was dropped/renamed.
   const outZip = await JSZip.loadAsync(data);
   const outputEntryNames: string[] = [];
