@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeAnchor,
   computeTilePositions,
+  cornerForCenter,
   clampOpacity,
   degToRad,
   GRID_POSITIONS,
@@ -62,6 +63,23 @@ describe("computeTilePositions", () => {
     const ys = [...new Set(pts.map((p) => p.y))].sort((a, b) => a - b);
     expect(xs).toEqual([0, 100]);
     expect(ys).toEqual([0, 50]);
+  });
+});
+
+describe("cornerForCenter (rotate about the image center)", () => {
+  it("at angle 0 the corner is center minus half-extent", () => {
+    expect(cornerForCenter(100, 50, 40, 20, 0)).toEqual({ x: 80, y: 40 });
+  });
+  it("keeps the center fixed under 90° rotation", () => {
+    const c = cornerForCenter(100, 50, 40, 20, degToRad(90));
+    // dx = (20*0) - (10*1) = -10 ; dy = (20*1) + (10*0) = 20
+    expect(c.x).toBeCloseTo(110);
+    expect(c.y).toBeCloseTo(30);
+  });
+  it("at 180° the corner flips to the opposite side", () => {
+    const c = cornerForCenter(100, 50, 40, 20, degToRad(180));
+    expect(c.x).toBeCloseTo(120);
+    expect(c.y).toBeCloseTo(60);
   });
 });
 

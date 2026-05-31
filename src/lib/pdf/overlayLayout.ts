@@ -95,6 +95,31 @@ export function computeTilePositions(
   return points;
 }
 
+/**
+ * Bottom-left corner at which to draw an image of size (w × h) so that, after
+ * pdf-lib rotates it by `angleRad` about that corner, the image CENTER lands at
+ * (cx, cy). pdf-lib's `rotate` pivots on the draw origin (the bottom-left
+ * corner), so to pin the center we subtract the rotated half-extent.
+ *
+ *   corner = center - R(θ)·(w/2, h/2)
+ *   R(θ) = [[cosθ, -sinθ], [sinθ, cosθ]]
+ */
+export function cornerForCenter(
+  cx: number,
+  cy: number,
+  w: number,
+  h: number,
+  angleRad: number,
+): Point {
+  const cos = Math.cos(angleRad);
+  const sin = Math.sin(angleRad);
+  const hw = w / 2;
+  const hh = h / 2;
+  const dx = hw * cos - hh * sin;
+  const dy = hw * sin + hh * cos;
+  return { x: cx - dx, y: cy - dy };
+}
+
 /** Clamp an opacity value into pdf-lib's accepted [0, 1] range. */
 export function clampOpacity(value: number): number {
   return Math.min(1, Math.max(0, value));
