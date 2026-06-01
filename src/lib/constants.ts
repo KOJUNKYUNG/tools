@@ -12,6 +12,7 @@ import {
   Presentation,
   Minimize2,
   Stamp,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -132,6 +133,26 @@ export const TOOLS: ToolInfo[] = [
       "쪽번호",
       "도장",
       "기밀",
+    ],
+  },
+  {
+    slug: "pdf-lock",
+    title: "PDF 암호 / 잠금",
+    description: "PDF에 열기 암호를 걸거나, 암호를 풀어 잠금을 해제합니다.",
+    i18nKey: "tools.pdf-lock",
+    href: "/tools/pdf-lock",
+    icon: Lock,
+    category: "pdf",
+    keywords: [
+      "lock",
+      "unlock",
+      "password",
+      "encrypt",
+      "protect",
+      "암호",
+      "잠금",
+      "비밀번호",
+      "보호",
     ],
   },
   {

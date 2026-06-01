@@ -65,3 +65,6 @@ Desktop.ini
 
 # pdfjs-dist assets copied by scripts/copy-pdfjs.mjs (postinstall)
 public/pdfjs/
+
+# qpdf-wasm binary copied by scripts/copy-qpdf.mjs (postinstall)
+public/qpdf/

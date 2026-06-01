@@ -8,6 +8,14 @@ const ERROR_MESSAGES: Record<ToolErrorCode, string> = {
   [ToolErrorCode.UNKNOWN]: "알 수 없는 오류가 발생했습니다.",
 };
 
+/**
+ * Sentinel prefix thrown by qpdfCrypto.decryptPdf when qpdf reports an invalid
+ * password (exit code != 0 with "invalid password" on stderr). Distinguishes a
+ * normal user mistake (wrong password) from a corrupt/structurally-broken PDF,
+ * so the UI can say "wrong password" instead of "file is damaged".
+ */
+export const WRONG_PASSWORD_PREFIX = "WRONG_PASSWORD";
+
 export interface GetErrorMessageOptions {
   fallbackMessage?: string;
   memoryHint?: string;
@@ -17,6 +25,11 @@ export interface GetErrorMessageOptions {
    * the `CORRUPT_OUTPUT:` prefix on the thrown error message.
    */
   corruptOutputHint?: string;
+  /**
+   * Override message for an unlock attempt with the wrong password. Detected
+   * by the `WRONG_PASSWORD:` prefix on the thrown error message.
+   */
+  wrongPasswordHint?: string;
 }
 
 export function getErrorMessage(
@@ -24,6 +37,14 @@ export function getErrorMessage(
   options: GetErrorMessageOptions = {},
 ): ToolError {
   const rawMessage = err instanceof Error ? err.message : "";
+
+  if (rawMessage.startsWith(WRONG_PASSWORD_PREFIX)) {
+    return {
+      code: ToolErrorCode.INVALID_FILE,
+      message:
+        options.wrongPasswordHint ?? ERROR_MESSAGES[ToolErrorCode.INVALID_FILE],
+    };
+  }
 
   if (rawMessage.startsWith("CORRUPT_OUTPUT")) {
     return {
