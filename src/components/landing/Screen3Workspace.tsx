@@ -27,6 +27,8 @@ import { PptCompress } from "@/components/tools/ppt-compress/PptCompress";
 import { getPptCompressLabels } from "@/components/tools/ppt-compress/labels";
 import { PdfWatermark } from "@/components/tools/pdf-watermark/PdfWatermark";
 import { getPdfWatermarkLabels } from "@/components/tools/pdf-watermark/labels";
+import { PdfLock } from "@/components/tools/pdf-lock/PdfLock";
+import { getPdfLockLabels } from "@/components/tools/pdf-lock/labels";
 import { PptExtract } from "@/components/tools/ppt-extract/PptExtract";
 import { getPptExtractLabels } from "@/components/tools/ppt-extract/labels";
 import { ImageToPptx } from "@/components/tools/image-to-pptx/ImageToPptx";
@@ -96,6 +98,8 @@ export function Screen3Workspace({
         return <PdfCompress inline labels={getPdfCompressLabels(dict)} />;
       case "pdf-watermark":
         return <PdfWatermark inline labels={getPdfWatermarkLabels(dict)} />;
+      case "pdf-lock":
+        return <PdfLock inline labels={getPdfLockLabels(dict)} />;
       case "ppt-compress":
         return <PptCompress inline labels={getPptCompressLabels(dict)} />;
       case "ppt-extract":
