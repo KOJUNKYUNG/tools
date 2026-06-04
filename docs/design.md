@@ -178,4 +178,4 @@ Ordered checklist before you write CSS:
   execution model.
 - [`docs/adr/0001-silver-design-system.md`](./adr/0001-silver-design-system.md) — why silver.
 - [`docs/adr/0002-next16-native-i18n-and-chrome-route-group.md`](./adr/0002-next16-native-i18n-and-chrome-route-group.md) — why the `(chrome)` group exists (the landing's full-bleed contract is the reason).
-- [`docs/PRD_Z.md`](./PRD_Z.md) — product roadmap.
+- [`CONTEXT.md` → Phases](../CONTEXT.md#phases) — product roadmap.

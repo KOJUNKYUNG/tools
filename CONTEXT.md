@@ -28,7 +28,8 @@ wins.
 | ---- | -------- | ------------ |
 | What Ontab is, domain terms, architecture contracts, Phase *definitions* | **this file** (`CONTEXT.md`) | A term or concept actually resolves — lazily, via `/grill-with-docs` |
 | A hard-to-reverse decision + its rationale | **`docs/adr/`** | The decision is hard to reverse, surprising without context, and a real trade-off |
-| The visual / design implementation contract (tokens, material classes, fidelity rule) | **`docs/design.md`** | UI conventions, tokens, or layout magic numbers change |
+| The design spec — Google DESIGN.md standard format | **`DESIGN.md`** (root) | Populated during the design re-adjustment (ADR-0003); a validated scaffold until then |
+| The *current* visual implementation contract (tokens, material classes, fidelity rule) | **`docs/design.md`** | Authoritative until `DESIGN.md` is populated; UI conventions/tokens change |
 | The design of one tool/feature | **`docs/superpowers/specs/{date}-{slug}-design.md`** | Before building it, once brainstorming settles the design |
 | The task breakdown to build one tool/feature | **`docs/superpowers/plans/{date}-{slug}.md`** | After the spec, just before implementation |
 | How agents consume these docs + the detailed authoring rules | **`docs/agents/domain.md`** | Doc conventions change |

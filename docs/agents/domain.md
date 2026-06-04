@@ -50,6 +50,8 @@ holds product content and routing; this file holds the meta rules.**
 | --- | -------- | ------ |
 | `CONTEXT.md` | `/grill-with-docs` | **Lazily** — only when a term or concept actually resolves. Never pre-fill. |
 | `docs/adr/` | `/grill-with-docs` | Only when a decision passes all three gates below. |
+| `DESIGN.md` (root) | the design re-adjustment | Google-standard design spec (ADR-0003). Populated during the re-design; until then it's a validated scaffold and `docs/design.md` + ADR-0001 describe the current system. |
+| `docs/design.md` | design changes | The current system's implementation contract (thin; links to `globals.css`). Stays authoritative until `DESIGN.md` is populated. |
 | `docs/superpowers/specs/{date}-{slug}-design.md` | superpowers `brainstorming` | Before building, once the design settles. One tool/feature = one spec. |
 | `docs/superpowers/plans/{date}-{slug}.md` | superpowers `writing-plans` | After the spec, just before implementation. Paired with its spec. |
 | `docs/agents/*` (this file, issue-tracker, triage-labels) | Human / config | Static. Only when operating conventions change. |
@@ -90,3 +92,16 @@ value is recording *that* a decision was made and *why*.
 *definitions*). Auto-memory = in flux (Phase *progress*, lessons, backlog,
 session-to-session continuity). When the two overlap, `CONTEXT.md` wins and
 memory points back to it rather than duplicating.
+
+### Design tokens: DESIGN.md ↔ globals.css (ADR-0003)
+
+`src/app/globals.css` (`@theme`) is the **runtime source of truth** for design
+tokens. Once `DESIGN.md` (root, Google-standard) is populated, its front-matter
+tokens **mirror** `globals.css` — they are documentation, not a second runtime
+source. **Changing a token in one requires changing it in the other in the same
+commit.** To check for drift, regenerate the theme from `DESIGN.md` and compare:
+`pnpm exec designmd export --format css-tailwind DESIGN.md`.
+
+Lint with `pnpm design:lint`. **Always use the `designmd` bin, not `design.md`**
+— the dotted bin name hangs `pnpm exec` (and collides with `DESIGN.md` /
+`docs/design.md` in file search). `--format json` keeps output non-interactive.
