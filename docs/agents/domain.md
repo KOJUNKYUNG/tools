@@ -34,3 +34,59 @@ If the concept you need isn't in the glossary yet, that's a signal — either yo
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
 > _Contradicts ADR-0007 (event-sourced orders) — but worth reopening because…_
+
+---
+
+## Document roles & authoring rules
+
+`CONTEXT.md` carries the short [Document map](../../CONTEXT.md#document-map) —
+the at-a-glance "what lives where". This section is the detailed companion:
+*how* to write each doc and *when*. The split is deliberate — **`CONTEXT.md`
+holds product content and routing; this file holds the meta rules.**
+
+### Who produces what
+
+| Doc | Producer | Timing |
+| --- | -------- | ------ |
+| `CONTEXT.md` | `/grill-with-docs` | **Lazily** — only when a term or concept actually resolves. Never pre-fill. |
+| `docs/adr/` | `/grill-with-docs` | Only when a decision passes all three gates below. |
+| `docs/superpowers/specs/{date}-{slug}-design.md` | superpowers `brainstorming` | Before building, once the design settles. One tool/feature = one spec. |
+| `docs/superpowers/plans/{date}-{slug}.md` | superpowers `writing-plans` | After the spec, just before implementation. Paired with its spec. |
+| `docs/agents/*` (this file, issue-tracker, triage-labels) | Human / config | Static. Only when operating conventions change. |
+
+### Three patterns that govern all of the above
+
+1. **Lazy creation.** `CONTEXT.md` and ADRs are never written ahead of need.
+   They capture decisions *as they crystallise*. Their absence is not a gap to
+   flag.
+2. **spec → plan → code pipeline.** A tool flows `specs/{slug}-design.md`
+   (what to build) → `plans/{slug}.md` (how to slice it) → implementation. The
+   spec and plan are a pair; don't write a plan without a settled spec.
+3. **`docs/agents/*` is operating config, not product content.** domain /
+   issue-tracker / triage-labels describe *how agents work*, not *what Ontab
+   is*. They rarely change.
+
+### Adding a term to CONTEXT.md
+
+Only terms meaningful to a domain expert — product and domain vocabulary, not
+implementation details. One-sentence definition (what it IS, not what it does).
+Be opinionated: pick one canonical word, list the rest as aliases to avoid. If
+a term is used two ways, resolve it under "Flagged ambiguities".
+
+### When an ADR qualifies
+
+All three must be true, or skip it:
+
+1. **Hard to reverse** — changing your mind later carries real cost.
+2. **Surprising without context** — a future reader will wonder "why this way?".
+3. **A real trade-off** — there were genuine alternatives and you picked one.
+
+Number sequentially (`0001-`, `0002-`, …). A single paragraph is enough; the
+value is recording *that* a decision was made and *why*.
+
+### CONTEXT vs memory
+
+`CONTEXT.md` = stable (product identity, terms, architecture contracts, Phase
+*definitions*). Auto-memory = in flux (Phase *progress*, lessons, backlog,
+session-to-session continuity). When the two overlap, `CONTEXT.md` wins and
+memory points back to it rather than duplicating.

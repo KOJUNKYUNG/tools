@@ -10,16 +10,15 @@ up for an account, or sending their files to someone else's server.
 
 ## What's inside
 
-The current snapshot of tools (more will be added — counts and lists are
-derived from a single registry, not hard-coded):
+A representative sample — **not the full list.** The live tool roster lives in
+the app and in the `TOOLS` registry ([`src/lib/constants.ts`](src/lib/constants.ts));
+this table is a hand-picked snapshot and isn't kept in lock-step with it:
 
 | Category    | Tool             | What it does                          |
 | ----------- | ---------------- | ------------------------------------- |
 | Slides      | `ppt-background` | Replace slide backgrounds in a PPTX   |
 | Slides      | `ppt-extract`    | Extract slides as images / text       |
-| Documents   | `pdf-merge`      | Combine multiple PDFs                 |
-| Documents   | `pdf-split`      | Split a PDF into ranges               |
-| Documents   | `pdf-pages`      | Reorder, delete, rotate pages         |
+| Documents   | `pdf-arrange`    | Merge, split, reorder, rotate pages in one editor |
 | Documents   | `pdf-compress`   | Reduce PDF file size                  |
 | Documents   | `pdf-to-image`   | Rasterize PDF pages to images         |
 | Images      | `image-to-pdf`   | Bundle images into a PDF              |
@@ -76,7 +75,10 @@ If you're going to touch the code, read these first:
 - [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) — guidance for AI
   coding agents working in this repo
 - [`docs/adr/`](./docs/adr/) — architectural decision records
-- [`docs/PRD_Z.md`](./docs/PRD_Z.md) — product requirements and roadmap
+
+For the full map of which doc holds what, see
+[`CONTEXT.md` → Document map](./CONTEXT.md#document-map). The product roadmap
+lives in [`CONTEXT.md` → Phases](./CONTEXT.md#phases).
 
 When proposing changes, use the vocabulary defined in `CONTEXT.md` and flag
 any conflict with an existing ADR rather than silently overriding it.
@@ -118,4 +120,4 @@ pnpm install
 pnpm dev
 ```
 
-자세한 도메인 용어·아키텍처는 [`CONTEXT.md`](./CONTEXT.md), 디자인 구현 contract 은 [`docs/design.md`](./docs/design.md), 결정 이력은 [`docs/adr/`](./docs/adr/), 제품 로드맵은 [`docs/PRD_Z.md`](./docs/PRD_Z.md) 를 참조하세요.
+자세한 도메인 용어·아키텍처·제품 로드맵은 [`CONTEXT.md`](./CONTEXT.md), 디자인 구현 contract 은 [`docs/design.md`](./docs/design.md), 결정 이력은 [`docs/adr/`](./docs/adr/) 를 참조하세요. 어떤 정보가 어느 문서에 사는지는 [`CONTEXT.md` → Document map](./CONTEXT.md#document-map) 에 정리돼 있습니다.
