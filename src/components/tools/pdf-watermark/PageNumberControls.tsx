@@ -18,7 +18,7 @@ interface PageNumberControlsProps {
 }
 
 const GROUP_LABEL =
-  "font-display text-[11px] font-medium uppercase tracking-[0.08em]";
+  "font-mono text-[11px] font-medium uppercase tracking-[0.08em]";
 
 export function PageNumberControls({
   value,
@@ -56,7 +56,7 @@ export function PageNumberControls({
                   disabled={disabled}
                   onClick={() => onChange({ format: f.value })}
                   data-active={active}
-                  className="nameplate h-8 rounded-[7px] px-2 font-display text-[12px] tabular-nums disabled:cursor-not-allowed disabled:opacity-50"
+                  className="nameplate h-8 rounded-[7px] px-2 font-mono text-[12px] tabular-nums disabled:cursor-not-allowed disabled:opacity-50"
                   style={active ? undefined : { color: "var(--ink-strong)" }}
                 >
                   {f.label}

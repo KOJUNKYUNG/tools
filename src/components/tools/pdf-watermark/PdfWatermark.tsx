@@ -289,7 +289,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
                 type="button"
                 onClick={handleReupload}
                 disabled={busy}
-                className="shrink-0 rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-[5px] border px-2.5 py-1 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--ink-strong)" }}
               >
                 {labels.reupload}
@@ -331,7 +331,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
               <button
                 type="button"
                 onClick={handleApplyClick}
-                className="btn-primary glint inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[13px] font-semibold"
+                className="btn-primary inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[13px] font-semibold"
               >
                 {labels.apply}
               </button>
@@ -352,7 +352,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <span
-                        className="font-display text-[11px] font-medium uppercase tracking-[0.08em]"
+                        className="font-mono text-[11px] font-medium uppercase tracking-[0.08em]"
                         style={{ color: "var(--ink-soft)" }}
                       >
                         {labels.rangeLabel}
@@ -398,7 +398,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
         WebkitBackdropFilter: "blur(10px) saturate(1.1)",
         borderColor: "var(--border)",
         boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(0,0,0,0.28), 0 8px 20px -6px rgba(0,0,0,0.16)",
       }}
     >
       <button
@@ -421,7 +421,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
         </div>
         <div className="min-w-0 flex-1">
           <div
-            className="font-display font-ko text-[16px] font-semibold leading-[1.2] tracking-[0.005em]"
+            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
             style={{ color: "var(--headline)" }}
           >
             {labels.title}

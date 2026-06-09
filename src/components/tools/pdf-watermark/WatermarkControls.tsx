@@ -21,9 +21,9 @@ interface WatermarkControlsProps {
 }
 
 const GROUP_LABEL =
-  "font-display text-[11px] font-medium uppercase tracking-[0.08em]";
+  "font-mono text-[11px] font-medium uppercase tracking-[0.08em]";
 const SEG =
-  "nameplate h-8 flex-1 rounded-[7px] px-2 font-display text-[12px] disabled:cursor-not-allowed disabled:opacity-50";
+  "nameplate h-8 flex-1 rounded-[7px] px-2 font-body text-[12px] disabled:cursor-not-allowed disabled:opacity-50";
 
 export function WatermarkControls({
   value,
@@ -171,7 +171,7 @@ export function WatermarkControls({
                 type="button"
                 disabled={disabled}
                 onClick={() => logoInputRef.current?.click()}
-                className="nameplate h-8 w-full rounded-[7px] px-3 font-display text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+                className="nameplate h-8 w-full rounded-[7px] px-3 font-body text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ color: "var(--ink-strong)" }}
               >
                 {labels.logoSelect}
@@ -260,7 +260,7 @@ function Slider({ label, min, max, value, onChange, suffix, disabled }: SliderPr
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-[color:var(--accent-electric)]"
+        className="w-full accent-[color:var(--emphasis)]"
       />
     </div>
   );

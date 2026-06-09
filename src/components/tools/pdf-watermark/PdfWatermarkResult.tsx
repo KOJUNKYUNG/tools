@@ -28,11 +28,11 @@ export function PdfWatermarkResult({
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",
-        boxShadow: "inset 2px 0 0 var(--accent-electric)",
+        boxShadow: "inset 2px 0 0 var(--emphasis)",
       }}
     >
       <div
-        className="font-display text-[13px] font-semibold"
+        className="font-ko text-[13px] font-medium"
         style={{ color: "var(--headline)" }}
       >
         {labels.resultTitle}
@@ -50,7 +50,7 @@ export function PdfWatermarkResult({
         <button
           type="button"
           onClick={onDownload}
-          className="btn-download glint inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[12px] font-medium"
+          className="btn-download inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[12px] font-medium"
         >
           <DownloadIcon className="size-3.5" />
           {labels.download}
@@ -58,7 +58,7 @@ export function PdfWatermarkResult({
         <button
           type="button"
           onClick={onAgain}
-          className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-display text-[12px]"
+          className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
           style={{ color: "var(--ink-strong)" }}
         >
           <RotateCcwIcon className="size-3.5" />

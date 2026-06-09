@@ -257,7 +257,7 @@ export function PdfWatermarkPreview({
   return (
     <div
       className="relative min-h-0 flex-1 overflow-hidden rounded-[8px]"
-      style={{ background: "var(--silver-100)", border: "1px solid var(--silver-200)" }}
+      style={{ background: "var(--bg-soft)", border: "1px solid var(--border)" }}
     >
       <canvas
         ref={canvasRef}
@@ -266,13 +266,13 @@ export function PdfWatermarkPreview({
       {showPlaceholder && (
         <div className="absolute inset-0 grid place-items-center px-4 text-center">
           {analyzing ? (
-            <span className="font-body text-[11.5px]" style={{ color: "var(--silver-600)" }}>
+            <span className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
               {labels.analyzingHint}
             </span>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              <StampIcon className="size-8" style={{ color: "var(--silver-500)" }} />
-              <span className="font-body text-[11px]" style={{ color: "var(--silver-600)" }}>
+              <StampIcon className="size-8" style={{ color: "var(--ink-soft)" }} />
+              <span className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
                 {labels.previewUnavailable}
               </span>
             </div>
