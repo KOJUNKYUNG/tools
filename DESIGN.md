@@ -235,6 +235,13 @@ Locked layout constants live in `globals.css` as `--tweak-*` custom properties
 read them as `var(--tweak-*, <fallback>)` so they can be retuned without code
 edits.
 
+**Fixed width, fluid height.** Only the column width is fixed (950px). Height
+flows with content — tools vary in complexity, so there is no single fixed
+workspace height. Stability comes from the layout, not a fixed size: each region
+(preview, controls, result) holds a stable height so a state change never shifts
+its neighbours; reserve space for hints and disabled states, and fit the Done /
+Processing / Error states inside the idle envelope.
+
 **Landing-inline execution model.** Every tool runs inline on the landing — the
 user uploads, processes, and downloads without leaving `/`. **Execution → result
 swap** is the canonical layout: the **preview area persists** while only the
