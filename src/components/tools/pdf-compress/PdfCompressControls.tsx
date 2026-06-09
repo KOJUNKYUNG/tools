@@ -11,9 +11,9 @@ interface PdfCompressControlsProps {
 }
 
 const TOGGLE =
-  "nameplate h-8 flex-1 rounded-[9px] px-3 font-display text-[12px] font-medium";
+  "flex-1 py-2 font-body text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 const GROUP_LABEL =
-  "font-display text-[11px] font-medium uppercase tracking-[0.08em]";
+  "font-mono text-[11px] font-medium uppercase tracking-[0.08em]";
 
 export function PdfCompressControls({
   preset,
@@ -32,7 +32,7 @@ export function PdfCompressControls({
       <p className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
         {labels.presetGroupLabel}
       </p>
-      <div className="flex gap-1.5">
+      <div className="flex border-b" style={{ borderColor: "var(--hairline)" }}>
         {options.map((opt) => {
           const active = preset === opt.value;
           return (
@@ -40,10 +40,12 @@ export function PdfCompressControls({
               key={opt.value}
               type="button"
               onClick={() => onChange(opt.value)}
-              data-active={active}
               disabled={disabled}
               className={TOGGLE}
-              style={active ? undefined : { color: "var(--ink-strong)" }}
+              style={{
+                color: active ? "var(--ink-strong)" : "var(--ink-soft)",
+                boxShadow: active ? "inset 0 -2px 0 var(--emphasis)" : undefined,
+              }}
             >
               {opt.label}
             </button>

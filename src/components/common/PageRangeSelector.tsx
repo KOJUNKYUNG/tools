@@ -114,7 +114,7 @@ export function PageRangeSelector({
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           placeholder={inputPlaceholder}
-          className="flex-1 rounded-[5px] border px-2.5 py-1.5 font-mono text-[12px] outline-none focus:border-[color:var(--accent-electric)]"
+          className="flex-1 rounded-[5px] border px-2.5 py-1.5 font-body text-[12px] outline-none focus:border-[color:var(--emphasis)]"
           style={{
             background: "var(--surface)",
             borderColor: "var(--border)",
@@ -124,7 +124,7 @@ export function PageRangeSelector({
         <button
           type="button"
           onClick={selectAll}
-          className="rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--accent-electric)]"
+          className="rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)]"
           style={{
             background: "var(--surface-2)",
             borderColor: "var(--border)",
@@ -136,7 +136,7 @@ export function PageRangeSelector({
         <button
           type="button"
           onClick={clear}
-          className="rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--accent-electric)]"
+          className="rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)]"
           style={{
             background: "var(--surface-2)",
             borderColor: "var(--border)",

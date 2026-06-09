@@ -23,7 +23,7 @@ interface WatermarkControlsProps {
 const GROUP_LABEL =
   "font-mono text-[11px] font-medium uppercase tracking-[0.08em]";
 const SEG =
-  "nameplate h-8 flex-1 rounded-[7px] px-2 font-body text-[12px] disabled:cursor-not-allowed disabled:opacity-50";
+  "flex-1 py-2 font-body text-[12px] transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
 export function WatermarkControls({
   value,
@@ -38,7 +38,7 @@ export function WatermarkControls({
   return (
     <div className="space-y-2">
       {/* source: text vs image */}
-      <div className="flex gap-1.5">
+      <div className="flex border-b" style={{ borderColor: "var(--hairline)" }}>
         {(["text", "image"] as const).map((src) => {
           const active = value.source === src;
           return (
@@ -46,10 +46,12 @@ export function WatermarkControls({
               key={src}
               type="button"
               disabled={disabled}
-              data-active={active}
               onClick={() => onChange({ source: src })}
               className={SEG}
-              style={active ? undefined : { color: "var(--ink-strong)" }}
+              style={{
+                color: active ? "var(--ink-strong)" : "var(--ink-soft)",
+                boxShadow: active ? "inset 0 -2px 0 var(--emphasis)" : undefined,
+              }}
             >
               {src === "text" ? labels.sourceText : labels.sourceImage}
             </button>

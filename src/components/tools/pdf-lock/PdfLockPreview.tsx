@@ -87,7 +87,7 @@ export function PdfLockPreview({ file, encrypted, labels }: PdfLockPreviewProps)
           ref={canvasRef}
           className="max-h-full max-w-full rounded-[4px]"
           style={{
-            boxShadow: "0 2px 8px rgba(20,30,60,0.18)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
             opacity: rendered ? 1 : 0,
             transition: "opacity 0.2s",
           }}

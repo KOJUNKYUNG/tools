@@ -287,10 +287,10 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
                 </span>
                 {encrypted !== null && (
                   <span
-                    className="shrink-0 rounded-[4px] px-1.5 py-0.5 font-display text-[10px] font-medium"
+                    className="shrink-0 rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] font-medium"
                     style={{
-                      background: encrypted ? "var(--accent-electric)" : "var(--surface-2)",
-                      color: encrypted ? "#fff" : "var(--ink-soft)",
+                      background: encrypted ? "var(--emphasis)" : "var(--surface-2)",
+                      color: encrypted ? "var(--surface)" : "var(--ink-soft)",
                       border: encrypted ? undefined : "1px solid var(--border)",
                     }}
                   >
@@ -302,7 +302,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
                 type="button"
                 onClick={handleReupload}
                 disabled={busy}
-                className="shrink-0 rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--ink-strong)" }}
               >
                 {labels.reupload}
@@ -329,7 +329,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
                 type="button"
                 onClick={handleActionClick}
                 disabled={actionDisabled}
-                className="btn-primary glint inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                className="btn-primary inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {actionLabel}
               </button>
@@ -371,7 +371,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
         WebkitBackdropFilter: "blur(10px) saturate(1.1)",
         borderColor: "var(--border)",
         boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(0,0,0,0.28), 0 8px 20px -6px rgba(0,0,0,0.16)",
       }}
     >
       <button
@@ -394,7 +394,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
         </div>
         <div className="min-w-0 flex-1">
           <div
-            className="font-display font-ko text-[16px] font-semibold leading-[1.2] tracking-[0.005em]"
+            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
             style={{ color: "var(--headline)" }}
           >
             {labels.title}

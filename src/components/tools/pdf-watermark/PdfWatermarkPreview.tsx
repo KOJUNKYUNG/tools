@@ -257,7 +257,7 @@ export function PdfWatermarkPreview({
   return (
     <div
       className="relative min-h-0 flex-1 overflow-hidden rounded-[8px]"
-      style={{ background: "var(--bg-soft)", border: "1px solid var(--border)" }}
+      style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
     >
       <canvas
         ref={canvasRef}

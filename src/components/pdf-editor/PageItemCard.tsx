@@ -59,7 +59,7 @@ function PageItemCardImpl({
   onDuplicate,
   duplicateAria,
   dragHandleProps,
-  frameBg = "#fff",
+  frameBg = "var(--surface-2)",
   pageAspect = null,
   draggable = true,
 }: PageItemCardProps) {
@@ -155,7 +155,7 @@ function PageItemCardImpl({
       }`}
       style={{
         background: frameBg,
-        border: "1px solid var(--silver-200)",
+        border: "1px solid var(--border)",
         boxShadow: `var(--shadow-sm), 0 0 0 3px ${tint.ring}`,
       }}
       {...dragHandleProps}
@@ -168,7 +168,7 @@ function PageItemCardImpl({
           hasPage ? (
             <div
               className="flex items-center justify-center overflow-hidden"
-              style={{ width: boxW, height: boxH, background: "#fff" }}
+              style={{ width: boxW, height: boxH, background: "var(--mono-0)" }}
             >
               <img
                 src={frameSrc}
@@ -187,17 +187,17 @@ function PageItemCardImpl({
         ) : (
           // Skeleton placeholder while idle/loading (matches sheet line motif).
           <div className="flex w-full flex-col gap-[7px] px-[14px]">
-            <div className="h-1.5 w-[85%] rounded bg-[var(--silver-200)]" />
-            <div className="h-1.5 w-full rounded bg-[var(--silver-200)]" />
-            <div className="h-1.5 w-[60%] rounded bg-[var(--silver-200)]" />
-            <div className="h-1.5 w-full rounded bg-[var(--silver-200)]" />
+            <div className="h-1.5 w-[85%] rounded bg-[var(--mono-200)]" />
+            <div className="h-1.5 w-full rounded bg-[var(--mono-200)]" />
+            <div className="h-1.5 w-[60%] rounded bg-[var(--mono-200)]" />
+            <div className="h-1.5 w-full rounded bg-[var(--mono-200)]" />
           </div>
         )}
       </div>
 
       <span
         className="pointer-events-none absolute left-1.5 top-1.5 rounded-md px-[7px] py-px text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
-        style={{ background: "rgba(20,30,60,0.85)" }}
+        style={{ background: "rgba(0,0,0,0.7)" }}
       >
         {pageNumber}
       </span>
@@ -211,7 +211,7 @@ function PageItemCardImpl({
             aria-label={rotateAria}
             title={rotateAria}
             className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
-            style={{ borderColor: "var(--silver-200)", color: "var(--silver-700)" }}
+            style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
           >
             <RotateCwIcon className="size-3.5" />
           </button>
@@ -224,7 +224,7 @@ function PageItemCardImpl({
             aria-label={duplicateAria}
             title={duplicateAria}
             className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
-            style={{ borderColor: "var(--silver-200)", color: "var(--silver-700)" }}
+            style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
           >
             <CopyPlusIcon className="size-3.5" />
           </button>
@@ -236,7 +236,7 @@ function PageItemCardImpl({
           aria-label={deleteAria}
           title={deleteAria}
           className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
-          style={{ borderColor: "var(--silver-200)", color: "oklch(0.55 0.22 27)" }}
+          style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
         >
           <Trash2Icon className="size-3.5" />
         </button>
@@ -244,7 +244,7 @@ function PageItemCardImpl({
 
       <div
         className="pointer-events-none absolute inset-x-2 bottom-1.5 truncate rounded-md border bg-white/95 px-1 py-0.5 text-center text-[10px] opacity-0 transition-opacity group-hover:opacity-100"
-        style={{ borderColor: "var(--silver-200)", color: "var(--silver-700)" }}
+        style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
       >
         {item.sourceFileName}
       </div>

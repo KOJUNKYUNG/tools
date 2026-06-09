@@ -27,7 +27,7 @@ function ResultCell({
   return (
     <div
       className="group relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-[5px]"
-      style={{ background: "var(--silver-100)", border: "1px solid var(--silver-200)" }}
+      style={{ background: "var(--bg-soft)", border: "1px solid var(--border)" }}
     >
       {url ? (
         <img
@@ -42,7 +42,7 @@ function ResultCell({
 
       <span
         className="pointer-events-none absolute left-1.5 top-1.5 rounded-md px-[7px] py-px text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
-        style={{ background: "rgba(20,30,60,0.85)" }}
+        style={{ background: "rgba(0,0,0,0.7)" }}
       >
         {index}
       </span>
@@ -53,14 +53,14 @@ function ResultCell({
         aria-label={downloadAria}
         title={downloadAria}
         className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-md border bg-white/95 opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
-        style={{ borderColor: "var(--silver-200)", color: "var(--silver-700)" }}
+        style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
       >
         <DownloadIcon className="size-3.5" />
       </button>
 
       <div
         className="pointer-events-none absolute inset-x-2 bottom-1.5 truncate rounded-md border bg-white/95 px-1 py-0.5 text-center text-[10px] opacity-0 transition-opacity group-hover:opacity-100"
-        style={{ borderColor: "var(--silver-200)", color: "var(--silver-700)" }}
+        style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
       >
         {name} · {formatBytes(size)}
       </div>
@@ -135,10 +135,10 @@ export function PdfToImageResult({
         style={{
           background: "var(--surface)",
           borderColor: "var(--border)",
-          boxShadow: "inset 2px 0 0 var(--accent-electric)",
+          boxShadow: "inset 2px 0 0 var(--emphasis)",
         }}
       >
-        <div className="font-display text-[13px] font-semibold" style={{ color: "var(--headline)" }}>
+        <div className="font-ko text-[13px] font-medium" style={{ color: "var(--headline)" }}>
           {labels.resultTitle}
         </div>
         <div className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
@@ -148,7 +148,7 @@ export function PdfToImageResult({
           <button
             type="button"
             onClick={onDownloadAll}
-            className="btn-download glint inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[12px] font-medium"
+            className="btn-download inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[12px] font-medium"
           >
             <DownloadIcon className="size-3.5" />
             {primaryDownloadLabel}
@@ -156,7 +156,7 @@ export function PdfToImageResult({
           <button
             type="button"
             onClick={onCompress}
-            className="handoff-action inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] border px-3 font-display text-[12px]"
+            className="handoff-action inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] border px-3 font-body text-[12px]"
           >
             {labels.compressHandoff}
             <ArrowRightIcon className="size-3.5" />
@@ -164,7 +164,7 @@ export function PdfToImageResult({
           <button
             type="button"
             onClick={onAgain}
-            className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-display text-[12px]"
+            className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
             style={{ color: "var(--ink-strong)" }}
           >
             <RotateCcwIcon className="size-3.5" />

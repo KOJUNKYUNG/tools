@@ -19,10 +19,7 @@ export function PdfLockModeToggle({
   disabled = false,
 }: PdfLockModeToggleProps) {
   return (
-    <div
-      className="flex shrink-0 overflow-hidden rounded-[6px] border"
-      style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
-    >
+    <div className="flex shrink-0 border-b" style={{ borderColor: "var(--hairline)" }}>
       {ORDER.map((mode) => {
         const active = value === mode;
         const label = mode === "lock" ? labels.modeLock : labels.modeUnlock;
@@ -32,11 +29,10 @@ export function PdfLockModeToggle({
             type="button"
             onClick={() => onChange(mode)}
             disabled={disabled}
-            className="flex-1 py-2 font-display text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex-1 py-2 font-body text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             style={{
-              background: active ? "var(--surface)" : "transparent",
               color: active ? "var(--ink-strong)" : "var(--ink-soft)",
-              boxShadow: active ? "inset 0 -2px 0 var(--accent-electric)" : undefined,
+              boxShadow: active ? "inset 0 -2px 0 var(--emphasis)" : undefined,
             }}
           >
             {label}

@@ -12,9 +12,9 @@ interface PdfToImageControlsProps {
 }
 
 const TOGGLE =
-  "nameplate h-8 flex-1 rounded-[9px] px-3 font-display text-[12px] font-medium";
+  "flex-1 py-2 font-body text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 const GROUP_LABEL =
-  "font-display text-[11px] font-medium uppercase tracking-[0.08em]";
+  "font-mono text-[11px] font-medium uppercase tracking-[0.08em]";
 
 export function PdfToImageControls({
   format,
@@ -39,7 +39,7 @@ export function PdfToImageControls({
         <p className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
           {labels.formatLabel}
         </p>
-        <div className="flex gap-1.5">
+        <div className="flex border-b" style={{ borderColor: "var(--hairline)" }}>
           {formats.map((opt) => {
             const active = format === opt.value;
             return (
@@ -47,9 +47,11 @@ export function PdfToImageControls({
                 key={opt.value}
                 type="button"
                 onClick={() => onFormatChange(opt.value)}
-                data-active={active}
                 className={TOGGLE}
-                style={active ? undefined : { color: "var(--ink-strong)" }}
+                style={{
+                  color: active ? "var(--ink-strong)" : "var(--ink-soft)",
+                  boxShadow: active ? "inset 0 -2px 0 var(--emphasis)" : undefined,
+                }}
               >
                 {opt.label}
               </button>
@@ -70,13 +72,13 @@ export function PdfToImageControls({
           {dpi === 300 && (
             <span
               className="font-body text-[10.5px] leading-tight"
-              style={{ color: "var(--accent-copper)" }}
+              style={{ color: "var(--ink-soft)" }}
             >
               {labels.dpiHint}
             </span>
           )}
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex border-b" style={{ borderColor: "var(--hairline)" }}>
           {dpis.map((opt) => {
             const active = dpi === opt.value;
             return (
@@ -84,9 +86,11 @@ export function PdfToImageControls({
                 key={opt.value}
                 type="button"
                 onClick={() => onDpiChange(opt.value)}
-                data-active={active}
                 className={TOGGLE}
-                style={active ? undefined : { color: "var(--ink-strong)" }}
+                style={{
+                  color: active ? "var(--ink-strong)" : "var(--ink-soft)",
+                  boxShadow: active ? "inset 0 -2px 0 var(--emphasis)" : undefined,
+                }}
               >
                 {opt.label}
               </button>

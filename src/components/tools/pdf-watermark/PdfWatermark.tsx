@@ -289,7 +289,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
                 type="button"
                 onClick={handleReupload}
                 disabled={busy}
-                className="shrink-0 rounded-[5px] border px-2.5 py-1 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--ink-strong)" }}
               >
                 {labels.reupload}
@@ -337,39 +337,49 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
               </button>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                 {mode === "number" ? (
-                  <PageNumberControls value={pageOpts} onChange={patchPage} labels={labels} disabled={busy} />
-                ) : (
-                  <WatermarkControls
-                    value={wmOpts}
-                    onChange={patchWm}
+                  <PageNumberControls
+                    value={pageOpts}
+                    onChange={patchPage}
                     labels={labels}
-                    logoName={logoName}
-                    onPickLogo={onPickLogo}
                     disabled={busy}
+                    totalPages={analysis?.numPages ?? 0}
+                    selectedPages={selectedPages}
+                    onSelectedChange={setSelectedPages}
                   />
-                )}
-                {analysis && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span
-                        className="font-mono text-[11px] font-medium uppercase tracking-[0.08em]"
-                        style={{ color: "var(--ink-soft)" }}
-                      >
-                        {labels.rangeLabel}
-                      </span>
-                      <span className="font-body text-[11px] tabular-nums" style={{ color: "var(--ink)" }}>
-                        {template(labels.rangeCountTemplate, { n: selectedPages.size })}
-                      </span>
-                    </div>
-                    <PageRangeSelector
-                      totalPages={analysis.numPages}
-                      selected={selectedPages}
-                      onChange={setSelectedPages}
-                      inputPlaceholder={labels.rangePlaceholder}
-                      selectAllLabel={labels.rangeSelectAll}
-                      clearLabel={labels.rangeClear}
+                ) : (
+                  <>
+                    <WatermarkControls
+                      value={wmOpts}
+                      onChange={patchWm}
+                      labels={labels}
+                      logoName={logoName}
+                      onPickLogo={onPickLogo}
+                      disabled={busy}
                     />
-                  </div>
+                    {analysis && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className="font-mono text-[11px] font-medium uppercase tracking-[0.08em]"
+                            style={{ color: "var(--ink-soft)" }}
+                          >
+                            {labels.rangeLabel}
+                          </span>
+                          <span className="font-body text-[11px] tabular-nums" style={{ color: "var(--ink)" }}>
+                            {template(labels.rangeCountTemplate, { n: selectedPages.size })}
+                          </span>
+                        </div>
+                        <PageRangeSelector
+                          totalPages={analysis.numPages}
+                          selected={selectedPages}
+                          onChange={setSelectedPages}
+                          inputPlaceholder={labels.rangePlaceholder}
+                          selectAllLabel={labels.rangeSelectAll}
+                          clearLabel={labels.rangeClear}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

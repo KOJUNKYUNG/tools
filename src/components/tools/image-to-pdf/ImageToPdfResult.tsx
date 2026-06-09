@@ -33,7 +33,7 @@ function ResultThumb({
     <div
       ref={thumb.ref}
       className="flex aspect-[3/4] items-center justify-center overflow-hidden rounded-[5px]"
-      style={{ background: "var(--silver-100)", border: "1px solid var(--silver-200)" }}
+      style={{ background: "var(--bg-soft)", border: "1px solid var(--border)" }}
     >
       {thumb.status === "ready" && thumb.src ? (
         <img
@@ -115,10 +115,10 @@ export function ImageToPdfResult({
         style={{
           background: "var(--surface)",
           borderColor: "var(--border)",
-          boxShadow: "inset 2px 0 0 var(--accent-electric)",
+          boxShadow: "inset 2px 0 0 var(--emphasis)",
         }}
       >
-        <div className="font-display text-[13px] font-semibold" style={{ color: "var(--headline)" }}>
+        <div className="font-ko text-[13px] font-medium" style={{ color: "var(--headline)" }}>
           {labels.resultTitle}
         </div>
         <div className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
@@ -128,7 +128,7 @@ export function ImageToPdfResult({
           <button
             type="button"
             onClick={onDownload}
-            className="btn-download glint inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[12px] font-medium"
+            className="btn-download inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[12px] font-medium"
           >
             <DownloadIcon className="size-3.5" />
             {labels.download}
@@ -136,7 +136,7 @@ export function ImageToPdfResult({
           <button
             type="button"
             onClick={handleCompress}
-            className="handoff-action inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] border px-3 font-display text-[12px]"
+            className="handoff-action inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] border px-3 font-body text-[12px]"
           >
             {labels.compressHandoff}
             <ArrowRightIcon className="size-3.5" />
@@ -144,7 +144,7 @@ export function ImageToPdfResult({
           <button
             type="button"
             onClick={onAgain}
-            className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-display text-[12px]"
+            className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
             style={{ color: "var(--ink-strong)" }}
           >
             <RotateCcwIcon className="size-3.5" />

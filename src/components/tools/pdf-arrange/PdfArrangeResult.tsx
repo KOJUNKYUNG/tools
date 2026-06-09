@@ -42,8 +42,8 @@ function CoverThumb({
   return (
     <div
       ref={thumb.ref}
-      className="flex h-[88px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-[4px] bg-white"
-      style={{ border: "1px solid var(--silver-200)" }}
+      className="flex h-[88px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-[4px] bg-[color:var(--mono-0)]"
+      style={{ border: "1px solid var(--border)" }}
     >
       {thumb.status === "ready" && thumb.src ? (
         <img
@@ -54,7 +54,7 @@ function CoverThumb({
           style={{ transform: `rotate(${cover.rotation}deg)` }}
         />
       ) : (
-        <FileIcon className="size-6" style={{ color: "var(--silver-400)" }} />
+        <FileIcon className="size-6" style={{ color: "var(--ink-soft)" }} />
       )}
     </div>
   );
@@ -123,7 +123,7 @@ export function PdfArrangeResult({
               onClick={() => onDownloadOne(o)}
               aria-label={template(labels.downloadOneAria, { name: o.name })}
               title={template(labels.downloadOneAria, { name: o.name })}
-              className="shrink-0 rounded p-1 transition-colors hover:text-[color:var(--accent-electric)]"
+              className="shrink-0 rounded p-1 transition-colors hover:text-[color:var(--emphasis)]"
               style={{ color: "var(--ink-soft)" }}
             >
               <DownloadIcon className="size-3.5" />
@@ -137,11 +137,11 @@ export function PdfArrangeResult({
         style={{
           background: "var(--surface)",
           borderColor: "var(--border)",
-          boxShadow: "inset 2px 0 0 var(--accent-electric)",
+          boxShadow: "inset 2px 0 0 var(--emphasis)",
         }}
       >
         <div
-          className="font-display text-[13px] font-semibold"
+          className="font-ko text-[13px] font-medium"
           style={{ color: "var(--headline)" }}
         >
           {labels.resultTitle}
@@ -158,7 +158,7 @@ export function PdfArrangeResult({
           <button
             type="button"
             onClick={onDownloadAll}
-            className="btn-download glint inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[12px] font-medium"
+            className="btn-download inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[12px] font-medium"
           >
             <DownloadIcon className="size-3.5" />
             {primaryLabel}
@@ -166,7 +166,7 @@ export function PdfArrangeResult({
           <button
             type="button"
             onClick={onAgain}
-            className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-display text-[12px]"
+            className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
             style={{ color: "var(--ink-strong)" }}
           >
             <RotateCcwIcon className="size-3.5" />

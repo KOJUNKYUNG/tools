@@ -8,7 +8,7 @@ interface DividerProps {
 
 /**
  * Edge-mark divider sitting in the gutter to the right of a page. Idle = faint
- * thin bar; hover = thicker; active = accent-electric bar with scissors. State
+ * thin bar; hover = thicker; active = emphasis bar with scissors. State
  * changes color/width only (no layout-affecting size jump on the page itself).
  */
 export function Divider({ active, onToggle, label }: DividerProps) {
@@ -30,17 +30,14 @@ export function Divider({ active, onToggle, label }: DividerProps) {
         }
         style={
           active
-            ? {
-                background: "var(--accent-electric)",
-                boxShadow: "0 0 0 1px oklch(0.62 0.15 250 / 0.25)",
-              }
+            ? { background: "var(--emphasis)" }
             : { background: "var(--hairline)" }
         }
       />
       {active && (
         <span
           className="pointer-events-none absolute text-[11px] leading-none"
-          style={{ color: "var(--accent-electric)", marginTop: "-92px" }}
+          style={{ color: "var(--emphasis)", marginTop: "-92px" }}
         >
           ✂
         </span>

@@ -167,7 +167,7 @@ Don'ts). The mapping (defined in `globals.css`):
 | `--bg` | page background | Mist | Ink |
 | `--bg-soft` | recessed panel / well | Pebble | Black |
 | `--surface` | card surface | Paper | Graphite |
-| `--surface-2` | secondary surface / row / input | Mist | Ink |
+| `--surface-2` | secondary surface / row / input / preview letterbox | Mist | Ink |
 | `--border` | borders, dividers | Pebble | Graphite |
 | `--hairline` | thin rules | Ash | Ash |
 | `--ink-soft` | muted / hint text | Ash | Ash |
@@ -196,7 +196,7 @@ via Google).
 | `title` | IBM Plex Sans KR Medium · 20px | tool titles, result titles |
 | `body` | IBM Plex Sans KR Regular · 16px | descriptions, running UI text (KO + EN) |
 | `label` | Nanum Gothic Coding · 13px, uppercase, tracked | eyebrows, technical labels, badges |
-| `mono` | Nanum Gothic Coding · 13px | slugs, sizes, code-like values |
+| `mono` | Nanum Gothic Coding · 13px | slugs, code-like values |
 
 Display is set in Medium and Headline in Light — a deliberate editorial
 inversion (a bold statement size over a thin, airy subhead). Labels and
@@ -213,9 +213,9 @@ code applied one "brand" font to almost everything; that is not the target).
 | landing wordmark / lid lettering | `display` |
 | page / screen section heading | `headline` |
 | tool title, result title, card header | `title` |
-| description, paragraph, **button & toggle label**, dialog text | `body` |
+| description, paragraph, **button & toggle label**, **numeric values in inputs & results (size / dimension / %)**, dialog text | `body` |
 | eyebrow, section tag, badge, field label, small caption | `label` |
-| file size, dimension, percentage, slug, code-like value | `mono` |
+| slug, code-like value | `mono` |
 
 **Clash Display is reserved for `display` + `headline` only.** Buttons, toggles,
 labels, and values never use it — if Clash is showing up on a button or a small
@@ -284,7 +284,8 @@ grayscale alone separates them):
 
 | role | class | treatment |
 | --- | --- | --- |
-| Secondary / toolbar | `.nameplate` | flat outline — `--surface` fill, `--border` edge |
+| Secondary / toolbar | `.nameplate` | flat outline — `--surface` fill, `--border` edge (e.g. result-card re-apply) |
+| Toolbar subtle | shared util | small outline — `--surface-2` fill, `--border` edge, `px-2.5 py-1.5` (re-upload · All · Clear · Split-all) |
 | Selected toggle | segmented tab | **tab underline** — bold label + `--emphasis` bottom rule, *no* fill |
 | Primary execute | `.btn-primary` | dark fill — `--ink-strong` bg, theme-inverting `--bg` label |
 | Download | `.btn-download` | maximum-contrast fill — `--emphasis` (Black / Paper) |
@@ -294,9 +295,10 @@ underline**; the old "result ready" (blue download) becomes the **max-contrast
 fill**. Single-select selectors of every kind — format pickers, presets, mode
 tabs (`ModeSelector`, `ModeToggle`) — use the same selected-toggle underline. The
 flat segmented tab is implemented per control (a bottom-hairline row; the active
-item carries the `--emphasis` rule). The legacy `.nameplate[data-active]` inverted
-fill is an interim until a tool is migrated — `pdf-watermark` is the first migrated
-reference.
+item carries the `--emphasis` rule). Single-select includes **in-control option
+toggles** (e.g. text/image source), not just top-level mode tabs. The whole **PDF
+category** is migrated to the tab underline; the legacy `.nameplate[data-active]`
+inverted fill survives only in not-yet-migrated categories (PPT / image).
 
 **Other components:**
 
@@ -306,17 +308,28 @@ reference.
   (replaces the old blue `accentColor`).
 - **Gallery / thumbnail selection** — selected item gets an `--emphasis` outline
   and badge (replaces the old blue selection badge).
-- **Preview frame** — the letterbox uses `--bg-soft` (theme-aware); the document
-  *inside* is the palette exception and renders original colors.
+- **Preview frame** — the letterbox uses `--surface-2` (Mist / Ink, theme-aware);
+  the document *inside* is the palette exception and renders original colors. A
+  rendered white output page (e.g. image-to-pdf A4/custom) stays fixed white
+  (`--mono-0`) since that previews the real result background.
 - **Tool card** — `.toolcard`: `--surface` fill, `--border` edge, flat.
 - **Result view** — replaces the controls area after execute; holds the result
   summary, `.btn-download`, and a `.nameplate` "re-apply".
+- **File-info row** — the uploaded file name / size is plain `body` text (never a
+  button); a **Toolbar subtle** re-upload button sits beside it. Numeric values
+  (size, %, dimension) in inputs and results use `body` + `tabular-nums`, not `mono`.
 
 **On-paper overlays.** Controls placed *on* a white document thumbnail (page
 number badges, rotate/delete chips, filenames) must use the **fixed `--mono-*`
 scale**, never theme-inverting aliases — otherwise they vanish in dark mode (the
 paper stays white, but an `--ink-strong` label would turn light). See Do's &
 Don'ts.
+
+**On-content overlays.** A chip placed *on* a rendered image rather than a white
+document (a page-number or download chip on a converted-image thumbnail) uses a
+**fixed dark scrim + fixed white text** (or a fixed white chip + dark text). It
+must read over arbitrary image content, so it is theme-independent — distinct from
+the on-paper case above.
 
 ## Do's and Don'ts
 
@@ -337,6 +350,9 @@ Don'ts.
 - Preserve handoff / inline values verbatim when porting UI (the visual-fidelity
   contract — it's what makes Ontab look like Ontab). If a value looks odd, ask;
   don't refactor it away.
+- For an overlay on a rendered image (not a white document), use a fixed dark
+  scrim + fixed white text (or a fixed white chip + dark text) — theme-independent,
+  so it reads over any image.
 
 **Don't**
 
@@ -355,4 +371,13 @@ Don'ts.
 - Don't tint shadows (`rgba(20,30,60,…)`); shadows are neutral black (`rgba(0,0,0,…)`).
 - Don't leave `glint` or other metallic helper classes on a migrated component.
 - Don't give a preview / letterbox frame a fixed light gray (`--silver-100`); use
-  `--bg-soft` so it survives dark mode.
+  `--surface-2` so it survives dark mode.
+- Don't use the `.nameplate[data-active]` segmented fill for a single-select on a
+  migrated tool — every single-select (format / preset / DPI / page-size / mode /
+  in-control source) is the tab underline.
+- Don't set result or input **numbers** in `mono` — numeric values are `body` +
+  `tabular-nums`; `mono` is for slugs / code-like values only.
+- Don't color a destructive action (delete) red or any hue — delete chips are
+  neutral (`--mono-900`); the icon carries the meaning.
+- Don't encode grouping or state with hue (e.g. per-section ring tints) — use a
+  neutral tone / opacity difference plus a structural mark (divider, badge).
