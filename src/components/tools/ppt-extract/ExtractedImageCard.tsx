@@ -27,7 +27,7 @@ export function ExtractedImageCard({
   return (
     <div
       className="group relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-[5px]"
-      style={{ background: "var(--silver-100)", border: "1px solid var(--silver-200)" }}
+      style={{ background: "var(--bg-soft)", border: "1px solid var(--border)" }}
     >
       {url ? (
         <img
@@ -40,16 +40,16 @@ export function ExtractedImageCard({
         />
       ) : (
         <div className="flex flex-col items-center justify-center gap-1.5 px-2 text-center">
-          <FileImageIcon className="size-7" style={{ color: "var(--silver-500)" }} />
+          <FileImageIcon className="size-7" style={{ color: "var(--ink-soft)" }} />
           <span
-            className="font-display text-[10px] font-semibold tracking-wider"
-            style={{ color: "var(--silver-700)" }}
+            className="font-mono text-[10px] font-medium tracking-wider"
+            style={{ color: "var(--ink-strong)" }}
           >
             {ext || "FILE"}
           </span>
           <span
             className="font-body text-[9.5px] leading-tight"
-            style={{ color: "var(--silver-600)" }}
+            style={{ color: "var(--ink-soft)" }}
           >
             {placeholderLabel}
           </span>
@@ -59,7 +59,7 @@ export function ExtractedImageCard({
       {/* Number badge (top-left, hover-only) — fixed color (trap j) */}
       <span
         className="pointer-events-none absolute left-1.5 top-1.5 rounded-md px-[7px] py-px text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
-        style={{ background: "rgba(20,30,60,0.85)" }}
+        style={{ background: "rgba(0,0,0,0.7)" }}
       >
         {index}
       </span>
@@ -71,7 +71,7 @@ export function ExtractedImageCard({
         aria-label={downloadAria}
         title={downloadAria}
         className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-md border bg-white/95 opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
-        style={{ borderColor: "var(--silver-200)", color: "var(--silver-700)" }}
+        style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
       >
         <DownloadIcon className="size-3.5" />
       </button>
@@ -79,7 +79,7 @@ export function ExtractedImageCard({
       {/* Filename + bytes (bottom, hover-only) */}
       <div
         className="pointer-events-none absolute inset-x-2 bottom-1.5 truncate rounded-md border bg-white/95 px-1 py-0.5 text-center text-[10px] opacity-0 transition-opacity group-hover:opacity-100"
-        style={{ borderColor: "var(--silver-200)", color: "var(--silver-700)" }}
+        style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
       >
         {name} · {formatBytes(size)}
       </div>

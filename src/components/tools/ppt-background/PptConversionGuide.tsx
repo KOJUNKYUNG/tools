@@ -35,7 +35,7 @@ export function PptConversionGuide({
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",
-        boxShadow: "inset 2px 0 0 var(--accent-copper)",
+        boxShadow: "inset 2px 0 0 var(--ink-strong)",
       }}
     >
       <button
@@ -45,8 +45,8 @@ export function PptConversionGuide({
         style={{ color: "var(--ink-strong)" }}
       >
         <div className="flex items-center gap-2">
-          <InfoIcon className="size-4" style={{ color: "var(--accent-copper)" }} />
-          <span className="font-display text-[13px] font-semibold">{heading}</span>
+          <InfoIcon className="size-4" style={{ color: "var(--ink-soft)" }} />
+          <span className="font-ko text-[13px] font-medium">{heading}</span>
         </div>
         <ChevronDownIcon
           className={cn("size-4 transition-transform", open && "rotate-180")}
@@ -69,7 +69,7 @@ export function PptConversionGuide({
               }}
             >
               <div
-                className="font-display text-[12px] font-semibold"
+                className="font-ko text-[12px] font-medium"
                 style={{ color: "var(--headline)" }}
               >
                 {m.title}
@@ -88,7 +88,7 @@ export function PptConversionGuide({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-1 inline-block font-body text-[11.5px] underline"
-                  style={{ color: "var(--accent-electric)" }}
+                  style={{ color: "var(--ink-strong)" }}
                 >
                   {m.linkLabel}
                 </a>

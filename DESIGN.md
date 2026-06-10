@@ -279,13 +279,21 @@ Treatments live as CSS classes in `globals.css`; the front-matter `components`
 tokens mirror each role's key colors by reference. **Reuse the classes — do not
 invent new ones, and do not hard-code hex in a component.**
 
+**Shared elements are identical across every tool.** The file-info row, the
+single-select toggle, the primary execute button, the re-upload / momentary
+click-action buttons, and the result card each have **one** treatment site-wide.
+Migrating a tool means **replacing** any divergent legacy treatment to match this
+system — a tool's old look is never a reason to keep a one-off. (This is the rule
+that was missed when `ppt-background` first shipped with a boxed file row, a
+segment-filled toggle, and a stretched execute button.)
+
 **Buttons — four roles** (no two of the two "loud" ones share a screen, so
 grayscale alone separates them):
 
 | role | class | treatment |
 | --- | --- | --- |
 | Secondary / toolbar | `.nameplate` | flat outline — `--surface` fill, `--border` edge (e.g. result-card re-apply) |
-| Toolbar subtle | shared util | small outline — `--surface-2` fill, `--border` edge, `px-2.5 py-1.5` (re-upload · All · Clear · Split-all) |
+| Toolbar subtle | shared util | small outline — `--surface-2` fill, `--border` edge, `rounded-[5px]`, `px-2.5 py-1.5`, `font-body text-[11px]`, hover `--emphasis` edge. **The one treatment for every momentary click-action**: re-upload · All · Clear · Split all · Clear dividers · Center H/V · … — never `.nameplate` for these. |
 | Selected toggle | segmented tab | **tab underline** — bold label + `--emphasis` bottom rule, *no* fill |
 | Primary execute | `.btn-primary` | dark fill — `--ink-strong` bg, theme-inverting `--bg` label |
 | Download | `.btn-download` | maximum-contrast fill — `--emphasis` (Black / Paper) |
@@ -294,11 +302,14 @@ Blue is gone. The old "your current choice" (blue toggle) becomes the **tab
 underline**; the old "result ready" (blue download) becomes the **max-contrast
 fill**. Single-select selectors of every kind — format pickers, presets, mode
 tabs (`ModeSelector`, `ModeToggle`) — use the same selected-toggle underline. The
-flat segmented tab is implemented per control (a bottom-hairline row; the active
-item carries the `--emphasis` rule). Single-select includes **in-control option
-toggles** (e.g. text/image source), not just top-level mode tabs. The whole **PDF
-category** is migrated to the tab underline; the legacy `.nameplate[data-active]`
-inverted fill survives only in not-yet-migrated categories (PPT / image).
+flat segmented tab is a bottom-hairline row where the active item is marked by the
+`--emphasis` underline **alone — no background or segment fill**. A filled active
+tab *and* an underline together is the legacy look and a bug (caught in
+`ppt-background`). Single-select includes **in-control option toggles** (text /
+image source, background image / colour, alignment, slide ratio), not just
+top-level mode tabs. The **PDF and PPT categories** are migrated to the tab
+underline; the legacy `.nameplate[data-active]` inverted fill survives only in the
+not-yet-migrated **image** category.
 
 **Other components:**
 
@@ -315,9 +326,13 @@ inverted fill survives only in not-yet-migrated categories (PPT / image).
 - **Tool card** — `.toolcard`: `--surface` fill, `--border` edge, flat.
 - **Result view** — replaces the controls area after execute; holds the result
   summary, `.btn-download`, and a `.nameplate` "re-apply".
-- **File-info row** — the uploaded file name / size is plain `body` text (never a
-  button); a **Toolbar subtle** re-upload button sits beside it. Numeric values
-  (size, %, dimension) in inputs and results use `body` + `tabular-nums`, not `mono`.
+- **File-info row** — the same flat row on every tool: the file name / meta as
+  plain `body` text (never a button, never a boxed or icon-led panel), with a
+  **Toolbar subtle** re-upload button beside it. That button is labelled **"다시
+  업로드" / "Re-upload"** everywhere — same function ⇒ same label *and* same
+  treatment (no "다시 선택" / "다른 파일 선택" / "Choose again" variants). Numeric
+  values (size, %, dimension) in inputs and results use `body` + `tabular-nums`,
+  not `mono`.
 
 **On-paper overlays.** Controls placed *on* a white document thumbnail (page
 number badges, rotate/delete chips, filenames) must use the **fixed `--mono-*`
@@ -339,6 +354,10 @@ the on-paper case above.
   content (original colors).
 - Make emphasis with contrast, inversion, and weight: primary execute = dark
   fill, download = max-contrast fill, selected toggle = tab underline.
+- Keep shared elements identical across tools — file-info row, single-select
+  toggles, primary execute button, re-upload + momentary click-action buttons.
+  Migrating a tool **replaces** any divergent legacy treatment to match; a tool's
+  old styling is never a reason to diverge.
 - Prefer semantic aliases (`--bg`, `--surface`, `--ink`, …) over raw `--mono-*`
   — they invert for dark mode for free.
 - Use the fixed `--mono-*` scale for on-paper overlays on white thumbnails.
@@ -375,6 +394,14 @@ the on-paper case above.
 - Don't use the `.nameplate[data-active]` segmented fill for a single-select on a
   migrated tool — every single-select (format / preset / DPI / page-size / mode /
   in-control source) is the tab underline.
+- Don't give a single-select toggle a background / segment fill *and* an underline
+  — the `--emphasis` underline marks the active item alone (a filled active tab is
+  the legacy look).
+- Don't use `.nameplate` (or a per-tool one-off) for a momentary click-action
+  (re-upload / All / Clear / Split all / Clear dividers / Center H/V / …) — they
+  all share the one Toolbar-subtle treatment.
+- Don't box the file-info row or give it a leading file icon — it's the same flat
+  name·meta row on every tool, with the unified "다시 업로드" / "Re-upload" button.
 - Don't set result or input **numbers** in `mono` — numeric values are `body` +
   `tabular-nums`; `mono` is for slugs / code-like values only.
 - Don't color a destructive action (delete) red or any hue — delete chips are

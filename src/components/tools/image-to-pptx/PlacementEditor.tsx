@@ -86,7 +86,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
           // Outline (not border) so the box's content area stays exactly box.w×box.h;
           // a border would shrink the inner image area and make object-contain
           // letterbox even at 100% (preview-only artifact).
-          outline: "2px solid var(--accent-electric)",
+          outline: "2px solid var(--mono-1000)",
           outlineOffset: "-1px",
         }}
         onPointerDown={onMoveDown}
@@ -99,7 +99,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
           <div key={h} role="button" aria-label={`resize ${h}`}
             onPointerDown={(e) => onHandleDown(e, h)}
             className="absolute size-3 rounded-sm border-2 bg-white"
-            style={{ borderColor: "var(--accent-electric)", ...HANDLE_POS[h], touchAction: "none" }} />
+            style={{ borderColor: "var(--mono-1000)", ...HANDLE_POS[h], touchAction: "none" }} />
         ))}
       </div>
     </div>

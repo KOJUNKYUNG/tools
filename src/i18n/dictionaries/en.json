@@ -105,7 +105,7 @@
         },
         "fileStatus": {
           "slideCountTemplate": "{n} slides",
-          "changeFile": "Choose another file",
+          "changeFile": "Re-upload",
           "analyzing": "Analyzing slide backgrounds…"
         },
         "mode": {
@@ -404,7 +404,7 @@
         "uploadPrompt": "Drag images here or browse",
         "uploadHint": "JPG/PNG, multiple allowed",
         "uploadMaxSize": "Max {maxSize}",
-        "reupload": "Choose again",
+        "reupload": "Re-upload",
         "convert": "Make PPTX ({n})",
         "filesOne": "{name}",
         "filesMany": "{name} +{rest} more",

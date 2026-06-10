@@ -104,7 +104,7 @@ function SortableCell({
         onDelete={onDelete}
         duplicateAria={duplicateAria}
         deleteAria={deleteAria}
-        frameBg="var(--silver-100)"
+        frameBg="var(--surface-2)"
         pageAspect={pageAspect}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
@@ -470,7 +470,12 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         <button
           type="button"
           onClick={handleReuploadPick}
-          className="nameplate inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[9px] px-3 font-display text-[12px]"
+          className="shrink-0 rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)] disabled:cursor-not-allowed disabled:opacity-50"
+          style={{
+            background: "var(--surface-2)",
+            borderColor: "var(--border)",
+            color: "var(--ink-strong)",
+          }}
         >
           {labels.reupload}
         </button>
@@ -478,7 +483,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           type="button"
           onClick={run}
           disabled={!hasFiles || busy}
-          className="btn-download glint inline-flex h-8 shrink-0 items-center justify-center rounded-[9px] px-4 font-display text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-primary inline-flex h-8 shrink-0 items-center justify-center rounded-[9px] px-4 font-body text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
         >
           {template(labels.convertTemplate, { n: liveItems.length })}
         </button>
@@ -517,10 +522,10 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
                     onClick={handleAddClick}
                     aria-label={labels.addAria}
                     title={labels.addAria}
-                    className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[5px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--accent-electric)] hover:text-[color:var(--accent-electric)]"
+                    className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[5px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
                     style={{
                       borderColor: "var(--hairline)",
-                      background: "var(--bg-soft, var(--silver-100))",
+                      background: "var(--bg-soft)",
                     }}
                   >
                     <PlusIcon className="size-7" />
@@ -614,7 +619,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
       {loadingPages && (
         <div className="flex items-center gap-2 text-sm text-[color:var(--ink)]">
-          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--accent-electric)] border-t-transparent" />
+          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
           {labels.processing}
         </div>
       )}
@@ -632,7 +637,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         WebkitBackdropFilter: "blur(10px) saturate(1.1)",
         borderColor: "var(--border)",
         boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(0,0,0,0.28), 0 8px 20px -6px rgba(0,0,0,0.16)",
       }}
     >
       <button
@@ -654,7 +659,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           <ImagePlus size={18} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="font-display font-ko text-[16px] font-semibold leading-[1.2] tracking-[0.005em]" style={{ color: "var(--headline)" }}>
+          <div className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]" style={{ color: "var(--headline)" }}>
             {labels.title}
           </div>
           <div className="mt-1 font-body text-[12px] leading-[1.45]" style={{ color: "var(--ink)" }}>

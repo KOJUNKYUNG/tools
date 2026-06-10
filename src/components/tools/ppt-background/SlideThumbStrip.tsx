@@ -35,7 +35,7 @@ export function SlideThumbStrip({
           background: "var(--surface-2)",
           borderColor: "var(--border)",
           borderWidth: 1,
-          outline: isSelected ? "2px solid var(--accent-electric)" : undefined,
+          outline: isSelected ? "2px solid var(--emphasis)" : undefined,
           outlineOffset: isSelected ? "-2px" : undefined,
           cursor: isInteractive ? "pointer" : "default",
         };
@@ -57,7 +57,7 @@ export function SlideThumbStrip({
               {isSelected && (
                 <div
                   className="absolute right-1.5 top-1.5 flex size-5 items-center justify-center rounded-full"
-                  style={{ background: "var(--accent-electric)", color: "#fff" }}
+                  style={{ background: "var(--emphasis)", color: "var(--surface)" }}
                 >
                   <CheckIcon className="size-3" />
                 </div>
@@ -65,7 +65,7 @@ export function SlideThumbStrip({
             </div>
             <div className="px-1.5 py-1 text-center">
               <p
-                className="truncate font-display text-[10px] font-medium"
+                className="truncate font-body text-[10px] font-medium"
                 style={{ color: "var(--ink-strong)" }}
               >
                 {bg.slideName}

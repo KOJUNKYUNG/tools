@@ -105,7 +105,7 @@
         },
         "fileStatus": {
           "slideCountTemplate": "{n}개 슬라이드",
-          "changeFile": "다른 파일 선택",
+          "changeFile": "다시 업로드",
           "analyzing": "슬라이드 배경을 분석하는 중…"
         },
         "mode": {
@@ -199,7 +199,7 @@
         "uploadPrompt": "PPTX를 끌어다 놓거나 선택하세요",
         "uploadHint": "PPTX 파일 하나를 선택하세요.",
         "uploadMaxSize": "최대 {maxSize}",
-        "reupload": "다시 선택",
+        "reupload": "다시 업로드",
         "reset": "처음으로",
         "fileInfo": "{name} · {size}",
         "slideCount": "슬라이드 {n}장",
@@ -404,7 +404,7 @@
         "uploadPrompt": "이미지를 끌어다 놓거나 선택하세요",
         "uploadHint": "JPG·PNG, 여러 장 가능",
         "uploadMaxSize": "최대 {maxSize}",
-        "reupload": "다시 선택",
+        "reupload": "다시 업로드",
         "convert": "PPTX 만들기 ({n}장)",
         "filesOne": "{name}",
         "filesMany": "{name} 외 {rest}장",

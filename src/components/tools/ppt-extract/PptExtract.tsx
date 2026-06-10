@@ -200,7 +200,7 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
                 type="button"
                 onClick={handleReupload}
                 disabled={busy}
-                className="shrink-0 rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-[5px] border px-2.5 py-1 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{
                   background: "var(--surface-2)",
                   borderColor: "var(--border)",
@@ -228,7 +228,7 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
                 onClick={handleExtract}
                 disabled={noImagesConfirmed}
                 title={noImagesConfirmed ? labels.errorNoImages : undefined}
-                className="btn-primary glint inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                className="btn-primary inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {labels.extract}
               </button>
@@ -257,7 +257,7 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
         WebkitBackdropFilter: "blur(10px) saturate(1.1)",
         borderColor: "var(--border)",
         boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(0,0,0,0.28), 0 8px 20px -6px rgba(0,0,0,0.16)",
       }}
     >
       <button
@@ -287,7 +287,7 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
         </div>
         <div className="min-w-0 flex-1">
           <div
-            className="font-display font-ko text-[16px] font-semibold leading-[1.2] tracking-[0.005em]"
+            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
             style={{ color: "var(--headline)" }}
           >
             {labels.title}
