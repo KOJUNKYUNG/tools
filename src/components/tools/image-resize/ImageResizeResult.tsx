@@ -43,18 +43,18 @@ export function ImageResizeResult({
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",
-        boxShadow: "inset 2px 0 0 var(--accent-electric)",
+        boxShadow: "inset 2px 0 0 var(--emphasis)",
       }}
     >
       <div
-        className="font-display text-[12px] font-semibold"
+        className="font-ko text-[12px] font-medium"
         style={{ color: "var(--headline)" }}
       >
         {doneTitle}
       </div>
       <div className="flex items-baseline gap-1.5">
         <span
-          className="font-display text-[15px] font-bold"
+          className="font-body text-[15px] font-bold tabular-nums"
           style={{ color: "var(--headline)" }}
         >
           {width}×{height}
@@ -70,7 +70,7 @@ export function ImageResizeResult({
         <button
           type="button"
           onClick={onDownload}
-          className="btn-download glint inline-flex items-center justify-start gap-1.5 rounded-[9px] px-3 h-8 font-display text-[11.5px] font-medium"
+          className="btn-download inline-flex items-center justify-start gap-1.5 rounded-[9px] px-3 h-8 font-body text-[11.5px] font-medium"
         >
           <DownloadIcon className="size-3" />
           {downloadLabel}
@@ -78,7 +78,7 @@ export function ImageResizeResult({
         <button
           type="button"
           onClick={onTryAgain}
-          className="nameplate inline-flex items-center justify-start gap-1.5 rounded-[9px] px-3 h-8 font-display text-[11.5px]"
+          className="nameplate inline-flex items-center justify-start gap-1.5 rounded-[9px] px-3 h-8 font-body text-[11.5px]"
           style={{ color: "var(--ink-strong)" }}
         >
           <RotateCcwIcon className="size-3" />
@@ -87,7 +87,7 @@ export function ImageResizeResult({
         <button
           type="button"
           onClick={onCompressOrConvert}
-          className="handoff-action inline-flex items-center justify-start gap-1.5 rounded-[9px] border px-3 h-8 font-display text-[11.5px]"
+          className="handoff-action inline-flex items-center justify-start gap-1.5 rounded-[9px] border px-3 h-8 font-body text-[11.5px]"
         >
           {compressLinkLabel}
           <ArrowRightIcon className="size-3" />

@@ -261,7 +261,7 @@ export function ImageCompressTool({
 
       {normalizing && (
         <div className="flex items-center gap-2 text-sm text-[color:var(--ink)]">
-          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--accent-electric)] border-t-transparent" />
+          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
           처리 중…
         </div>
       )}
@@ -326,7 +326,7 @@ export function ImageCompressTool({
                     type="button"
                     onClick={run}
                     disabled={!outputFormat}
-                    className="btn-primary glint inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[9px] px-3 font-display text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                    className="btn-primary inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {template(labels.compressTemplate, { n: files.length })}
                   </button>
@@ -386,7 +386,7 @@ export function ImageCompressTool({
         WebkitBackdropFilter: "blur(10px) saturate(1.1)",
         borderColor: "var(--border)",
         boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(0,0,0,0.28), 0 8px 20px -6px rgba(0,0,0,0.16)",
       }}
     >
       <button
@@ -416,7 +416,7 @@ export function ImageCompressTool({
         </div>
         <div className="min-w-0 flex-1">
           <div
-            className="font-display text-[16px] font-semibold leading-[1.2] tracking-[0.005em] font-ko"
+            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
             style={{ color: "var(--headline)" }}
           >
             {labels.header.title}

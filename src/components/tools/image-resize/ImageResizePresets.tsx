@@ -61,7 +61,7 @@ export function ImageResizePresets({
       </PresetColumn>
       <div className="space-y-2">
         <p
-          className="font-display text-[11.5px] font-medium"
+          className="font-mono text-[11.5px] font-medium"
           style={{ color: "var(--ink-soft)" }}
         >
           {ratioPresetsTitle}
@@ -86,7 +86,7 @@ export function ImageResizePresets({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") e.currentTarget.blur();
                 }}
-                className="w-12 rounded-[5px] border px-1.5 py-1 font-display text-[11.5px] outline-none focus:border-[color:var(--accent-electric)]"
+                className="w-12 rounded-[5px] border px-1.5 py-1 font-body text-[11.5px] outline-none focus:border-[color:var(--emphasis)]"
                 style={{
                   background: "var(--surface)",
                   borderColor: "var(--border)",
@@ -106,7 +106,7 @@ export function ImageResizePresets({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") e.currentTarget.blur();
                 }}
-                className="w-12 rounded-[5px] border px-1.5 py-1 font-display text-[11.5px] outline-none focus:border-[color:var(--accent-electric)]"
+                className="w-12 rounded-[5px] border px-1.5 py-1 font-body text-[11.5px] outline-none focus:border-[color:var(--emphasis)]"
                 style={{
                   background: "var(--surface)",
                   borderColor: "var(--border)",
@@ -147,7 +147,7 @@ function PresetColumn({
   return (
     <div className="space-y-2">
       <p
-        className="font-display text-[11.5px] font-medium"
+        className="font-mono text-[11.5px] font-medium"
         style={{ color: "var(--ink-soft)" }}
       >
         {title}
@@ -170,9 +170,12 @@ function PresetChip({
     <button
       type="button"
       onClick={onClick}
-      data-active={active}
-      className="nameplate rounded-[9px] px-2.5 py-1 font-display text-[11.5px]"
-      style={active ? undefined : { color: "var(--ink-strong)" }}
+      className="rounded-[5px] border px-2.5 py-1 font-body text-[11.5px] transition-colors"
+      style={{
+        background: "var(--surface-2)",
+        borderColor: active ? "var(--emphasis)" : "var(--border)",
+        color: active ? "var(--ink-strong)" : "var(--ink)",
+      }}
     >
       {children}
     </button>

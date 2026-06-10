@@ -391,7 +391,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
       />
       {normalizing && (
         <div className="flex items-center gap-2 text-sm text-[color:var(--ink)]">
-          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--accent-electric)] border-t-transparent" />
+          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
           처리 중…
         </div>
       )}
@@ -413,7 +413,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div
-                className="truncate font-display text-[12px]"
+                className="truncate font-body text-[12px]"
                 style={{ color: "var(--ink)" }}
               >
                 {file.name}
@@ -421,7 +421,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
               <button
                 type="button"
                 onClick={handleReupload}
-                className="rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)]"
+                className="rounded-[5px] border px-2.5 py-1 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)]"
                 style={{
                   background: "var(--surface-2)",
                   borderColor: "var(--border)",
@@ -466,7 +466,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                   <button
                     type="button"
                     onClick={run}
-                    className="btn-primary glint inline-flex w-full items-center justify-center gap-1.5 rounded-[9px] px-3 h-9 font-display text-[12px] font-medium"
+                    className="btn-primary inline-flex w-full items-center justify-center gap-1.5 rounded-[9px] px-3 h-9 font-body text-[12px] font-medium"
                   >
                     {labels.apply}
                   </button>
@@ -536,7 +536,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
         WebkitBackdropFilter: "blur(10px) saturate(1.1)",
         borderColor: "var(--border)",
         boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(0,0,0,0.28), 0 8px 20px -6px rgba(0,0,0,0.16)",
       }}
     >
       <button
@@ -565,7 +565,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
         </div>
         <div className="min-w-0 flex-1">
           <div
-            className="font-display text-[16px] font-semibold leading-[1.2] tracking-[0.005em] font-ko"
+            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
             style={{ color: "var(--headline)" }}
           >
             {labels.header.title}

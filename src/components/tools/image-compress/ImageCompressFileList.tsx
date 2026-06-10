@@ -64,7 +64,7 @@ export function ImageCompressFileList({
                 onClick={() => onRemove(i)}
                 disabled={disabled}
                 aria-label={template(removeAriaTemplate, { name: f.name })}
-                className="shrink-0 rounded p-0.5 transition-colors hover:text-[color:var(--accent-copper)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded p-0.5 transition-colors hover:text-[color:var(--ink-strong)] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ color: "var(--ink-soft)" }}
               >
                 <XIcon className="size-3.5" />
