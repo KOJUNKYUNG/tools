@@ -18,7 +18,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ImagePlus, PlusIcon, RotateCcwIcon } from "lucide-react";
+import { PlusIcon, RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
@@ -472,12 +472,9 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
     <div
       className="relative flex flex-col overflow-hidden rounded-[14px] border"
       style={{
-        background: "color-mix(in oklch, var(--surface) 92%, transparent)",
-        backdropFilter: "blur(10px) saturate(1.1)",
-        WebkitBackdropFilter: "blur(10px) saturate(1.1)",
+        background: "var(--surface)",
         borderColor: "var(--border)",
-        boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(0,0,0,0.28), 0 8px 20px -6px rgba(0,0,0,0.16)",
+        boxShadow: "var(--shadow-lg)",
       }}
     >
       <button
@@ -492,12 +489,6 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         <RotateCcwIcon className="size-4" />
       </button>
       <div className="flex items-start gap-3 border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
-        <div
-          className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--ink-strong)" }}
-        >
-          <ImagePlus size={18} />
-        </div>
         <div className="min-w-0 flex-1">
           <div className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]" style={{ color: "var(--headline)" }}>
             {labels.title}

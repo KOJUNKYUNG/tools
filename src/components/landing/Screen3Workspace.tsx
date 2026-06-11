@@ -63,7 +63,6 @@ export function Screen3Workspace({
   onClose,
   onCategoryChange,
 }: Screen3WorkspaceProps) {
-  const Icon = tool.icon;
   const toolDict = dict.tools[tool.slug as ToolSlugKey];
   const toolHref = `/${locale}/tools/${tool.slug}`;
   const [pptBgResetKey, setPptBgResetKey] = useState(0);
@@ -114,7 +113,7 @@ export function Screen3Workspace({
           <>
             <Link
               href={toolHref}
-              className="rounded-[8px] border-2 border-dashed px-6 py-7 flex flex-col items-center justify-center text-center transition-colors hover:border-[color:var(--accent-electric)]"
+              className="rounded-[8px] border-2 border-dashed px-6 py-7 flex flex-col items-center justify-center text-center transition-colors hover:border-[color:var(--emphasis)]"
               style={{
                 borderColor: "var(--hairline)",
                 background: "var(--surface-2)",
@@ -131,7 +130,7 @@ export function Screen3Workspace({
                 <UploadCloud size={16} />
               </div>
               <div
-                className="font-display text-[14px] font-semibold leading-[1.2] font-ko"
+                className="font-ko text-[14px] font-semibold leading-[1.2]"
                 style={{ color: "var(--headline)" }}
               >
                 {dict.common.drop}
@@ -144,13 +143,7 @@ export function Screen3Workspace({
               </div>
 
               <span
-                className="mt-4 inline-flex items-center gap-2 px-6 h-11 rounded-[5px] font-display text-[13.5px] font-medium tracking-[0.02em] focus-ring glint"
-                style={{
-                  background: "var(--accent-electric)",
-                  color: "#fff",
-                  boxShadow:
-                    "0 1px 0 rgba(255,255,255,0.2) inset, 0 1px 2px rgba(20,30,60,0.15), 0 6px 16px -6px color-mix(in oklch, var(--accent-electric) 60%, transparent)",
-                }}
+                className="btn-primary mt-4 inline-flex items-center gap-2 px-6 h-11 rounded-[5px] font-body text-[13.5px] font-medium tracking-[0.02em] focus-ring"
               >
                 <UploadCloud size={14} />
                 <span>{dict.common.openTool}</span>
@@ -238,12 +231,9 @@ export function Screen3Workspace({
             <div
               className="relative rounded-[14px] border overflow-hidden"
               style={{
-                background: "color-mix(in oklch, var(--surface) 92%, transparent)",
-                backdropFilter: "blur(10px) saturate(1.1)",
-                WebkitBackdropFilter: "blur(10px) saturate(1.1)",
+                background: "var(--surface)",
                 borderColor: "var(--border)",
-                boxShadow:
-                  "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+                boxShadow: "var(--shadow-lg)",
               }}
             >
               {tool.slug === "ppt-background" && (
@@ -262,16 +252,6 @@ export function Screen3Workspace({
                 className="px-6 pt-3 pb-3 flex items-start gap-3 border-b"
                 style={{ borderColor: "var(--border)" }}
               >
-                <div
-                  className="shrink-0 w-10 h-10 rounded-[5px] flex items-center justify-center"
-                  style={{
-                    background: "var(--surface-2)",
-                    border: "1px solid var(--border)",
-                    color: "var(--ink-strong)",
-                  }}
-                >
-                  <Icon size={18} />
-                </div>
                 <div className="flex-1 min-w-0">
                   <div
                     className="font-display text-[16px] font-semibold leading-[1.2] tracking-[0.005em] font-ko"

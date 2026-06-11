@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ShrinkIcon, RotateCcwIcon } from "lucide-react";
+import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
+import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import {
@@ -277,59 +278,67 @@ export function ImageCompressTool({
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <ImageCompressPreview
-            fileName={files[currentIndex]?.name ?? ""}
-            totalCount={files.length}
-            currentIndex={currentIndex}
-            imageUrl={
-              (showCompressed ? previewUrl : null) ?? urls[currentIndex] ?? null
+        <div className="space-y-4">
+          <ToolTopStrip
+            filesSummary={files[currentIndex]?.name ?? ""}
+            meta={
+              files.length > 1 ? (
+                <span
+                  className="shrink-0 font-body text-[12px]"
+                  style={{ color: "var(--ink-soft)" }}
+                >
+                  {template(labels.moreImagesTemplate, { n: files.length - 1 })}
+                </span>
+              ) : undefined
             }
-            onPrev={() => {
-              if (status === "idle") setCompressedPreview(null);
-              setCurrentIndex((i) => Math.max(0, i - 1));
-            }}
-            onNext={() => {
-              if (status === "idle") setCompressedPreview(null);
-              setCurrentIndex((i) => Math.min(files.length - 1, i + 1));
-            }}
             onReupload={handleReupload}
             reuploadLabel={labels.reupload}
-            moreImagesTemplate={labels.moreImagesTemplate}
-            prevAria={labels.prevAria}
-            nextAria={labels.nextAria}
-            disabled={busy}
-            showCompressed={showCompressed}
-            onToggleCompressed={setShowCompressed}
-            compareLabel={labels.comparePreview}
+            busy={busy}
+            onExecute={status === "idle" ? run : undefined}
+            executeLabel={template(labels.compressTemplate, { n: files.length })}
+            executeDisabled={!outputFormat}
           />
 
-          <div className="space-y-3">
-            {/* Reserve height so the file list below does not shift between the
-                idle (button + controls), processing, and done (result card) states. */}
-            <div style={{ minHeight: "188px" }}>
-              {isDone ? (
-                <ImageCompressResult
-                  doneTitle={labels.doneTitle}
-                  settingsText={template(labels.settingsTemplate, {
-                    format: outputFormat ? formatLabel(outputFormat) : "",
-                    quality,
-                  })}
-                  downloadLabel={labels.download}
-                  recompressLabel={labels.recompress}
-                  onDownload={download}
-                  onRecompress={retry}
-                />
-              ) : status === "idle" ? (
-                <div className="space-y-3">
-                  <button
-                    type="button"
-                    onClick={run}
-                    disabled={!outputFormat}
-                    className="btn-primary inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {template(labels.compressTemplate, { n: files.length })}
-                  </button>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <ImageCompressPreview
+              fileName={files[currentIndex]?.name ?? ""}
+              totalCount={files.length}
+              currentIndex={currentIndex}
+              imageUrl={
+                (showCompressed ? previewUrl : null) ?? urls[currentIndex] ?? null
+              }
+              onPrev={() => {
+                if (status === "idle") setCompressedPreview(null);
+                setCurrentIndex((i) => Math.max(0, i - 1));
+              }}
+              onNext={() => {
+                if (status === "idle") setCompressedPreview(null);
+                setCurrentIndex((i) => Math.min(files.length - 1, i + 1));
+              }}
+              prevAria={labels.prevAria}
+              nextAria={labels.nextAria}
+              showCompressed={showCompressed}
+              onToggleCompressed={setShowCompressed}
+              compareLabel={labels.comparePreview}
+            />
+
+            <div className="space-y-3">
+              {/* Reserve height so the file list below does not shift between the
+                  idle (controls), processing, and done (result card) states. */}
+              <div style={{ minHeight: "188px" }}>
+                {isDone ? (
+                  <ImageCompressResult
+                    doneTitle={labels.doneTitle}
+                    settingsText={template(labels.settingsTemplate, {
+                      format: outputFormat ? formatLabel(outputFormat) : "",
+                      quality,
+                    })}
+                    downloadLabel={labels.download}
+                    recompressLabel={labels.recompress}
+                    onDownload={download}
+                    onRecompress={retry}
+                  />
+                ) : status === "idle" ? (
                   <ImageCompressControls
                     formatTitle={labels.formatTitle}
                     qualityTitle={labels.qualityTitle}
@@ -343,32 +352,32 @@ export function ImageCompressTool({
                     estimatingLabel={labels.estimating}
                     pngLosslessLabel={labels.pngLossless}
                   />
-                </div>
-              ) : (
-                <ProcessingStatus
-                  status={status}
-                  progress={progress}
-                  errorMessage={errorMessage}
-                  onRetry={retry}
-                />
-              )}
-            </div>
+                ) : (
+                  <ProcessingStatus
+                    status={status}
+                    progress={progress}
+                    errorMessage={errorMessage}
+                    onRetry={retry}
+                  />
+                )}
+              </div>
 
-            <ImageCompressFileList
-              mode={isDone ? "done" : "idle"}
-              idleFiles={files.map((f) => ({ name: f.name, size: f.size }))}
-              doneResults={
-                result?.images.map((img) => ({
-                  name: img.name,
-                  originalSize: img.originalSize,
-                  compressedSize: img.compressedSize,
-                })) ?? []
-              }
-              onRemove={handleRemove}
-              removeAriaTemplate={labels.removeAria}
-              sizeChangeTemplate={labels.sizeChangeTemplate}
-              disabled={busy}
-            />
+              <ImageCompressFileList
+                mode={isDone ? "done" : "idle"}
+                idleFiles={files.map((f) => ({ name: f.name, size: f.size }))}
+                doneResults={
+                  result?.images.map((img) => ({
+                    name: img.name,
+                    originalSize: img.originalSize,
+                    compressedSize: img.compressedSize,
+                  })) ?? []
+                }
+                onRemove={handleRemove}
+                removeAriaTemplate={labels.removeAria}
+                sizeChangeTemplate={labels.sizeChangeTemplate}
+                disabled={busy}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -381,12 +390,9 @@ export function ImageCompressTool({
     <div
       className="relative flex flex-col overflow-hidden rounded-[14px] border"
       style={{
-        background: "color-mix(in oklch, var(--surface) 92%, transparent)",
-        backdropFilter: "blur(10px) saturate(1.1)",
-        WebkitBackdropFilter: "blur(10px) saturate(1.1)",
+        background: "var(--surface)",
         borderColor: "var(--border)",
-        boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(0,0,0,0.28), 0 8px 20px -6px rgba(0,0,0,0.16)",
+        boxShadow: "var(--shadow-lg)",
       }}
     >
       <button
@@ -404,16 +410,6 @@ export function ImageCompressTool({
         className="flex items-start gap-3 border-b px-6 pt-3 pb-3"
         style={{ borderColor: "var(--border)" }}
       >
-        <div
-          className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
-          style={{
-            background: "var(--surface-2)",
-            border: "1px solid var(--border)",
-            color: "var(--ink-strong)",
-          }}
-        >
-          <ShrinkIcon size={18} />
-        </div>
         <div className="min-w-0 flex-1">
           <div
             className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"

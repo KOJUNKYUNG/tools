@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Layers, RotateCcwIcon, UploadCloud } from "lucide-react";
+import { RotateCcwIcon } from "lucide-react";
+import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
@@ -353,12 +354,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         inline
           ? { maxHeight: "calc(50vh)", ...(lockHeight ? { height: "calc(50vh)" } : {}) }
           : {
-              background: "color-mix(in oklch, var(--surface) 92%, transparent)",
-              backdropFilter: "blur(10px) saturate(1.1)",
-              WebkitBackdropFilter: "blur(10px) saturate(1.1)",
+              background: "var(--surface)",
               borderColor: "var(--border)",
-              boxShadow:
-                "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(0,0,0,0.28), 0 8px 20px -6px rgba(0,0,0,0.16)",
+              boxShadow: "var(--shadow-lg)",
               maxHeight: "calc(50vh)",
               ...(lockHeight ? { height: "calc(50vh)" } : {}),
             }
@@ -381,16 +379,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
           className="flex items-start gap-3 border-b px-6 pt-3 pb-3"
           style={{ borderColor: "var(--border)" }}
         >
-          <div
-            className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
-            style={{
-              background: "var(--surface-2)",
-              border: "1px solid var(--border)",
-              color: "var(--ink-strong)",
-            }}
-          >
-            <Layers size={18} />
-          </div>
           <div className="min-w-0 flex-1">
             <div
               className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
@@ -447,25 +435,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
           )}
         </div>
       ) : (
-        // Two-pane workspace.
-        <div
-          className="grid min-h-0 flex-1"
-          style={{
-            gridTemplateColumns: "minmax(0, 1fr) 1px minmax(0, 1fr)",
-          }}
-        >
-          {/* LEFT panel */}
-          <div className="flex h-full min-h-0 flex-col gap-3 px-6 py-3">
-            {/* File status — flat name·meta row + Toolbar-subtle re-upload (unified with other tools) */}
-            <div className="flex shrink-0 items-center justify-between gap-2">
-              <div className="flex min-w-0 items-baseline gap-1.5">
-                <span
-                  className="min-w-0 truncate font-body text-[12px]"
-                  style={{ color: "var(--ink)" }}
-                  title={pptxFile.name}
-                >
-                  {pptxFile.name}
-                </span>
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="px-6 pt-3">
+            <ToolTopStrip
+              filesSummary={pptxFile.name}
+              meta={
                 <span
                   className="shrink-0 font-body text-[12px]"
                   style={{ color: "var(--ink-soft)" }}
@@ -475,21 +449,24 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                     ? template(labels.fileStatus.slideCountTemplate, { n: totalSlides })
                     : labels.fileStatus.analyzing}
                 </span>
-              </div>
-              <button
-                type="button"
-                onClick={openPptxFileDialog}
-                className="shrink-0 rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)] disabled:cursor-not-allowed disabled:opacity-50"
-                style={{
-                  background: "var(--surface-2)",
-                  borderColor: "var(--border)",
-                  color: "var(--ink-strong)",
-                }}
-              >
-                {labels.fileStatus.changeFile}
-              </button>
-            </div>
-
+              }
+              onReupload={openPptxFileDialog}
+              reuploadLabel={labels.fileStatus.changeFile}
+              busy={status === "processing"}
+              onExecute={status === "idle" ? run : undefined}
+              executeLabel={labels.action.apply}
+              executeDisabled={!canRun}
+            />
+          </div>
+          {/* Two-pane workspace. */}
+          <div
+            className="grid min-h-0 flex-1"
+            style={{
+              gridTemplateColumns: "minmax(0, 1fr) 1px minmax(0, 1fr)",
+            }}
+          >
+          {/* LEFT panel */}
+          <div className="flex h-full min-h-0 flex-col gap-3 px-6 py-3">
             {/* ApplyTo row: label (left) + mode-specific dynamic content (right, flex-1) */}
             <div className="flex shrink-0 items-center gap-3" style={{ minHeight: "44px" }}>
               <div
@@ -586,7 +563,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               onClear={clearBgSelection}
               actionSlot={
                 status === "idle" ? (
-                  <div className="flex h-full flex-col justify-center gap-1.5">
+                  <div className="flex h-full flex-col justify-center">
                     <p
                       className="truncate text-center font-body text-[10.5px] leading-[16px]"
                       style={{ color: "var(--ink-soft)", minHeight: "16px" }}
@@ -594,15 +571,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                     >
                       {!canRun && applyDisabledLabel ? applyDisabledLabel : " "}
                     </p>
-                    <button
-                      type="button"
-                      onClick={canRun ? run : undefined}
-                      disabled={!canRun}
-                      className="btn-primary inline-flex h-10 w-full items-center justify-center gap-2 rounded-[9px] font-body text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <UploadCloud size={14} />
-                      <span>{labels.action.apply}</span>
-                    </button>
                   </div>
                 ) : (
                   <ProcessingStatus
@@ -637,6 +605,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               }}
             />
           </div>
+        </div>
         </div>
       )}
     </div>

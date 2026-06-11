@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import { template } from "@/lib/common/template";
 
 interface ImageCompressPreviewProps {
   fileName: string;
@@ -10,12 +9,8 @@ interface ImageCompressPreviewProps {
   imageUrl: string | null;
   onPrev: () => void;
   onNext: () => void;
-  onReupload: () => void;
-  reuploadLabel: string;
-  moreImagesTemplate: string;
   prevAria: string;
   nextAria: string;
-  disabled?: boolean;
   showCompressed: boolean;
   onToggleCompressed: (checked: boolean) => void;
   compareLabel: string;
@@ -28,12 +23,8 @@ export function ImageCompressPreview({
   imageUrl,
   onPrev,
   onNext,
-  onReupload,
-  reuploadLabel,
-  moreImagesTemplate,
   prevAria,
   nextAria,
-  disabled = false,
   showCompressed,
   onToggleCompressed,
   compareLabel,
@@ -41,38 +32,6 @@ export function ImageCompressPreview({
   const multi = totalCount > 1;
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span
-            className="truncate font-body text-[12px]"
-            style={{ color: "var(--ink)" }}
-          >
-            {fileName}
-          </span>
-          {multi && (
-            <span
-              className="shrink-0 font-body text-[11px]"
-              style={{ color: "var(--ink-soft)" }}
-            >
-              {template(moreImagesTemplate, { n: totalCount - 1 })}
-            </span>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onReupload}
-          disabled={disabled}
-          className="shrink-0 rounded-[5px] border px-2.5 py-1 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)] disabled:cursor-not-allowed disabled:opacity-50"
-          style={{
-            background: "var(--surface-2)",
-            borderColor: "var(--border)",
-            color: "var(--ink-strong)",
-          }}
-        >
-          {reuploadLabel}
-        </button>
-      </div>
-
       <div
         className="relative aspect-[4/3] w-full overflow-hidden rounded-[8px] border"
         style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}

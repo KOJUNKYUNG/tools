@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LockIcon, RotateCcwIcon } from "lucide-react";
+import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
+import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { FILE_SIZE_LIMIT } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
@@ -272,43 +273,35 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2" style={{ height: "52vh" }}>
-          {/* LEFT: file info + status badge + reupload, then a first-page
-              preview (plain PDFs) or a lock note (encrypted PDFs). */}
-          <div className="flex h-full min-h-0 flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-1.5">
+        <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
+          <ToolTopStrip
+            filesSummary={fileInfo}
+            meta={
+              encrypted !== null ? (
                 <span
-                  className="min-w-0 truncate font-body text-[12px]"
-                  style={{ color: "var(--ink)" }}
-                  title={fileInfo}
+                  className="shrink-0 rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] font-medium"
+                  style={{
+                    background: encrypted ? "var(--emphasis)" : "var(--surface-2)",
+                    color: encrypted ? "var(--surface)" : "var(--ink-soft)",
+                    border: encrypted ? undefined : "1px solid var(--border)",
+                  }}
                 >
-                  {fileInfo}
+                  {encrypted ? labels.badgeEncrypted : labels.badgePlain}
                 </span>
-                {encrypted !== null && (
-                  <span
-                    className="shrink-0 rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] font-medium"
-                    style={{
-                      background: encrypted ? "var(--emphasis)" : "var(--surface-2)",
-                      color: encrypted ? "var(--surface)" : "var(--ink-soft)",
-                      border: encrypted ? undefined : "1px solid var(--border)",
-                    }}
-                  >
-                    {encrypted ? labels.badgeEncrypted : labels.badgePlain}
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={handleReupload}
-                disabled={busy}
-                className="shrink-0 rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)] disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--ink-strong)" }}
-              >
-                {labels.reupload}
-              </button>
-            </div>
-            <PdfLockPreview file={file} encrypted={encrypted} labels={labels} />
+              ) : undefined
+            }
+            onReupload={handleReupload}
+            reuploadLabel={labels.reupload}
+            busy={busy}
+            onExecute={status === "idle" ? handleActionClick : undefined}
+            executeLabel={actionLabel}
+            executeDisabled={actionDisabled}
+          />
+
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2">
+            {/* LEFT: preview (persists) */}
+            <div className="flex h-full min-h-0 flex-col gap-2">
+              <PdfLockPreview file={file} encrypted={encrypted} labels={labels} />
           </div>
 
           {/* RIGHT: mode toggle + controls / result / status */}
@@ -325,14 +318,6 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
           ) : status === "idle" ? (
             <div className="flex h-full min-h-0 flex-col gap-3">
               <PdfLockModeToggle value={mode} onChange={setMode} labels={labels} disabled={busy} />
-              <button
-                type="button"
-                onClick={handleActionClick}
-                disabled={actionDisabled}
-                className="btn-primary inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {actionLabel}
-              </button>
               {actionDisabled && (
                 <p className="-mt-1 font-body text-[11px] leading-[1.4]" style={{ color: "var(--ink-soft)" }}>
                   {mode === "lock" ? labels.lockDisabledHint : labels.unlockDisabledHint}
@@ -355,6 +340,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
               labels={{ processing: labels.processing }}
             />
           )}
+          </div>
         </div>
       )}
     </div>
@@ -366,12 +352,9 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
     <div
       className="relative flex flex-col overflow-hidden rounded-[14px] border"
       style={{
-        background: "color-mix(in oklch, var(--surface) 92%, transparent)",
-        backdropFilter: "blur(10px) saturate(1.1)",
-        WebkitBackdropFilter: "blur(10px) saturate(1.1)",
+        background: "var(--surface)",
         borderColor: "var(--border)",
-        boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(0,0,0,0.28), 0 8px 20px -6px rgba(0,0,0,0.16)",
+        boxShadow: "var(--shadow-lg)",
       }}
     >
       <button
@@ -386,12 +369,6 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
         <RotateCcwIcon className="size-4" />
       </button>
       <div className="flex items-start gap-3 border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
-        <div
-          className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--ink-strong)" }}
-        >
-          <LockIcon size={18} />
-        </div>
         <div className="min-w-0 flex-1">
           <div
             className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"

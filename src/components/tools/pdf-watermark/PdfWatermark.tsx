@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StampIcon, RotateCcwIcon } from "lucide-react";
+import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
+import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { FILE_SIZE_LIMIT } from "@/lib/constants";
@@ -267,35 +268,27 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2" style={{ height: "52vh" }}>
-          {/* LEFT: file info + reupload → live preview */}
-          <div className="flex h-full min-h-0 flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-baseline gap-1.5">
-                <span
-                  className="min-w-0 truncate font-body text-[12px]"
-                  style={{ color: "var(--ink)" }}
-                  title={fileInfo}
-                >
-                  {fileInfo}
+        <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
+          <ToolTopStrip
+            filesSummary={fileInfo}
+            meta={
+              analysis ? (
+                <span className="shrink-0 font-body text-[12px]" style={{ color: "var(--ink-soft)" }}>
+                  · {template(labels.pageCountTemplate, { n: analysis.numPages })}
                 </span>
-                {analysis && (
-                  <span className="shrink-0 font-body text-[12px]" style={{ color: "var(--ink-soft)" }}>
-                    · {template(labels.pageCountTemplate, { n: analysis.numPages })}
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={handleReupload}
-                disabled={busy}
-                className="shrink-0 rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)] disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--ink-strong)" }}
-              >
-                {labels.reupload}
-              </button>
-            </div>
-            <PdfWatermarkPreview
+              ) : undefined
+            }
+            onReupload={handleReupload}
+            reuploadLabel={labels.reupload}
+            busy={busy}
+            onExecute={status === "idle" ? handleApplyClick : undefined}
+            executeLabel={labels.apply}
+          />
+
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2">
+            {/* LEFT: live preview (persists) */}
+            <div className="flex h-full min-h-0 flex-col gap-2">
+              <PdfWatermarkPreview
               file={file}
               mode={mode}
               pageOpts={pageOpts}
@@ -328,13 +321,6 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
                 labels={labels}
                 disabled={busy}
               />
-              <button
-                type="button"
-                onClick={handleApplyClick}
-                className="btn-primary inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[13px] font-semibold"
-              >
-                {labels.apply}
-              </button>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                 {mode === "number" ? (
                   <PageNumberControls
@@ -392,6 +378,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
               labels={{ processing: labels.processing }}
             />
           )}
+          </div>
         </div>
       )}
     </div>
@@ -403,12 +390,9 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
     <div
       className="relative flex flex-col overflow-hidden rounded-[14px] border"
       style={{
-        background: "color-mix(in oklch, var(--surface) 92%, transparent)",
-        backdropFilter: "blur(10px) saturate(1.1)",
-        WebkitBackdropFilter: "blur(10px) saturate(1.1)",
+        background: "var(--surface)",
         borderColor: "var(--border)",
-        boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(0,0,0,0.28), 0 8px 20px -6px rgba(0,0,0,0.16)",
+        boxShadow: "var(--shadow-lg)",
       }}
     >
       <button
@@ -423,12 +407,6 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
         <RotateCcwIcon className="size-4" />
       </button>
       <div className="flex items-start gap-3 border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
-        <div
-          className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--ink-strong)" }}
-        >
-          <StampIcon size={18} />
-        </div>
         <div className="min-w-0 flex-1">
           <div
             className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
