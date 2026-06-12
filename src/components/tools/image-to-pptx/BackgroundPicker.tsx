@@ -18,17 +18,17 @@ export function BackgroundPicker(props: {
         <div className="flex flex-1 border-b" style={{ borderColor: "var(--hairline)" }}>
           <button type="button"
             onClick={() => fileRef.current?.click()}
-            className="flex-1 py-2 font-body text-[12px] font-medium transition-colors"
+            className="flex-1 border-b-2 py-2 font-body text-[12px] font-medium transition-colors"
             style={{
               color: props.value.kind === "image" ? "var(--ink-strong)" : "var(--ink-soft)",
-              boxShadow: props.value.kind === "image" ? "inset 0 -2px 0 var(--emphasis)" : undefined,
+              borderBottomColor: props.value.kind === "image" ? "var(--emphasis)" : "transparent",
             }}>{props.labels.bgImage}</button>
           <button type="button"
             onClick={() => props.onChange({ kind: "color", color: props.value.kind === "color" ? props.value.color : "#FFFFFF" })}
-            className="flex-1 py-2 font-body text-[12px] font-medium transition-colors"
+            className="flex-1 border-b-2 py-2 font-body text-[12px] font-medium transition-colors"
             style={{
               color: props.value.kind === "color" ? "var(--ink-strong)" : "var(--ink-soft)",
-              boxShadow: props.value.kind === "color" ? "inset 0 -2px 0 var(--emphasis)" : undefined,
+              borderBottomColor: props.value.kind === "color" ? "var(--emphasis)" : "transparent",
             }}>{props.labels.bgColor}</button>
         </div>
         {props.value.kind === "color" && (

@@ -34,7 +34,7 @@ const INPUT_STYLE = {
   color: "var(--ink-strong)",
 } as const;
 const FORMAT_TAB =
-  "flex-1 py-2 font-body text-[12px] tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+  "flex-1 border-b-2 py-2 font-body text-[12px] tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
 export function PageNumberControls({
   value,
@@ -149,7 +149,7 @@ export function PageNumberControls({
                 className={FORMAT_TAB}
                 style={{
                   color: active ? "var(--ink-strong)" : "var(--ink-soft)",
-                  boxShadow: active ? "inset 0 -2px 0 var(--emphasis)" : undefined,
+                  borderBottomColor: active ? "var(--emphasis)" : "transparent",
                 }}
               >
                 {f.label}

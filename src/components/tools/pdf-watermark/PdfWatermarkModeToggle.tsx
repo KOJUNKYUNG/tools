@@ -29,10 +29,10 @@ export function PdfWatermarkModeToggle({
             type="button"
             onClick={() => onChange(mode)}
             disabled={disabled}
-            className="flex-1 py-2 font-body text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex-1 border-b-2 py-2 font-body text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               color: active ? "var(--ink-strong)" : "var(--ink-soft)",
-              boxShadow: active ? "inset 0 -2px 0 var(--emphasis)" : undefined,
+              borderBottomColor: active ? "var(--emphasis)" : "transparent",
             }}
           >
             {label}

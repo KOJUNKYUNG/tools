@@ -30,10 +30,10 @@ export function ModeSelector({ value, onChange, labels }: ModeSelectorProps) {
             key={mode}
             type="button"
             onClick={() => onChange(mode)}
-            className="flex-1 py-2 font-body text-[12px] font-medium transition-colors"
+            className="flex-1 border-b-2 py-2 font-body text-[12px] font-medium transition-colors"
             style={{
               color: active ? "var(--ink-strong)" : "var(--ink-soft)",
-              boxShadow: active ? "inset 0 -2px 0 var(--emphasis)" : undefined,
+              borderBottomColor: active ? "var(--emphasis)" : "transparent",
             }}
           >
             {label}

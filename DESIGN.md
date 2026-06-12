@@ -314,9 +314,10 @@ flat segmented tab is a bottom-hairline row where the active item is marked by t
 tab *and* an underline together is the legacy look and a bug (caught in
 `ppt-background`). Single-select includes **in-control option toggles** (text /
 image source, background image / colour, alignment, slide ratio), not just
-top-level mode tabs. The **PDF and PPT categories** are migrated to the tab
-underline; the legacy `.nameplate[data-active]` inverted fill survives only in the
-not-yet-migrated **image** category.
+top-level mode tabs. **Every category is migrated**; the legacy
+`.nameplate[data-active]` inverted fill is removed. The underline is drawn as
+a real 2px bottom border (transparent when inactive), never an inset
+box-shadow — see Do's & Don'ts.
 
 **Other components:**
 
@@ -427,6 +428,10 @@ the on-paper case above.
 - Don't give a single-select toggle a background / segment fill *and* an underline
   — the `--emphasis` underline marks the active item alone (a filled active tab is
   the legacy look).
+- Don't draw the tab underline with a zero-blur inset box-shadow — it bleeds a
+  1px vertical line at the tab's side edge on fractional Windows DPR (125/150%
+  display scaling). Use a real 2px bottom border, transparent when inactive, so
+  activation never shifts layout.
 - Don't use `.nameplate` (or a per-tool one-off) for a momentary click-action
   (re-upload / All / Clear / Split all / Clear dividers / Center H/V / …) — they
   all share the one Toolbar-subtle treatment.

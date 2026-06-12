@@ -11,7 +11,7 @@ interface PdfCompressControlsProps {
 }
 
 const TOGGLE =
-  "flex-1 py-2 font-body text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+  "flex-1 border-b-2 py-2 font-body text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 const GROUP_LABEL =
   "font-mono text-[11px] font-medium uppercase tracking-[0.08em]";
 
@@ -44,7 +44,7 @@ export function PdfCompressControls({
               className={TOGGLE}
               style={{
                 color: active ? "var(--ink-strong)" : "var(--ink-soft)",
-                boxShadow: active ? "inset 0 -2px 0 var(--emphasis)" : undefined,
+                borderBottomColor: active ? "var(--emphasis)" : "transparent",
               }}
             >
               {opt.label}

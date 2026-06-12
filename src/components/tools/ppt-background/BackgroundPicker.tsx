@@ -155,10 +155,10 @@ export function BackgroundPicker({
                   key={src}
                   type="button"
                   onClick={() => setSource(src)}
-                  className="flex-1 py-1.5 font-body text-[11.5px] font-medium transition-colors"
+                  className="flex-1 border-b-2 py-1.5 font-body text-[11.5px] font-medium transition-colors"
                   style={{
                     color: active ? "var(--ink-strong)" : "var(--ink-soft)",
-                    boxShadow: active ? "inset 0 -2px 0 var(--emphasis)" : undefined,
+                    borderBottomColor: active ? "var(--emphasis)" : "transparent",
                   }}
                 >
                   {label}
