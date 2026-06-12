@@ -38,33 +38,34 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
           className="absolute left-1/2 flex flex-col items-center"
           style={{
             top: "50%",
-            transform: `translate(-50%, calc(-50% + var(--tweak-title-y, 0px))) scale(${heroVisible ? 1 : 0.94})`,
+            transform: `translate(-50%, calc(-50% - 10px + var(--tweak-title-y, 0px))) scale(${heroVisible ? 1 : 0.94})`,
             opacity: heroVisible ? 1 : 0,
             transition: "transform 320ms cubic-bezier(.4,0,.2,1), opacity 240ms ease",
           }}
         >
-          {/* Landing hero — the display role at ×2 scale (DESIGN.md → Components). */}
+          {/* Landing hero — tuned via docs/design-preview.html §12
+              (DESIGN.md → Components → Landing hero). */}
           <div
             className="font-display text-center"
             style={{
               color: "var(--headline)",
-              fontSize: 78,
-              fontWeight: 500,
+              fontSize: 88,
+              fontWeight: 520,
               letterSpacing: "-0.02em",
               lineHeight: 1,
             }}
           >
             Ontab
           </div>
-          {/* Subhead — the headline role (Clash Display Light; Hangul falls
-              back to IBM Plex via the font-display stack). */}
+          {/* Subhead — Clash Display Light (Hangul falls back to IBM Plex
+              via the font-display stack). */}
           <div
-            className="mt-3 font-display text-center"
+            className="mt-1 font-display text-center"
             style={{
               color: "var(--ink)",
-              fontSize: 28,
+              fontSize: 14,
               fontWeight: 300,
-              letterSpacing: "-0.02em",
+              letterSpacing: "-0.03em",
               lineHeight: 1.12,
             }}
           >

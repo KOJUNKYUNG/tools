@@ -80,22 +80,23 @@
   --ts-body: 16px;
   --ts-label: 13px;
 
-  /* chunk-4 tunables — landing & tool cards (defaults = current code values) */
-  --lp-hero-size: 78px;
-  --lp-hero-weight: 500;
+  /* chunk-4 tunables — landing & tool cards (defaults = current code values,
+     decided 2026-06-12 via this section's sliders) */
+  --lp-hero-size: 88px;
+  --lp-hero-weight: 520;
   --lp-hero-track: -0.02em;
-  --lp-hero-y: 0px;
-  --lp-desc-size: 28px;
+  --lp-hero-y: -10px;
+  --lp-desc-size: 14px;
   --lp-desc-weight: 300;
-  --lp-desc-track: -0.02em;
-  --lp-desc-gap: 12px;
-  --lp-ct-size: 13.5px;
+  --lp-desc-track: -0.03em;
+  --lp-desc-gap: 4px;
+  --lp-ct-size: 13px;
   --lp-ct-weight: 600;
-  --lp-ct-track: 0.005em;
+  --lp-ct-track: -0.01em;
   --lp-ct-gap: 6px;
   --lp-cd-size: 11.5px;
   --lp-cd-weight: 400;
-  --lp-cd-track: 0em;
+  --lp-cd-track: -0.01em;
 }
 
 /* ---- Semantic aliases — DARK (same 7 anchors, roles inverted) ---- */
@@ -801,28 +802,28 @@ footer .mono{ font-family:var(--font-mono); font-size:11px; }
        <b>슬라이더 기본값 = 현재 코드값.</b> 프레임 높이만 640px 고정(실제는 100vh). 언어는 목업 헤더의 KO·EN으로, 라이트/다크는 페이지 우측 상단 토글로 전환.
        결정되면 맨 아래 스펙 박스를 그대로 복사해 전달해 주세요.</p>
 
-    <div class="grouplabel">히어로 타이틀 "Ontab" — display 역할 (현행 78px · w500 · −0.02em)</div>
+    <div class="grouplabel">히어로 타이틀 "Ontab" (현행 88px · w520 · −0.02em · y −10px)</div>
     <div class="tune">
-      <div class="ctl"><div class="hd"><label>크기</label><span class="v" id="v-lp-hs">78px</span></div>
-        <input class="rng" type="range" id="s-lp-hs" min="40" max="120" step="1" value="78" /></div>
-      <div class="ctl"><div class="hd"><label>웨이트</label><span class="v" id="v-lp-hw">500</span></div>
-        <input class="rng" type="range" id="s-lp-hw" min="200" max="700" step="10" value="500" /></div>
+      <div class="ctl"><div class="hd"><label>크기</label><span class="v" id="v-lp-hs">88px</span></div>
+        <input class="rng" type="range" id="s-lp-hs" min="40" max="120" step="1" value="88" /></div>
+      <div class="ctl"><div class="hd"><label>웨이트</label><span class="v" id="v-lp-hw">520</span></div>
+        <input class="rng" type="range" id="s-lp-hw" min="200" max="700" step="10" value="520" /></div>
       <div class="ctl"><div class="hd"><label>자간</label><span class="v" id="v-lp-ht">-0.020em</span></div>
         <input class="rng" type="range" id="s-lp-ht" min="-60" max="20" step="1" value="-20" /></div>
-      <div class="ctl"><div class="hd"><label>세로 위치 (오프셋)</label><span class="v" id="v-lp-hy">0px</span></div>
-        <input class="rng" type="range" id="s-lp-hy" min="-120" max="120" step="2" value="0" /></div>
+      <div class="ctl"><div class="hd"><label>세로 위치 (오프셋)</label><span class="v" id="v-lp-hy">-10px</span></div>
+        <input class="rng" type="range" id="s-lp-hy" min="-120" max="120" step="2" value="-10" /></div>
     </div>
 
-    <div class="grouplabel">디스크립터 — headline 역할 (현행 28px · w300 · −0.02em · 타이틀과의 간격 12px)</div>
+    <div class="grouplabel">디스크립터 — Clash Light (현행 14px · w300 · −0.03em · 타이틀과의 간격 4px)</div>
     <div class="tune">
-      <div class="ctl"><div class="hd"><label>크기</label><span class="v" id="v-lp-ds">28px</span></div>
-        <input class="rng" type="range" id="s-lp-ds" min="13" max="40" step="0.5" value="28" /></div>
+      <div class="ctl"><div class="hd"><label>크기</label><span class="v" id="v-lp-ds">14px</span></div>
+        <input class="rng" type="range" id="s-lp-ds" min="13" max="40" step="0.5" value="14" /></div>
       <div class="ctl"><div class="hd"><label>웨이트</label><span class="v" id="v-lp-dw">300</span></div>
         <input class="rng" type="range" id="s-lp-dw" min="200" max="700" step="10" value="300" /></div>
-      <div class="ctl"><div class="hd"><label>자간</label><span class="v" id="v-lp-dt">-0.020em</span></div>
-        <input class="rng" type="range" id="s-lp-dt" min="-50" max="50" step="1" value="-20" /></div>
-      <div class="ctl"><div class="hd"><label>타이틀과의 간격</label><span class="v" id="v-lp-dg">12px</span></div>
-        <input class="rng" type="range" id="s-lp-dg" min="0" max="48" step="1" value="12" /></div>
+      <div class="ctl"><div class="hd"><label>자간</label><span class="v" id="v-lp-dt">-0.030em</span></div>
+        <input class="rng" type="range" id="s-lp-dt" min="-50" max="50" step="1" value="-30" /></div>
+      <div class="ctl"><div class="hd"><label>타이틀과의 간격</label><span class="v" id="v-lp-dg">4px</span></div>
+        <input class="rng" type="range" id="s-lp-dg" min="0" max="48" step="1" value="4" /></div>
     </div>
 
     <!-- Screen 1 mock -->
@@ -854,24 +855,24 @@ footer .mono{ font-family:var(--font-mono); font-size:11px; }
       </div>
     </div>
 
-    <div class="grouplabel" style="margin-top:34px">툴 카드 타이틀 (현행 13.5px · w600 · 0.005em)</div>
+    <div class="grouplabel" style="margin-top:34px">툴 카드 타이틀 (현행 13px · w600 · −0.01em)</div>
     <div class="tune">
-      <div class="ctl"><div class="hd"><label>크기</label><span class="v" id="v-lp-cts">13.5px</span></div>
-        <input class="rng" type="range" id="s-lp-cts" min="11" max="20" step="0.5" value="13.5" /></div>
+      <div class="ctl"><div class="hd"><label>크기</label><span class="v" id="v-lp-cts">13px</span></div>
+        <input class="rng" type="range" id="s-lp-cts" min="11" max="20" step="0.5" value="13" /></div>
       <div class="ctl"><div class="hd"><label>웨이트</label><span class="v" id="v-lp-ctw">600</span></div>
         <input class="rng" type="range" id="s-lp-ctw" min="400" max="700" step="100" value="600" /></div>
-      <div class="ctl"><div class="hd"><label>자간</label><span class="v" id="v-lp-ctt">0.005em</span></div>
-        <input class="rng" type="range" id="s-lp-ctt" min="-20" max="50" step="1" value="5" /></div>
+      <div class="ctl"><div class="hd"><label>자간</label><span class="v" id="v-lp-ctt">-0.010em</span></div>
+        <input class="rng" type="range" id="s-lp-ctt" min="-20" max="50" step="1" value="-10" /></div>
     </div>
 
-    <div class="grouplabel">툴 카드 설명 (현행 11.5px · w400 · 0em · 타이틀과의 간격 6px)</div>
+    <div class="grouplabel">툴 카드 설명 (현행 11.5px · w400 · −0.01em · 타이틀과의 간격 6px)</div>
     <div class="tune">
       <div class="ctl"><div class="hd"><label>크기</label><span class="v" id="v-lp-cds">11.5px</span></div>
         <input class="rng" type="range" id="s-lp-cds" min="9" max="15" step="0.5" value="11.5" /></div>
       <div class="ctl"><div class="hd"><label>웨이트</label><span class="v" id="v-lp-cdw">400</span></div>
         <input class="rng" type="range" id="s-lp-cdw" min="300" max="600" step="100" value="400" /></div>
-      <div class="ctl"><div class="hd"><label>자간</label><span class="v" id="v-lp-cdt">0.000em</span></div>
-        <input class="rng" type="range" id="s-lp-cdt" min="-20" max="50" step="1" value="0" /></div>
+      <div class="ctl"><div class="hd"><label>자간</label><span class="v" id="v-lp-cdt">-0.010em</span></div>
+        <input class="rng" type="range" id="s-lp-cdt" min="-20" max="50" step="1" value="-10" /></div>
       <div class="ctl"><div class="hd"><label>타이틀과의 간격</label><span class="v" id="v-lp-cg">6px</span></div>
         <input class="rng" type="range" id="s-lp-cg" min="0" max="16" step="1" value="6" /></div>
     </div>

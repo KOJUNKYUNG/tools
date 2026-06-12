@@ -38,13 +38,13 @@ export function ToolCard({ slug, title, description, Icon, onOpen, zooming }: To
       </div>
       <div className="flex-1 min-w-0 pt-0.5 overflow-hidden">
         <div
-          className="font-ko text-[13.5px] font-semibold leading-[1.25] tracking-[0.005em] truncate"
+          className="font-ko text-[13px] font-semibold leading-[1.25] tracking-[-0.01em] truncate"
           style={{ color: "var(--headline)" }}
         >
           {title}
         </div>
         <div
-          className="mt-1.5 font-body text-[11.5px] leading-[1.4] line-clamp-2"
+          className="mt-1.5 font-body text-[11.5px] leading-[1.4] tracking-[-0.01em] line-clamp-2"
           style={{ color: "var(--ink)" }}
         >
           {description}

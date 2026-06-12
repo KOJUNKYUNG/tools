@@ -193,7 +193,7 @@ via Google).
 
 | role | family / weight | where it's used |
 | --- | --- | --- |
-| `display` | Clash Display Medium · 39px | the landing brand moment (wordmark, hero) — the largest, rarest text; the landing hero sets it at ×2 (78px) |
+| `display` | Clash Display Medium · 39px | the landing brand moment (wordmark, hero) — the largest, rarest text; the landing hero sets it at 88px · weight 520 |
 | `headline` | Clash Display Light · 28px | screen / section headings |
 | `title` | IBM Plex Sans KR Medium · 20px | tool titles, result titles |
 | `body` | IBM Plex Sans KR Regular · 16px | descriptions, running UI text (KO + EN) |
@@ -329,10 +329,11 @@ not-yet-migrated **image** category.
   yet, so the row renders with no underline. Never glass, never a filled
   button.
 - **Landing hero** — the brand lettering **"Ontab"** (mixed case, never
-  all-caps) in the `display` role at ×2 scale (78px), plain `--headline` ink
-  on the flat ground; beneath it the descriptor in the `headline` role
-  (Clash Display Light — Korean falls back to IBM Plex Sans KR). No emboss,
-  no blend modes, no text shadows.
+  all-caps) in Clash Display **520 · 88px · −0.02em**, plain `--headline` ink
+  on the flat ground, raised 10px above the optical center; beneath it (4px
+  gap) the descriptor in Clash Display **Light · 14px · −0.03em** (Korean
+  falls back to IBM Plex Sans KR). Tuned via `docs/design-preview.html` §12.
+  No emboss, no blend modes, no text shadows.
 - **Brand mark** (the square beside the header wordmark) — flat `--ink-strong`
   fill with an inset 1px `--surface` line; no gradient, no shadow.
 - **Footer meta** — version / license strings are `label` (Nanum Gothic Coding,
