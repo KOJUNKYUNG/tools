@@ -201,9 +201,12 @@ via Google).
 | `mono` | Nanum Gothic Coding · 13px | slugs, code-like values |
 
 Display is set in Medium and Headline in Light — a deliberate editorial
-inversion (a bold statement size over a thin, airy subhead). Labels and
-mono share Nanum Gothic Coding, a Korean monospace, so technical strings in
-either language stay fixed-width.
+inversion (a bold statement size over a thin, airy subhead); the landing hero
+("Ontab" + descriptor) is exactly this pairing. Clash Display has no Hangul
+glyphs: Korean text in a `display` / `headline` role falls back to IBM Plex
+Sans KR (declared in the `font-display` stack). Labels and mono share Nanum
+Gothic Coding, a Korean monospace, so technical strings in either language
+stay fixed-width.
 
 ### Which UI element uses which role
 
@@ -213,7 +216,7 @@ code applied one "brand" font to almost everything; that is not the target).
 | UI element | role |
 | --- | --- |
 | landing wordmark / hero lettering | `display` |
-| page / screen section heading | `headline` |
+| page / screen section heading, landing hero descriptor | `headline` |
 | tool title, result title, card header | `title` |
 | description, paragraph, **button & toggle label**, **numeric values in inputs & results (size / dimension / %)**, dialog text | `body` |
 | eyebrow, section tag, badge, field label, small caption | `label` |
@@ -321,11 +324,15 @@ not-yet-migrated **image** category.
   entries and the Screen 2/3 strip) is the same single-select tab underline:
   `body` Medium labels on a shared bottom hairline, the active category marked
   by the `--emphasis` underline + `--ink-strong` (inactive tabs `--ink-soft`;
-  weight never changes, so the row cannot shift). On Screen 1 nothing is
-  selected yet, so the row renders with no underline. Never glass, never a
-  filled button.
-- **Landing hero** — the `display` role at ×2 scale (78px), plain `--headline`
-  ink on the flat ground. No emboss, no blend modes, no text shadows.
+  weight never changes, so the row cannot shift). The three tabs share one
+  equal width (sized by the widest label). On Screen 1 nothing is selected
+  yet, so the row renders with no underline. Never glass, never a filled
+  button.
+- **Landing hero** — the brand lettering **"Ontab"** (mixed case, never
+  all-caps) in the `display` role at ×2 scale (78px), plain `--headline` ink
+  on the flat ground; beneath it the descriptor in the `headline` role
+  (Clash Display Light — Korean falls back to IBM Plex Sans KR). No emboss,
+  no blend modes, no text shadows.
 - **Brand mark** (the square beside the header wordmark) — flat `--ink-strong`
   fill with an inset 1px `--surface` line; no gradient, no shadow.
 - **Footer meta** — version / license strings are `label` (Nanum Gothic Coding,

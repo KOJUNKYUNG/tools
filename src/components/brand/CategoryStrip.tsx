@@ -51,7 +51,11 @@ function CategoryStripImpl({
           {eyebrow ?? " "}
         </div>
       )}
-      <div className="flex border-b" style={{ borderColor: "var(--hairline)" }}>
+      {/* Underline is a real border (not an inset shadow): zero-blur inset
+          shadows bleed a 1px line on the side edges at fractional Windows DPR.
+          Every tab carries a transparent 2px border so activation never
+          shifts layout. */}
+      <div className="grid grid-cols-3 border-b" style={{ borderColor: "var(--hairline)" }}>
         {ORDER.map((cat) => {
           const isActive = active === cat;
           return (
@@ -59,10 +63,10 @@ function CategoryStripImpl({
               key={cat}
               type="button"
               onClick={() => onSelect(cat)}
-              className="px-4 py-2 font-body text-[13px] font-medium whitespace-nowrap transition-colors focus-ring"
+              className="px-4 py-2 font-body text-[13px] font-medium whitespace-nowrap text-center transition-colors focus-ring border-b-2"
               style={{
                 color: isActive ? "var(--ink-strong)" : "var(--ink-soft)",
-                boxShadow: isActive ? "inset 0 -2px 0 var(--emphasis)" : undefined,
+                borderBottomColor: isActive ? "var(--emphasis)" : "transparent",
               }}
             >
               {labels[cat]}

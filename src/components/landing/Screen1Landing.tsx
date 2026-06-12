@@ -54,16 +54,18 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
               lineHeight: 1,
             }}
           >
-            ONTAB
+            Ontab
           </div>
+          {/* Subhead — the headline role (Clash Display Light; Hangul falls
+              back to IBM Plex via the font-display stack). */}
           <div
-            className="mt-3 font-body"
+            className="mt-3 font-display text-center"
             style={{
               color: "var(--ink)",
-              fontSize: 13,
-              letterSpacing: "0.01em",
-              fontWeight: 500,
-              lineHeight: 1.4,
+              fontSize: 28,
+              fontWeight: 300,
+              letterSpacing: "-0.02em",
+              lineHeight: 1.12,
             }}
           >
             {dict.landing.descriptor}

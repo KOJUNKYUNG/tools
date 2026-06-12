@@ -237,8 +237,10 @@
   }
 }
 
-/* Typography — role → family. Weights are set per element. */
-.font-display { font-family: var(--font-clash), ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.02em; }
+/* Typography — role → family. Weights are set per element. Clash has no
+ * Hangul glyphs, so Korean text in a display/headline role falls back to
+ * IBM Plex Sans KR. */
+.font-display { font-family: var(--font-clash), var(--font-ibm-plex-kr), ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }
 .font-body    { font-family: var(--font-ibm-plex-kr), ui-sans-serif, system-ui, sans-serif; }
 .font-ko      { font-family: var(--font-ibm-plex-kr), var(--font-pretendard), "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", ui-sans-serif, sans-serif; }
 .font-mono    { font-family: var(--font-nanum-coding), ui-monospace, monospace; }

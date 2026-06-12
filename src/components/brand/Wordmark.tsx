@@ -22,10 +22,10 @@ export function Wordmark({ locale, className }: WordmarkProps) {
         />
       </div>
       <span
-        className="font-display text-[17px] font-semibold tracking-[0.08em]"
+        className="font-display text-[17px] font-medium"
         style={{ color: "var(--headline)" }}
       >
-        ONTAB
+        Ontab
       </span>
     </Link>
   );
