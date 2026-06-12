@@ -114,8 +114,8 @@ color outside the ramp.
 ### Silver (superseded)
 The 2026-05 metallic language (OKLCH hue 250, `silver-*` tokens, blue
 `accent-electric`). Superseded by Monochrome in 2026-06 (ADR-0004 supersedes
-ADR-0001). The `silver-*` tokens survive only as neutralised compat aliases
-pending cleanup — don't use them in new code.
+ADR-0001). The `silver-*` and `accent-*` tokens are **removed** from the
+codebase — the only emphasis token is `--emphasis`.
 
 ### Tray + Lid
 The product metaphor. The landing experience is a toolbox: a **tray** holds

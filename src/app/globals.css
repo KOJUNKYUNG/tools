@@ -47,21 +47,7 @@
   --color-mono-600: var(--mono-600);
   --color-mono-900: var(--mono-900);
   --color-mono-1000: var(--mono-1000);
-  /* Legacy silver scale — neutralised compat (migrate usages to --mono-*). */
-  --color-silver-50: var(--silver-50);
-  --color-silver-100: var(--silver-100);
-  --color-silver-200: var(--silver-200);
-  --color-silver-300: var(--silver-300);
-  --color-silver-400: var(--silver-400);
-  --color-silver-500: var(--silver-500);
-  --color-silver-600: var(--silver-600);
-  --color-silver-700: var(--silver-700);
-  --color-silver-800: var(--silver-800);
-  --color-silver-900: var(--silver-900);
   --color-emphasis: var(--emphasis);
-  --color-accent-electric: var(--accent-electric);
-  --color-accent-electric-hi: var(--accent-electric-hi);
-  --color-accent-copper: var(--accent-copper);
   --color-surface-handoff: var(--surface-handoff);
   --color-ink-handoff: var(--ink-handoff);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -123,23 +109,8 @@
   --mono-900:  #242324; /* Ink     */
   --mono-1000: #000000; /* Black   */
 
-  /* Legacy silver scale — neutralised (chroma 0), kept for compat. */
-  --silver-50:  oklch(0.98 0 0);
-  --silver-100: oklch(0.94 0 0);
-  --silver-200: oklch(0.88 0 0);
-  --silver-300: oklch(0.78 0 0);
-  --silver-400: oklch(0.65 0 0);
-  --silver-500: oklch(0.52 0 0);
-  --silver-600: oklch(0.42 0 0);
-  --silver-700: oklch(0.28 0 0);
-  --silver-800: oklch(0.20 0 0);
-  --silver-900: oklch(0.14 0 0);
-
   /* Emphasis — maximum contrast (replaces the retired blue accent). */
-  --emphasis:           var(--mono-1000);
-  --accent-electric:    var(--mono-1000);
-  --accent-electric-hi: var(--mono-900);
-  --accent-copper:      var(--mono-600);
+  --emphasis: var(--mono-1000);
 
   /* Semantic — light */
   --bg:         var(--mono-100);
@@ -215,9 +186,7 @@
   --headline:   var(--mono-0);
   --surface-handoff: var(--mono-600);
   --ink-handoff:     var(--mono-100);
-  --emphasis:           var(--mono-0);
-  --accent-electric:    var(--mono-0);
-  --accent-electric-hi: var(--mono-100);
+  --emphasis:        var(--mono-0);
 
   --shadow-sm: 0 1px 0 rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.4);
   --shadow-md: 0 1px 0 rgba(0,0,0,0.3), 0 6px 16px -4px rgba(0,0,0,0.5);
@@ -260,13 +229,6 @@
 }
 .nameplate:hover { border-color: var(--ink-soft); }
 .nameplate:active { background: var(--surface-2); }
-/* Selected toggle — interim inverted dark fill. Migrated tools (pdf-watermark
- * onward) use the tab-underline treatment from DESIGN.md → Components. */
-.nameplate[data-active="true"] {
-  background: var(--ink-strong);
-  color: var(--bg);
-  border-color: var(--ink-strong);
-}
 /* Tool card — flat (no metallic inset). */
 .toolcard {
   background: var(--surface);

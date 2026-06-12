@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Ontab brand mark — flat ink square with an inset surface line
+       (mirrors the header wordmark square; dark-scheme roles inverted). -->
+  <style>
+    .box { fill: #242324; }
+    .line { stroke: #ffffff; }
+    @media (prefers-color-scheme: dark) {
+      .box { fill: #d9d9da; }
+      .line { stroke: #4a494a; }
+    }
+  </style>
+  <rect class="box" width="24" height="24" rx="3" />
+  <rect class="line" x="5.5" y="5.5" width="13" height="13" rx="1" fill="none" stroke-width="1" />
+</svg>
