@@ -135,9 +135,11 @@ Two rules shape everything:
    accent hue. Emphasis is made with **contrast, inversion, and weight** — never
    color. The single exception is **user document-preview content**, which
    renders in its own original colors (it is the user's file, not our UI).
-2. **The tray + lid metaphor stays, flattened.** The landing is still a toolbox
-   whose lid lifts to reveal tools, but rendered as flat neutral panels and
-   hairlines rather than brushed metal.
+2. **The tray + lid metaphor stays, flattened to abstraction.** The landing is
+   still a toolbox that opens to reveal tools, but the metaphor lives in the
+   open/close interaction, motion, and copy — not in material rendering. The
+   ground of every screen is flat `--bg` (the metal-tray photograph and its
+   dark-mode gradient stand-in are retired); tool cards float directly on it.
 
 ## Colors
 
@@ -191,7 +193,7 @@ via Google).
 
 | role | family / weight | where it's used |
 | --- | --- | --- |
-| `display` | Clash Display Medium · 39px | the landing brand moment (wordmark, lid) — the largest, rarest text |
+| `display` | Clash Display Medium · 39px | the landing brand moment (wordmark, hero) — the largest, rarest text; the landing hero sets it at ×2 (78px) |
 | `headline` | Clash Display Light · 28px | screen / section headings |
 | `title` | IBM Plex Sans KR Medium · 20px | tool titles, result titles |
 | `body` | IBM Plex Sans KR Regular · 16px | descriptions, running UI text (KO + EN) |
@@ -210,7 +212,7 @@ code applied one "brand" font to almost everything; that is not the target).
 
 | UI element | role |
 | --- | --- |
-| landing wordmark / lid lettering | `display` |
+| landing wordmark / hero lettering | `display` |
 | page / screen section heading | `headline` |
 | tool title, result title, card header | `title` |
 | description, paragraph, **button & toggle label**, **numeric values in inputs & results (size / dimension / %)**, dialog text | `body` |
@@ -262,8 +264,10 @@ ground). Elevated surfaces in dark mode use a **lighter face + a light top edge
 (Pebble) + a stronger black shadow** together.
 
 The metallic treatments of the old silver system — `rim`, `brushed`, `glint`,
-`lid` (metal) — are **retired**. The tray surface is reinterpreted as a flat
-neutral panel.
+`lid` (metal), `glass-btn` (frosted glass) — are **retired**, as are the
+metal-tray photograph (`tray-photo`) and its dark-mode gradient stand-in
+(`dark-tray-surface`). The landing ground is flat `--bg`; nothing photographic
+or material sits behind the UI.
 
 ## Shapes
 
@@ -313,6 +317,19 @@ not-yet-migrated **image** category.
 
 **Other components:**
 
+- **Category tabs** — the site-level category selector (Screen 1's three
+  entries and the Screen 2/3 strip) is the same single-select tab underline:
+  `body` Medium labels on a shared bottom hairline, the active category marked
+  by the `--emphasis` underline + `--ink-strong` (inactive tabs `--ink-soft`;
+  weight never changes, so the row cannot shift). On Screen 1 nothing is
+  selected yet, so the row renders with no underline. Never glass, never a
+  filled button.
+- **Landing hero** — the `display` role at ×2 scale (78px), plain `--headline`
+  ink on the flat ground. No emboss, no blend modes, no text shadows.
+- **Brand mark** (the square beside the header wordmark) — flat `--ink-strong`
+  fill with an inset 1px `--surface` line; no gradient, no shadow.
+- **Footer meta** — version / license strings are `label` (Nanum Gothic Coding,
+  uppercase, tracked); the copyright line stays `body` + `tabular-nums`.
 - **Input / number fields** — `--surface-2` fill, `--border` edge, `--ink-strong`
   text, `--ink-soft` placeholder; focus shows a 2px `--emphasis` outline.
 - **Slider** (e.g. opacity) — track `--border`, fill + thumb `--ink-strong`
@@ -380,8 +397,13 @@ the on-paper case above.
 - Don't use Ash (`#9d9c9e`) as body text on a light surface — it fails contrast.
   Ash is for muted text, hairlines, and disabled states only.
 - Don't put theme-inverting aliases on on-paper overlays (they disappear in dark).
-- Don't reintroduce the metallic classes (`rim`, `brushed`, `glint`, `lid`) —
-  they're retired.
+- Don't reintroduce the metallic classes (`rim`, `brushed`, `glint`, `lid`,
+  `glass-btn`, `tray-photo`, `dark-tray-surface`) — they're retired.
+- Don't put a photographic or material background behind the UI — the landing
+  ground is flat `--bg`; the tray metaphor lives in the open/close interaction,
+  not in rendering.
+- Don't give the category selector a button or glass treatment — it is the same
+  single-select tab underline as every other single-select.
 - Don't hard-code hex / rgb in a component — always go through a token, alias, or
   class.
 - Don't add depth with heavy or default shadows; separate with tone and hairlines.

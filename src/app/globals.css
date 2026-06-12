@@ -108,14 +108,10 @@
   --sidebar-ring: oklch(0.708 0 0);
 
   /* Locked layout / treatment constants (previously Tweaks knobs). */
-  --tweak-bg-scale: 1.0;
-  --tweak-header-bg-opacity: 0.1;
-  --tweak-footer-bg-opacity: 0.1;
   --tweak-categories-y: -64px;
   --tweak-title-y: 0px;
   --tweak-card-height: 92px;
   --tweak-card-padding: 14px;
-  --tweak-emboss-depth: 0.9;
   --tweak-workspace-width: 950px;
 
   /* ── Monochrome ramp — 5 brand grays + white/black. The whole palette. ── */
@@ -241,130 +237,11 @@
   }
 }
 
-/* Dark tray surface — neutral graphite gradient that REPLACES the photo
- * background in dark mode. Applied as a layer in the screen wrapper.
- */
-.dark-tray-surface {
-  background:
-    radial-gradient(ellipse at 30% 25%, oklch(0.32 0 0) 0%, transparent 60%),
-    radial-gradient(ellipse at 75% 75%, oklch(0.18 0 0) 0%, transparent 55%),
-    repeating-linear-gradient(90deg,
-      rgba(255,255,255,0) 0px,
-      rgba(255,255,255,0.02) 1px,
-      rgba(0,0,0,0.04) 2px,
-      rgba(255,255,255,0) 3px),
-    linear-gradient(160deg,
-      oklch(0.22 0 0) 0%,
-      oklch(0.16 0 0) 60%,
-      oklch(0.12 0 0) 100%);
-}
-
-/* Tray photo theme styling — driven by .dark class on <html>, not JS,
- * so locale-change navigation can't flash light during React re-mount. */
-.tray-photo {
-  opacity: 1;
-  mix-blend-mode: normal;
-  filter: none;
-}
-html.dark .tray-photo,
-:root.dark .tray-photo {
-  opacity: 0.18;
-  mix-blend-mode: screen;
-  filter: brightness(0.85) contrast(0.9) saturate(0.6);
-}
-
-/* Visibility helper — element stays in DOM, paints only under .dark */
-.dark-only { display: none; }
-html.dark .dark-only,
-:root.dark .dark-only { display: block; }
-
 /* Typography — role → family. Weights are set per element. */
 .font-display { font-family: var(--font-clash), ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.02em; }
 .font-body    { font-family: var(--font-ibm-plex-kr), ui-sans-serif, system-ui, sans-serif; }
 .font-ko      { font-family: var(--font-ibm-plex-kr), var(--font-pretendard), "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", ui-sans-serif, sans-serif; }
 .font-mono    { font-family: var(--font-nanum-coding), ui-monospace, monospace; }
-
-/* Subtle highlight pass on hover (neutral). */
-.glint {
-  position: relative;
-  overflow: hidden;
-}
-.glint::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.9) 50%, transparent 100%);
-  opacity: 0;
-  transform: translateY(-1px);
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-.glint:hover::before { opacity: 1; }
-.dark .glint::before {
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
-}
-
-/* Brushed surface — neutralised (metallic metaphor retired; kept neutral for
- * the landing until its flat rollout). */
-.brushed {
-  background:
-    repeating-linear-gradient(90deg,
-      rgba(255,255,255,0.0) 0px,
-      rgba(255,255,255,0.015) 1px,
-      rgba(0,0,0,0.012) 2px,
-      rgba(255,255,255,0.0) 3px),
-    radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.35) 0%, transparent 55%),
-    radial-gradient(ellipse at 70% 80%, rgba(255,255,255,0.15) 0%, transparent 50%),
-    linear-gradient(180deg, oklch(0.88 0 0), oklch(0.80 0 0) 60%, oklch(0.76 0 0));
-}
-.dark .brushed {
-  background:
-    repeating-linear-gradient(90deg,
-      rgba(255,255,255,0.0) 0px,
-      rgba(255,255,255,0.025) 1px,
-      rgba(0,0,0,0.05) 2px,
-      rgba(255,255,255,0.0) 3px),
-    radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.10) 0%, transparent 55%),
-    radial-gradient(ellipse at 70% 80%, rgba(255,255,255,0.05) 0%, transparent 50%),
-    linear-gradient(180deg, oklch(0.32 0 0), oklch(0.26 0 0) 60%, oklch(0.22 0 0));
-}
-
-/* Tray rim (raised edge) — neutral shadows. */
-.rim {
-  box-shadow:
-    inset 0 2px 3px rgba(255,255,255,0.8),
-    inset 0 -2px 4px rgba(0,0,0,0.15),
-    inset 3px 0 5px rgba(255,255,255,0.3),
-    inset -3px 0 5px rgba(0,0,0,0.12),
-    0 1px 0 rgba(255,255,255,0.8),
-    0 24px 48px -16px rgba(0,0,0,0.25),
-    0 6px 16px -4px rgba(0,0,0,0.15);
-}
-.dark .rim {
-  box-shadow:
-    inset 0 2px 3px rgba(255,255,255,0.12),
-    inset 0 -2px 4px rgba(0,0,0,0.5),
-    inset 3px 0 5px rgba(255,255,255,0.06),
-    inset -3px 0 5px rgba(0,0,0,0.4),
-    0 1px 0 rgba(255,255,255,0.08),
-    0 24px 48px -12px rgba(0,0,0,0.7),
-    0 6px 16px -4px rgba(0,0,0,0.5);
-}
-
-/* Lid — sits on top of tray; neutral. */
-.lid {
-  background:
-    radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.5) 0%, transparent 55%),
-    radial-gradient(ellipse at 75% 75%, rgba(255,255,255,0.2) 0%, transparent 50%),
-    linear-gradient(160deg, oklch(0.90 0 0) 0%, oklch(0.82 0 0) 50%, oklch(0.78 0 0) 100%);
-}
-.dark .lid {
-  background:
-    radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.18) 0%, transparent 55%),
-    radial-gradient(ellipse at 75% 75%, rgba(255,255,255,0.08) 0%, transparent 50%),
-    linear-gradient(160deg, oklch(0.36 0 0) 0%, oklch(0.28 0 0) 50%, oklch(0.22 0 0) 100%);
-}
 
 /* Scrollbar hygiene inside artboards */
 .ob-scroll::-webkit-scrollbar { width: 0; height: 0; }
@@ -388,41 +265,6 @@ html.dark .dark-only,
   color: var(--bg);
   border-color: var(--ink-strong);
 }
-/* Dark glass active toggle — bright fill keeps a dark label for contrast. */
-.dark .glass-btn[data-active="true"] {
-  color: var(--mono-900) !important;
-  background: rgba(255,255,255,0.92) !important;
-  border-color: rgba(255,255,255,0.85) !important;
-}
-.dark .glass-btn[data-active="true"]:hover,
-.dark .glass-btn[data-active="true"]:active {
-  background: rgba(255,255,255,0.92) !important;
-  color: var(--mono-900) !important;
-  border-color: var(--mono-100);
-}
-
-/* Glass button — used on the tray photo in Screen 1 (neutralised). */
-.glass-btn:hover {
-  background: rgba(255,255,255,0.38) !important;
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.7),
-    inset 0 -1px 0 rgba(0,0,0,0.08),
-    0 6px 18px -4px rgba(0,0,0,0.28) !important;
-}
-.glass-btn:active {
-  transform: translateY(0);
-  background: rgba(255,255,255,0.28) !important;
-}
-.glass-btn[data-active="true"]:hover,
-.glass-btn[data-active="true"]:active {
-  background: rgba(255,255,255,0.85) !important;
-  transform: none !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.18),
-    0 4px 14px -4px rgba(0,0,0,0.35) !important;
-}
-
 /* Tool card — flat (no metallic inset). */
 .toolcard {
   background: var(--surface);

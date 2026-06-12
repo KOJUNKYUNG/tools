@@ -28,8 +28,8 @@ wins.
 | ---- | -------- | ------------ |
 | What Ontab is, domain terms, architecture contracts, Phase *definitions* | **this file** (`CONTEXT.md`) | A term or concept actually resolves — lazily, via `/grill-with-docs` |
 | A hard-to-reverse decision + its rationale | **`docs/adr/`** | The decision is hard to reverse, surprising without context, and a real trade-off |
-| The design spec — Google DESIGN.md standard format | **`DESIGN.md`** (root) | Populated during the design re-adjustment (ADR-0003); a validated scaffold until then |
-| The *current* visual implementation contract (tokens, material classes, fidelity rule) | **`docs/design.md`** | Authoritative until `DESIGN.md` is populated; UI conventions/tokens change |
+| The design spec — tokens, typography, components, Do's & Don'ts | **`DESIGN.md`** (root) | The design system changes (ADR-0003 / ADR-0004; populated 2026-06) |
+| The silver-era implementation contract (historical) | **`docs/design.md`** | Superseded by root `DESIGN.md` — do not extend |
 | The design of one tool/feature | **`docs/superpowers/specs/{date}-{slug}-design.md`** | Before building it, once brainstorming settles the design |
 | The task breakdown to build one tool/feature | **`docs/superpowers/plans/{date}-{slug}.md`** | After the spec, just before implementation |
 | How agents consume these docs + the detailed authoring rules | **`docs/agents/domain.md`** | Doc conventions change |
@@ -100,37 +100,49 @@ Don't propose them as features:
 
 ## Design System
 
-For the concrete implementation contract (token names, material classes,
-typography, layout variables, the visual fidelity rule), see
-[`docs/design.md`](docs/design.md). The entries below define vocabulary.
+The design spec is **root [`DESIGN.md`](DESIGN.md)** (Google DESIGN.md standard
+format, ADR-0003) — tokens, typography, components, and Do's & Don'ts live
+there. The entries below define vocabulary only.
 
-### Silver
-The active visual language (locked in 2026-05). OKLCH palette with hue 250
-(cool neutral), accent colors `accent-electric` (blue) and `accent-copper`.
-The previous **wood / cream / beige** direction is **deprecated** — do not
-introduce warm tones. See `docs/adr/0001-silver-design-system.md`.
+### Monochrome
+The active visual language (2026-06 redesign): **high-contrast monochrome —
+"editorial black & white"**. One 7-step neutral ramp (`--mono-*`), no accent
+hue; emphasis is contrast, inversion, and weight (`--emphasis`). Supersedes
+**Silver** (ADR-0004). Do not introduce silver tokens, warm tones, or any
+color outside the ramp.
+
+### Silver (superseded)
+The 2026-05 metallic language (OKLCH hue 250, `silver-*` tokens, blue
+`accent-electric`). Superseded by Monochrome in 2026-06 (ADR-0004 supersedes
+ADR-0001). The `silver-*` tokens survive only as neutralised compat aliases
+pending cleanup — don't use them in new code.
 
 ### Tray + Lid
-The product metaphor. The landing experience is a physical-feeling toolbox:
-a **tray** holds the tools; a **lid** lifts to reveal them when a category
-is chosen. Replaces the earlier "desk with stationery" metaphor.
+The product metaphor. The landing experience is a toolbox: a **tray** holds
+the tools and opens when a category is chosen. Since the monochrome redesign
+the metaphor is **conceptual, not material** — it lives in the open/close
+interaction, motion, and copy. There is no photographic tray, no rendered
+lid, no material panels.
 
-### Material classes
-Pre-defined CSS classes in `src/app/globals.css` that produce the silver
-look-and-feel: `rim`, `brushed`, `lid`, `glint`, `nameplate`, `glass-btn`,
-`toolcard`, `tray-photo`, `dark-tray-surface`. **Reuse these — do not invent
-new material classes or silver tokens.**
+### Treatment classes
+The shared CSS treatments in `src/app/globals.css`, documented in DESIGN.md →
+Components: `.toolcard`, `.nameplate`, `.btn-primary`, `.btn-download`,
+`.handoff-action`, `.focus-ring`. **Reuse these — do not invent new treatment
+classes.** The silver material classes (`rim`, `brushed`, `lid`, `glint`,
+`glass-btn`, `tray-photo`, `dark-tray-surface`) are retired.
 
-### Visual fidelity contract
-The design handoff in `ontab_design/` (gitignored, local only) is the source
-of truth for inline styles, magic numbers (e.g. 78px wordmark, 92px card
-height, 620px workspace, 900ms cubic-bezier), and className combinations.
-When porting handoff JSX into the app, **preserve those verbatim**; only the
-React/TS scaffolding (imports, state, types) is allowed to change.
+### Visual fidelity contract (historical)
+During the silver era, the gitignored handoff (`ontab_design/`) was the
+verbatim source of truth for inline styles and magic numbers. Since the
+monochrome redesign, **`DESIGN.md` is the binding contract**; the handoff is
+historical reference only.
 
 ### Typography
-Pretendard (Korean), Space Grotesk (display), Inter (body), JetBrains Mono.
-Geist is deprecated.
+Clash Display (display / headline — Latin only) + IBM Plex Sans KR (title /
+body, KO + EN) + Nanum Gothic Coding (label / mono). Pretendard is retained
+solely for canvas text rasterisation (`renderTextToPng`) and as a Korean
+fallback. The silver-era stack (Space Grotesk, Inter, JetBrains Mono) is
+deprecated.
 
 ---
 

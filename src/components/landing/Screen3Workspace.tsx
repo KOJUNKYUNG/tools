@@ -38,7 +38,6 @@ type Category = "presentation" | "document" | "image";
 
 interface Screen3WorkspaceProps {
   locale: "ko" | "en";
-  theme: "light" | "dark";
   dict: Dictionary;
   tool: ToolInfo;
   zoomState: "entering" | "expanded";
@@ -56,7 +55,6 @@ function inferCategory(tool: ToolInfo): Category {
 
 export function Screen3Workspace({
   locale,
-  theme,
   dict,
   tool,
   zoomState,
@@ -173,35 +171,11 @@ export function Screen3Workspace({
 
   return (
     <div className="flex flex-col h-screen relative overflow-hidden" style={{ background: "var(--bg)" }}>
-      <div
-        className="dark-only absolute inset-0 dark-tray-surface pointer-events-none"
-        style={{ zIndex: 0 }}
-      />
-      <img
-        src="/brand/tray-bg.png"
-        alt=""
-        className="tray-photo absolute inset-0 w-full h-full select-none pointer-events-none"
-        style={{
-          objectFit: "cover",
-          objectPosition: "center",
-          transform: `scale(var(--tweak-bg-scale, 1))`,
-          transformOrigin: "50% 50%",
-          transition: "opacity 600ms ease, transform 280ms cubic-bezier(.2,.8,.2,1)",
-          zIndex: 0,
-        }}
-      />
+      <Header locale={locale} />
 
-      <div className="relative" style={{ zIndex: 2 }}>
-        <Header locale={locale} />
-      </div>
-
-      <main
-        className="flex-1 flex flex-col items-center justify-center px-8 py-8 relative"
-        style={{ zIndex: 2 }}
-      >
+      <main className="flex-1 flex flex-col items-center justify-center px-8 py-8 relative">
         <CategoryStrip
           active={activeCategory}
-          theme={theme}
           labels={{
             presentation: dict.nav.presentation,
             document: dict.nav.document,
@@ -254,7 +228,7 @@ export function Screen3Workspace({
               >
                 <div className="flex-1 min-w-0">
                   <div
-                    className="font-display text-[16px] font-semibold leading-[1.2] tracking-[0.005em] font-ko"
+                    className="font-ko text-[16px] font-semibold leading-[1.2] tracking-[0.005em]"
                     style={{ color: "var(--headline)" }}
                   >
                     {toolDict.title}
@@ -280,13 +254,11 @@ export function Screen3Workspace({
         </FadeInCenter>
       </main>
 
-      <div className="relative" style={{ zIndex: 2 }}>
-        <Footer
-          copyright={dict.footer.copyright}
-          version={dict.footer.version}
-          license={dict.footer.license}
-        />
-      </div>
+      <Footer
+        copyright={dict.footer.copyright}
+        version={dict.footer.version}
+        license={dict.footer.license}
+      />
     </div>
   );
 }

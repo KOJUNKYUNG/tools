@@ -9,19 +9,6 @@
     "image": "Image"
   },
   "landing": {
-    "heroTitle": "ONTAB",
-    "heroSubtitle": "The toolbox that lives in your browser tab",
-    "heroCtaPrimary": "Open the toolbox",
-    "valueProps": {
-      "private": "100% in-browser",
-      "unlimited": "Unlimited · Free",
-      "fast": "No uploads, no login"
-    },
-    "shelfHeading": {
-      "presentation": "Presentation tools",
-      "document": "Document tools",
-      "image": "Image tools"
-    },
     "selectCategory": "Select a category",
     "descriptor": "The toolbox that lives in your browser tab"
   },

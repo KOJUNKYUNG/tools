@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useTheme } from "next-themes";
 import { Screen1Landing } from "./Screen1Landing";
 import { Screen2Opened } from "./Screen2Opened";
 import { Screen3Workspace } from "./Screen3Workspace";
@@ -17,12 +16,6 @@ interface InteractiveLandingProps {
 }
 
 export function InteractiveLanding({ locale, dict }: InteractiveLandingProps) {
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const theme: "light" | "dark" =
-    mounted && resolvedTheme === "dark" ? "dark" : "light";
-
   const [stage, setStage] = useState<Stage>("closed");
   const [lidState, setLidState] = useState<"closed" | "opening" | "open">("closed");
   const [activeCategory, setActiveCategory] = useState<Category>("document");
@@ -75,7 +68,6 @@ export function InteractiveLanding({ locale, dict }: InteractiveLandingProps) {
     return (
       <Screen3Workspace
         locale={locale}
-        theme={theme}
         dict={dict}
         tool={tool}
         zoomState={wsZoom}
@@ -92,7 +84,6 @@ export function InteractiveLanding({ locale, dict }: InteractiveLandingProps) {
     return (
       <Screen2Opened
         locale={locale}
-        theme={theme}
         dict={dict}
         activeCategory={activeCategory}
         onCategoryChange={handleCategoryChange}
@@ -106,7 +97,6 @@ export function InteractiveLanding({ locale, dict }: InteractiveLandingProps) {
   return (
     <Screen1Landing
       locale={locale}
-      theme={theme}
       dict={dict}
       lidState={lidState}
       onOpen={handleOpen}
