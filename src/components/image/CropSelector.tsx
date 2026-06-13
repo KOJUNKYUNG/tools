@@ -127,6 +127,7 @@ export function CropSelector({
 
   useEffect(() => {
     if (imgNatural.w > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- re-derive the crop box when target size or natural size changes
       initCrop(imgNatural.w, imgNatural.h);
     }
   }, [targetWidth, targetHeight, imgNatural.w, imgNatural.h, initCrop]);

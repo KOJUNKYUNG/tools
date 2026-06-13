@@ -40,6 +40,7 @@ export function PptExtractResult({
         new Blob([new Uint8Array(img.data)], { type: img.mime }),
       );
     });
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- StrictMode-safe object URL batch; the cleanup revokes this exact batch (see comment above)
     setUrls(next);
     return () => {
       for (const u of next) if (u) URL.revokeObjectURL(u);
