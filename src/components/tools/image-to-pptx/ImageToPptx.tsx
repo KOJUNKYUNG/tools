@@ -17,10 +17,11 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ImagePlus, PlusIcon, RotateCcwIcon } from "lucide-react";
+import { PlusIcon, RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
+import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { PageItemCard } from "@/components/pdf-editor/PageItemCard";
 import { buildPageItems, deriveBaseName } from "@/components/pdf-editor/buildPageItems";
 import { clearThumbnailCache } from "@/components/pdf-editor/thumbnailCache";
@@ -104,7 +105,7 @@ function SortableCell({
         onDelete={onDelete}
         duplicateAria={duplicateAria}
         deleteAria={deleteAria}
-        frameBg="var(--silver-100)"
+        frameBg="var(--surface-2)"
         pageAspect={pageAspect}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
@@ -462,27 +463,15 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
   const editor = (
     <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
-      {/* Top strip: files summary + reupload + convert */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 flex-1 truncate font-body text-[12px]" style={{ color: "var(--ink)" }}>
-          {filesSummary}
-        </div>
-        <button
-          type="button"
-          onClick={handleReuploadPick}
-          className="nameplate inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[9px] px-3 font-display text-[12px]"
-        >
-          {labels.reupload}
-        </button>
-        <button
-          type="button"
-          onClick={run}
-          disabled={!hasFiles || busy}
-          className="btn-download glint inline-flex h-8 shrink-0 items-center justify-center rounded-[9px] px-4 font-display text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {template(labels.convertTemplate, { n: liveItems.length })}
-        </button>
-      </div>
+      <ToolTopStrip
+        filesSummary={filesSummary}
+        onReupload={handleReuploadPick}
+        reuploadLabel={labels.reupload}
+        busy={busy}
+        onExecute={run}
+        executeLabel={template(labels.convertTemplate, { n: liveItems.length })}
+        executeDisabled={!hasFiles}
+      />
 
       {/* Two-column editor: left = image grid, right = slide controls */}
       <div className="flex min-h-0 flex-1 gap-3">
@@ -517,10 +506,10 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
                     onClick={handleAddClick}
                     aria-label={labels.addAria}
                     title={labels.addAria}
-                    className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[5px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--accent-electric)] hover:text-[color:var(--accent-electric)]"
+                    className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[5px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
                     style={{
                       borderColor: "var(--hairline)",
-                      background: "var(--bg-soft, var(--silver-100))",
+                      background: "var(--bg-soft)",
                     }}
                   >
                     <PlusIcon className="size-7" />
@@ -614,7 +603,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
       {loadingPages && (
         <div className="flex items-center gap-2 text-sm text-[color:var(--ink)]">
-          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--accent-electric)] border-t-transparent" />
+          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
           {labels.processing}
         </div>
       )}
@@ -627,12 +616,9 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     <div
       className="relative flex flex-col overflow-hidden rounded-[14px] border"
       style={{
-        background: "color-mix(in oklch, var(--surface) 92%, transparent)",
-        backdropFilter: "blur(10px) saturate(1.1)",
-        WebkitBackdropFilter: "blur(10px) saturate(1.1)",
+        background: "var(--surface)",
         borderColor: "var(--border)",
-        boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+        boxShadow: "var(--shadow-lg)",
       }}
     >
       <button
@@ -647,14 +633,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         <RotateCcwIcon className="size-4" />
       </button>
       <div className="flex items-start gap-3 border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
-        <div
-          className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--ink-strong)" }}
-        >
-          <ImagePlus size={18} />
-        </div>
         <div className="min-w-0 flex-1">
-          <div className="font-display font-ko text-[16px] font-semibold leading-[1.2] tracking-[0.005em]" style={{ color: "var(--headline)" }}>
+          <div className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]" style={{ color: "var(--headline)" }}>
             {labels.title}
           </div>
           <div className="mt-1 font-body text-[12px] leading-[1.45]" style={{ color: "var(--ink)" }}>

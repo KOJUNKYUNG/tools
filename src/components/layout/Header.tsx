@@ -25,15 +25,6 @@ export function Header({ locale }: HeaderProps) {
         fontWeight: 400,
       }}
     >
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          backgroundColor: "var(--bg)",
-          opacity: "var(--tweak-header-bg-opacity, 1)",
-          transition: "opacity 200ms ease",
-        }}
-      />
       <Wordmark locale={locale} />
       <div className="flex items-center gap-1 relative">
         <LanguageToggle currentLocale={locale} />

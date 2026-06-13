@@ -83,8 +83,8 @@ export function PptExtractPreview({
       <div
         className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[8px] border"
         style={{
-          background: "var(--silver-100)",
-          borderColor: "var(--silver-200)",
+          background: "var(--surface-2)",
+          borderColor: "var(--border)",
         }}
       >
         {thumbnailUrl ? (
@@ -99,7 +99,7 @@ export function PptExtractPreview({
             {analyzing ? (
               <span
                 className="font-body text-[11.5px]"
-                style={{ color: "var(--silver-600)" }}
+                style={{ color: "var(--ink-soft)" }}
               >
                 {labels.analyzingHint}
               </span>
@@ -107,11 +107,11 @@ export function PptExtractPreview({
               <>
                 <ImageDownIcon
                   className="size-8"
-                  style={{ color: "var(--silver-500)" }}
+                  style={{ color: "var(--ink-soft)", opacity: 0.5 }}
                 />
                 <span
                   className="font-body text-[11px]"
-                  style={{ color: "var(--silver-600)" }}
+                  style={{ color: "var(--ink-soft)" }}
                 >
                   {labels.previewUnavailable}
                 </span>

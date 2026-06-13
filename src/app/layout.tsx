@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/app/providers";
-import { pretendard, spaceGrotesk, inter, jetbrainsMono } from "@/app/fonts";
+import { clashDisplay, ibmPlexSansKR, nanumGothicCoding, pretendard } from "@/app/fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,7 +20,7 @@ export default function RootLayout({
     <html
       lang="ko"
       suppressHydrationWarning
-      className={`${pretendard.variable} ${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${clashDisplay.variable} ${ibmPlexSansKR.variable} ${nanumGothicCoding.variable} ${pretendard.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <Providers>

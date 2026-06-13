@@ -28,7 +28,7 @@ export function PasswordField({
   return (
     <label className="flex flex-col gap-1">
       <span
-        className="font-display text-[11px] font-medium uppercase tracking-[0.08em]"
+        className="font-mono text-[11px] font-medium uppercase tracking-[0.08em]"
         style={{ color: "var(--ink-soft)" }}
       >
         {label}
@@ -42,7 +42,7 @@ export function PasswordField({
           disabled={disabled}
           autoComplete={autoComplete}
           spellCheck={false}
-          className="h-9 w-full rounded-[6px] border px-2.5 pr-9 font-body text-[13px] outline-none transition-colors focus:border-[color:var(--accent-electric)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-9 w-full rounded-[6px] border px-2.5 pr-9 font-body text-[13px] outline-none transition-colors focus:border-[color:var(--emphasis)] disabled:cursor-not-allowed disabled:opacity-50"
           style={{
             background: "var(--surface)",
             borderColor: "var(--border)",

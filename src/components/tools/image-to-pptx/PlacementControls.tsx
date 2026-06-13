@@ -67,7 +67,7 @@ export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, l
 
   return (
     <div className="space-y-2">
-      <p className="font-display text-[11px]" style={{ color: "var(--ink-soft)" }}>{labels.placeLabel}</p>
+      <p className="font-mono text-[11px]" style={{ color: "var(--ink-soft)" }}>{labels.placeLabel}</p>
       <div className="grid grid-cols-2 gap-2">
         {FIELDS.map((f) => (
           <label key={f.key} className="flex items-center gap-1.5 text-[12px]">
@@ -77,7 +77,7 @@ export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, l
               onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
               onBlur={(e) => commit(f.key, e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") commit(f.key, (e.target as HTMLInputElement).value); }}
-              className="nameplate h-8 w-full min-w-0 rounded-[9px] px-1.5 text-right text-[12px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+              className="nameplate h-8 w-full min-w-0 rounded-[9px] px-1.5 text-right text-[12px] tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
           </label>
         ))}
       </div>
@@ -85,14 +85,16 @@ export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, l
         <button
           type="button"
           onClick={() => onBoxChange({ ...box, x: (slideW - box.w) / 2 })}
-          className="nameplate h-8 flex-1 rounded-[9px] font-display text-[11px]"
+          className="flex-1 rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)]"
+          style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--ink-strong)" }}
         >
           {labels.centerH}
         </button>
         <button
           type="button"
           onClick={() => onBoxChange({ ...box, y: (slideH - box.h) / 2 })}
-          className="nameplate h-8 flex-1 rounded-[9px] font-display text-[11px]"
+          className="flex-1 rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)]"
+          style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--ink-strong)" }}
         >
           {labels.centerV}
         </button>

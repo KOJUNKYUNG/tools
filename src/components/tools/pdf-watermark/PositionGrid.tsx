@@ -15,7 +15,7 @@ export function PositionGrid({ value, onChange, label, disabled }: PositionGridP
   return (
     <div className="space-y-1.5">
       <p
-        className="font-display text-[11px] font-medium uppercase tracking-[0.08em]"
+        className="font-mono text-[11px] font-medium uppercase tracking-[0.08em]"
         style={{ color: "var(--ink-soft)" }}
       >
         {label}
@@ -36,13 +36,13 @@ export function PositionGrid({ value, onChange, label, disabled }: PositionGridP
               onClick={() => onChange(pos)}
               className="flex size-5 items-center justify-center rounded-[3px] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
               style={{
-                background: active ? "var(--accent-electric)" : "var(--surface)",
+                background: active ? "var(--emphasis)" : "var(--surface)",
                 border: "1px solid var(--border)",
               }}
             >
               <span
                 className="block size-1.5 rounded-full"
-                style={{ background: active ? "#fff" : "var(--ink-soft)" }}
+                style={{ background: active ? "var(--surface)" : "var(--ink-soft)" }}
               />
             </button>
           );

@@ -9,19 +9,6 @@
     "image": "Image"
   },
   "landing": {
-    "heroTitle": "ONTAB",
-    "heroSubtitle": "The toolbox that lives in your browser tab",
-    "heroCtaPrimary": "Open the toolbox",
-    "valueProps": {
-      "private": "100% in-browser",
-      "unlimited": "Unlimited · Free",
-      "fast": "No uploads, no login"
-    },
-    "shelfHeading": {
-      "presentation": "Presentation tools",
-      "document": "Document tools",
-      "image": "Image tools"
-    },
     "selectCategory": "Select a category",
     "descriptor": "The toolbox that lives in your browser tab"
   },
@@ -105,7 +92,7 @@
         },
         "fileStatus": {
           "slideCountTemplate": "{n} slides",
-          "changeFile": "Choose another file",
+          "changeFile": "Re-upload",
           "analyzing": "Analyzing slide backgrounds…"
         },
         "mode": {
@@ -149,7 +136,7 @@
           "empty": "No images in this category"
         },
         "action": {
-          "apply": "Apply background",
+          "apply": "Apply",
           "applyDisabledHint": "Choose an image first",
           "specificEmpty": "Select at least one slide",
           "reset": "Reset"
@@ -176,7 +163,8 @@
         "reupload": "Re-upload",
         "reset": "Start over",
         "fileInfo": "{name} · {size}",
-        "extract": "Extract images",
+        "extract": "Extract",
+        "extractCount": "Extract ({n})",
         "processing": "Extracting…",
         "resultTitle": "Extracted images",
         "imageCount": "{n} images",
@@ -210,7 +198,7 @@
         "presetMediumDesc": "Balanced, 30–50% smaller",
         "presetHeavyLabel": "Heavy",
         "presetHeavyDesc": "Aggressive, smallest size",
-        "compress": "Compress PPT",
+        "compress": "Compress",
         "processing": "Compressing…",
         "estimateTemplate": "Est. ~{from}–{to}",
         "estimateActualTemplate": "Est. ~{size}",
@@ -242,7 +230,7 @@
         "filesManyTemplate": "{name} +{rest} files",
         "splitAll": "Split all",
         "clearSplits": "Clear dividers",
-        "applyTemplate": "Apply ({n} files)",
+        "applyTemplate": "Apply ({n})",
         "rotateAria": "Rotate 90°",
         "deleteAria": "Delete page",
         "addAria": "Add files",
@@ -279,7 +267,7 @@
         "presetMediumDesc": "Balanced, 30–60% smaller",
         "presetHeavyLabel": "Heavy",
         "presetHeavyDesc": "Aggressive, 60–80% smaller",
-        "compress": "Compress PDF",
+        "compress": "Compress",
         "processing": "Compressing…",
         "comparePreview": "Show compressed",
         "compareToggleAria": "Toggle compressed preview",
@@ -380,8 +368,8 @@
         "badgePlain": "No password",
         "lockDisabledHint": "This PDF is already protected, so a password can't be added.",
         "unlockDisabledHint": "This PDF has no password to remove.",
-        "lock": "Add password",
-        "unlock": "Remove password",
+        "lock": "Lock",
+        "unlock": "Unlock",
         "processing": "Processing…",
         "needPassword": "Enter a password.",
         "needPasswordTooShort": "The password must be at least 6 characters.",
@@ -404,8 +392,8 @@
         "uploadPrompt": "Drag images here or browse",
         "uploadHint": "JPG/PNG, multiple allowed",
         "uploadMaxSize": "Max {maxSize}",
-        "reupload": "Choose again",
-        "convert": "Make PPTX ({n})",
+        "reupload": "Re-upload",
+        "convert": "Create ({n})",
         "filesOne": "{name}",
         "filesMany": "{name} +{rest} more",
         "addAria": "Add image",
@@ -447,7 +435,7 @@
         "uploadHint": "JPG / PNG. Add several at once.",
         "uploadMaxSize": "Up to {size} per file",
         "reupload": "Re-upload",
-        "convert": "Convert to PDF ({n})",
+        "convert": "Convert ({n})",
         "filesOne": "{name}",
         "filesMany": "{name} +{rest}",
         "addAria": "Add images",
@@ -476,7 +464,7 @@
         "uploadMaxSize": "Up to {size} per file",
         "reupload": "Re-upload",
         "addAria": "Add PDF",
-        "convert": "Convert to images ({n})",
+        "convert": "Convert ({n})",
         "filesOne": "{name}",
         "filesMany": "{name} +{rest} more",
         "rotateAria": "Rotate",
@@ -516,7 +504,7 @@
         "uploadHint": "JPG, PNG, WebP supported. Upload multiple at once.",
         "formatTitle": "Output format",
         "qualityTitle": "Quality",
-        "compressTemplate": "Compress images ({n})",
+        "compressTemplate": "Compress ({n})",
         "moreImagesTemplate": "+{n} more",
         "estimateTemplate": "Est. ~{size} · {pct} vs original",
         "estimating": "Estimating size…",

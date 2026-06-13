@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-ibm-plex-kr);
+  --font-mono: var(--font-nanum-coding);
+  --font-heading: var(--font-clash);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -39,19 +39,15 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --color-silver-50: var(--silver-50);
-  --color-silver-100: var(--silver-100);
-  --color-silver-200: var(--silver-200);
-  --color-silver-300: var(--silver-300);
-  --color-silver-400: var(--silver-400);
-  --color-silver-500: var(--silver-500);
-  --color-silver-600: var(--silver-600);
-  --color-silver-700: var(--silver-700);
-  --color-silver-800: var(--silver-800);
-  --color-silver-900: var(--silver-900);
-  --color-accent-electric: var(--accent-electric);
-  --color-accent-electric-hi: var(--accent-electric-hi);
-  --color-accent-copper: var(--accent-copper);
+  /* Monochrome ramp — the entire site palette (neutral; light reference). */
+  --color-mono-0: var(--mono-0);
+  --color-mono-100: var(--mono-100);
+  --color-mono-200: var(--mono-200);
+  --color-mono-400: var(--mono-400);
+  --color-mono-600: var(--mono-600);
+  --color-mono-900: var(--mono-900);
+  --color-mono-1000: var(--mono-1000);
+  --color-emphasis: var(--emphasis);
   --color-surface-handoff: var(--surface-handoff);
   --color-ink-handoff: var(--ink-handoff);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -87,7 +83,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0.25rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -98,57 +94,49 @@
   --sidebar-ring: oklch(0.708 0 0);
 
   /* Locked layout / treatment constants (previously Tweaks knobs). */
-  --tweak-bg-scale: 1.0;
-  --tweak-header-bg-opacity: 0.1;
-  --tweak-footer-bg-opacity: 0.1;
   --tweak-categories-y: -64px;
   --tweak-title-y: 0px;
   --tweak-card-height: 92px;
   --tweak-card-padding: 14px;
-  --tweak-emboss-depth: 0.9;
-  --tweak-workspace-width: 980px;
+  --tweak-workspace-width: 950px;
 
-  /* Silver scale (cool, hue 250) */
-  --silver-50:  oklch(0.98 0.003 250);
-  --silver-100: oklch(0.94 0.004 250);
-  --silver-200: oklch(0.88 0.006 250);
-  --silver-300: oklch(0.78 0.008 250);
-  --silver-400: oklch(0.65 0.010 250);
-  --silver-500: oklch(0.52 0.012 250);
-  --silver-600: oklch(0.42 0.010 250);
-  --silver-700: oklch(0.28 0.008 250);
-  --silver-800: oklch(0.20 0.006 250);
-  --silver-900: oklch(0.14 0.005 250);
+  /* ── Monochrome ramp — 5 brand grays + white/black. The whole palette. ── */
+  --mono-0:    #ffffff; /* Paper   */
+  --mono-100:  #d9d9da; /* Mist    */
+  --mono-200:  #c6c6c7; /* Pebble  */
+  --mono-400:  #9d9c9e; /* Ash     */
+  --mono-600:  #4a494a; /* Graphite */
+  --mono-900:  #242324; /* Ink     */
+  --mono-1000: #000000; /* Black   */
 
-  /* Accents */
-  --accent-electric: oklch(0.62 0.15 250);
-  --accent-electric-hi: oklch(0.68 0.17 250);
-  --accent-copper:   oklch(0.68 0.13 55);
+  /* Emphasis — maximum contrast (replaces the retired blue accent). */
+  --emphasis: var(--mono-1000);
 
   /* Semantic — light */
-  --bg:         var(--silver-50);
-  --bg-soft:    var(--silver-100);
-  --surface:    #ffffff;
-  --surface-2:  var(--silver-100);
-  --border:     var(--silver-200);
-  --hairline:   var(--silver-300);
-  --ink-soft:   var(--silver-400);
-  --ink:        var(--silver-500);
-  --ink-strong: var(--silver-700);
-  --headline:   var(--silver-700);
+  --bg:         var(--mono-100);
+  --bg-soft:    var(--mono-200);
+  --surface:    var(--mono-0);
+  --surface-2:  var(--mono-100);
+  --border:     var(--mono-200);
+  --hairline:   var(--mono-400);
+  --ink-soft:   var(--mono-400);
+  --ink:        var(--mono-600);
+  --ink-strong: var(--mono-900);
+  --headline:   var(--mono-900);
 
-  /* Handoff buttons: cross-tool navigation. Slightly darker than --surface-2
-   * (silver-100, 0.94) — steps down the silver scale to silver-300 (0.78) so
-   * the handoff button reads as clearly darker than secondary surfaces. Ink
-   * stays --ink-strong (silver-700) for readable contrast. */
-  --surface-handoff: var(--silver-300);
-  --ink-handoff:     var(--ink-strong);
+  /* Handoff buttons — slightly deeper surface for cross-tool navigation. */
+  --surface-handoff: var(--mono-200);
+  --ink-handoff:     var(--mono-900);
 
-  /* Shadows — narrow, cool-tinted */
-  --shadow-sm: 0 1px 0 rgba(20, 30, 60, 0.04), 0 1px 2px rgba(20, 30, 60, 0.04);
-  --shadow-md: 0 1px 0 rgba(20, 30, 60, 0.05), 0 4px 12px -2px rgba(20, 30, 60, 0.08);
-  --shadow-lg: 0 1px 0 rgba(20, 30, 60, 0.05), 0 12px 32px -8px rgba(20, 30, 60, 0.18);
-  --shadow-inset: inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(20,30,60,0.06);
+  /* Elevation — light / dark card shadow strength. */
+  --card-shadow-alpha:      0.09;
+  --card-shadow-alpha-dark: 0.41;
+
+  /* Shadows — neutral, narrow */
+  --shadow-sm: 0 1px 0 rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 1px 0 rgba(0,0,0,0.05), 0 4px 12px -2px rgba(0,0,0,0.08);
+  --shadow-lg: 0 1px 0 rgba(0,0,0,0.05), 0 12px 32px -8px rgba(0,0,0,0.18);
+  --shadow-inset: inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(0,0,0,0.06);
 }
 
 .dark {
@@ -184,22 +172,22 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 
-  /* Dark — deep graphite / brushed titanium */
-  --bg:         oklch(0.14 0.005 250);
-  --bg-soft:    oklch(0.18 0.006 250);
-  --surface:    oklch(0.21 0.007 250);
-  --surface-2:  oklch(0.25 0.008 250);
-  --border:     oklch(0.32 0.010 250);
-  --hairline:   oklch(0.38 0.010 250);
-  --ink-soft:   oklch(0.55 0.010 250);
-  --ink:        oklch(0.72 0.010 250);
-  --ink-strong: oklch(0.92 0.006 250);
-  --headline:   oklch(0.95 0.005 250);
-  /* Handoff — slightly lighter than dark --surface-2 (0.25) so it reads as
-   * more prominent; ink stays --ink-strong (0.92) for contrast. */
-  --surface-handoff: oklch(0.34 0.009 250);
-  --ink-handoff:     oklch(0.92 0.006 250);
-  --accent-electric: oklch(0.72 0.17 250);
+  /* Semantic — dark (same anchors, roles inverted). --border steps to Ash so a
+     card face and its border never collapse to one value. */
+  --bg:         var(--mono-900);
+  --bg-soft:    var(--mono-1000);
+  --surface:    var(--mono-600);
+  --surface-2:  var(--mono-900);
+  --border:     var(--mono-400);
+  --hairline:   var(--mono-400);
+  --ink-soft:   var(--mono-400);
+  --ink:        var(--mono-200);
+  --ink-strong: var(--mono-100);
+  --headline:   var(--mono-0);
+  --surface-handoff: var(--mono-600);
+  --ink-handoff:     var(--mono-100);
+  --emphasis:        var(--mono-0);
+
   --shadow-sm: 0 1px 0 rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.4);
   --shadow-md: 0 1px 0 rgba(0,0,0,0.3), 0 6px 16px -4px rgba(0,0,0,0.5);
   --shadow-lg: 0 1px 0 rgba(0,0,0,0.3), 0 16px 40px -8px rgba(0,0,0,0.6);
@@ -218,131 +206,13 @@
   }
 }
 
-/* Dark tray surface — brushed titanium gradient that REPLACES the photo
- * background in dark mode (the photo gets brightness(0.5) which kills the
- * texture). Applied as a layer in the screen wrapper.
- */
-.dark-tray-surface {
-  background:
-    radial-gradient(ellipse at 30% 25%, oklch(0.32 0.012 250) 0%, transparent 60%),
-    radial-gradient(ellipse at 75% 75%, oklch(0.18 0.008 250) 0%, transparent 55%),
-    repeating-linear-gradient(90deg,
-      rgba(255,255,255,0) 0px,
-      rgba(255,255,255,0.02) 1px,
-      rgba(0,0,0,0.04) 2px,
-      rgba(255,255,255,0) 3px),
-    linear-gradient(160deg,
-      oklch(0.22 0.010 250) 0%,
-      oklch(0.16 0.008 250) 60%,
-      oklch(0.12 0.006 250) 100%);
-}
-
-/* Tray photo theme styling — driven by .dark class on <html>, not JS,
- * so locale-change navigation can't flash light during React re-mount.
- * Specificity uses html.dark to beat any Tailwind v4 layered defaults. */
-.tray-photo {
-  opacity: 1;
-  mix-blend-mode: normal;
-  filter: none;
-}
-html.dark .tray-photo,
-:root.dark .tray-photo {
-  opacity: 0.18;
-  mix-blend-mode: screen;
-  filter: brightness(0.85) contrast(0.9) saturate(0.6);
-}
-
-/* Visibility helper — element stays in DOM, paints only under .dark */
-.dark-only { display: none; }
-html.dark .dark-only,
-:root.dark .dark-only { display: block; }
-
-/* Typography */
-.font-display { font-family: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.02em; }
-.font-body    { font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif; }
-.font-ko      { font-family: var(--font-pretendard), "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", ui-sans-serif, sans-serif; }
-.font-mono    { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; }
-
-/* Subtle machined glint — applied on hover over cards & buttons */
-.glint {
-  position: relative;
-  overflow: hidden;
-}
-.glint::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.9) 50%, transparent 100%);
-  opacity: 0;
-  transform: translateY(-1px);
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-.glint:hover::before { opacity: 1; }
-.dark .glint::before {
-  background: linear-gradient(90deg, transparent 0%, rgba(180,200,240,0.5) 50%, transparent 100%);
-}
-
-/* Brushed-metal micro texture for the tray surface */
-.brushed {
-  background:
-    repeating-linear-gradient(90deg,
-      rgba(255,255,255,0.0) 0px,
-      rgba(255,255,255,0.015) 1px,
-      rgba(0,0,0,0.012) 2px,
-      rgba(255,255,255,0.0) 3px),
-    radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.35) 0%, transparent 55%),
-    radial-gradient(ellipse at 70% 80%, rgba(255,255,255,0.15) 0%, transparent 50%),
-    linear-gradient(180deg, oklch(0.88 0.006 250), oklch(0.80 0.008 250) 60%, oklch(0.76 0.008 250));
-}
-.dark .brushed {
-  background:
-    repeating-linear-gradient(90deg,
-      rgba(255,255,255,0.0) 0px,
-      rgba(255,255,255,0.025) 1px,
-      rgba(0,0,0,0.05) 2px,
-      rgba(255,255,255,0.0) 3px),
-    radial-gradient(ellipse at 30% 20%, rgba(170,200,240,0.12) 0%, transparent 55%),
-    radial-gradient(ellipse at 70% 80%, rgba(170,200,240,0.06) 0%, transparent 50%),
-    linear-gradient(180deg, oklch(0.32 0.010 250), oklch(0.26 0.010 250) 60%, oklch(0.22 0.010 250));
-}
-
-/* Tray rim (the raised edge) */
-.rim {
-  box-shadow:
-    inset 0 2px 3px rgba(255,255,255,0.8),
-    inset 0 -2px 4px rgba(20,30,60,0.15),
-    inset 3px 0 5px rgba(255,255,255,0.3),
-    inset -3px 0 5px rgba(20,30,60,0.12),
-    0 1px 0 rgba(255,255,255,0.8),
-    0 24px 48px -16px rgba(20,30,60,0.25),
-    0 6px 16px -4px rgba(20,30,60,0.15);
-}
-.dark .rim {
-  box-shadow:
-    inset 0 2px 3px rgba(255,255,255,0.12),
-    inset 0 -2px 4px rgba(0,0,0,0.5),
-    inset 3px 0 5px rgba(255,255,255,0.06),
-    inset -3px 0 5px rgba(0,0,0,0.4),
-    0 1px 0 rgba(255,255,255,0.08),
-    0 24px 48px -12px rgba(0,0,0,0.7),
-    0 6px 16px -4px rgba(0,0,0,0.5);
-}
-
-/* Lid — sits on top of tray; when "open", translates up and fades */
-.lid {
-  background:
-    radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.5) 0%, transparent 55%),
-    radial-gradient(ellipse at 75% 75%, rgba(255,255,255,0.2) 0%, transparent 50%),
-    linear-gradient(160deg, oklch(0.90 0.006 250) 0%, oklch(0.82 0.008 250) 50%, oklch(0.78 0.008 250) 100%);
-}
-.dark .lid {
-  background:
-    radial-gradient(ellipse at 30% 25%, rgba(180,200,240,0.18) 0%, transparent 55%),
-    radial-gradient(ellipse at 75% 75%, rgba(180,200,240,0.08) 0%, transparent 50%),
-    linear-gradient(160deg, oklch(0.36 0.010 250) 0%, oklch(0.28 0.010 250) 50%, oklch(0.22 0.010 250) 100%);
-}
+/* Typography — role → family. Weights are set per element. Clash has no
+ * Hangul glyphs, so Korean text in a display/headline role falls back to
+ * IBM Plex Sans KR. */
+.font-display { font-family: var(--font-clash), var(--font-ibm-plex-kr), ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }
+.font-body    { font-family: var(--font-ibm-plex-kr), ui-sans-serif, system-ui, sans-serif; }
+.font-ko      { font-family: var(--font-ibm-plex-kr), var(--font-pretendard), "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", ui-sans-serif, sans-serif; }
+.font-mono    { font-family: var(--font-nanum-coding), ui-monospace, monospace; }
 
 /* Scrollbar hygiene inside artboards */
 .ob-scroll::-webkit-scrollbar { width: 0; height: 0; }
@@ -351,93 +221,32 @@ html.dark .dark-only,
 /* Gentle hairline divider */
 .hr-line { height: 1px; background: var(--hairline); opacity: 0.5; }
 
-/* Keyboard / metal nameplate button */
+/* ── Nameplate — flat secondary / toolbar button (metallic retired). ── */
 .nameplate {
-  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm), var(--shadow-inset);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
-.nameplate:hover {
-  border-color: var(--hairline);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md), var(--shadow-inset);
-}
-.nameplate:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-sm), inset 0 1px 2px rgba(20,30,60,0.12);
-}
-/* Active toggle (selected format/preset/mode): blue accent — the "this is your
- * current choice" emphasis. Distinct from .btn-primary (dark execute action). */
-.nameplate[data-active="true"] {
-  background: var(--accent-electric);
-  color: #fff;
-  border-color: var(--accent-electric);
-}
-/* Dark mode — active glass button: bright surface keeps the same look,
-   but the label needs to be dark for contrast (silver-900 ink-on-white). */
-.dark .glass-btn[data-active="true"] {
-  color: var(--silver-900) !important;
-  background: rgba(240,244,252,0.92) !important;
-  border-color: rgba(255,255,255,0.85) !important;
-}
-.dark .glass-btn[data-active="true"]:hover,
-.dark .glass-btn[data-active="true"]:active {
-  background: rgba(240,244,252,0.92) !important;
-  color: var(--silver-900) !important;
-  border-color: var(--silver-100);
-}
-
-/* Glass button — used on the tray photo in Screen 1 */
-.glass-btn:hover {
-  background: rgba(255,255,255,0.38) !important;
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.7),
-    inset 0 -1px 0 rgba(20,30,60,0.08),
-    0 6px 18px -4px rgba(20,30,60,0.28) !important;
-}
-.glass-btn:active {
-  transform: translateY(0);
-  background: rgba(255,255,255,0.28) !important;
-}
-/* Disable hover/active visual changes when the button is in selected state.
-   The active=true tab keeps its light fill no matter what the cursor does. */
-.glass-btn[data-active="true"]:hover,
-.glass-btn[data-active="true"]:active {
-  background: rgba(255,255,255,0.85) !important;
-  transform: none !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.18),
-    0 4px 14px -4px rgba(20,30,60,0.35) !important;
-}
-
-/* Tool card */
+.nameplate:hover { border-color: var(--ink-soft); }
+.nameplate:active { background: var(--surface-2); }
+/* Tool card — flat (no metallic inset). */
 .toolcard {
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 1px 2px rgba(20,30,60,0.04);
-  transition: transform 0.22s cubic-bezier(.2,.7,.2,1), box-shadow 0.22s ease, border-color 0.18s ease;
+  transition: transform 0.22s cubic-bezier(.2,.7,.2,1), border-color 0.18s ease;
 }
 .toolcard:hover {
   transform: translateY(-2px);
-  border-color: var(--hairline);
-  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.9);
-}
-.dark .toolcard:hover {
-  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.08);
+  border-color: var(--ink-soft);
 }
 
-/* Focus ring */
+/* Focus ring — emphasis (maximum contrast). */
 .focus-ring:focus-visible {
-  outline: 2px solid var(--accent-electric);
+  outline: 2px solid var(--emphasis);
   outline-offset: 2px;
 }
 
-/* Handoff action button — reusable cross-tool navigation treatment.
- * Slightly darker silver than a regular secondary button (--surface-2) so
- * "go to another tool" reads as a distinct, more prominent affordance.
- * Add `handoff-action` to any cross-tool handoff button. */
+/* Handoff action button — reusable cross-tool navigation treatment (neutral). */
 .handoff-action {
   background: var(--surface-handoff);
   border-color: var(--border);
@@ -445,18 +254,16 @@ html.dark .dark-only,
   transition: border-color 0.15s, background 0.15s;
 }
 .handoff-action:hover {
-  border-color: var(--accent-electric);
+  border-color: var(--emphasis);
 }
 
 /* ── Canonical button treatments ──────────────────────────────────────────
  * Treatment only (color + depth). Compose with layout utilities on the
- * element (inline-flex, height, px, gap, rounded-[9px], font size). Secondary
- * buttons and active toggles use .nameplate / .nameplate[data-active="true"].
+ * element (inline-flex, height, px, gap, rounded-*, font size).
  */
 
-/* Primary execute action (압축/변환/적용/실행): dark monochrome, theme-inverting
- * label. The screen's main action — distinct from blue active toggles and the
- * blue download button. */
+/* Primary execute action (압축/변환/적용/실행): dark fill, theme-inverting label.
+ * Aliases flip for dark mode, so no .dark override is needed. */
 .btn-primary {
   background: var(--ink-strong);
   color: var(--bg);
@@ -467,18 +274,13 @@ html.dark .dark-only,
 .btn-primary:hover  { transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .btn-primary:active { transform: translateY(0);   box-shadow: var(--shadow-sm); }
 .btn-primary:disabled { cursor: not-allowed; opacity: 0.5; transform: none; box-shadow: var(--shadow-sm); }
-.dark .btn-primary {
-  background: var(--silver-100);
-  color: var(--silver-900);
-  border-color: var(--silver-100);
-}
 
-/* Primary download (결과 다운로드): the single sanctioned blue moment. */
+/* Primary download (결과 다운로드): the single maximum-contrast fill. */
 .btn-download {
-  background: var(--accent-electric);
-  color: #fff;
-  border: 1px solid var(--accent-electric);
-  box-shadow: 0 1px 2px rgba(20, 30, 60, 0.15);
+  background: var(--emphasis);
+  color: var(--surface);
+  border: 1px solid var(--emphasis);
+  box-shadow: var(--shadow-sm);
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 .btn-download:hover  { transform: translateY(-1px); }

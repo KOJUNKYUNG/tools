@@ -77,9 +77,9 @@ export function InlineGallery({
           <div className="flex items-center gap-2">
             <GalleryHorizontalEndIcon
               className="size-4"
-              style={{ color: "var(--accent-electric)" }}
+              style={{ color: "var(--ink-soft)" }}
             />
-            <span className="font-display text-[13px] font-medium">{labels.heading}</span>
+            <span className="font-ko text-[13px] font-medium">{labels.heading}</span>
             <span className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
               {template(labels.countSuffixTemplate, { n: MOCK_IMAGES.length })}
             </span>
@@ -148,7 +148,7 @@ export function InlineGallery({
                       background: "var(--surface-2)",
                       borderColor: "var(--border)",
                       borderWidth: 1,
-                      outline: isSelected ? "2px solid var(--accent-electric)" : undefined,
+                      outline: isSelected ? "2px solid var(--emphasis)" : undefined,
                       outlineOffset: isSelected ? "-2px" : undefined,
                     }}
                   >
@@ -162,7 +162,7 @@ export function InlineGallery({
                       {isSelected && (
                         <div
                           className="absolute right-1.5 top-1.5 flex size-5 items-center justify-center rounded-full"
-                          style={{ background: "var(--accent-electric)", color: "#fff" }}
+                          style={{ background: "var(--emphasis)", color: "var(--surface)" }}
                         >
                           <CheckIcon className="size-3" />
                         </div>
@@ -170,7 +170,7 @@ export function InlineGallery({
                     </div>
                     <div className="px-2 py-1.5">
                       <p
-                        className="truncate font-display text-[11px] font-medium"
+                        className="truncate font-body text-[11px] font-medium"
                         style={{ color: "var(--ink-strong)" }}
                       >
                         {img.title}
@@ -202,10 +202,9 @@ function CategoryChip({
       onClick={onClick}
       className="rounded-[5px] border px-2 py-0.5 font-body text-[10.5px] transition-colors"
       style={{
-        background: active ? "var(--surface)" : "var(--surface-2)",
-        borderColor: active ? "var(--accent-electric)" : "var(--border)",
+        background: "var(--surface-2)",
+        borderColor: active ? "var(--emphasis)" : "var(--border)",
         color: active ? "var(--ink-strong)" : "var(--ink)",
-        boxShadow: active ? "inset 0 -2px 0 var(--accent-electric)" : undefined,
       }}
     >
       {label}

@@ -36,8 +36,8 @@ export function ComparePreview({
     <div
       className="relative min-h-0 flex-1 overflow-hidden rounded-[8px]"
       style={{
-        background: "var(--silver-100)",
-        border: "1px solid var(--silver-200)",
+        background: "var(--surface-2)",
+        border: "1px solid var(--border)",
       }}
     >
       {url ? (
@@ -53,14 +53,14 @@ export function ComparePreview({
           className="absolute inset-0 grid place-items-center font-body text-[12px]"
           style={{ color: "var(--ink-soft)" }}
         >
-          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--accent-electric)] border-t-transparent" />
+          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
         </div>
       ) : null}
 
       {/* Corner badge: shown when updating an existing compressed preview */}
       {showCornerSpinner && (
         <div className="pointer-events-none absolute right-2 top-2 rounded-full bg-[color:var(--surface)] p-1 shadow-sm opacity-80">
-          <span className="block size-3 animate-spin rounded-full border-2 border-[color:var(--accent-electric)] border-t-transparent" />
+          <span className="block size-3 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
         </div>
       )}
     </div>

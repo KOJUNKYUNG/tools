@@ -25,11 +25,11 @@ export function ImageCompressResult({
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",
-        boxShadow: "inset 2px 0 0 var(--accent-electric)",
+        boxShadow: "inset 2px 0 0 var(--emphasis)",
       }}
     >
       <div
-        className="font-display text-[12px] font-semibold"
+        className="font-ko text-[12px] font-medium"
         style={{ color: "var(--headline)" }}
       >
         {doneTitle}
@@ -41,7 +41,7 @@ export function ImageCompressResult({
         <button
           type="button"
           onClick={onDownload}
-          className="btn-download glint inline-flex h-8 items-center justify-start gap-1.5 rounded-[9px] px-3 font-display text-[11.5px] font-medium"
+          className="btn-download inline-flex h-8 items-center justify-start gap-1.5 rounded-[9px] px-3 font-body text-[11.5px] font-medium"
         >
           <DownloadIcon className="size-3" />
           {downloadLabel}
@@ -49,7 +49,7 @@ export function ImageCompressResult({
         <button
           type="button"
           onClick={onRecompress}
-          className="nameplate inline-flex h-8 items-center justify-start gap-1.5 rounded-[9px] px-3 font-display text-[11.5px]"
+          className="nameplate inline-flex h-8 items-center justify-start gap-1.5 rounded-[9px] px-3 font-body text-[11.5px]"
           style={{ color: "var(--ink-strong)" }}
         >
           <RotateCcwIcon className="size-3" />

@@ -14,6 +14,7 @@ export interface PptExtractLabels {
   fileInfoTemplate: string;
   // Action
   extract: string;
+  extractCountTemplate: string;
   processing: string;
   // Result
   resultTitle: string;
@@ -48,6 +49,7 @@ export function getPptExtractLabels(dict: Dictionary): PptExtractLabels {
     reset: p.reset,
     fileInfoTemplate: p.fileInfo,
     extract: p.extract,
+    extractCountTemplate: p.extractCount,
     processing: p.processing,
     resultTitle: p.resultTitle,
     imageCountTemplate: p.imageCount,

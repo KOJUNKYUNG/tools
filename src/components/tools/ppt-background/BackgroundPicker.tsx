@@ -97,16 +97,16 @@ export function BackgroundPicker({
                   {galleryImage ? (
                     <ImageIcon
                       className="size-3 shrink-0"
-                      style={{ color: "var(--accent-electric)" }}
+                      style={{ color: "var(--ink-soft)" }}
                     />
                   ) : (
                     <UploadCloudIcon
                       className="size-3 shrink-0"
-                      style={{ color: "var(--accent-electric)" }}
+                      style={{ color: "var(--ink-soft)" }}
                     />
                   )}
                   <span
-                    className="truncate font-display text-[10.5px] font-medium"
+                    className="truncate font-body text-[10.5px] font-medium"
                     style={{ color: "var(--ink-strong)" }}
                   >
                     {galleryImage?.title ?? bgFile?.name ?? ""}
@@ -144,8 +144,8 @@ export function BackgroundPicker({
           </div>
           {/* Compact Upload/Gallery toggle */}
           <div
-            className="flex shrink-0 overflow-hidden rounded-[6px] border"
-            style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
+            className="flex shrink-0 border-b"
+            style={{ borderColor: "var(--hairline)" }}
           >
             {(["upload", "gallery"] as const).map((src) => {
               const active = source === src;
@@ -155,11 +155,10 @@ export function BackgroundPicker({
                   key={src}
                   type="button"
                   onClick={() => setSource(src)}
-                  className="flex-1 py-1.5 font-display text-[11.5px] font-medium transition-colors"
+                  className="flex-1 border-b-2 py-1.5 font-body text-[11.5px] font-medium transition-colors"
                   style={{
-                    background: active ? "var(--surface)" : "transparent",
                     color: active ? "var(--ink-strong)" : "var(--ink-soft)",
-                    boxShadow: active ? "inset 0 -2px 0 var(--accent-electric)" : undefined,
+                    borderBottomColor: active ? "var(--emphasis)" : "transparent",
                   }}
                 >
                   {label}

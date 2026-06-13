@@ -18,7 +18,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ImagePlus, PlusIcon, RotateCcwIcon } from "lucide-react";
+import { PlusIcon, RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
@@ -386,7 +386,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
                   onDelete={handleDelete}
                   rotateAria={labels.rotateAria}
                   deleteAria={labels.deleteAria}
-                  frameBg="var(--silver-100)"
+                  frameBg="var(--surface-2)"
                   pageAspect={editorPageAspect}
                 />
               ))}
@@ -396,10 +396,10 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
                   onClick={handleAddClick}
                   aria-label={labels.addAria}
                   title={labels.addAria}
-                  className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[5px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--accent-electric)] hover:text-[color:var(--accent-electric)]"
+                  className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[5px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
                   style={{
                     borderColor: "var(--hairline)",
-                    background: "var(--bg-soft, var(--silver-100))",
+                    background: "var(--surface-2)",
                   }}
                 >
                   <PlusIcon className="size-7" />
@@ -459,7 +459,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
 
       {loadingPages && (
         <div className="flex items-center gap-2 text-sm text-[color:var(--ink)]">
-          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--accent-electric)] border-t-transparent" />
+          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
           {labels.processing}
         </div>
       )}
@@ -472,12 +472,9 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
     <div
       className="relative flex flex-col overflow-hidden rounded-[14px] border"
       style={{
-        background: "color-mix(in oklch, var(--surface) 92%, transparent)",
-        backdropFilter: "blur(10px) saturate(1.1)",
-        WebkitBackdropFilter: "blur(10px) saturate(1.1)",
+        background: "var(--surface)",
         borderColor: "var(--border)",
-        boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+        boxShadow: "var(--shadow-lg)",
       }}
     >
       <button
@@ -492,14 +489,8 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         <RotateCcwIcon className="size-4" />
       </button>
       <div className="flex items-start gap-3 border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
-        <div
-          className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--ink-strong)" }}
-        >
-          <ImagePlus size={18} />
-        </div>
         <div className="min-w-0 flex-1">
-          <div className="font-display font-ko text-[16px] font-semibold leading-[1.2] tracking-[0.005em]" style={{ color: "var(--headline)" }}>
+          <div className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]" style={{ color: "var(--headline)" }}>
             {labels.title}
           </div>
           <div className="mt-1 font-body text-[12px] leading-[1.45]" style={{ color: "var(--ink)" }}>

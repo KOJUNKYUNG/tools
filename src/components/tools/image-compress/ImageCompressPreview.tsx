@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import { template } from "@/lib/common/template";
 
 interface ImageCompressPreviewProps {
   fileName: string;
@@ -10,12 +9,8 @@ interface ImageCompressPreviewProps {
   imageUrl: string | null;
   onPrev: () => void;
   onNext: () => void;
-  onReupload: () => void;
-  reuploadLabel: string;
-  moreImagesTemplate: string;
   prevAria: string;
   nextAria: string;
-  disabled?: boolean;
   showCompressed: boolean;
   onToggleCompressed: (checked: boolean) => void;
   compareLabel: string;
@@ -28,12 +23,8 @@ export function ImageCompressPreview({
   imageUrl,
   onPrev,
   onNext,
-  onReupload,
-  reuploadLabel,
-  moreImagesTemplate,
   prevAria,
   nextAria,
-  disabled = false,
   showCompressed,
   onToggleCompressed,
   compareLabel,
@@ -41,38 +32,6 @@ export function ImageCompressPreview({
   const multi = totalCount > 1;
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span
-            className="truncate font-display text-[12px]"
-            style={{ color: "var(--ink)" }}
-          >
-            {fileName}
-          </span>
-          {multi && (
-            <span
-              className="shrink-0 font-display text-[11px]"
-              style={{ color: "var(--ink-soft)" }}
-            >
-              {template(moreImagesTemplate, { n: totalCount - 1 })}
-            </span>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onReupload}
-          disabled={disabled}
-          className="shrink-0 rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)] disabled:cursor-not-allowed disabled:opacity-50"
-          style={{
-            background: "var(--surface-2)",
-            borderColor: "var(--border)",
-            color: "var(--ink-strong)",
-          }}
-        >
-          {reuploadLabel}
-        </button>
-      </div>
-
       <div
         className="relative aspect-[4/3] w-full overflow-hidden rounded-[8px] border"
         style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
@@ -94,7 +53,7 @@ export function ImageCompressPreview({
               onClick={onPrev}
               disabled={currentIndex === 0}
               aria-label={prevAria}
-              className="rounded-[5px] border p-1 transition-colors hover:border-[color:var(--accent-electric)] disabled:opacity-40"
+              className="rounded-[5px] border p-1 transition-colors hover:border-[color:var(--emphasis)] disabled:opacity-40"
               style={{
                 background: "var(--surface-2)",
                 borderColor: "var(--border)",
@@ -114,7 +73,7 @@ export function ImageCompressPreview({
               onClick={onNext}
               disabled={currentIndex === totalCount - 1}
               aria-label={nextAria}
-              className="rounded-[5px] border p-1 transition-colors hover:border-[color:var(--accent-electric)] disabled:opacity-40"
+              className="rounded-[5px] border p-1 transition-colors hover:border-[color:var(--emphasis)] disabled:opacity-40"
               style={{
                 background: "var(--surface-2)",
                 borderColor: "var(--border)",
@@ -126,7 +85,7 @@ export function ImageCompressPreview({
           </>
         )}
         <label
-          className="absolute right-0 inline-flex cursor-pointer select-none items-center gap-1.5 font-display text-[11px]"
+          className="absolute right-0 inline-flex cursor-pointer select-none items-center gap-1.5 font-body text-[11px]"
           style={{ color: "var(--ink-soft)" }}
         >
           {compareLabel}
@@ -134,7 +93,7 @@ export function ImageCompressPreview({
             type="checkbox"
             checked={showCompressed}
             onChange={(e) => onToggleCompressed(e.target.checked)}
-            style={{ accentColor: "var(--accent-electric)" }}
+            style={{ accentColor: "var(--emphasis)" }}
           />
         </label>
       </div>

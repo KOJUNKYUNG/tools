@@ -64,7 +64,7 @@ export function ImageResizePreview({
   return (
     <div className="space-y-2">
       <p
-        className="font-display text-[12px] font-medium"
+        className="font-body text-[12px] font-medium"
         style={{ color: "var(--ink-strong)" }}
       >
         {cropEnabled ? cropSelectionLabel : stretchModeLabel}

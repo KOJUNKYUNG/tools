@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MaximizeIcon, RotateCcwIcon } from "lucide-react";
+import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
+import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import {
   resizeImage,
@@ -377,7 +378,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
 
   // In inline mode (Screen3 mount), the chrome/header/reset are suppressed —
   // the surrounding surface provides chrome. In page-route mode, this component
-  // renders its own silver card chrome + header + reset, mirroring ppt-background.
+  // renders its own card chrome + header + reset, mirroring ppt-background.
   const body = (
     <div className={inline ? "space-y-5" : "space-y-5 px-6 py-4"}>
       <input
@@ -391,7 +392,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
       />
       {normalizing && (
         <div className="flex items-center gap-2 text-sm text-[color:var(--ink)]">
-          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--accent-electric)] border-t-transparent" />
+          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
           처리 중…
         </div>
       )}
@@ -408,29 +409,18 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
       )}
 
       {file && origDims && (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          {/* Left: preview */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div
-                className="truncate font-display text-[12px]"
-                style={{ color: "var(--ink)" }}
-              >
-                {file.name}
-              </div>
-              <button
-                type="button"
-                onClick={handleReupload}
-                className="rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)]"
-                style={{
-                  background: "var(--surface-2)",
-                  borderColor: "var(--border)",
-                  color: "var(--ink-strong)",
-                }}
-              >
-                {labels.reupload}
-              </button>
-            </div>
+        <div className="space-y-4">
+          <ToolTopStrip
+            filesSummary={file.name}
+            onReupload={handleReupload}
+            reuploadLabel={labels.reupload}
+            busy={status === "processing"}
+            onExecute={status === "idle" ? run : undefined}
+            executeLabel={labels.apply}
+          />
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            {/* Left: preview (persists) */}
             <ImageResizePreview
               imageUrl={imageUrl}
               cropEnabled={cropEnabled}
@@ -442,47 +432,38 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
               stretchModeLabel={labels.stretchModeLabel}
               cropFooterTemplate={labels.cropFooterTemplate}
             />
-          </div>
 
-          {/* Right: controls */}
-          <div className="space-y-4">
-            {status === "done" && result ? (
-              <ImageResizeResult
-                doneTitle={labels.doneTitle}
-                downloadLabel={labels.download}
-                compressLinkLabel={labels.compressLink}
-                width={result.width}
-                height={result.height}
-                byteSize={result.blob.size}
-                mimeType={result.blob.type}
-                onDownload={download}
-                onCompressOrConvert={handleCompressOrConvert}
-                tryAgainLabel={labels.tryAgain}
-                onTryAgain={retry}
-              />
-            ) : (
-              <>
-                {status === "idle" ? (
-                  <button
-                    type="button"
-                    onClick={run}
-                    className="btn-primary glint inline-flex w-full items-center justify-center gap-1.5 rounded-[9px] px-3 h-9 font-display text-[12px] font-medium"
-                  >
-                    {labels.apply}
-                  </button>
-                ) : (
-                  <ProcessingStatus
-                    status={status}
-                    progress={progress}
-                    errorMessage={errorMessage}
-                    onRetry={retry}
-                    onDownload={download}
-                    downloadFileName={downloadFileName}
-                    onTryAnother={retry}
-                  />
-                )}
+            {/* Right: controls / result */}
+            <div className="space-y-4">
+              {status === "done" && result ? (
+                <ImageResizeResult
+                  doneTitle={labels.doneTitle}
+                  downloadLabel={labels.download}
+                  compressLinkLabel={labels.compressLink}
+                  width={result.width}
+                  height={result.height}
+                  byteSize={result.blob.size}
+                  mimeType={result.blob.type}
+                  onDownload={download}
+                  onCompressOrConvert={handleCompressOrConvert}
+                  tryAgainLabel={labels.tryAgain}
+                  onTryAgain={retry}
+                />
+              ) : (
+                <>
+                  {status !== "idle" && (
+                    <ProcessingStatus
+                      status={status}
+                      progress={progress}
+                      errorMessage={errorMessage}
+                      onRetry={retry}
+                      onDownload={download}
+                      downloadFileName={downloadFileName}
+                      onTryAnother={retry}
+                    />
+                  )}
 
-                <ImageResizeControls
+                  <ImageResizeControls
                   widthLabel={labels.widthLabel}
                   heightLabel={labels.heightLabel}
                   lockAspectLabel={labels.lockAspect}
@@ -517,8 +498,9 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                   onCustomRatioInput={handleCustomRatioInput}
                   onCustomRatioCommit={handleCustomRatioCommit}
                 />
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -531,12 +513,9 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     <div
       className="relative flex flex-col overflow-hidden rounded-[14px] border"
       style={{
-        background: "color-mix(in oklch, var(--surface) 92%, transparent)",
-        backdropFilter: "blur(10px) saturate(1.1)",
-        WebkitBackdropFilter: "blur(10px) saturate(1.1)",
+        background: "var(--surface)",
         borderColor: "var(--border)",
-        boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+        boxShadow: "var(--shadow-lg)",
       }}
     >
       <button
@@ -553,19 +532,9 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
         className="flex items-start gap-3 border-b px-6 pt-3 pb-3"
         style={{ borderColor: "var(--border)" }}
       >
-        <div
-          className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
-          style={{
-            background: "var(--surface-2)",
-            border: "1px solid var(--border)",
-            color: "var(--ink-strong)",
-          }}
-        >
-          <MaximizeIcon size={18} />
-        </div>
         <div className="min-w-0 flex-1">
           <div
-            className="font-display text-[16px] font-semibold leading-[1.2] tracking-[0.005em] font-ko"
+            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
             style={{ color: "var(--headline)" }}
           >
             {labels.header.title}

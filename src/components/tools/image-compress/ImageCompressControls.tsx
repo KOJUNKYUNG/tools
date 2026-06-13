@@ -48,12 +48,12 @@ export function ImageCompressControls({
     <div className="space-y-3">
       <div>
         <p
-          className="mb-1.5 font-display text-[11px]"
+          className="mb-1.5 font-mono text-[11px]"
           style={{ color: "var(--ink-soft)" }}
         >
           {formatTitle}
         </p>
-        <div className="flex gap-1.5">
+        <div className="flex border-b" style={{ borderColor: "var(--hairline)" }}>
           {FORMAT_OPTIONS.map((opt) => {
             const active = outputFormat === opt.value;
             return (
@@ -61,9 +61,11 @@ export function ImageCompressControls({
                 key={opt.value}
                 type="button"
                 onClick={() => onSelectFormat(opt.value)}
-                data-active={active}
-                className="nameplate h-8 flex-1 rounded-[9px] px-3 font-display text-[12px] font-medium"
-                style={active ? undefined : { color: "var(--ink-strong)" }}
+                className="flex-1 border-b-2 py-2 font-body text-[12px] font-medium transition-colors"
+                style={{
+                  color: active ? "var(--ink-strong)" : "var(--ink-soft)",
+                  borderBottomColor: active ? "var(--emphasis)" : "transparent",
+                }}
               >
                 {opt.label}
               </button>
@@ -75,14 +77,14 @@ export function ImageCompressControls({
       <div>
         <div className="mb-1.5 flex items-center justify-between">
           <p
-            className="font-display text-[11px]"
+            className="font-mono text-[11px]"
             style={{ color: "var(--ink-soft)" }}
           >
             {qualityTitle}
           </p>
           <span
-            className="font-display text-[12px] font-semibold"
-            style={{ color: "var(--accent-electric)" }}
+            className="font-body text-[12px] font-semibold tabular-nums"
+            style={{ color: "var(--ink-strong)" }}
           >
             {quality}%
           </span>
@@ -95,7 +97,7 @@ export function ImageCompressControls({
           value={quality}
           onChange={(e) => onQualityChange(Number(e.target.value))}
           className="w-full"
-          style={{ accentColor: "var(--accent-electric)" }}
+          style={{ accentColor: "var(--ink-strong)" }}
         />
         <div
           className="mt-1 flex items-center gap-1.5 font-body text-[11px] leading-[1.4]"

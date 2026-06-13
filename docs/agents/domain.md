@@ -50,8 +50,8 @@ holds product content and routing; this file holds the meta rules.**
 | --- | -------- | ------ |
 | `CONTEXT.md` | `/grill-with-docs` | **Lazily** — only when a term or concept actually resolves. Never pre-fill. |
 | `docs/adr/` | `/grill-with-docs` | Only when a decision passes all three gates below. |
-| `DESIGN.md` (root) | the design re-adjustment | Google-standard design spec (ADR-0003). Populated during the re-design; until then it's a validated scaffold and `docs/design.md` + ADR-0001 describe the current system. |
-| `docs/design.md` | design changes | The current system's implementation contract (thin; links to `globals.css`). Stays authoritative until `DESIGN.md` is populated. |
+| `DESIGN.md` (root) | the design system changes | Google-standard design spec (ADR-0003). **Populated and authoritative** since the monochrome redesign (ADR-0004) — tokens, typography, components, Do's & Don'ts. |
+| `docs/_archive/design.md` | — | The silver-era implementation contract, **archived** (superseded by root `DESIGN.md`, ADR-0004). Historical only; do not extend. |
 | `docs/superpowers/specs/{date}-{slug}-design.md` | superpowers `brainstorming` | Before building, once the design settles. One tool/feature = one spec. |
 | `docs/superpowers/plans/{date}-{slug}.md` | superpowers `writing-plans` | After the spec, just before implementation. Paired with its spec. |
 | `docs/agents/*` (this file, issue-tracker, triage-labels) | Human / config | Static. Only when operating conventions change. |
@@ -103,5 +103,5 @@ commit.** To check for drift, regenerate the theme from `DESIGN.md` and compare:
 `pnpm exec designmd export --format css-tailwind DESIGN.md`.
 
 Lint with `pnpm design:lint`. **Always use the `designmd` bin, not `design.md`**
-— the dotted bin name hangs `pnpm exec` (and collides with `DESIGN.md` /
-`docs/design.md` in file search). `--format json` keeps output non-interactive.
+— the dotted bin name hangs `pnpm exec` (and collides with `DESIGN.md` in file
+search). `--format json` keeps output non-interactive.

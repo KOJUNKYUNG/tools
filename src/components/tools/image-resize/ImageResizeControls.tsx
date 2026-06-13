@@ -55,7 +55,7 @@ export function ImageResizeControls({
       <div className="flex items-end gap-3">
         <div className="flex-1">
           <label
-            className="mb-1 block font-display text-[11px] font-medium"
+            className="mb-1 block font-mono text-[11px] font-medium"
             style={{ color: "var(--ink-soft)" }}
             htmlFor="ir-w"
           >
@@ -87,7 +87,7 @@ export function ImageResizeControls({
                 e.currentTarget.blur();
               }
             }}
-            className="w-full rounded-[5px] border px-2.5 py-1.5 font-display text-[12px] outline-none focus:border-[color:var(--accent-electric)] focus:ring-1 focus:ring-[color:var(--accent-electric)]"
+            className="w-full rounded-[5px] border px-2.5 py-1.5 font-body text-[12px] outline-none focus:border-[color:var(--emphasis)]"
             style={{
               background: "var(--surface)",
               borderColor: "var(--border)",
@@ -106,7 +106,7 @@ export function ImageResizeControls({
           {lockAspect ? (
             <LockIcon
               className="size-3.5"
-              style={{ color: "var(--accent-electric)" }}
+              style={{ color: "var(--ink-strong)" }}
             />
           ) : (
             <UnlockIcon
@@ -117,7 +117,7 @@ export function ImageResizeControls({
         </button>
         <div className="flex-1">
           <label
-            className="mb-1 block font-display text-[11px] font-medium"
+            className="mb-1 block font-mono text-[11px] font-medium"
             style={{ color: "var(--ink-soft)" }}
             htmlFor="ir-h"
           >
@@ -149,7 +149,7 @@ export function ImageResizeControls({
                 e.currentTarget.blur();
               }
             }}
-            className="w-full rounded-[5px] border px-2.5 py-1.5 font-display text-[12px] outline-none focus:border-[color:var(--accent-electric)] focus:ring-1 focus:ring-[color:var(--accent-electric)]"
+            className="w-full rounded-[5px] border px-2.5 py-1.5 font-body text-[12px] outline-none focus:border-[color:var(--emphasis)]"
             style={{
               background: "var(--surface)",
               borderColor: "var(--border)",
@@ -187,11 +187,11 @@ export function ImageResizeControls({
           type="checkbox"
           checked={cropEnabled}
           onChange={onToggleCropEnabled}
-          className="mt-0.5 size-4 accent-[color:var(--accent-electric)]"
+          className="mt-0.5 size-4 accent-[color:var(--emphasis)]"
         />
         <span className="font-body text-[11.5px]" style={{ color: "var(--ink)" }}>
           <span
-            className="font-display font-medium"
+            className="font-body font-medium"
             style={{ color: "var(--ink-strong)" }}
           >
             {cropToggleLabel}

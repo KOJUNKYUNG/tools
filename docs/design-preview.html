@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ontab — Monochrome color foundation (preview)</title>
+<!--
+  DRAFT verification artifact — NOT the runtime source of truth.
+  Mirrors the PROPOSED globals.css mapping for the monochrome redesign so the
+  values can be eyeballed before they are committed to src/app/globals.css +
+  DESIGN.md. Open this file directly in a browser. Toggle light/dark top-right.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Archivo:wght@400;500;600;700&family=Anton&family=Instrument+Serif&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Space+Mono:wght@400;700&family=Nanum+Gothic+Coding:wght@400;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@latest/dist/web/static/pretendard.css" />
+<style>
+/* ── Local brand fonts (src/fonts, licensed — see *-LICENSE.txt) ── */
+@font-face{
+  font-family:'Clash Display';
+  src:url('../src/fonts/ClashDisplay-Variable.woff2') format('woff2');
+  font-weight:200 700; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:'IBM Plex Sans KR';
+  src:url('../src/fonts/IBMPlexSansKR-Regular.ttf') format('truetype');
+  font-weight:400; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:'IBM Plex Sans KR';
+  src:url('../src/fonts/IBMPlexSansKR-Medium.ttf') format('truetype');
+  font-weight:500; font-style:normal; font-display:swap;
+}
+/* ============================================================
+   MONO RAMP — the 7 palette anchors (5 brand grays + black/white)
+   These never change between modes; roles (aliases) below invert.
+   ============================================================ */
+:root{
+  --mono-0:    #ffffff;  /* Paper  */
+  --mono-100:  #d9d9da;  /* Mist   */
+  --mono-200:  #c6c6c7;  /* Pebble */
+  --mono-400:  #9d9c9e;  /* Ash    */
+  --mono-600:  #4a494a;  /* Graphite */
+  --mono-900:  #242324;  /* Ink — lifted from #151415 to separate from Black */
+  --mono-1000: #000000;  /* Black  */
+
+  /* ---- Semantic aliases — LIGHT ---- */
+  --bg:         var(--mono-100);  /* Mist   */
+  --bg-soft:    var(--mono-200);  /* Pebble */
+  --surface:    var(--mono-0);    /* Paper  */
+  --surface-2:  var(--mono-100);  /* Mist   */
+  --border:     var(--mono-200);  /* Pebble */
+  --hairline:   var(--mono-400);  /* Ash    */
+  --ink-soft:   var(--mono-400);  /* Ash    */
+  --ink:        var(--mono-600);  /* Graphite */
+  --ink-strong: var(--mono-900);  /* Ink    */
+  --headline:   var(--mono-900);  /* Ink    */
+  --emphasis:   var(--mono-1000); /* Black  */
+
+  /* Hangul falls back to IBM Plex (mirrors .font-display in globals.css) */
+  --font-display: 'Clash Display', 'IBM Plex Sans KR', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans KR', ui-sans-serif, system-ui, sans-serif;
+  --font-ko: 'IBM Plex Sans KR', 'Pretendard', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Nanum Gothic Coding', ui-monospace, 'SFMono-Regular', monospace;
+
+  --radius: 3px;        /* crisp / small — editorial decision */
+  --radius-lg: 4px;
+
+  /* chunk-2 tunables (JS overrides these on load / slider input) */
+  --type-base: 16px;
+  --type-ratio: 1.25;
+  --display-tracking: -0.02em;
+  --space-unit: 8px;
+  --tweak-workspace-width: 950px;
+  --card-shadow-alpha: 0.09;
+  --card-shadow-alpha-dark: 0.41;
+  --ts-display: 39px;
+  --ts-headline: 28px;
+  --ts-title: 20px;
+  --ts-body: 16px;
+  --ts-label: 13px;
+
+  /* chunk-4 tunables — landing & tool cards (defaults = current code values,
+     decided 2026-06-12 via this section's sliders) */
+  --lp-hero-size: 88px;
+  --lp-hero-weight: 520;
+  --lp-hero-track: -0.02em;
+  --lp-hero-y: -10px;
+  --lp-desc-size: 14px;
+  --lp-desc-weight: 300;
+  --lp-desc-track: -0.03em;
+  --lp-desc-gap: 4px;
+  --lp-ct-size: 13px;
+  --lp-ct-weight: 600;
+  --lp-ct-track: -0.01em;
+  --lp-ct-gap: 6px;
+  --lp-cd-size: 11.5px;
+  --lp-cd-weight: 400;
+  --lp-cd-track: -0.01em;
+}
+
+/* ---- Semantic aliases — DARK (same 7 anchors, roles inverted) ---- */
+html.dark{
+  --bg:         var(--mono-900);  /* Ink    */
+  --bg-soft:    var(--mono-1000); /* Black  */
+  --surface:    var(--mono-600);  /* Graphite */
+  --surface-2:  var(--mono-900);  /* Ink    */
+  --border:     var(--mono-400);  /* Ash — must differ from --surface (Graphite) */
+  --hairline:   var(--mono-400);  /* Ash    */
+  --ink-soft:   var(--mono-400);  /* Ash    */
+  --ink:        var(--mono-200);  /* Pebble */
+  --ink-strong: var(--mono-100);  /* Mist   */
+  --headline:   var(--mono-0);    /* Paper  */
+  --emphasis:   var(--mono-0);    /* Paper  */
+}
+
+*{ box-sizing:border-box; }
+html{ -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font-body);
+  line-height:1.6;
+  transition: background-color .4s ease, color .4s ease;
+}
+/* smooth flip for surfaces/text, but swatches snap (so the live hex read is exact) */
+.card, .row, .chip, .panel, .btn, .tool, .hr, .sectlabel, header.top{
+  transition: background-color .4s ease, border-color .4s ease, color .4s ease;
+}
+.swatch{ transition:none; }
+
+a{ color:inherit; }
+
+/* ---------------- layout shell ---------------- */
+.wrap{ max-width:1080px; margin:0 auto; padding:0 32px; }
+
+header.top{
+  position:sticky; top:0; z-index:10;
+  background:var(--bg);
+  border-bottom:1px solid var(--hairline);
+}
+.top-inner{ display:flex; align-items:baseline; gap:20px; padding:18px 32px; max-width:1080px; margin:0 auto; }
+.brand{ font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:-0.02em; color:var(--headline); }
+.brand .dot{ color:var(--emphasis); }
+.tag{
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+  color:var(--ink-soft); border:1px solid var(--hairline); padding:3px 7px; border-radius:2px;
+}
+.top-spacer{ flex:1; }
+.toggle{
+  font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em;
+  background:var(--surface); color:var(--ink-strong);
+  border:1px solid var(--border); border-radius:var(--radius);
+  padding:8px 14px; cursor:pointer; user-select:none;
+}
+.toggle:hover{ border-color:var(--ink-soft); }
+.toggle:active{ transform:translateY(1px); }
+
+/* ---------------- hero ---------------- */
+.hero{ padding:64px 0 40px; }
+.hero h1{
+  font-family:var(--font-display); font-weight:600; color:var(--headline);
+  font-size:clamp(34px,5vw,56px); line-height:1.04; letter-spacing:-0.03em; margin:0 0 18px;
+}
+.hero p{ max-width:62ch; margin:0; color:var(--ink); font-size:16px; }
+.hero .meta{ margin-top:22px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-soft); }
+
+/* ---------------- section scaffolding ---------------- */
+section.block{ padding:42px 0; border-top:1px solid var(--hairline); }
+.sectlabel{
+  font-family:var(--font-mono); font-size:11px; letter-spacing:0.18em; text-transform:uppercase;
+  color:var(--ink-soft); margin:0 0 4px;
+}
+.secttitle{ font-family:var(--font-display); font-weight:600; color:var(--headline); font-size:24px; letter-spacing:-0.02em; margin:0 0 26px; }
+.note{ font-size:13px; color:var(--ink-soft); max-width:64ch; }
+
+/* ---------------- palette anchors ---------------- */
+.anchors{ display:grid; grid-template-columns:repeat(7,1fr); gap:0; border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+.anchor{ display:flex; flex-direction:column; }
+.anchor .swatch{ height:120px; }
+.anchor .meta{ padding:12px 12px 14px; border-top:1px solid var(--hairline); background:var(--surface); }
+.anchor .nm{ font-family:var(--font-display); font-weight:600; font-size:15px; color:var(--ink-strong); }
+.anchor .hex{ font-family:var(--font-mono); font-size:12px; color:var(--ink); margin-top:2px; }
+.anchor .key{ font-family:var(--font-mono); font-size:10px; letter-spacing:0.06em; color:var(--ink-soft); margin-top:8px; }
+.anchor .key b{ color:var(--ink-strong); font-weight:500; }
+@media(max-width:880px){ .anchors{ grid-template-columns:repeat(2,1fr); } }
+
+/* ---------------- semantic alias cards ---------------- */
+.grouplabel{ font-family:var(--font-mono); font-size:10px; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-soft); margin:26px 0 12px; }
+.aliases{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+.alias{ border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; background:var(--surface); }
+.alias .swatch{ height:64px; border-bottom:1px solid var(--hairline); }
+.alias .body{ padding:11px 12px 13px; }
+.alias .var{ font-family:var(--font-mono); font-size:12px; color:var(--ink-strong); font-weight:500; }
+.alias .role{ font-size:12px; color:var(--ink-soft); margin-top:1px; }
+.alias .read{ display:flex; justify-content:space-between; align-items:center; margin-top:9px; gap:8px; }
+.alias .hx{ font-family:var(--font-mono); font-size:11px; color:var(--ink); }
+.alias .an{ font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); border:1px solid var(--hairline); border-radius:2px; padding:2px 5px; }
+@media(max-width:880px){ .aliases{ grid-template-columns:repeat(2,1fr); } }
+
+/* ---------------- "in use" realistic panel ---------------- */
+.stage{ background:var(--bg-soft); border:1px solid var(--border); border-radius:var(--radius-lg); padding:30px; position:relative; }
+.callout{ position:absolute; top:10px; right:12px; font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); letter-spacing:0.08em; }
+.demo-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:18px; align-items:start; }
+@media(max-width:760px){ .demo-grid{ grid-template-columns:1fr; } }
+
+.card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; }
+.eyebrow{ font-family:var(--font-mono); font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-soft); }
+.card h3{ font-family:var(--font-display); font-weight:600; color:var(--headline); font-size:20px; letter-spacing:-0.01em; margin:6px 0 6px; font-family:var(--font-ko); }
+.card .desc{ font-family:var(--font-ko); font-size:13.5px; color:var(--ink); margin:0; }
+.hr{ height:1px; background:var(--hairline); margin:16px 0; }
+
+.row{ display:flex; align-items:center; gap:12px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px; }
+.row .fname{ font-family:var(--font-ko); font-size:13px; color:var(--ink-strong); flex:1; }
+.row .fsize{ font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); }
+.filemark{ width:30px; height:30px; border-radius:2px; background:var(--bg-soft); border:1px solid var(--border); display:grid; place-items:center; font-family:var(--font-mono); font-size:9px; color:var(--ink-soft); }
+
+.chips{ display:flex; gap:8px; margin-top:14px; }
+.chip{
+  font-family:var(--font-mono); font-size:12px; letter-spacing:0.02em;
+  background:var(--surface); color:var(--ink-strong);
+  border:1px solid var(--border); border-radius:var(--radius); padding:7px 13px; cursor:pointer;
+}
+.chip[aria-pressed="true"]{ background:var(--ink-strong); color:var(--bg); border-color:var(--ink-strong); }
+
+.actions{ display:flex; gap:10px; margin-top:18px; }
+.btn{
+  font-family:var(--font-ko); font-size:13.5px; font-weight:500;
+  border-radius:var(--radius); padding:10px 18px; cursor:pointer; border:1px solid transparent;
+}
+.btn-primary{ background:var(--ink-strong); color:var(--bg); border-color:var(--ink-strong); }
+.btn-primary:hover{ transform:translateY(-1px); }
+.btn-secondary{ background:var(--surface); color:var(--ink-strong); border-color:var(--border); }
+.btn-secondary:hover{ border-color:var(--ink-soft); }
+.btn-download{ background:var(--emphasis); color:var(--surface); border-color:var(--emphasis); font-weight:600; }
+.btn-download:hover{ transform:translateY(-1px); }
+
+.tool{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px; cursor:default; }
+.tool:hover{ border-color:var(--ink-soft); }
+.tool .ico{ width:34px; height:34px; border-radius:3px; background:var(--bg-soft); border:1px solid var(--border); display:grid; place-items:center; color:var(--ink); margin-bottom:12px; }
+.tool h4{ margin:0 0 4px; font-family:var(--font-ko); font-weight:600; font-size:15px; color:var(--ink-strong); }
+.tool p{ margin:0; font-family:var(--font-ko); font-size:12.5px; color:var(--ink-soft); }
+
+.donebox{ background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--emphasis); border-radius:var(--radius); padding:14px 16px; }
+.donebox .lbl{ font-family:var(--font-mono); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-soft); }
+.donebox .val{ font-family:var(--font-display); font-weight:600; font-size:18px; color:var(--headline); margin:2px 0 12px; }
+
+/* alias annotation pill used across the "in use" demo */
+.pin{ font-family:var(--font-mono); font-size:9.5px; color:var(--ink-soft); letter-spacing:0.04em; display:inline-block; }
+.pinrow{ display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:14px; }
+
+/* button taxonomy legend */
+.legend{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:6px; }
+@media(max-width:760px){ .legend{ grid-template-columns:repeat(2,1fr); } }
+.legend .cell{ border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--surface); padding:16px; text-align:center; }
+.legend .cell .role{ font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:12px; }
+.legend .cell .uses{ font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); margin-top:12px; line-height:1.5; }
+
+/* ---------------- forms / sliders / gallery / preview ---------------- */
+.field{ display:flex; flex-direction:column; gap:6px; }
+.field label{ font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-soft); }
+.input{ font-family:var(--font-ko); font-size:14px; color:var(--ink-strong); background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:9px 12px; width:100%; }
+.input::placeholder{ color:var(--ink-soft); }
+.input:focus{ outline:2px solid var(--emphasis); outline-offset:1px; border-color:var(--emphasis); }
+.field-row{ display:flex; gap:12px; }
+.field-row .field{ flex:1; }
+
+.slider{ display:flex; align-items:center; gap:12px; }
+input[type=range].rng{ -webkit-appearance:none; appearance:none; height:4px; border-radius:2px; background:var(--border); flex:1; outline:none; accent-color:var(--ink-strong); }
+input[type=range].rng::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:16px; height:16px; border-radius:50%; background:var(--ink-strong); border:2px solid var(--surface); box-shadow:0 0 0 1px var(--border); cursor:pointer; }
+input[type=range].rng::-moz-range-thumb{ width:16px; height:16px; border-radius:50%; background:var(--ink-strong); border:2px solid var(--surface); cursor:pointer; }
+.rngval{ font-family:var(--font-mono); font-size:12px; color:var(--ink-strong); width:48px; text-align:right; }
+
+.gallery{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.thumb{ position:relative; aspect-ratio:4/3; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface-2); overflow:hidden; cursor:pointer; }
+.thumb .ph{ position:absolute; inset:0; display:grid; place-items:center; font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); }
+.thumb[aria-selected="true"]{ outline:2px solid var(--emphasis); outline-offset:-1px; border-color:var(--emphasis); }
+.thumb .badge{ position:absolute; top:5px; right:5px; width:18px; height:18px; border-radius:50%; background:var(--emphasis); color:var(--surface); display:grid; place-items:center; font-size:11px; }
+
+.previewframe{ background:var(--bg-soft); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px; }
+.previewframe .doc{ aspect-ratio:4/3; border-radius:2px; box-shadow:0 1px 4px rgba(0,0,0,.20); overflow:hidden; }
+.doc-content{ width:100%; height:100%; background:#fbf7ef; display:flex; flex-direction:column; gap:8px; padding:16px; }
+.doc-content .t{ height:10px; width:62%; background:#2b6cb0; border-radius:2px; }
+.doc-content .l{ height:7px; background:#8a8f98; border-radius:2px; }
+.doc-content .l.s{ width:80%; }
+.doc-content .l.m{ width:90%; }
+.doc-content .img{ margin-top:auto; height:42%; background:linear-gradient(135deg,#e07a5f,#3d405b); border-radius:2px; }
+
+.paper{ position:relative; aspect-ratio:3/4; background:var(--mono-0); border:1px solid var(--mono-200); border-radius:var(--radius); overflow:hidden; }
+.paper .pg{ position:absolute; inset:0; display:grid; place-items:center; font-family:var(--font-mono); font-size:10px; color:var(--mono-400); }
+.paper .numbadge{ position:absolute; top:6px; left:6px; min-width:20px; height:20px; padding:0 5px; border-radius:2px; background:var(--mono-900); color:var(--mono-0); font-family:var(--font-mono); font-size:11px; display:grid; place-items:center; }
+.paper .chip2{ position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:2px; background:var(--mono-0); border:1px solid var(--mono-200); color:var(--mono-900); display:grid; place-items:center; font-size:12px; }
+
+/* ============ CHUNK 2 — typography / shapes / layout / elevation ============ */
+.tune{ display:flex; flex-wrap:wrap; gap:20px 28px; padding:16px 18px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-lg); margin-bottom:26px; }
+.tune .ctl{ display:flex; flex-direction:column; gap:8px; flex:1; min-width:190px; }
+.tune .ctl .hd{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+.tune .ctl label{ font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-soft); }
+.tune .ctl .v{ font-family:var(--font-mono); font-size:12px; color:var(--ink-strong); }
+
+.typescale{ display:flex; flex-direction:column; }
+.tsrow{ display:flex; align-items:baseline; gap:20px; border-top:1px solid var(--hairline); padding:18px 0; }
+.tsrow:last-child{ border-bottom:1px solid var(--hairline); }
+.tsrow .lab{ flex:0 0 90px; font-family:var(--font-mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-soft); }
+.tsrow .sample{ flex:1; color:var(--ink-strong); min-width:0; }
+.tsrow .spec{ flex:0 0 188px; text-align:right; font-family:var(--font-mono); font-size:10.5px; color:var(--ink-soft); }
+.s-display{ font-family:var(--font-display); font-weight:500; font-size:var(--ts-display,39px); letter-spacing:var(--display-tracking,-0.02em); line-height:1.02; }
+.s-headline{ font-family:var(--font-display); font-weight:300; font-size:var(--ts-headline,28px); letter-spacing:var(--display-tracking,-0.02em); line-height:1.12; }
+.s-title{ font-family:var(--font-ko); font-weight:500; font-size:var(--ts-title,20px); line-height:1.3; }
+.s-body{ font-family:var(--font-ko); font-weight:400; font-size:var(--ts-body,16px); line-height:1.62; }
+.s-label{ font-family:var(--font-mono); font-weight:500; font-size:var(--ts-label,13px); letter-spacing:0.14em; text-transform:uppercase; }
+.s-mono{ font-family:var(--font-mono); font-weight:400; font-size:var(--ts-label,13px); }
+.s-body-en{ font-family:var(--font-body); font-weight:400; font-size:var(--ts-body,16px); line-height:1.6; color:var(--ink); }
+.fonts{ display:flex; flex-wrap:wrap; gap:18px; margin-bottom:18px; }
+.fonts .fctl{ display:flex; flex-direction:column; gap:7px; min-width:190px; flex:1; }
+.fonts label{ font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-soft); }
+.fonts select{ font-family:var(--font-body); font-size:13px; color:var(--ink-strong); background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:8px 10px; cursor:pointer; }
+.fonts select:focus{ outline:2px solid var(--emphasis); outline-offset:1px; }
+
+.shapes{ display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+.shapebox{ width:150px; height:88px; background:var(--surface); border:1px solid var(--border); display:grid; place-items:center; font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); }
+.shapebox.sm{ border-radius:var(--radius); }
+.shapebox.lg{ border-radius:var(--radius-lg); }
+
+.ruler{ display:flex; align-items:flex-end; gap:14px; margin-top:6px; }
+.ruler .u{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+.ruler .bar{ background:var(--ink-strong); border-radius:1px; height:14px; }
+.ruler .ul{ font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); }
+.workspace{ margin-top:22px; border:1px dashed var(--hairline); border-radius:var(--radius); padding:10px; }
+.workspace .col{ max-width:var(--tweak-workspace-width,980px); margin:0 auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); height:58px; display:grid; place-items:center; font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); }
+
+.depth{ display:grid; grid-template-columns:repeat(3,1fr); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+.depth .layer{ padding:24px 18px; font-family:var(--font-mono); font-size:11px; color:var(--ink); line-height:1.5; }
+.depth .l1{ background:var(--bg); }
+.depth .l2{ background:var(--bg-soft); border-left:1px solid var(--hairline); }
+.depth .l3{ background:var(--surface); border-left:1px solid var(--hairline); }
+.floatcard{ margin-top:20px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px; max-width:340px; box-shadow:0 2px calc(var(--card-shadow-alpha,0.09) * 80px) rgba(0,0,0,var(--card-shadow-alpha,0.09)); }
+.dark .floatcard{ border-top:1px solid var(--mono-200); box-shadow:0 8px calc(var(--card-shadow-alpha-dark,0.41) * 36px) rgba(0,0,0,var(--card-shadow-alpha-dark,0.41)); }
+.retired{ margin-top:18px; font-size:13px; color:var(--ink-soft); }
+
+/* ============ CHUNK 3 — components: result view + button states ============ */
+.rv{ display:grid; grid-template-columns:1.15fr 1fr; gap:18px; align-items:start; }
+@media(max-width:760px){ .rv{ grid-template-columns:1fr; } }
+.rv-preview{ background:var(--bg-soft); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px; }
+.rv-preview .doc{ aspect-ratio:4/3; border-radius:2px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.18); }
+.rv-pane{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; min-height:236px; }
+.rv-state{ display:none; }
+.rv-state.on{ display:block; }
+
+.chip-tab{ font-family:var(--font-mono); font-size:12px; background:transparent; color:var(--ink-soft); border:0; border-bottom:2px solid transparent; border-radius:0; padding:7px 4px; cursor:pointer; }
+.chip-tab[aria-pressed="true"]{ color:var(--ink-strong); border-bottom-color:var(--emphasis); font-weight:600; }
+.tabrow{ display:flex; gap:14px; }
+.statecompare{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:8px; }
+@media(max-width:680px){ .statecompare{ grid-template-columns:1fr; } }
+.statecompare .opt{ border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px; background:var(--surface); }
+.statecompare .opt .ot{ font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:14px; }
+.statecompare .opt .demo{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+
+/* ============ CHUNK 4 — landing & tool cards (live tuning) ============ */
+.lp-frame{ position:relative; height:640px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; display:flex; flex-direction:column; transition:background-color .4s ease, border-color .4s ease; }
+.lp-head{ flex:0 0 60px; display:flex; align-items:center; justify-content:space-between; padding:0 32px; border-bottom:1px solid var(--border); }
+.lp-wordmark{ display:flex; align-items:center; gap:10px; }
+.lp-bi{ width:24px; height:24px; border-radius:3px; background:var(--ink-strong); position:relative; }
+.lp-bi::after{ content:''; position:absolute; inset:5px; border:1px solid var(--surface); border-radius:1px; }
+.lp-wm-text{ font-family:var(--font-display); font-weight:500; font-size:17px; letter-spacing:-0.02em; color:var(--headline); }
+.lp-langs{ display:flex; gap:4px; }
+.lp-lang{ font-family:var(--font-mono); font-size:11px; padding:5px 9px; border:1px solid var(--border); border-radius:3px; background:var(--surface); color:var(--ink); cursor:pointer; }
+.lp-lang[aria-pressed="true"]{ background:var(--ink-strong); color:var(--bg); border-color:var(--ink-strong); }
+.lp-main{ flex:1; position:relative; }
+.lp-foot{ flex:0 0 60px; display:flex; align-items:center; justify-content:space-between; padding:0 32px; border-top:1px solid var(--border); }
+.lp-copy{ font-family:var(--font-body); font-size:11px; color:var(--ink-soft); font-variant-numeric:tabular-nums; letter-spacing:0.025em; }
+.lp-meta{ display:flex; gap:12px; font-family:var(--font-mono); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-soft); }
+
+.lp-strip{ position:absolute; left:50%; top:calc(18% - 64px); transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:16px; }
+.lp-eyebrow{ font-family:var(--font-body); font-size:9px; letter-spacing:0.32em; text-transform:uppercase; color:var(--ink-soft); height:12px; line-height:1; display:flex; align-items:center; gap:6px; }
+.lp-tabs{ display:grid; grid-template-columns:repeat(3,1fr); border-bottom:1px solid var(--hairline); }
+.lp-tab{ font-family:var(--font-body); font-size:13px; font-weight:500; padding:8px 16px; text-align:center; white-space:nowrap; background:none; border:0; border-bottom:2px solid transparent; color:var(--ink-soft); cursor:default; }
+.lp-tab.on{ color:var(--ink-strong); border-bottom-color:var(--emphasis); }
+
+.lp-hero{ position:absolute; left:50%; top:50%; transform:translate(-50%, calc(-50% + var(--lp-hero-y,0px))); display:flex; flex-direction:column; align-items:center; }
+.lp-hero .t{ font-family:var(--font-display); font-size:var(--lp-hero-size,78px); font-weight:var(--lp-hero-weight,500); letter-spacing:var(--lp-hero-track,-0.02em); line-height:1; color:var(--headline); text-align:center; white-space:nowrap; }
+.lp-hero .d{ margin-top:var(--lp-desc-gap,12px); font-family:var(--font-display); font-size:var(--lp-desc-size,28px); font-weight:var(--lp-desc-weight,300); letter-spacing:var(--lp-desc-track,-0.02em); line-height:1.12; color:var(--ink); text-align:center; }
+
+.lp-grid{ position:absolute; left:50%; top:calc(50% - 150px); transform:translateX(-50%); width:min(520px, calc(100% - 32px)); display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.lp-card{ display:flex; gap:12px; align-items:flex-start; height:92px; padding:14px; background:var(--surface); border:1px solid var(--border); border-radius:4px; overflow:hidden; transition:transform .22s cubic-bezier(.2,.7,.2,1), border-color .18s ease, background-color .4s ease; }
+.lp-card:hover{ transform:translateY(-2px); border-color:var(--ink-soft); }
+.lp-ico{ flex:0 0 36px; width:36px; height:36px; border-radius:4px; background:var(--surface-2); border:1px solid var(--border); color:var(--ink-strong); display:grid; place-items:center; font-size:15px; }
+.lp-card .bd{ flex:1; min-width:0; padding-top:2px; overflow:hidden; }
+.lp-ct{ font-family:var(--font-ko); font-size:var(--lp-ct-size,13.5px); font-weight:var(--lp-ct-weight,600); letter-spacing:var(--lp-ct-track,0.005em); line-height:1.25; color:var(--headline); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lp-cd{ margin-top:var(--lp-ct-gap,6px); font-family:var(--font-body); font-size:var(--lp-cd-size,11.5px); font-weight:var(--lp-cd-weight,400); letter-spacing:var(--lp-cd-track,0em); line-height:1.4; color:var(--ink); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
+.lp-spec{ margin-top:14px; font-family:var(--font-mono); font-size:11.5px; color:var(--ink-strong); background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; line-height:1.8; user-select:all; white-space:pre-line; }
+
+footer{ padding:48px 0 80px; border-top:1px solid var(--hairline); color:var(--ink-soft); font-size:13px; }
+footer .mono{ font-family:var(--font-mono); font-size:11px; }
+.pendingtag{ display:inline-block; font-family:var(--font-mono); font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-soft); border:1px dashed var(--hairline); padding:2px 6px; border-radius:2px; margin-left:8px; vertical-align:middle; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <span class="brand">Ontab<span class="dot">.</span></span>
+    <span class="tag">monochrome — draft</span>
+    <span class="top-spacer"></span>
+    <button class="toggle" id="toggle" aria-label="Toggle light / dark">☀ Light</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="sectlabel">Color foundation · 검증용 미리보기</div>
+    <h1>흑백, 그리고<br />대비로 만드는 위계.</h1>
+    <p>5개 브랜드 그레이 + 순백·순흑 = 7단 중성 램프. 강조는 색이 아니라 <b>대비·반전·굵기</b>로.
+       라이트는 밝은 면 / 어두운 잉크, 다크는 같은 7색을 역할만 반전. 우측 상단 토글로 직접 확인하세요.</p>
+    <div class="meta">runtime source = src/app/globals.css · mirror only · rev9 — +12: landing &amp; tool cards live tuning (실척 목업)</div>
+  </div>
+
+  <!-- 01 · ANCHORS ------------------------------------------------ -->
+  <section class="block">
+    <div class="sectlabel">01 — Palette anchors</div>
+    <h2 class="secttitle">7색 앵커 <span class="pendingtag">front matter · colors</span></h2>
+    <div class="anchors" id="anchors">
+      <div class="anchor"><div class="swatch" style="background:var(--mono-0)"></div>
+        <div class="meta"><div class="nm">Paper</div><div class="hex">#FFFFFF</div><div class="key">key · <b>surface</b></div></div></div>
+      <div class="anchor"><div class="swatch" style="background:var(--mono-100)"></div>
+        <div class="meta"><div class="nm">Mist</div><div class="hex">#D9D9DA</div><div class="key">key · <b>background</b></div></div></div>
+      <div class="anchor"><div class="swatch" style="background:var(--mono-200)"></div>
+        <div class="meta"><div class="nm">Pebble</div><div class="hex">#C6C6C7</div><div class="key">key · <b>border</b></div></div></div>
+      <div class="anchor"><div class="swatch" style="background:var(--mono-400)"></div>
+        <div class="meta"><div class="nm">Ash</div><div class="hex">#9D9C9E</div><div class="key">key · <b>muted</b></div></div></div>
+      <div class="anchor"><div class="swatch" style="background:var(--mono-600)"></div>
+        <div class="meta"><div class="nm">Graphite</div><div class="hex">#4A494A</div><div class="key">key · <b>secondary</b></div></div></div>
+      <div class="anchor"><div class="swatch" style="background:var(--mono-900)"></div>
+        <div class="meta"><div class="nm">Ink</div><div class="hex">#242324</div><div class="key">key · <b>primary</b></div></div></div>
+      <div class="anchor"><div class="swatch" style="background:var(--mono-1000)"></div>
+        <div class="meta"><div class="nm">Black</div><div class="hex">#000000</div><div class="key">key · <b>black</b></div></div></div>
+    </div>
+    <p class="note" style="margin-top:16px">앵커는 모드와 무관하게 고정. 아래 alias가 이 7색에 역할을 배정하고, 다크에서 그 배정을 뒤집습니다.</p>
+  </section>
+
+  <!-- 02 · ALIASES ------------------------------------------------ -->
+  <section class="block">
+    <div class="sectlabel">02 — Semantic aliases</div>
+    <h2 class="secttitle">역할 토큰 <span class="pendingtag">globals.css · live</span></h2>
+    <p class="note">각 카드 = 현재 모드에서 그 alias가 실제로 해석되는 색. <b>색상 코드와 매핑 앵커는 토글하면 즉시 갱신</b>됩니다(브라우저 computed style 직접 읽음).</p>
+
+    <div class="grouplabel">Surfaces — 면</div>
+    <div class="aliases">
+      <div class="alias" data-var data-anchor-map='{"light":"Mist","dark":"Ink"}'><div class="swatch" style="background:var(--bg)"></div>
+        <div class="body"><div class="var">--bg</div><div class="role">페이지 배경</div>
+        <div class="read"><span class="hx" data-hex>—</span><span class="an" data-anchor>—</span></div></div></div>
+      <div class="alias" data-var data-anchor-map='{"light":"Pebble","dark":"Black"}'><div class="swatch" style="background:var(--bg-soft)"></div>
+        <div class="body"><div class="var">--bg-soft</div><div class="role">보조 배경 / 패널</div>
+        <div class="read"><span class="hx" data-hex>—</span><span class="an" data-anchor>—</span></div></div></div>
+      <div class="alias" data-var data-anchor-map='{"light":"Paper","dark":"Graphite"}'><div class="swatch" style="background:var(--surface)"></div>
+        <div class="body"><div class="var">--surface</div><div class="role">카드 면</div>
+        <div class="read"><span class="hx" data-hex>—</span><span class="an" data-anchor>—</span></div></div></div>
+      <div class="alias" data-var data-anchor-map='{"light":"Mist","dark":"Ink"}'><div class="swatch" style="background:var(--surface-2)"></div>
+        <div class="body"><div class="var">--surface-2</div><div class="role">보조 면 / 행</div>
+        <div class="read"><span class="hx" data-hex>—</span><span class="an" data-anchor>—</span></div></div></div>
+    </div>
+
+    <div class="grouplabel">Lines — 선</div>
+    <div class="aliases">
+      <div class="alias" data-var data-anchor-map='{"light":"Pebble","dark":"Graphite"}'><div class="swatch" style="background:var(--border)"></div>
+        <div class="body"><div class="var">--border</div><div class="role">테두리 / 디바이더</div>
+        <div class="read"><span class="hx" data-hex>—</span><span class="an" data-anchor>—</span></div></div></div>
+      <div class="alias" data-var data-anchor-map='{"light":"Ash","dark":"Ash"}'><div class="swatch" style="background:var(--hairline)"></div>
+        <div class="body"><div class="var">--hairline</div><div class="role">얇은 선</div>
+        <div class="read"><span class="hx" data-hex>—</span><span class="an" data-anchor>—</span></div></div></div>
+    </div>
+
+    <div class="grouplabel">Text — 글자</div>
+    <div class="aliases">
+      <div class="alias" data-var data-anchor-map='{"light":"Ash","dark":"Ash"}'><div class="swatch" style="background:var(--ink-soft)"></div>
+        <div class="body"><div class="var">--ink-soft</div><div class="role">힌트 / 약한 텍스트</div>
+        <div class="read"><span class="hx" data-hex>—</span><span class="an" data-anchor>—</span></div></div></div>
+      <div class="alias" data-var data-anchor-map='{"light":"Graphite","dark":"Pebble"}'><div class="swatch" style="background:var(--ink)"></div>
+        <div class="body"><div class="var">--ink</div><div class="role">본문</div>
+        <div class="read"><span class="hx" data-hex>—</span><span class="an" data-anchor>—</span></div></div></div>
+      <div class="alias" data-var data-anchor-map='{"light":"Ink","dark":"Mist"}'><div class="swatch" style="background:var(--ink-strong)"></div>
+        <div class="body"><div class="var">--ink-strong</div><div class="role">강조 본문</div>
+        <div class="read"><span class="hx" data-hex>—</span><span class="an" data-anchor>—</span></div></div></div>
+      <div class="alias" data-var data-anchor-map='{"light":"Ink","dark":"Paper"}'><div class="swatch" style="background:var(--headline)"></div>
+        <div class="body"><div class="var">--headline</div><div class="role">제목</div>
+        <div class="read"><span class="hx" data-hex>—</span><span class="an" data-anchor>—</span></div></div></div>
+    </div>
+
+    <div class="grouplabel">Emphasis — 강조 (구 accent-electric 자리)</div>
+    <div class="aliases">
+      <div class="alias" data-var data-anchor-map='{"light":"Black","dark":"Paper"}'><div class="swatch" style="background:var(--emphasis)"></div>
+        <div class="body"><div class="var">--emphasis</div><div class="role">최강조 · 포커스 · 다운로드</div>
+        <div class="read"><span class="hx" data-hex>—</span><span class="an" data-anchor>—</span></div></div></div>
+    </div>
+  </section>
+
+  <!-- 03 · IN USE ------------------------------------------------- -->
+  <section class="block">
+    <div class="sectlabel">03 — In use</div>
+    <h2 class="secttitle">실제 화면 예시</h2>
+    <p class="note" style="margin-bottom:22px">Ontab 도구 패널을 alias만으로 구성한 모습. 작은 <span class="pin">--alias</span> 태그가 각 면·글자가 쓰는 토큰입니다.</p>
+
+    <div class="stage">
+      <span class="callout">stage · --bg-soft</span>
+      <div class="demo-grid">
+        <!-- left: tool card -->
+        <div class="card">
+          <div class="eyebrow">PDF · <span class="pin">--surface</span></div>
+          <h3>PDF 압축</h3>
+          <p class="desc">품질을 지키면서 용량을 줄입니다. 파일은 브라우저 안에서만 처리돼요.</p>
+          <div class="hr"></div>
+          <div class="row">
+            <div class="filemark">PDF</div>
+            <span class="fname">2026-주보-원본.pdf</span>
+            <span class="fsize">3.2 MB</span>
+          </div>
+          <div class="pin" style="margin-top:6px">row · --surface-2 / --border</div>
+          <div class="tabrow">
+            <button class="chip-tab" aria-pressed="true">표준</button>
+            <button class="chip-tab" aria-pressed="false">고압축</button>
+            <button class="chip-tab" aria-pressed="false">최소</button>
+          </div>
+          <div class="pin" style="margin-top:6px">선택 토글 · 탭 밑줄 = --emphasis</div>
+          <div class="actions">
+            <button class="btn btn-primary">압축하기</button>
+            <button class="btn btn-secondary">다시 선택</button>
+          </div>
+          <div class="pinrow">
+            <span class="pin">압축하기 · btn-primary = --ink-strong / --bg</span>
+            <span class="pin">다시 선택 · btn-secondary = --surface / --border</span>
+          </div>
+        </div>
+
+        <!-- right: result + a tool tile -->
+        <div style="display:flex; flex-direction:column; gap:18px">
+          <div class="donebox">
+            <div class="lbl">완료 · 67% 절감</div>
+            <div class="val">1.05 MB</div>
+            <button class="btn btn-download" style="width:100%">결과 다운로드</button>
+            <div class="pin" style="margin-top:8px">다운로드 · btn-download = --emphasis · 좌측 액센트도 --emphasis</div>
+          </div>
+          <div class="tool">
+            <div class="ico">▦</div>
+            <h4>이미지 → PDF</h4>
+            <p>여러 장을 한 PDF로 묶기</p>
+            <div class="pin" style="margin-top:10px">toolcard · --surface / --border</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 · BUTTON TAXONOMY (tentative) --------------------------- -->
+  <section class="block">
+    <div class="sectlabel">04 — Button roles</div>
+    <h2 class="secttitle">버튼 4역할 <span class="pendingtag">잠정 · Components에서 2안 확정</span></h2>
+    <p class="note" style="margin-bottom:20px">파란색이 하던 “내 선택”·“다운로드”를 회색만으로 구분하는 잠정안. 지금은 <b>반전</b>(선택·주실행)과
+       <b>최대 대비</b>(다운로드=순흑/순백)로 가르고 있습니다. 다크에서 다운로드 vs 주실행 구분이 약한 게 미해결 숙제 — 다음 청크에서 확정합니다.</p>
+    <div class="legend">
+      <div class="cell"><div class="role">Secondary</div><button class="btn btn-secondary">다시 선택</button><div class="uses">.nameplate<br>--surface / --border</div></div>
+      <div class="cell"><div class="role">Toggle · 선택됨</div><div class="tabrow" style="justify-content:center"><button class="chip-tab" aria-pressed="true">표준</button></div><div class="uses">탭 밑줄 = --emphasis</div></div>
+      <div class="cell"><div class="role">Primary 실행</div><button class="btn btn-primary">압축하기</button><div class="uses">.btn-primary<br>--ink-strong / --bg</div></div>
+      <div class="cell"><div class="role">Download</div><button class="btn btn-download">다운로드</button><div class="uses">.btn-download<br>--emphasis</div></div>
+    </div>
+  </section>
+
+  <!-- 05 · CONTROLS & MEDIA -------------------------------------- -->
+  <section class="block">
+    <div class="sectlabel">05 — Controls & media</div>
+    <h2 class="secttitle">입력 · 슬라이더 · 갤러리 · 미리보기 <span class="pendingtag">coverage 확인</span></h2>
+    <p class="note" style="margin-bottom:22px">질문하신 ppt-background 갤러리/미리보기, pdf-watermark 텍스트·숫자 입력·투명도 슬라이더가 같은 토큰으로 덮이는지 — 직접 확인.</p>
+    <div class="demo-grid">
+      <div class="card">
+        <div class="eyebrow">pdf-watermark · 입력</div>
+        <h3 style="font-family:var(--font-ko)">워터마크 설정</h3>
+        <div class="hr"></div>
+        <div class="field">
+          <label>문구</label>
+          <input class="input" type="text" placeholder="예: 대외비" value="주보 · 2026" />
+        </div>
+        <div class="field-row" style="margin-top:12px">
+          <div class="field"><label>글자 크기</label><input class="input" type="number" value="48" /></div>
+          <div class="field"><label>각도</label><input class="input" type="number" value="-45" /></div>
+        </div>
+        <div class="field" style="margin-top:14px">
+          <label>투명도</label>
+          <div class="slider">
+            <input class="rng" type="range" min="0" max="100" value="35" />
+            <span class="rngval">35%</span>
+          </div>
+        </div>
+        <div class="pinrow">
+          <span class="pin">input · --surface-2 / --border / focus=--emphasis</span>
+          <span class="pin">slider · track=--border · fill·thumb=--ink-strong</span>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:18px">
+        <div class="card">
+          <div class="eyebrow">ppt-background · 갤러리</div>
+          <div class="gallery" style="margin-top:12px">
+            <div class="thumb" aria-selected="true"><div class="ph">slide 1</div><div class="badge">✓</div></div>
+            <div class="thumb" aria-selected="false"><div class="ph">slide 2</div></div>
+            <div class="thumb" aria-selected="false"><div class="ph">slide 3</div></div>
+            <div class="thumb" aria-selected="false"><div class="ph">slide 4</div></div>
+          </div>
+          <div class="pin" style="margin-top:10px">선택 · outline=--emphasis · 배지=--emphasis (파란 배지 대체)</div>
+        </div>
+        <div class="previewframe">
+          <div class="eyebrow" style="margin-bottom:10px">미리보기 프레임 · --bg-soft</div>
+          <div class="doc"><div class="doc-content">
+            <div class="t"></div><div class="l m"></div><div class="l s"></div><div class="l"></div><div class="img"></div>
+          </div></div>
+          <div class="pin" style="margin-top:10px">프레임=토큰 / <b>문서 내용=팔레트 예외(원본색)</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 · ON-PAPER OVERLAYS (fixed scale) ----------------------- -->
+  <section class="block">
+    <div class="sectlabel">06 — On-paper overlays</div>
+    <h2 class="secttitle">종이 위 컨트롤 <span class="pendingtag">fixed scale · 테마 무관</span></h2>
+    <p class="note" style="margin-bottom:18px">PDF/이미지 썸네일(흰 종이) 위 번호 배지·회전 칩은 테마 반전 토큰을 쓰면 다크에서 사라집니다(gotcha j).
+       <b>고정 --mono-* 스케일</b>이라 토글해도 이 패널은 바뀌지 않습니다.</p>
+    <div class="gallery" style="grid-template-columns:repeat(5,1fr); max-width:580px">
+      <div class="paper"><div class="numbadge">1</div><div class="chip2">↻</div><div class="pg">page</div></div>
+      <div class="paper"><div class="numbadge">2</div><div class="chip2">↻</div><div class="pg">page</div></div>
+      <div class="paper"><div class="numbadge">3</div><div class="chip2">↻</div><div class="pg">page</div></div>
+    </div>
+    <div class="pin" style="margin-top:12px">배지=--mono-900 · 종이=--mono-0 · 칩=--mono-0+--mono-200 — 전부 고정 앵커</div>
+  </section>
+
+  <!-- 07 · TYPOGRAPHY -------------------------------------------- -->
+  <section class="block">
+    <div class="sectlabel">07 — Typography</div>
+    <h2 class="secttitle">타이포 스케일 <span class="pendingtag">슬라이더로 조절</span></h2>
+    <p class="note" style="margin-bottom:22px">폰트 4종 유지 (Pretendard · Space Grotesk · Inter · JetBrains Mono). 아래에서 본문 기준 크기 · 모듈러 비율 · 디스플레이 자간을 맞추면 각 단계가 실시간 재계산됩니다.</p>
+    <div class="fonts">
+      <div class="fctl"><label>Display 폰트</label>
+        <select id="f-display"><option>Clash Display</option><option>Space Grotesk</option><option>Archivo</option><option>Anton</option><option>Instrument Serif</option></select></div>
+      <div class="fctl"><label>Body 폰트 (KO+Latin)</label>
+        <select id="f-body"><option>IBM Plex Sans KR</option><option>Inter</option><option>Hanken Grotesk</option><option>IBM Plex Sans</option></select></div>
+      <div class="fctl"><label>Mono 폰트</label>
+        <select id="f-mono"><option>Nanum Gothic Coding</option><option>JetBrains Mono</option><option>IBM Plex Mono</option><option>Space Mono</option></select></div>
+    </div>
+    <div class="tune">
+      <div class="ctl"><div class="hd"><label>본문 기준 (base)</label><span class="v" id="v-tbase">16px</span></div>
+        <input class="rng" type="range" id="s-tbase" min="14" max="18" step="0.5" value="16" /></div>
+      <div class="ctl"><div class="hd"><label>스케일 비율 (ratio)</label><span class="v" id="v-tratio">1.250</span></div>
+        <input class="rng" type="range" id="s-tratio" min="1100" max="1400" step="5" value="1250" /></div>
+      <div class="ctl"><div class="hd"><label>디스플레이 자간</label><span class="v" id="v-ttrack">-0.020em</span></div>
+        <input class="rng" type="range" id="s-ttrack" min="-50" max="10" step="1" value="-20" /></div>
+    </div>
+    <div class="typescale">
+      <div class="tsrow"><div class="lab">Display</div><div class="sample s-display">흑백 Ontab</div><div class="spec" id="spec-display">Space Grotesk 600</div></div>
+      <div class="tsrow"><div class="lab">Headline</div><div class="sample s-headline">대비로 만드는 위계</div><div class="spec" id="spec-headline">Space Grotesk 600</div></div>
+      <div class="tsrow"><div class="lab">Title</div><div class="sample s-title">PDF 압축 · 워터마크</div><div class="spec" id="spec-title">Pretendard 600</div></div>
+      <div class="tsrow"><div class="lab">Body</div><div class="sample"><div class="s-body">품질을 지키면서 용량을 줄입니다.</div><div class="s-body-en">Keep the quality, shrink the size — all in the browser.</div></div><div class="spec" id="spec-body">Pretendard 400</div></div>
+      <div class="tsrow"><div class="lab">Label</div><div class="sample s-label">Drag &amp; drop · 업로드</div><div class="spec" id="spec-label">Nanum Gothic Coding · caps</div></div>
+      <div class="tsrow"><div class="lab">Mono</div><div class="sample s-mono">pdf-compress · 1.05 MB</div><div class="spec" id="spec-mono">Nanum Gothic Coding</div></div>
+    </div>
+  </section>
+
+  <!-- 08 · SHAPES ------------------------------------------------- -->
+  <section class="block">
+    <div class="sectlabel">08 — Shapes</div>
+    <h2 class="secttitle">모서리 반경 <span class="pendingtag">슬라이더 · 전역 적용</span></h2>
+    <p class="note" style="margin-bottom:22px">크리스프 에디토리얼. 슬라이더는 <b>전역 --radius</b>를 바꿔 모든 섹션의 버튼·카드·입력에 즉시 적용됩니다 (--radius-lg = +1px).</p>
+    <div class="tune">
+      <div class="ctl"><div class="hd"><label>radius (버튼 · 입력 · 칩 · 카드)</label><span class="v" id="v-radius">3px</span></div>
+        <input class="rng" type="range" id="s-radius" min="0" max="8" step="1" value="3" /></div>
+    </div>
+    <div class="shapes">
+      <button class="btn btn-primary">압축하기</button>
+      <button class="btn btn-secondary">다시 선택</button>
+      <span class="chip" aria-pressed="true" style="display:inline-block">표준</span>
+      <input class="input" style="width:160px" value="입력 필드" />
+      <div class="shapebox sm">card · --radius</div>
+      <div class="shapebox lg">panel · --radius-lg</div>
+    </div>
+  </section>
+
+  <!-- 09 · LAYOUT & SPACING -------------------------------------- -->
+  <section class="block">
+    <div class="sectlabel">09 — Layout &amp; spacing</div>
+    <h2 class="secttitle">간격 · 작업영역 <span class="pendingtag">슬라이더로 조절</span></h2>
+    <p class="note" style="margin-bottom:22px">8px 기반 리듬 + 데스크톱 우선 작업영역 폭. 실행→결과 swap 패턴(미리보기 영역 유지)은 DESIGN.md prose로 기술 예정.</p>
+    <div class="tune">
+      <div class="ctl"><div class="hd"><label>간격 단위 (base)</label><span class="v" id="v-space">8px</span></div>
+        <input class="rng" type="range" id="s-space" min="4" max="10" step="1" value="8" /></div>
+      <div class="ctl"><div class="hd"><label>작업영역 폭</label><span class="v" id="v-work">950px</span></div>
+        <input class="rng" type="range" id="s-work" min="820" max="1120" step="10" value="950" /></div>
+    </div>
+    <div class="ruler">
+      <div class="u"><div class="bar" style="width:calc(var(--space-unit) * 0.5)"></div><div class="ul">xs · ×0.5</div></div>
+      <div class="u"><div class="bar" style="width:calc(var(--space-unit) * 1)"></div><div class="ul">sm · ×1</div></div>
+      <div class="u"><div class="bar" style="width:calc(var(--space-unit) * 2)"></div><div class="ul">md · ×2</div></div>
+      <div class="u"><div class="bar" style="width:calc(var(--space-unit) * 3)"></div><div class="ul">lg · ×3</div></div>
+      <div class="u"><div class="bar" style="width:calc(var(--space-unit) * 4)"></div><div class="ul">xl · ×4</div></div>
+      <div class="u"><div class="bar" style="width:calc(var(--space-unit) * 6)"></div><div class="ul">2xl · ×6</div></div>
+    </div>
+    <div class="workspace"><div class="col">workspace · max-width = var(--tweak-workspace-width)</div></div>
+  </section>
+
+  <!-- 10 · ELEVATION & DEPTH ------------------------------------- -->
+  <section class="block">
+    <div class="sectlabel">10 — Elevation &amp; Depth</div>
+    <h2 class="secttitle">평면 깊이 <span class="pendingtag">메탈릭 은퇴</span></h2>
+    <p class="note" style="margin-bottom:22px">깊이 = <b>톤 레이어 + hairline + 대비</b>. 그림자는 최소(떠 있는 카드·결과 카드에만). <b>다크에선 검은 그림자가 안 보여서 밝은 윗선(Pebble) + 강화 그림자로 들어올림</b> — 토글해서 확인. rim / brushed / glint / lid 메탈릭은 폐기 (ADR-0001 supersede).</p>
+    <div class="depth">
+      <div class="layer l1">--bg<br>가장 뒤</div>
+      <div class="layer l2">--bg-soft<br>패널 / 우물</div>
+      <div class="layer l3">--surface<br>카드 · 가장 앞</div>
+    </div>
+    <div class="tune" style="margin-top:20px">
+      <div class="ctl"><div class="hd"><label>카드 그림자 (0 = 순수 플랫)</label><span class="v" id="v-shadow">0.09  /  dark 0.41</span></div>
+        <input class="rng" type="range" id="s-shadow" min="0" max="25" step="1" value="9" /></div>
+    </div>
+    <div class="floatcard">
+      <div class="eyebrow" style="margin-bottom:6px">떠 있는 카드</div>
+      <div class="s-title" style="font-size:16px">그림자 강도</div>
+      <p class="s-body" style="font-size:13.5px; margin:6px 0 0; color:var(--ink)">0이면 테두리만으로 분리(가장 에디토리얼). 살짝 올리면 결과 카드가 부드럽게 떠 보입니다.</p>
+    </div>
+    <p class="retired">은퇴: <s>rim</s> · <s>brushed</s> · <s>glint</s> · <s>lid(메탈)</s> — 트레이 표면은 평면 회색 패널로 재해석</p>
+  </section>
+
+  <!-- 11 · COMPONENTS — result view + button states ------------- -->
+  <section class="block">
+    <div class="sectlabel">11 — Components</div>
+    <h2 class="secttitle">결과 뷰 + 버튼 상태 <span class="pendingtag">패턴 · 결정 1건</span></h2>
+    <p class="note" style="margin-bottom:22px"><b>실행→결과 swap</b>: 미리보기(왼쪽)는 유지, 오른쪽 실행 영역만 결과로 바뀝니다 (ppt-watermark·ppt-compress 정본 — ppt-background도 여기에 통일 예정). "압축하기" 누르면 전환.</p>
+    <div class="rv">
+      <div class="rv-preview">
+        <div class="eyebrow" style="margin-bottom:10px">미리보기 · 유지 · --bg-soft</div>
+        <div class="doc"><div class="doc-content">
+          <div class="t"></div><div class="l m"></div><div class="l s"></div><div class="l"></div><div class="img"></div>
+        </div></div>
+      </div>
+      <div class="rv-pane">
+        <div class="rv-state on" id="rv-controls">
+          <div class="eyebrow">실행 영역 · 컨트롤</div>
+          <div class="s-title" style="font-size:17px; margin:6px 0 14px">압축 설정</div>
+          <div class="chips" style="margin:0">
+            <button class="chip" aria-pressed="true">표준</button>
+            <button class="chip" aria-pressed="false">고압축</button>
+            <button class="chip" aria-pressed="false">최소</button>
+          </div>
+          <div class="actions" style="margin-top:18px">
+            <button class="btn btn-primary" id="rv-run" style="flex:1">압축하기</button>
+          </div>
+        </div>
+        <div class="rv-state" id="rv-result">
+          <div class="eyebrow">실행 영역 · 결과</div>
+          <div style="margin:10px 0 16px">
+            <div style="font-family:var(--font-mono); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-soft)">완료 · 67% 절감</div>
+            <div class="s-display" style="font-size:24px; margin-top:4px">1.05 MB</div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-download" id="rv-dl" style="flex:1">결과 다운로드</button>
+            <button class="btn btn-secondary" id="rv-again">다시 적용</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hr" style="margin:30px 0 22px"></div>
+
+    <div class="sectlabel" style="margin-bottom:6px">결정 1건 — "선택된 토글" 표현</div>
+    <p class="note" style="margin-bottom:14px">파란색이 없으니 <b>선택된 토글</b>과 <b>주실행 버튼</b>이 같은 패널에서 둘 다 강조를 원합니다. 둘을 가르는 두 안:</p>
+    <div class="statecompare">
+      <div class="opt">
+        <div class="ot">옵션 A · 반전 채움 (현행 미리보기)</div>
+        <div class="demo">
+          <div class="chips" style="margin:0">
+            <button class="chip" aria-pressed="true">표준</button>
+            <button class="chip" aria-pressed="false">고압축</button>
+          </div>
+          <button class="btn btn-primary">압축</button>
+        </div>
+        <p class="note" style="margin-top:12px; font-size:12px">선택 토글 = 주실행과 같은 다크 채움. 크기·위치로 구분. 가장 단순.</p>
+      </div>
+      <div class="opt">
+        <div class="ot">옵션 B · 탭 밑줄 (다크 채움은 액션 전용)</div>
+        <div class="demo">
+          <div class="tabrow">
+            <button class="chip-tab" aria-pressed="true">표준</button>
+            <button class="chip-tab" aria-pressed="false">고압축</button>
+          </div>
+          <button class="btn btn-primary">압축</button>
+        </div>
+        <p class="note" style="margin-top:12px; font-size:12px">선택 토글 = 밑줄+볼드(액티브 탭), 다크 채움은 주실행에만. 가장 에디토리얼.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12 · LANDING & TOOL CARDS (live tuning) --------------------- -->
+  <section class="block">
+    <div class="sectlabel">12 — Landing &amp; tool cards</div>
+    <h2 class="secttitle">랜딩 타이포 · 툴 카드 라이브 튜닝 <span class="pendingtag">실척 목업 · 실제 카피</span></h2>
+    <p class="note" style="margin-bottom:22px">실제 Screen1·Screen2의 마크업과 수치(헤더 60px · 탭 위치식 <b>top: 18% − 64px</b> · 카드 92px × 520px 그리드)를 그대로 재현했습니다.
+       <b>슬라이더 기본값 = 현재 코드값.</b> 프레임 높이만 640px 고정(실제는 100vh). 언어는 목업 헤더의 KO·EN으로, 라이트/다크는 페이지 우측 상단 토글로 전환.
+       결정되면 맨 아래 스펙 박스를 그대로 복사해 전달해 주세요.</p>
+
+    <div class="grouplabel">히어로 타이틀 "Ontab" (현행 88px · w520 · −0.02em · y −10px)</div>
+    <div class="tune">
+      <div class="ctl"><div class="hd"><label>크기</label><span class="v" id="v-lp-hs">88px</span></div>
+        <input class="rng" type="range" id="s-lp-hs" min="40" max="120" step="1" value="88" /></div>
+      <div class="ctl"><div class="hd"><label>웨이트</label><span class="v" id="v-lp-hw">520</span></div>
+        <input class="rng" type="range" id="s-lp-hw" min="200" max="700" step="10" value="520" /></div>
+      <div class="ctl"><div class="hd"><label>자간</label><span class="v" id="v-lp-ht">-0.020em</span></div>
+        <input class="rng" type="range" id="s-lp-ht" min="-60" max="20" step="1" value="-20" /></div>
+      <div class="ctl"><div class="hd"><label>세로 위치 (오프셋)</label><span class="v" id="v-lp-hy">-10px</span></div>
+        <input class="rng" type="range" id="s-lp-hy" min="-120" max="120" step="2" value="-10" /></div>
+    </div>
+
+    <div class="grouplabel">디스크립터 — Clash Light (현행 14px · w300 · −0.03em · 타이틀과의 간격 4px)</div>
+    <div class="tune">
+      <div class="ctl"><div class="hd"><label>크기</label><span class="v" id="v-lp-ds">14px</span></div>
+        <input class="rng" type="range" id="s-lp-ds" min="13" max="40" step="0.5" value="14" /></div>
+      <div class="ctl"><div class="hd"><label>웨이트</label><span class="v" id="v-lp-dw">300</span></div>
+        <input class="rng" type="range" id="s-lp-dw" min="200" max="700" step="10" value="300" /></div>
+      <div class="ctl"><div class="hd"><label>자간</label><span class="v" id="v-lp-dt">-0.030em</span></div>
+        <input class="rng" type="range" id="s-lp-dt" min="-50" max="50" step="1" value="-30" /></div>
+      <div class="ctl"><div class="hd"><label>타이틀과의 간격</label><span class="v" id="v-lp-dg">4px</span></div>
+        <input class="rng" type="range" id="s-lp-dg" min="0" max="48" step="1" value="4" /></div>
+    </div>
+
+    <!-- Screen 1 mock -->
+    <div class="lp-frame" id="lp-s1">
+      <div class="lp-head">
+        <span class="lp-wordmark"><span class="lp-bi"></span><span class="lp-wm-text">Ontab</span></span>
+        <span class="lp-langs">
+          <button class="lp-lang" data-lang="ko" aria-pressed="true">KO</button>
+          <button class="lp-lang" data-lang="en" aria-pressed="false">EN</button>
+        </span>
+      </div>
+      <div class="lp-main">
+        <div class="lp-strip">
+          <div class="lp-eyebrow" data-ko="카테고리를 선택하세요" data-en="Select a category">카테고리를 선택하세요</div>
+          <div class="lp-tabs">
+            <button class="lp-tab" data-ko="프레젠테이션" data-en="Presentation">프레젠테이션</button>
+            <button class="lp-tab" data-ko="문서" data-en="Document">문서</button>
+            <button class="lp-tab" data-ko="이미지" data-en="Image">이미지</button>
+          </div>
+        </div>
+        <div class="lp-hero">
+          <div class="t">Ontab</div>
+          <div class="d" data-ko="브라우저 탭 위에서 작동하는 문서 도구" data-en="The toolbox that lives in your browser tab">브라우저 탭 위에서 작동하는 문서 도구</div>
+        </div>
+      </div>
+      <div class="lp-foot">
+        <span class="lp-copy" data-ko="© 2026 온탭 · 브라우저 안에서 동작합니다" data-en="© 2026 Ontab · Runs entirely in your browser">© 2026 온탭 · 브라우저 안에서 동작합니다</span>
+        <span class="lp-meta"><span>V0.1</span><span>·</span><span data-ko="오픈소스" data-en="Open source">오픈소스</span></span>
+      </div>
+    </div>
+
+    <div class="grouplabel" style="margin-top:34px">툴 카드 타이틀 (현행 13px · w600 · −0.01em)</div>
+    <div class="tune">
+      <div class="ctl"><div class="hd"><label>크기</label><span class="v" id="v-lp-cts">13px</span></div>
+        <input class="rng" type="range" id="s-lp-cts" min="11" max="20" step="0.5" value="13" /></div>
+      <div class="ctl"><div class="hd"><label>웨이트</label><span class="v" id="v-lp-ctw">600</span></div>
+        <input class="rng" type="range" id="s-lp-ctw" min="400" max="700" step="100" value="600" /></div>
+      <div class="ctl"><div class="hd"><label>자간</label><span class="v" id="v-lp-ctt">-0.010em</span></div>
+        <input class="rng" type="range" id="s-lp-ctt" min="-20" max="50" step="1" value="-10" /></div>
+    </div>
+
+    <div class="grouplabel">툴 카드 설명 (현행 11.5px · w400 · −0.01em · 타이틀과의 간격 6px)</div>
+    <div class="tune">
+      <div class="ctl"><div class="hd"><label>크기</label><span class="v" id="v-lp-cds">11.5px</span></div>
+        <input class="rng" type="range" id="s-lp-cds" min="9" max="15" step="0.5" value="11.5" /></div>
+      <div class="ctl"><div class="hd"><label>웨이트</label><span class="v" id="v-lp-cdw">400</span></div>
+        <input class="rng" type="range" id="s-lp-cdw" min="300" max="600" step="100" value="400" /></div>
+      <div class="ctl"><div class="hd"><label>자간</label><span class="v" id="v-lp-cdt">-0.010em</span></div>
+        <input class="rng" type="range" id="s-lp-cdt" min="-20" max="50" step="1" value="-10" /></div>
+      <div class="ctl"><div class="hd"><label>타이틀과의 간격</label><span class="v" id="v-lp-cg">6px</span></div>
+        <input class="rng" type="range" id="s-lp-cg" min="0" max="16" step="1" value="6" /></div>
+    </div>
+
+    <!-- Screen 2 mock (문서 카테고리 · 실제 dict 카피) -->
+    <div class="lp-frame" id="lp-s2">
+      <div class="lp-head">
+        <span class="lp-wordmark"><span class="lp-bi"></span><span class="lp-wm-text">Ontab</span></span>
+        <span class="lp-langs">
+          <button class="lp-lang" data-lang="ko" aria-pressed="true">KO</button>
+          <button class="lp-lang" data-lang="en" aria-pressed="false">EN</button>
+        </span>
+      </div>
+      <div class="lp-main">
+        <div class="lp-strip">
+          <div class="lp-eyebrow"><span>←</span><span data-ko="닫기" data-en="Close toolbox">닫기</span></div>
+          <div class="lp-tabs">
+            <button class="lp-tab" data-ko="프레젠테이션" data-en="Presentation">프레젠테이션</button>
+            <button class="lp-tab on" data-ko="문서" data-en="Document">문서</button>
+            <button class="lp-tab" data-ko="이미지" data-en="Image">이미지</button>
+          </div>
+        </div>
+        <div class="lp-grid">
+          <div class="lp-card"><span class="lp-ico">⊞</span><span class="bd">
+            <span class="lp-ct" style="display:block" data-ko="PDF 합치기 / 나누기 / 정렬" data-en="Merge / Split / Arrange PDF">PDF 합치기 / 나누기 / 정렬</span>
+            <span class="lp-cd" data-ko="여러 PDF를 하나의 파일로 합치거나, 구분선으로 여러 파일로 나눕니다." data-en="Combine PDFs into one file, or use dividers to split into several.">여러 PDF를 하나의 파일로 합치거나, 구분선으로 여러 파일로 나눕니다.</span></span></div>
+          <div class="lp-card"><span class="lp-ico">⊟</span><span class="bd">
+            <span class="lp-ct" style="display:block" data-ko="PDF 용량 줄이기" data-en="Compress PDF">PDF 용량 줄이기</span>
+            <span class="lp-cd" data-ko="품질 손실 없이 파일 크기를 줄입니다." data-en="Reduce file size with minimal quality loss.">품질 손실 없이 파일 크기를 줄입니다.</span></span></div>
+          <div class="lp-card"><span class="lp-ico">≣</span><span class="bd">
+            <span class="lp-ct" style="display:block" data-ko="PDF 워터마크 / 페이지번호" data-en="PDF Watermark / Page Numbers">PDF 워터마크 / 페이지번호</span>
+            <span class="lp-cd" data-ko="PDF에 페이지 번호를 찍거나 워터마크를 넣습니다." data-en="Stamp page numbers or add a watermark to a PDF.">PDF에 페이지 번호를 찍거나 워터마크를 넣습니다.</span></span></div>
+          <div class="lp-card"><span class="lp-ico">⊠</span><span class="bd">
+            <span class="lp-ct" style="display:block" data-ko="PDF 암호 / 잠금" data-en="Protect / unlock PDF">PDF 암호 / 잠금</span>
+            <span class="lp-cd" data-ko="PDF에 열기 암호를 걸거나, 암호를 풀어 잠금을 해제합니다." data-en="Add an open password to a PDF, or remove it with the password.">PDF에 열기 암호를 걸거나, 암호를 풀어 잠금을 해제합니다.</span></span></div>
+          <div class="lp-card"><span class="lp-ico">▤</span><span class="bd">
+            <span class="lp-ct" style="display:block" data-ko="이미지 → PDF" data-en="Image → PDF">이미지 → PDF</span>
+            <span class="lp-cd" data-ko="이미지 여러 장을 하나의 PDF로 묶습니다." data-en="Package images into a single PDF.">이미지 여러 장을 하나의 PDF로 묶습니다.</span></span></div>
+          <div class="lp-card"><span class="lp-ico">▥</span><span class="bd">
+            <span class="lp-ct" style="display:block" data-ko="PDF → 이미지" data-en="PDF → Image">PDF → 이미지</span>
+            <span class="lp-cd" data-ko="PDF의 각 페이지를 고해상도 이미지로 변환합니다." data-en="Render each page as a high-res image.">PDF의 각 페이지를 고해상도 이미지로 변환합니다.</span></span></div>
+        </div>
+      </div>
+      <div class="lp-foot">
+        <span class="lp-copy" data-ko="© 2026 온탭 · 브라우저 안에서 동작합니다" data-en="© 2026 Ontab · Runs entirely in your browser">© 2026 온탭 · 브라우저 안에서 동작합니다</span>
+        <span class="lp-meta"><span>V0.1</span><span>·</span><span data-ko="오픈소스" data-en="Open source">오픈소스</span></span>
+      </div>
+    </div>
+
+    <div class="grouplabel" style="margin-top:30px">현재 값 — 결정되면 이 박스를 그대로 복사해 전달</div>
+    <div class="lp-spec" id="lp-spec">—</div>
+  </section>
+
+  <footer>
+    <div class="wrap" style="padding:0">
+      <p><b style="color:var(--ink-strong)">검증 포인트</b> — ① 7색 앵커 명도 간격(특히 Ink↔Black) ② 라이트·다크 둘 다 본문·제목 대비
+         ③ 카드(–surface)가 배경(–bg)에서 분리 ④ 다크에서 면 vs 테두리(–surface/–border) 구분 ⑤ 입력·슬라이더·갤러리 선택·미리보기 프레임이 두 모드에서 읽히는가 ⑥ 종이 위 오버레이가 토글해도 안 사라지는가.</p>
+      <p class="mono">문서 미리보기(사용자 업로드 콘텐츠)는 이 팔레트의 유일한 예외 — 원본 색 그대로 렌더.</p>
+      <p class="mono" style="color:var(--ink-soft)">docs/design-preview.html · DRAFT · 값은 globals.css + DESIGN.md 커밋 시 확정</p>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var root = document.documentElement;
+  var btn = document.getElementById('toggle');
+
+  function rgbToHex(rgb){
+    var m = (rgb||'').match(/\d+(\.\d+)?/g);
+    if(!m) return rgb || '—';
+    return '#' + m.slice(0,3).map(function(n){
+      return Math.round(parseFloat(n)).toString(16).padStart(2,'0');
+    }).join('').toUpperCase();
+  }
+
+  function refresh(){
+    var dark = root.classList.contains('dark');
+    document.querySelectorAll('.alias[data-var]').forEach(function(card){
+      var sw = card.querySelector('.swatch');
+      var hexEl = card.querySelector('[data-hex]');
+      var anEl = card.querySelector('[data-anchor]');
+      if(sw && hexEl){ hexEl.textContent = rgbToHex(getComputedStyle(sw).backgroundColor); }
+      if(anEl){
+        try{
+          var map = JSON.parse(card.getAttribute('data-anchor-map'));
+          anEl.textContent = dark ? map.dark : map.light;
+        }catch(e){}
+      }
+    });
+  }
+
+  btn.addEventListener('click', function(){
+    root.classList.toggle('dark');
+    btn.textContent = root.classList.contains('dark') ? '☾ Dark' : '☀ Light';
+    refresh();
+  });
+
+  // toggle chips / pressed state demo
+  document.querySelectorAll('.chip').forEach(function(c){
+    c.addEventListener('click', function(){
+      if(c.closest('.chips')){
+        c.closest('.chips').querySelectorAll('.chip').forEach(function(x){ x.setAttribute('aria-pressed','false'); });
+        c.setAttribute('aria-pressed','true');
+      }
+    });
+  });
+
+  // slider readout
+  document.querySelectorAll('.rng').forEach(function(r){
+    var out = r.parentElement.querySelector('.rngval');
+    if(out){ r.addEventListener('input', function(){ out.textContent = r.value + '%'; }); }
+  });
+
+  // gallery selection (toggle per thumb)
+  document.querySelectorAll('.thumb').forEach(function(t){
+    t.addEventListener('click', function(){
+      var on = t.getAttribute('aria-selected') === 'true';
+      t.setAttribute('aria-selected', on ? 'false' : 'true');
+      var b = t.querySelector('.badge');
+      if(!on){ if(!b){ b = document.createElement('div'); b.className = 'badge'; b.textContent = '✓'; t.appendChild(b); } }
+      else if(b){ b.remove(); }
+    });
+  });
+
+  // ---- chunk 3: result-view swap + tab toggles ----
+  var rvC = document.getElementById('rv-controls'), rvR = document.getElementById('rv-result');
+  function rvShow(which){ if(rvC && rvR){ rvC.classList.toggle('on', which === 'c'); rvR.classList.toggle('on', which === 'r'); } }
+  var rvRun = document.getElementById('rv-run'); if(rvRun) rvRun.addEventListener('click', function(){ rvShow('r'); });
+  var rvAgain = document.getElementById('rv-again'); if(rvAgain) rvAgain.addEventListener('click', function(){ rvShow('c'); });
+  document.querySelectorAll('.tabrow').forEach(function(row){
+    row.querySelectorAll('.chip-tab').forEach(function(c){
+      c.addEventListener('click', function(){
+        row.querySelectorAll('.chip-tab').forEach(function(x){ x.setAttribute('aria-pressed','false'); });
+        c.setAttribute('aria-pressed','true');
+      });
+    });
+  });
+
+  // ---- chunk 2 live tuning ----
+  function setv(id, t){ var e = document.getElementById(id); if(e) e.textContent = t; }
+  function tune(){
+    var sr = document.getElementById('s-radius');
+    if(sr){ var r = +sr.value; root.style.setProperty('--radius', r + 'px'); root.style.setProperty('--radius-lg', (r + 1) + 'px'); setv('v-radius', r + 'px'); }
+    var ss = document.getElementById('s-shadow');
+    if(ss){ var a = (+ss.value) / 100; var ad = Math.min(a + 0.32, 0.6); root.style.setProperty('--card-shadow-alpha', a.toFixed(2)); root.style.setProperty('--card-shadow-alpha-dark', ad.toFixed(2)); setv('v-shadow', a.toFixed(2) + '  /  dark ' + ad.toFixed(2)); }
+    var sp = document.getElementById('s-space');
+    if(sp){ root.style.setProperty('--space-unit', sp.value + 'px'); setv('v-space', sp.value + 'px'); }
+    var sw = document.getElementById('s-work');
+    if(sw){ root.style.setProperty('--tweak-workspace-width', sw.value + 'px'); setv('v-work', sw.value + 'px'); }
+    var sb = document.getElementById('s-tbase');
+    if(sb){
+      var base = +sb.value;
+      var ratio = (+document.getElementById('s-tratio').value) / 1000;
+      var track = (+document.getElementById('s-ttrack').value) / 1000;
+      var lv = function(n){ return Math.round(base * Math.pow(ratio, n) * 2) / 2; };
+      var d = lv(4), h = lv(2.5), t = lv(1), b = base, l = lv(-1);
+      root.style.setProperty('--ts-display', d + 'px');
+      root.style.setProperty('--ts-headline', h + 'px');
+      root.style.setProperty('--ts-title', t + 'px');
+      root.style.setProperty('--ts-body', b + 'px');
+      root.style.setProperty('--ts-label', l + 'px');
+      root.style.setProperty('--display-tracking', track + 'em');
+      setv('v-tbase', base + 'px'); setv('v-tratio', ratio.toFixed(3)); setv('v-ttrack', track.toFixed(3) + 'em');
+      setv('spec-display', 'Clash Display Medium · ' + d + 'px');
+      setv('spec-headline', 'Clash Display Light · ' + h + 'px');
+      setv('spec-title', 'IBM Plex Sans KR Medium · ' + t + 'px');
+      setv('spec-body', 'IBM Plex Sans KR Regular · ' + b + 'px');
+      setv('spec-label', 'Nanum Gothic Coding · ' + l + 'px');
+      setv('spec-mono', 'Nanum Gothic Coding · ' + l + 'px');
+    }
+  }
+  ['s-radius','s-shadow','s-space','s-work','s-tbase','s-tratio','s-ttrack'].forEach(function(id){
+    var e = document.getElementById(id); if(e) e.addEventListener('input', tune);
+  });
+
+  // font pickers — swap candidate families live
+  function setFont(varName, val, mono){
+    var stack = mono
+      ? ("'" + val + "', ui-monospace, monospace")
+      : (val === 'Instrument Serif'
+          ? ("'" + val + "', ui-serif, Georgia, serif")
+          : ("'" + val + "', ui-sans-serif, system-ui, sans-serif"));
+    root.style.setProperty(varName, stack);
+  }
+  var fd = document.getElementById('f-display'); if(fd) fd.addEventListener('change', function(){ setFont('--font-display', fd.value); });
+  var fb = document.getElementById('f-body'); if(fb) fb.addEventListener('change', function(){ setFont('--font-body', fb.value); setFont('--font-ko', fb.value); });
+  var fm = document.getElementById('f-mono'); if(fm) fm.addEventListener('change', function(){ setFont('--font-mono', fm.value, true); });
+
+  // ---- chunk 4: landing & tool cards live tuning ----
+  // [slider id, css var, unit, readout id, scale (slider int → css value)]
+  var LP = [
+    ['s-lp-hs',  '--lp-hero-size',   'px', 'v-lp-hs',  1],
+    ['s-lp-hw',  '--lp-hero-weight', '',   'v-lp-hw',  1],
+    ['s-lp-ht',  '--lp-hero-track',  'em', 'v-lp-ht',  0.001],
+    ['s-lp-hy',  '--lp-hero-y',      'px', 'v-lp-hy',  1],
+    ['s-lp-ds',  '--lp-desc-size',   'px', 'v-lp-ds',  1],
+    ['s-lp-dw',  '--lp-desc-weight', '',   'v-lp-dw',  1],
+    ['s-lp-dt',  '--lp-desc-track',  'em', 'v-lp-dt',  0.001],
+    ['s-lp-dg',  '--lp-desc-gap',    'px', 'v-lp-dg',  1],
+    ['s-lp-cts', '--lp-ct-size',     'px', 'v-lp-cts', 1],
+    ['s-lp-ctw', '--lp-ct-weight',   '',   'v-lp-ctw', 1],
+    ['s-lp-ctt', '--lp-ct-track',    'em', 'v-lp-ctt', 0.001],
+    ['s-lp-cds', '--lp-cd-size',     'px', 'v-lp-cds', 1],
+    ['s-lp-cdw', '--lp-cd-weight',   '',   'v-lp-cdw', 1],
+    ['s-lp-cdt', '--lp-cd-track',    'em', 'v-lp-cdt', 0.001],
+    ['s-lp-cg',  '--lp-ct-gap',      'px', 'v-lp-cg',  1]
+  ];
+  function lpVal(id, scale, unit){
+    var e = document.getElementById(id); if(!e) return '';
+    var v = (+e.value) * scale;
+    return (scale === 0.001 ? v.toFixed(3) : v) + unit;
+  }
+  function lpTune(){
+    LP.forEach(function(row){
+      var e = document.getElementById(row[0]); if(!e) return;
+      var v = (+e.value) * row[4];
+      var txt = (row[4] === 0.001 ? v.toFixed(3) : v) + row[2];
+      root.style.setProperty(row[1], txt);
+      setv(row[3], txt);
+    });
+    var spec = document.getElementById('lp-spec');
+    if(spec){
+      spec.textContent =
+        'hero:       ' + lpVal('s-lp-hs',1,'px') + ' · w' + lpVal('s-lp-hw',1,'') + ' · ' + lpVal('s-lp-ht',0.001,'em') + ' · y ' + lpVal('s-lp-hy',1,'px') + '\n' +
+        'desc:       ' + lpVal('s-lp-ds',1,'px') + ' · w' + lpVal('s-lp-dw',1,'') + ' · ' + lpVal('s-lp-dt',0.001,'em') + ' · gap ' + lpVal('s-lp-dg',1,'px') + '\n' +
+        'card-title: ' + lpVal('s-lp-cts',1,'px') + ' · w' + lpVal('s-lp-ctw',1,'') + ' · ' + lpVal('s-lp-ctt',0.001,'em') + '\n' +
+        'card-desc:  ' + lpVal('s-lp-cds',1,'px') + ' · w' + lpVal('s-lp-cdw',1,'') + ' · ' + lpVal('s-lp-cdt',0.001,'em') + ' · gap ' + lpVal('s-lp-cg',1,'px');
+    }
+  }
+  LP.forEach(function(row){
+    var e = document.getElementById(row[0]); if(e) e.addEventListener('input', lpTune);
+  });
+
+  // KO / EN copy swap (both mock frames stay in sync)
+  function lpLang(lang){
+    document.querySelectorAll('.lp-frame [data-ko]').forEach(function(el){
+      el.textContent = el.getAttribute(lang === 'ko' ? 'data-ko' : 'data-en');
+    });
+    document.querySelectorAll('.lp-lang').forEach(function(b){
+      b.setAttribute('aria-pressed', b.getAttribute('data-lang') === lang ? 'true' : 'false');
+    });
+  }
+  document.querySelectorAll('.lp-lang').forEach(function(b){
+    b.addEventListener('click', function(){ lpLang(b.getAttribute('data-lang')); });
+  });
+
+  lpTune();
+
+  tune();
+
+  refresh();
+})();
+</script>
+</body>
+</html>

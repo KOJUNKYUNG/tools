@@ -12,15 +12,22 @@ export function SlideAspectSelector(props: {
   ];
   return (
     <div>
-      <p className="mb-1.5 font-display text-[11px]" style={{ color: "var(--ink-soft)" }}>{props.labels.slideAspectLabel}</p>
-      <div className="flex gap-1.5">
-        {opts.map((o) => (
-          <button key={o.k} type="button" data-active={props.value === o.k}
-            onClick={() => props.onChange(o.k)}
-            className="nameplate h-8 flex-1 rounded-[9px] px-3 font-display text-[12px] font-medium">
-            {o.lab}
-          </button>
-        ))}
+      <p className="mb-1.5 font-mono text-[11px]" style={{ color: "var(--ink-soft)" }}>{props.labels.slideAspectLabel}</p>
+      <div className="flex border-b" style={{ borderColor: "var(--hairline)" }}>
+        {opts.map((o) => {
+          const active = props.value === o.k;
+          return (
+            <button key={o.k} type="button"
+              onClick={() => props.onChange(o.k)}
+              className="flex-1 border-b-2 py-2 font-body text-[12px] font-medium transition-colors"
+              style={{
+                color: active ? "var(--ink-strong)" : "var(--ink-soft)",
+                borderBottomColor: active ? "var(--emphasis)" : "transparent",
+              }}>
+              {o.lab}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

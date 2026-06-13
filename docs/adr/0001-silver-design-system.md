@@ -1,6 +1,8 @@
 # ADR 0001 — Silver design system
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0004](0004-monochrome-supersedes-silver.md)
+  (monochrome) — the tray + lid metaphor survives; the metallic execution,
+  palette, and typography do not
 - **Date:** 2026-05-13
 - **Supersedes:** the earlier wood / cream / beige direction explored
   during the 2026-04 redesign spec

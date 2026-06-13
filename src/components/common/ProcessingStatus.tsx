@@ -61,12 +61,12 @@ export function ProcessingStatus({
       {status === "processing" && (
         <div className="flex h-full flex-col justify-center gap-2">
           <div
-            className="flex items-center gap-2 font-display text-[12px] font-medium"
+            className="flex items-center gap-2 font-body text-[12px] font-medium"
             style={{ color: "var(--ink-strong)" }}
           >
             <Loader2Icon
               className="size-4 animate-spin"
-              style={{ color: "var(--accent-electric)" }}
+              style={{ color: "var(--ink-strong)" }}
             />
             <span>
               {L.processing} {Math.round(progress)}%
@@ -80,7 +80,7 @@ export function ProcessingStatus({
               className="h-full rounded-full transition-[width]"
               style={{
                 width: `${Math.max(0, Math.min(100, progress))}%`,
-                background: "var(--accent-electric)",
+                background: "var(--ink-strong)",
               }}
             />
           </div>
@@ -93,12 +93,12 @@ export function ProcessingStatus({
           style={{
             background: "var(--surface)",
             borderColor: "var(--border)",
-            boxShadow: "inset 2px 0 0 var(--accent-electric)",
+            boxShadow: "inset 2px 0 0 var(--emphasis)",
           }}
         >
           <CheckCircle2Icon
             className="size-5 shrink-0"
-            style={{ color: "var(--accent-electric)" }}
+            style={{ color: "var(--ink-strong)" }}
           />
           <div className="min-w-0 flex-1" />
           <div className="shrink-0 flex flex-col gap-1.5">
@@ -106,7 +106,7 @@ export function ProcessingStatus({
               <button
                 type="button"
                 onClick={onDownload}
-                className="btn-download glint inline-flex items-center justify-start gap-1.5 rounded-[9px] px-3 h-8 font-display text-[11.5px] whitespace-nowrap font-medium"
+                className="btn-download inline-flex items-center justify-start gap-1.5 rounded-[9px] px-3 h-8 font-body text-[11.5px] whitespace-nowrap font-medium"
               >
                 <DownloadIcon className="size-3" />
                 {L.download}
@@ -116,7 +116,7 @@ export function ProcessingStatus({
               <button
                 type="button"
                 onClick={onTryAnother}
-                className="nameplate inline-flex items-center justify-start gap-1.5 rounded-[9px] px-3 h-8 font-display text-[11.5px] whitespace-nowrap"
+                className="nameplate inline-flex items-center justify-start gap-1.5 rounded-[9px] px-3 h-8 font-body text-[11.5px] whitespace-nowrap"
                 style={{ color: "var(--ink-strong)" }}
               >
                 <RefreshCwIcon className="size-3" />
@@ -133,16 +133,16 @@ export function ProcessingStatus({
           style={{
             background: "var(--surface)",
             borderColor: "var(--border)",
-            boxShadow: "inset 2px 0 0 var(--accent-copper)",
+            boxShadow: "inset 2px 0 0 var(--ink-strong)",
           }}
         >
           <AlertTriangleIcon
             className="size-5 shrink-0"
-            style={{ color: "var(--accent-copper)" }}
+            style={{ color: "var(--ink-strong)" }}
           />
           <div className="min-w-0 flex-1">
             <div
-              className="font-display text-[12px] font-semibold"
+              className="font-ko text-[12px] font-medium"
               style={{ color: "var(--headline)" }}
             >
               {L.error}
@@ -159,7 +159,7 @@ export function ProcessingStatus({
             <button
               type="button"
               onClick={onRetry}
-              className="nameplate shrink-0 inline-flex items-center justify-start gap-1.5 rounded-[9px] px-3 h-8 font-display text-[11.5px] whitespace-nowrap"
+              className="nameplate shrink-0 inline-flex items-center justify-start gap-1.5 rounded-[9px] px-3 h-8 font-body text-[11.5px] whitespace-nowrap"
               style={{ color: "var(--ink-strong)" }}
             >
               <RefreshCwIcon className="size-3" />

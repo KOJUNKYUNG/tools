@@ -18,22 +18,13 @@ export function Footer({ copyright, version, license }: FooterProps) {
       }}
     >
       <div
-        aria-hidden="true"
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          backgroundColor: "var(--bg)",
-          opacity: "var(--tweak-footer-bg-opacity, 1)",
-          transition: "opacity 200ms ease",
-        }}
-      />
-      <div
         className="font-body text-[11px] tabular-nums tracking-wide relative"
         style={{ color: "var(--ink-soft)" }}
       >
         {copyright}
       </div>
       <div
-        className="flex items-center gap-3 font-body text-[10px] tracking-[0.12em] uppercase relative"
+        className="flex items-center gap-3 font-mono text-[10px] tracking-[0.12em] uppercase relative"
         style={{ color: "var(--ink-soft)" }}
       >
         <span>{version}</span>

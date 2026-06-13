@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ImageDownIcon, RotateCcwIcon } from "lucide-react";
+import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
+import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
@@ -182,64 +183,38 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
           onToPptx={handleToPptx}
         />
       ) : (
-        <div
-          className="grid grid-cols-1 gap-5 md:grid-cols-2"
-          style={{ height: "52vh" }}
-        >
-          {/* LEFT: file info row + reupload → analysis preview */}
-          <div className="flex h-full flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <div
-                className="min-w-0 truncate font-body text-[12px]"
-                style={{ color: "var(--ink)" }}
-                title={fileInfo}
-              >
-                {fileInfo}
-              </div>
-              <button
-                type="button"
-                onClick={handleReupload}
-                disabled={busy}
-                className="shrink-0 rounded-[5px] border px-2.5 py-1 font-display text-[11px] transition-colors hover:border-[color:var(--accent-electric)] disabled:cursor-not-allowed disabled:opacity-50"
-                style={{
-                  background: "var(--surface-2)",
-                  borderColor: "var(--border)",
-                  color: "var(--ink-strong)",
-                }}
-              >
-                {labels.reupload}
-              </button>
-            </div>
-            <PptExtractPreview
-              file={file}
-              labels={labels}
-              onAnalysisChange={setAnalysis}
-            />
-          </div>
+        <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
+          <ToolTopStrip
+            filesSummary={fileInfo}
+            onReupload={handleReupload}
+            reuploadLabel={labels.reupload}
+            busy={busy}
+            onExecute={status === "idle" ? handleExtract : undefined}
+            executeLabel={
+              analysis
+                ? template(labels.extractCountTemplate, { n: analysis.imageCount })
+                : labels.extract
+            }
+            executeDisabled={noImagesConfirmed}
+          />
 
-          {/* RIGHT: extract button → processing status.
-              Disable extract when analysis has resolved and confirmed 0 images.
-              While analysis is null (loading or .ppt-analyze-failed) keep it
-              enabled so the real extractor can still surface the error. */}
-          <div className="flex h-full flex-col gap-3">
-            {status === "idle" && (
-              <button
-                type="button"
-                onClick={handleExtract}
-                disabled={noImagesConfirmed}
-                title={noImagesConfirmed ? labels.errorNoImages : undefined}
-                className="btn-primary glint inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-[9px] px-4 font-display text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {labels.extract}
-              </button>
+          {/* Analysis preview (idle) persists; swaps to status while extracting */}
+          <div className="min-h-0 flex-1">
+            {status === "idle" ? (
+              <PptExtractPreview
+                file={file}
+                labels={labels}
+                onAnalysisChange={setAnalysis}
+              />
+            ) : (
+              <ProcessingStatus
+                status={status}
+                progress={progress}
+                errorMessage={displayError}
+                onRetry={handleAgain}
+                labels={{ processing: labels.processing }}
+              />
             )}
-            <ProcessingStatus
-              status={status}
-              progress={progress}
-              errorMessage={displayError}
-              onRetry={handleAgain}
-              labels={{ processing: labels.processing }}
-            />
           </div>
         </div>
       )}
@@ -252,12 +227,9 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
     <div
       className="relative flex flex-col overflow-hidden rounded-[14px] border"
       style={{
-        background: "color-mix(in oklch, var(--surface) 92%, transparent)",
-        backdropFilter: "blur(10px) saturate(1.1)",
-        WebkitBackdropFilter: "blur(10px) saturate(1.1)",
+        background: "var(--surface)",
         borderColor: "var(--border)",
-        boxShadow:
-          "0 1px 0 rgba(255,255,255,0.7) inset, 0 24px 48px -16px rgba(20,30,60,0.28), 0 8px 20px -6px rgba(20,30,60,0.16)",
+        boxShadow: "var(--shadow-lg)",
       }}
     >
       <button
@@ -275,19 +247,9 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
         className="flex items-start gap-3 border-b px-6 pb-3 pt-3"
         style={{ borderColor: "var(--border)" }}
       >
-        <div
-          className="flex size-10 shrink-0 items-center justify-center rounded-[5px]"
-          style={{
-            background: "var(--surface-2)",
-            border: "1px solid var(--border)",
-            color: "var(--ink-strong)",
-          }}
-        >
-          <ImageDownIcon size={18} />
-        </div>
         <div className="min-w-0 flex-1">
           <div
-            className="font-display font-ko text-[16px] font-semibold leading-[1.2] tracking-[0.005em]"
+            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
             style={{ color: "var(--headline)" }}
           >
             {labels.title}

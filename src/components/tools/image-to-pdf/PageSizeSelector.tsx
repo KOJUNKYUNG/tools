@@ -40,12 +40,12 @@ export function PageSizeSelector({
   return (
     <div className="space-y-2">
       <p
-        className="font-display text-[11px] font-medium uppercase tracking-[0.08em]"
+        className="font-mono text-[11px] font-medium uppercase tracking-[0.08em]"
         style={{ color: "var(--ink-soft)" }}
       >
         {labels.sizeLabel}
       </p>
-      <div className="flex gap-1.5">
+      <div className="flex border-b" style={{ borderColor: "var(--hairline)" }}>
         {OPTIONS.map((opt) => {
           const active = mode === opt.value;
           return (
@@ -53,9 +53,11 @@ export function PageSizeSelector({
               key={opt.value}
               type="button"
               onClick={() => onModeChange(opt.value)}
-              data-active={active}
-              className="nameplate h-8 flex-1 rounded-[9px] px-3 font-display text-[12px] font-medium"
-              style={active ? undefined : { color: "var(--ink-strong)" }}
+              className="flex-1 border-b-2 py-2 font-body text-[12px] font-medium transition-colors"
+              style={{
+                color: active ? "var(--ink-strong)" : "var(--ink-soft)",
+                borderBottomColor: active ? "var(--emphasis)" : "transparent",
+              }}
             >
               {labels[opt.key]}
             </button>
@@ -67,7 +69,7 @@ export function PageSizeSelector({
         <div className="flex items-end gap-2">
           <label className="flex-1">
             <span
-              className="mb-1 block font-display text-[11px]"
+              className="mb-1 block font-mono text-[11px]"
               style={{ color: "var(--ink-soft)" }}
             >
               {labels.customWidth}
@@ -78,7 +80,7 @@ export function PageSizeSelector({
               max={14400}
               value={custom.w}
               onChange={(e) => onCustomChange({ ...custom, w: e.target.value })}
-              className="w-full rounded-[5px] border px-2.5 py-1.5 font-display text-[12px] outline-none focus:border-[color:var(--accent-electric)] focus:ring-1 focus:ring-[color:var(--accent-electric)]"
+              className="w-full rounded-[5px] border px-2.5 py-1.5 font-body text-[12px] tabular-nums outline-none focus:border-[color:var(--emphasis)] focus:ring-1 focus:ring-[color:var(--emphasis)]"
               style={{
                 background: "var(--surface)",
                 borderColor: "var(--border)",
@@ -86,12 +88,12 @@ export function PageSizeSelector({
               }}
             />
           </label>
-          <span className="pb-2 font-display text-[12px]" style={{ color: "var(--ink-soft)" }}>
+          <span className="pb-2 font-body text-[12px]" style={{ color: "var(--ink-soft)" }}>
             ×
           </span>
           <label className="flex-1">
             <span
-              className="mb-1 block font-display text-[11px]"
+              className="mb-1 block font-mono text-[11px]"
               style={{ color: "var(--ink-soft)" }}
             >
               {labels.customHeight}
@@ -102,7 +104,7 @@ export function PageSizeSelector({
               max={14400}
               value={custom.h}
               onChange={(e) => onCustomChange({ ...custom, h: e.target.value })}
-              className="w-full rounded-[5px] border px-2.5 py-1.5 font-display text-[12px] outline-none focus:border-[color:var(--accent-electric)] focus:ring-1 focus:ring-[color:var(--accent-electric)]"
+              className="w-full rounded-[5px] border px-2.5 py-1.5 font-body text-[12px] tabular-nums outline-none focus:border-[color:var(--emphasis)] focus:ring-1 focus:ring-[color:var(--emphasis)]"
               style={{
                 background: "var(--surface)",
                 borderColor: "var(--border)",

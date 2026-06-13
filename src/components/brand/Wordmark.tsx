@@ -14,21 +14,18 @@ export function Wordmark({ locale, className }: WordmarkProps) {
     >
       <div
         className="w-6 h-6 rounded-[3px] relative"
-        style={{
-          background: "linear-gradient(160deg, var(--ink-strong), var(--silver-600))",
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 2px rgba(20,30,60,0.15)",
-        }}
+        style={{ background: "var(--ink-strong)" }}
       >
         <div
           className="absolute inset-[5px] rounded-[1px] border"
-          style={{ borderColor: "rgba(255,255,255,0.25)" }}
+          style={{ borderColor: "var(--surface)" }}
         />
       </div>
       <span
-        className="font-display text-[17px] font-semibold tracking-[0.08em]"
+        className="font-display text-[17px] font-medium"
         style={{ color: "var(--headline)" }}
       >
-        ONTAB
+        Ontab
       </span>
     </Link>
   );

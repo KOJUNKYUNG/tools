@@ -13,18 +13,28 @@ export function BackgroundPicker(props: {
   const fileRef = useRef<HTMLInputElement>(null);
   return (
     <div>
-      <p className="mb-1.5 font-display text-[11px]" style={{ color: "var(--ink-soft)" }}>{props.labels.bgLabel}</p>
+      <p className="mb-1.5 font-mono text-[11px]" style={{ color: "var(--ink-soft)" }}>{props.labels.bgLabel}</p>
       <div className="flex items-center gap-1.5">
-        <button type="button" data-active={props.value.kind === "image"}
-          onClick={() => fileRef.current?.click()}
-          className="nameplate h-8 flex-1 rounded-[9px] px-3 text-[12px]">{props.labels.bgImage}</button>
-        <button type="button" data-active={props.value.kind === "color"}
-          onClick={() => props.onChange({ kind: "color", color: props.value.kind === "color" ? props.value.color : "#FFFFFF" })}
-          className="nameplate h-8 flex-1 rounded-[9px] px-3 text-[12px]">{props.labels.bgColor}</button>
+        <div className="flex flex-1 border-b" style={{ borderColor: "var(--hairline)" }}>
+          <button type="button"
+            onClick={() => fileRef.current?.click()}
+            className="flex-1 border-b-2 py-2 font-body text-[12px] font-medium transition-colors"
+            style={{
+              color: props.value.kind === "image" ? "var(--ink-strong)" : "var(--ink-soft)",
+              borderBottomColor: props.value.kind === "image" ? "var(--emphasis)" : "transparent",
+            }}>{props.labels.bgImage}</button>
+          <button type="button"
+            onClick={() => props.onChange({ kind: "color", color: props.value.kind === "color" ? props.value.color : "#FFFFFF" })}
+            className="flex-1 border-b-2 py-2 font-body text-[12px] font-medium transition-colors"
+            style={{
+              color: props.value.kind === "color" ? "var(--ink-strong)" : "var(--ink-soft)",
+              borderBottomColor: props.value.kind === "color" ? "var(--emphasis)" : "transparent",
+            }}>{props.labels.bgColor}</button>
+        </div>
         {props.value.kind === "color" && (
           <input type="color" value={props.value.color}
             onChange={(e) => props.onChange({ kind: "color", color: e.target.value })}
-            aria-label={props.labels.bgColor} className="h-8 w-10 rounded-[9px] border" />
+            aria-label={props.labels.bgColor} className="h-8 w-10 shrink-0 rounded-[5px] border" style={{ borderColor: "var(--border)" }} />
         )}
         <input ref={fileRef} type="file" accept="image/png,image/jpeg" className="hidden"
           onChange={(e) => {

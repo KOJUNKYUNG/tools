@@ -46,7 +46,7 @@ export function LockControls({ value, onChange, labels, disabled = false }: Lock
 
       <div className="space-y-1.5">
         <span
-          className="font-display text-[11px] font-medium uppercase tracking-[0.08em]"
+          className="font-mono text-[11px] font-medium uppercase tracking-[0.08em]"
           style={{ color: "var(--ink-soft)" }}
         >
           {labels.permissionsLabel}
@@ -57,7 +57,7 @@ export function LockControls({ value, onChange, labels, disabled = false }: Lock
             checked={value.permissions.allowPrint}
             onChange={(e) => setPerm({ allowPrint: e.target.checked })}
             disabled={disabled}
-            className="size-3.5 accent-[color:var(--accent-electric)] disabled:cursor-not-allowed"
+            className="size-3.5 accent-[color:var(--emphasis)] disabled:cursor-not-allowed"
           />
           {labels.allowPrint}
         </label>
@@ -67,7 +67,7 @@ export function LockControls({ value, onChange, labels, disabled = false }: Lock
             checked={value.permissions.allowCopy}
             onChange={(e) => setPerm({ allowCopy: e.target.checked })}
             disabled={disabled}
-            className="size-3.5 accent-[color:var(--accent-electric)] disabled:cursor-not-allowed"
+            className="size-3.5 accent-[color:var(--emphasis)] disabled:cursor-not-allowed"
           />
           {labels.allowCopy}
         </label>
