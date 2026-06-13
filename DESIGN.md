@@ -9,8 +9,10 @@ description: >-
   dark mode inverts the role assignments (see Colors). The only exception to the
   palette is user-uploaded document-preview content, which renders in its
   original colors.
-# Fonts are loaded in src/app/layout.tsx (next/font): Clash Display + IBM Plex
-# Sans KR are local (src/fonts), Nanum Gothic Coding via next/font/google.
+# Fonts are loaded in src/app/layout.tsx via next/font/local — all three
+# families (Clash Display, IBM Plex Sans KR, Nanum Gothic Coding) live in
+# src/fonts. Pretendard is also bundled there, used only for canvas text
+# rasterisation (renderTextToPng) and as a Korean fallback.
 colors:
   # The entire site palette — 7 neutral anchors. Light reference values; these
   # mirror globals.css --mono-0 … --mono-1000. Roles are assigned via the
@@ -83,11 +85,11 @@ components:
     backgroundColor: "{colors.black}"
     textColor: "{colors.surface}"
     rounded: "{rounded.md}"
-  button-secondary: # .nameplate — secondary / toolbar action, unselected toggle
+  button-secondary: # .nameplate — secondary / toolbar action (result-card re-apply)
     backgroundColor: "{colors.surface}"
     textColor: "{colors.primary}"
     rounded: "{rounded.md}"
-  toggle-selected: # .nameplate[data-active] — selected single-select (tab underline)
+  toggle-selected: # selected single-select — tab underline (no fill): --emphasis bottom border + --ink-strong label
     textColor: "{colors.primary}"
     backgroundColor: "{colors.surface}"
   input: # text / number fields
@@ -112,11 +114,14 @@ Validate with:
 pnpm design:lint        # = designmd lint --format json DESIGN.md
 ```
 
-> This redesign **supersedes the metallic execution of
+> This monochrome system **supersedes the metallic execution of
 > [ADR-0001](docs/adr/0001-silver-design-system.md)** (silver / cool-blue, hue
-> 250). The tray + lid *product metaphor* survives; its *rendering* becomes flat
-> and neutral. Component rollout is incremental (tool by tool); this file is the
-> target, and the Do's and Don'ts grow as tools are migrated.
+> 250) — see [ADR-0004](docs/adr/0004-monochrome-supersedes-silver.md). The
+> tray + lid *product metaphor* survives as interaction and copy; its material
+> *rendering* is retired. The tool-by-tool rollout is complete (all PDF / PPT /
+> image tools, shared components, the card shell, and the landing); this file
+> is the live contract, and the Do's & Don'ts capture the rules learned along
+> the way.
 
 ## Overview
 
@@ -187,9 +192,9 @@ and its border never collapse to the same value.
 ## Typography
 
 Four families, six roles. Korean and Latin share one face for running text, so
-mixed-language UI stays even. Fonts load via `next/font` in `layout.tsx`
-(Clash Display + IBM Plex Sans KR are local in `src/fonts`; Nanum Gothic Coding
-via Google).
+mixed-language UI stays even. All families load via `next/font/local` in
+`layout.tsx` from `src/fonts` (Clash Display, IBM Plex Sans KR, Nanum Gothic
+Coding).
 
 | role | family / weight | where it's used |
 | --- | --- | --- |
@@ -420,11 +425,12 @@ the on-paper case above.
   light but Paper in dark, so a white mark vanishes. Use `--surface`.
 - Don't tint shadows (`rgba(20,30,60,…)`); shadows are neutral black (`rgba(0,0,0,…)`).
 - Don't leave `glint` or other metallic helper classes on a migrated component.
-- Don't give a preview / letterbox frame a fixed light gray (`--silver-100`); use
+- Don't give a preview / letterbox frame a fixed light-gray hex; use
   `--surface-2` so it survives dark mode.
-- Don't use the `.nameplate[data-active]` segmented fill for a single-select on a
-  migrated tool — every single-select (format / preset / DPI / page-size / mode /
-  in-control source) is the tab underline.
+- Don't reintroduce a filled / inverted active toggle (the retired
+  `.nameplate[data-active]` segmented fill) for a single-select — every
+  single-select (format / preset / DPI / page-size / mode / in-control source)
+  is the tab underline.
 - Don't give a single-select toggle a background / segment fill *and* an underline
   — the `--emphasis` underline marks the active item alone (a filled active tab is
   the legacy look).

@@ -70,8 +70,8 @@ Node 20+ recommended.
 If you're going to touch the code, read these first:
 
 - [`CONTEXT.md`](./CONTEXT.md) — domain vocabulary and architecture overview
-- [`docs/design.md`](./docs/design.md) — design implementation contract
-  (tokens, material classes, visual fidelity rule)
+- [`DESIGN.md`](./DESIGN.md) — the design system (monochrome): tokens,
+  typography, components, Do's & Don'ts
 - [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) — guidance for AI
   coding agents working in this repo
 - [`docs/adr/`](./docs/adr/) — architectural decision records
@@ -89,8 +89,9 @@ Issues and pull requests are welcome. Before opening a PR:
 
 1. `pnpm exec tsc --noEmit` passes.
 2. `pnpm build` passes.
-3. The change uses existing silver design tokens and material classes —
-   don't introduce new ones unless an ADR sanctions it.
+3. The change uses the existing monochrome design tokens and treatment
+   classes (see `DESIGN.md`) — don't introduce new ones unless an ADR
+   sanctions it.
 4. New tools land via the tool registry; nothing should hard-code a tool
    slug or the total tool count.
 
@@ -120,4 +121,4 @@ pnpm install
 pnpm dev
 ```
 
-자세한 도메인 용어·아키텍처·제품 로드맵은 [`CONTEXT.md`](./CONTEXT.md), 디자인 구현 contract 은 [`docs/design.md`](./docs/design.md), 결정 이력은 [`docs/adr/`](./docs/adr/) 를 참조하세요. 어떤 정보가 어느 문서에 사는지는 [`CONTEXT.md` → Document map](./CONTEXT.md#document-map) 에 정리돼 있습니다.
+자세한 도메인 용어·아키텍처·제품 로드맵은 [`CONTEXT.md`](./CONTEXT.md), 디자인 시스템은 [`DESIGN.md`](./DESIGN.md), 결정 이력은 [`docs/adr/`](./docs/adr/) 를 참조하세요. 어떤 정보가 어느 문서에 사는지는 [`CONTEXT.md` → Document map](./CONTEXT.md#document-map) 에 정리돼 있습니다.

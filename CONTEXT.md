@@ -29,7 +29,7 @@ wins.
 | What Ontab is, domain terms, architecture contracts, Phase *definitions* | **this file** (`CONTEXT.md`) | A term or concept actually resolves — lazily, via `/grill-with-docs` |
 | A hard-to-reverse decision + its rationale | **`docs/adr/`** | The decision is hard to reverse, surprising without context, and a real trade-off |
 | The design spec — tokens, typography, components, Do's & Don'ts | **`DESIGN.md`** (root) | The design system changes (ADR-0003 / ADR-0004; populated 2026-06) |
-| The silver-era implementation contract (historical) | **`docs/design.md`** | Superseded by root `DESIGN.md` — do not extend |
+| The silver-era implementation contract (historical) | **`docs/_archive/design.md`** | Superseded by root `DESIGN.md` (ADR-0004) — archived, do not extend |
 | The design of one tool/feature | **`docs/superpowers/specs/{date}-{slug}-design.md`** | Before building it, once brainstorming settles the design |
 | The task breakdown to build one tool/feature | **`docs/superpowers/plans/{date}-{slug}.md`** | After the spec, just before implementation |
 | How agents consume these docs + the detailed authoring rules | **`docs/agents/domain.md`** | Doc conventions change |

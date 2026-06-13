@@ -1,4 +1,18 @@
-# Ontab — Design specification
+<!--
+  SUPERSEDED (2026-06) — silver-era implementation contract.
+  The monochrome redesign replaced it: the binding design spec is now root
+  DESIGN.md (ADR-0003 format); the supersession is recorded in ADR-0004
+  (docs/adr/0004-monochrome-supersedes-silver.md). Kept for decision history
+  only — NOT a baseline for new work. Relative links below point at the
+  pre-move layout (docs/design.md) and are left as-is as a historical artifact.
+  Everything below describes the retired silver system.
+-->
+
+# Ontab — Design specification (silver era · ARCHIVED)
+
+> **Superseded by root [`DESIGN.md`](../../DESIGN.md) + [ADR-0004](../adr/0004-monochrome-supersedes-silver.md).**
+> This describes the retired silver/metallic system. Do not use it as a
+> baseline; it is preserved for decision history.
 
 The implementation contract for Ontab's visual surface. Read this when you're
 about to build, port, or alter UI in this repo.

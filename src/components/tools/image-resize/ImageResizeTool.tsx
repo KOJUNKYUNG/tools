@@ -378,7 +378,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
 
   // In inline mode (Screen3 mount), the chrome/header/reset are suppressed —
   // the surrounding surface provides chrome. In page-route mode, this component
-  // renders its own silver card chrome + header + reset, mirroring ppt-background.
+  // renders its own card chrome + header + reset, mirroring ppt-background.
   const body = (
     <div className={inline ? "space-y-5" : "space-y-5 px-6 py-4"}>
       <input
