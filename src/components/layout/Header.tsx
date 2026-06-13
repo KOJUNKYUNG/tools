@@ -13,6 +13,9 @@ interface HeaderProps {
 export function Header({ locale }: HeaderProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  // next-themes can't resolve the theme until mounted on the client; flipping a
+  // flag in a mount effect is the intended hydration-guard idiom.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional mount guard
   useEffect(() => setMounted(true), []);
   const theme = mounted && resolvedTheme === "dark" ? "dark" : "light";
 

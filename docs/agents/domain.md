@@ -99,8 +99,15 @@ memory points back to it rather than duplicating.
 tokens. Once `DESIGN.md` (root, Google-standard) is populated, its front-matter
 tokens **mirror** `globals.css` — they are documentation, not a second runtime
 source. **Changing a token in one requires changing it in the other in the same
-commit.** To check for drift, regenerate the theme from `DESIGN.md` and compare:
-`pnpm exec designmd export --format css-tailwind DESIGN.md`.
+commit.** To check for drift, run `pnpm design:drift` (or `pnpm design:check`,
+which also runs the validator). It parses the DESIGN.md front-matter color
+anchors and asserts each still matches the `--mono-N` value its trailing
+`(--mono-N)` comment references in the `globals.css` `:root` block.
+
+> The official `designmd export --format css-tailwind DESIGN.md` path is **not**
+> usable here: it aborts on the `2xl` spacing token (not a valid Tailwind v4
+> identifier) before emitting any CSS. `scripts/check-design-drift.mjs` replaces
+> it for the color anchors.
 
 Lint with `pnpm design:lint`. **Always use the `designmd` bin, not `design.md`**
 — the dotted bin name hangs `pnpm exec` (and collides with `DESIGN.md` in file

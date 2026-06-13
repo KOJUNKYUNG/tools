@@ -11,6 +11,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "design:lint": "designmd lint --format json DESIGN.md",
+    "design:drift": "node scripts/check-design-drift.mjs",
+    "design:check": "pnpm design:lint && pnpm design:drift",
     "postinstall": "node scripts/copy-pdfjs.mjs && node scripts/copy-qpdf.mjs"
   },
   "dependencies": {

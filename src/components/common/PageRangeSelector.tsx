@@ -45,6 +45,7 @@ export function PageRangeSelector({
   useEffect(() => {
     if (editingRef.current) return;
     const canonical = serializeRange(selected);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync the controlled input from external `selected`, guarded against clobbering an active edit
     setText((current) => (current === canonical ? current : canonical));
   }, [selected]);
 

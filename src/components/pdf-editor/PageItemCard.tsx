@@ -63,7 +63,7 @@ function PageItemCardImpl({
   pageAspect = null,
   draggable = true,
 }: PageItemCardProps) {
-  const thumb = useLazyThumbnail({
+  const { ref, src, status } = useLazyThumbnail({
     fileId: item.sourceFileId,
     pageIndex: item.sourcePageIndex,
     kind: item.kind,
@@ -93,7 +93,8 @@ function PageItemCardImpl({
   // object-contain, no transform.
   const [bakedSrc, setBakedSrc] = useState<string | null>(null);
   useEffect(() => {
-    if (!hasPage || item.rotation === 0 || thumb.status !== "ready" || !thumb.src) {
+    if (!hasPage || item.rotation === 0 || status !== "ready" || !src) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the derived baked bitmap when its preconditions no longer hold
       setBakedSrc(null);
       return;
     }
@@ -125,18 +126,18 @@ function PageItemCardImpl({
     image.onerror = () => {
       if (!cancelled) setBakedSrc(null);
     };
-    image.src = thumb.src;
+    image.src = src;
     return () => {
       cancelled = true;
     };
-  }, [hasPage, item.rotation, thumb.status, thumb.src]);
+  }, [hasPage, item.rotation, status, src]);
 
   // Plain mode (pdf-arrange): image fills the card, CSS-rotated. No page frame,
   // so no fill-on-rotate requirement — CSS transform is fine here.
   const plainImg =
-    thumb.status === "ready" && thumb.src ? (
+    status === "ready" && src ? (
       <img
-        src={thumb.src}
+        src={src}
         alt={`page ${pageNumber}`}
         draggable={false}
         className="max-h-full max-w-full object-contain"
@@ -146,7 +147,7 @@ function PageItemCardImpl({
 
   // Page-frame mode: show the (possibly rotation-baked) bitmap, contained in the
   // white page box. No CSS transform.
-  const frameSrc = (item.rotation !== 0 && bakedSrc ? bakedSrc : thumb.src) ?? "";
+  const frameSrc = (item.rotation !== 0 && bakedSrc ? bakedSrc : src) ?? "";
 
   return (
     <div
@@ -161,10 +162,10 @@ function PageItemCardImpl({
       {...dragHandleProps}
     >
       <div
-        ref={thumb.ref}
+        ref={ref}
         className="absolute inset-0 flex items-center justify-center"
       >
-        {thumb.status === "ready" && thumb.src ? (
+        {status === "ready" && src ? (
           hasPage ? (
             <div
               className="flex items-center justify-center overflow-hidden"
@@ -180,7 +181,7 @@ function PageItemCardImpl({
           ) : (
             plainImg
           )
-        ) : thumb.status === "error" ? (
+        ) : status === "error" ? (
           <span className="px-2 text-center text-[10px] text-[color:var(--ink-soft)]">
             미리보기 실패
           </span>

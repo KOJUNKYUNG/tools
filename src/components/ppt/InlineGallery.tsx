@@ -46,6 +46,7 @@ export function InlineGallery({
   }, [category]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-way collapse when the parent forces it; deriving it would change re-expand semantics
     if (forceCollapsed) setExpanded(false);
   }, [forceCollapsed]);
 

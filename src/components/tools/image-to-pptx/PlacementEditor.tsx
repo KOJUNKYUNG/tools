@@ -27,7 +27,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
   const drag = useRef({ px: 0, py: 0, box: props.box });
   const [mode, setMode] = useState<null | "move" | Handle>(null);
 
-  const { slideW, slideH } = props;
+  const { slideW, slideH, onBoxChange } = props;
 
   const onMoveDown = (e: RPE<HTMLDivElement>) => {
     e.preventDefault();
@@ -43,6 +43,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onMove = useCallback(
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization -- reads drag/ref refs the compiler can't track; deps are hand-narrowed to the reactive inputs
     (e: RPE<HTMLDivElement>) => {
       if (!mode || !ref.current) return;
       const r = ref.current.getBoundingClientRect();
@@ -57,9 +58,9 @@ export function PlacementEditor(props: PlacementEditorProps) {
         if (mode.includes("e")) { b.w += dxIn; }
         if (mode.includes("s")) { b.h += dyIn; }
       }
-      props.onBoxChange(clampBox(b, slideW, slideH));
+      onBoxChange(clampBox(b, slideW, slideH));
     },
-    [mode, props, slideW, slideH],
+    [mode, slideW, slideH, onBoxChange],
   );
   const onUp = () => setMode(null);
 

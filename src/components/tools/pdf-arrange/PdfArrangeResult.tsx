@@ -32,7 +32,7 @@ function CoverThumb({
   cover: PageItem;
   bytes: Uint8Array | undefined;
 }) {
-  const thumb = useLazyThumbnail({
+  const { ref, src, status } = useLazyThumbnail({
     fileId: cover.sourceFileId,
     pageIndex: cover.sourcePageIndex,
     kind: cover.kind,
@@ -41,13 +41,13 @@ function CoverThumb({
 
   return (
     <div
-      ref={thumb.ref}
+      ref={ref}
       className="flex h-[88px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-[4px] bg-[color:var(--mono-0)]"
       style={{ border: "1px solid var(--border)" }}
     >
-      {thumb.status === "ready" && thumb.src ? (
+      {status === "ready" && src ? (
         <img
-          src={thumb.src}
+          src={src}
           alt=""
           draggable={false}
           className="max-h-full max-w-full object-contain"

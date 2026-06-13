@@ -1,0 +1,19 @@
+# Normalise line endings: store LF in git, check out LF on every platform.
+# Prevents core.autocrlf from producing CRLF working trees on Windows.
+* text=auto eol=lf
+
+# Binary assets — never normalise.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.wasm binary
+*.pdf  binary
+*.pptx binary
+*.heic binary

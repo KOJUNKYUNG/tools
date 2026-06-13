@@ -93,6 +93,7 @@ export function PdfToImageResult({
   const [urls, setUrls] = useState<string[]>([]);
   useEffect(() => {
     const next = images.map((img) => URL.createObjectURL(img.blob));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- URLs are created in the effect so the cleanup revokes this exact batch (StrictMode-safe; see comment above)
     setUrls(next);
     return () => {
       for (const u of next) URL.revokeObjectURL(u);

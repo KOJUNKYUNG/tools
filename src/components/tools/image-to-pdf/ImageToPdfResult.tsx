@@ -22,7 +22,7 @@ function ResultThumb({
   page: PageItem;
   bytes: Uint8Array | undefined;
 }) {
-  const thumb = useLazyThumbnail({
+  const { ref, src, status } = useLazyThumbnail({
     fileId: page.sourceFileId,
     pageIndex: page.sourcePageIndex,
     kind: page.kind,
@@ -31,13 +31,13 @@ function ResultThumb({
 
   return (
     <div
-      ref={thumb.ref}
+      ref={ref}
       className="flex aspect-[3/4] items-center justify-center overflow-hidden rounded-[5px]"
       style={{ background: "var(--bg-soft)", border: "1px solid var(--border)" }}
     >
-      {thumb.status === "ready" && thumb.src ? (
+      {status === "ready" && src ? (
         <img
-          src={thumb.src}
+          src={src}
           alt=""
           draggable={false}
           className="max-h-full max-w-full object-contain"
