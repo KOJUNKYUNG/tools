@@ -243,7 +243,6 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       });
     };
     // empty deps — runs only on unmount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFilesChange = useCallback(

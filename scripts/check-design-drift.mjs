@@ -20,6 +20,17 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DESIGN_MD = join(repoRoot, "DESIGN.md");
 const GLOBALS_CSS = join(repoRoot, "src", "app", "globals.css");
 
+/** Normalise a hex color for comparison: lowercase + expand shorthand so
+ * `#FFF` and `#ffffff` (or `#ffff`/`#ffffffff`) compare equal. */
+function normalizeHex(hex) {
+  const h = hex.toLowerCase();
+  if (h.length === 4 || h.length === 5) {
+    // #rgb / #rgba → #rrggbb / #rrggbbaa
+    return `#${[...h.slice(1)].map((c) => c + c).join("")}`;
+  }
+  return h;
+}
+
 /** Parse the front-matter `colors:` block of DESIGN.md.
  * @returns {Array<{ key: string, hex: string, varName: string }>} */
 function parseDesignColors(source) {
@@ -39,11 +50,12 @@ function parseDesignColors(source) {
   const block = nextTopKey === -1 ? afterColors : afterColors.slice(0, nextTopKey);
 
   const colors = [];
-  // key: "#hex"  # ... (--mono-NNN)
-  const lineRe = /^\s+([A-Za-z][\w-]*):\s*"(#[0-9a-fA-F]{3,8})"[^\n]*\(--(mono-\d+)\)/gm;
+  // key: "#hex"  # ... (--mono-NNN)  — the anchor ref is the trailing token,
+  // so require it at end-of-line to avoid binding to an earlier mono mention.
+  const lineRe = /^\s+([A-Za-z][\w-]*):\s*"(#[0-9a-fA-F]{3,8})"[^\n]*\(--(mono-\d+)\)\s*$/gm;
   let m;
   while ((m = lineRe.exec(block)) !== null) {
-    colors.push({ key: m[1], hex: m[2].toLowerCase(), varName: m[3] });
+    colors.push({ key: m[1], hex: normalizeHex(m[2]), varName: m[3] });
   }
   if (colors.length === 0) {
     throw new Error(
@@ -72,7 +84,7 @@ function parseGlobalsMono(source) {
   const declRe = /--(mono-\d+):\s*(#[0-9a-fA-F]{3,8})\s*;/g;
   let m;
   while ((m = declRe.exec(block)) !== null) {
-    map.set(m[1], m[2].toLowerCase());
+    map.set(m[1], normalizeHex(m[2]));
   }
   if (map.size === 0) {
     throw new Error("globals.css `:root`: no `--mono-N: #hex;` declarations found.");

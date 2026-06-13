@@ -32,7 +32,6 @@ export function parseRange(input: string, totalPages: number): Set<number> {
       continue;
     }
     if (process.env.NODE_ENV !== "production") {
-      // eslint-disable-next-line no-console
       console.warn(`[pageRange] dropping invalid token: "${token}"`);
     }
   }

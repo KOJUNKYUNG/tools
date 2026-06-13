@@ -274,7 +274,6 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
       h: ref.h,
     });
     initedForRef.current = firstId;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ref, firstId, slide.w, slide.h]);
 
   // Clamp box into new slide bounds when slide ratio toggles (image-invariant)

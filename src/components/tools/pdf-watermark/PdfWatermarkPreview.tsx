@@ -109,7 +109,6 @@ export function PdfWatermarkPreview({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file]);
 
   // Decode the logo to a bitmap when it changes.
@@ -143,7 +142,6 @@ export function PdfWatermarkPreview({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wmOpts.logo]);
 
   // Release the logo bitmap on unmount.
