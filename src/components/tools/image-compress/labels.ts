@@ -36,7 +36,7 @@ export function getImageCompressLabels(dict: Dictionary): ImageCompressLabels {
     reupload: page.reupload,
     uploadPrompt: page.uploadPrompt,
     uploadHint: page.uploadHint,
-    uploadMaxSize: dict.common.fileUpload.maxSize,
+    uploadMaxSize: dict.common.fileUpload.maxSizeEach,
     formatTitle: page.formatTitle,
     qualityTitle: page.qualityTitle,
     compressTemplate: page.compressTemplate,

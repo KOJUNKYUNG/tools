@@ -122,7 +122,7 @@ export interface PptBackgroundToolLabels {
     error: string;
     errorBody: string;
     retry: string;
-    reset: string;
+    tryAnother: string;
   };
   fileUpload: Dictionary["common"]["fileUpload"];
 }
@@ -428,7 +428,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               onFiles={setPptxFiles}
               label={labels.upload.dropzoneLabel}
               description={labels.upload.dropzoneHint}
-              hideAutoHint
               hideFileList
               labels={labels.fileUpload}
             />

@@ -23,7 +23,8 @@
     "or": "or",
     "click": "click to browse",
     "fileUpload": {
-      "maxSize": "Max {size}",
+      "maxSize": "Up to {size}",
+      "maxSizeEach": "Up to {size} each",
       "tooLargeTemplate": "{name}: file exceeds the {size} limit.",
       "invalidTypeTemplate": "{name}: unsupported file type.",
       "errorTemplate": "{name}: {message}",
@@ -49,12 +50,12 @@
       "description": "Replace the background across every slide of a .pptx file at once.",
       "page": {
         "header": {
-          "title": "Replace PPTX backgrounds",
-          "description": "Swap the background image across every slide of a .pptx file at once."
+          "title": "Change PPT background",
+          "description": "Replace the background across every slide of a .pptx file at once."
         },
         "upload": {
-          "dropzoneLabel": "Drop a PPTX file here, or click to browse",
-          "dropzoneHint": "Only .pptx · Up to 10 MB"
+          "dropzoneLabel": "Drag and drop a PPTX, or click to upload",
+          "dropzoneHint": "Only .pptx files."
         },
         "conversion": {
           "heading": "This file needs to be converted to .pptx",
@@ -121,7 +122,7 @@
           "fromUpload": "Uploaded image",
           "clear": "Clear selection",
           "uploadLabel": "Upload image",
-          "uploadHint": "JPG, PNG",
+          "uploadHint": "JPG or PNG.",
           "sourceUpload": "Upload",
           "sourceGallery": "Gallery"
         },
@@ -149,7 +150,7 @@
           "error": "Error",
           "errorBody": "Something went wrong. Please try again.",
           "retry": "Retry",
-          "reset": "Reset"
+          "tryAnother": "Start over"
         }
       }
     },
@@ -159,9 +160,9 @@
       "page": {
         "uploadPrompt": "Drag and drop a PPT/PPTX, or click to upload",
         "uploadHint": "Supports .ppt and .pptx.",
-        "uploadMaxSize": "Up to {size} per file",
+        "uploadMaxSize": "Up to {size}",
         "reupload": "Re-upload",
-        "reset": "Start over",
+        "reset": "Reset",
         "fileInfo": "{name} · {size}",
         "extract": "Extract",
         "extractCount": "Extract ({n})",
@@ -177,7 +178,7 @@
         "imagesLabel": "Images",
         "noImagesHint": "No images",
         "errorNoImages": "No images found in this presentation.",
-        "toPptx": "Send to Images → PPT"
+        "toPptx": "Send to Image → PPT"
       }
     },
     "ppt-compress": {
@@ -185,10 +186,10 @@
       "description": "Re-compress the images inside a PPTX to shrink the file.",
       "page": {
         "uploadPrompt": "Drag and drop a PPTX, or click to upload",
-        "uploadHint": "Select a single PPTX file.",
-        "uploadMaxSize": "Up to {maxSize}",
+        "uploadHint": "One PPTX file at a time.",
+        "uploadMaxSize": "Up to {size}",
         "reupload": "Re-upload",
-        "reset": "Start over",
+        "reset": "Reset",
         "fileInfo": "{name} · {size}",
         "slideCount": "{n} slides",
         "presetGroupLabel": "Compression level",
@@ -208,7 +209,7 @@
         "compressedSizeLabel": "After",
         "savingsLabel": "Savings",
         "download": "Download",
-        "again": "Compress again",
+        "again": "Start over",
         "analyzingHint": "Analyzing…",
         "previewUnavailable": "Preview unavailable",
         "imagesLabel": "Images",
@@ -219,11 +220,11 @@
       }
     },
     "pdf-arrange": {
-      "title": "Merge / Split / Arrange PDF",
+      "title": "Merge·split·arrange PDF",
       "description": "Combine PDFs into one file, or use dividers to split into several.",
       "page": {
         "reset": "Reset",
-        "uploadPrompt": "Drag or click to upload PDFs or images",
+        "uploadPrompt": "Drag and drop PDFs or images, or click to upload",
         "uploadHint": "PDFs expand per page; images become a single page.",
         "reupload": "Re-upload",
         "filesOneTemplate": "{name}",
@@ -255,10 +256,10 @@
       "description": "Reduce file size with minimal quality loss.",
       "page": {
         "uploadPrompt": "Drag and drop a PDF, or click to upload",
-        "uploadHint": "Select a single PDF file.",
-        "uploadMaxSize": "Up to {size} per file",
+        "uploadHint": "One PDF file at a time.",
+        "uploadMaxSize": "Up to {size}",
         "reupload": "Re-upload",
-        "reset": "Start over",
+        "reset": "Reset",
         "fileInfo": "{name} · {size}",
         "presetGroupLabel": "Compression level",
         "presetLightLabel": "Light",
@@ -279,20 +280,20 @@
         "compressedSizeLabel": "After",
         "savingsLabel": "Savings",
         "download": "Download",
-        "again": "Compress again",
+        "again": "Start over",
         "errorMemory": "Browser ran out of memory. Try a smaller PDF.",
         "errorCorrupt": "The compressed file is unusable. Try a different compression level."
       }
     },
     "pdf-watermark": {
-      "title": "PDF Watermark / Page Numbers",
+      "title": "PDF watermark",
       "description": "Stamp page numbers or add a watermark to a PDF.",
       "page": {
         "uploadPrompt": "Drag and drop a PDF, or click to upload",
-        "uploadHint": "Select a single PDF file.",
-        "uploadMaxSize": "Up to {size} per file",
+        "uploadHint": "One PDF file at a time.",
+        "uploadMaxSize": "Up to {size}",
         "reupload": "Re-upload",
-        "reset": "Start over",
+        "reset": "Reset",
         "fileInfo": "{name} · {size}",
         "pageCount": "{n} pages",
         "modeNumber": "Page numbers",
@@ -332,20 +333,20 @@
         "resultPages": "Applied to {applied} / {total} pages",
         "resultSize": "Output size {size}",
         "download": "Download",
-        "again": "Apply again",
+        "again": "Start over",
         "errorMemory": "Browser ran out of memory. Try a smaller PDF.",
         "errorCorrupt": "The output PDF is unusable. Adjust the settings and try again."
       }
     },
     "pdf-lock": {
-      "title": "Protect / unlock PDF",
+      "title": "Lock·unlock PDF",
       "description": "Add an open password to a PDF, or remove it with the password.",
       "page": {
         "uploadPrompt": "Drag and drop a PDF, or click to upload",
-        "uploadHint": "Select a single PDF file.",
-        "uploadMaxSize": "Up to {size} per file",
+        "uploadHint": "One PDF file at a time.",
+        "uploadMaxSize": "Up to {size}",
         "reupload": "Re-upload",
-        "reset": "Start over",
+        "reset": "Reset",
         "fileInfo": "{name} · {size}",
         "modeLock": "Add password",
         "modeUnlock": "Remove password",
@@ -378,7 +379,7 @@
         "resultUnlockTitle": "Password removed",
         "resultSize": "Output size {size}",
         "download": "Download",
-        "again": "Do another",
+        "again": "Start over",
         "errorMemory": "Browser ran out of memory. Try a smaller PDF.",
         "errorCorrupt": "The output PDF is unusable. Please try again.",
         "errorWrongPassword": "The password is incorrect. Please check and try again."
@@ -386,12 +387,12 @@
     },
     "pdf-pages": { "title": "Manage PDF pages", "description": "Reorder, rotate, or delete pages in one place." },
     "image-to-pptx": {
-      "title": "Images → PPT",
+      "title": "Image → PPT",
       "description": "Place images on a background at a set position and size, export PPTX.",
       "page": {
-        "uploadPrompt": "Drag images here or browse",
-        "uploadHint": "JPG/PNG, multiple allowed",
-        "uploadMaxSize": "Max {maxSize}",
+        "uploadPrompt": "Drag and drop images, or click to upload",
+        "uploadHint": "JPG/PNG. Add several at once.",
+        "uploadMaxSize": "Up to {size} each",
         "reupload": "Re-upload",
         "convert": "Create ({n})",
         "filesOne": "{name}",
@@ -431,9 +432,9 @@
       "title": "Image → PDF",
       "description": "Package images into a single PDF.",
       "page": {
-        "uploadPrompt": "Drag images here or click to upload",
-        "uploadHint": "JPG / PNG. Add several at once.",
-        "uploadMaxSize": "Up to {size} per file",
+        "uploadPrompt": "Drag and drop images, or click to upload",
+        "uploadHint": "JPG/PNG. Add several at once.",
+        "uploadMaxSize": "Up to {size} each",
         "reupload": "Re-upload",
         "convert": "Convert ({n})",
         "filesOne": "{name}",
@@ -459,9 +460,9 @@
       "title": "PDF → Image",
       "description": "Render each page as a high-res image.",
       "page": {
-        "uploadPrompt": "Drag or click to upload a PDF",
-        "uploadHint": "You can add several PDFs at once.",
-        "uploadMaxSize": "Up to {size} per file",
+        "uploadPrompt": "Drag and drop a PDF, or click to upload",
+        "uploadHint": "Add several PDFs at once.",
+        "uploadMaxSize": "Up to {size} each",
         "reupload": "Re-upload",
         "addAria": "Add PDF",
         "convert": "Convert ({n})",
@@ -485,12 +486,12 @@
         "downloadSingle": "Download ({format})",
         "downloadOneAria": "Download {name}",
         "compressHandoff": "Compress images",
-        "again": "Again"
+        "again": "Start over"
       }
     },
     "image-compress": {
       "title": "Compress & convert",
-      "description": "Batch-compress and convert formats.",
+      "description": "Batch-compress and convert between formats.",
       "page": {
         "title": "Compress & convert images",
         "subtitle": "Compress JPG/PNG/WebP images or convert them to another format.",
@@ -500,8 +501,8 @@
           "reset": "Reset"
         },
         "reupload": "Re-upload",
-        "uploadPrompt": "Drag images here, or click to upload",
-        "uploadHint": "JPG, PNG, WebP supported. Upload multiple at once.",
+        "uploadPrompt": "Drag and drop images, or click to upload",
+        "uploadHint": "JPG, PNG, WebP, HEIC, HEIF supported. Upload multiple at once.",
         "formatTitle": "Output format",
         "qualityTitle": "Quality",
         "compressTemplate": "Compress ({n})",
@@ -512,7 +513,7 @@
         "doneTitle": "Compression complete",
         "settingsTemplate": "{format} · quality {quality}%",
         "download": "Download",
-        "recompress": "Compress again",
+        "recompress": "Start over",
         "sizeChangeTemplate": "{from} → {to}",
         "removeAria": "Remove {name}",
         "prevAria": "Previous image",
@@ -523,13 +524,13 @@
     "heic-convert": { "title": "HEIC Converter", "description": "Convert iPhone HEIC photos to JPG or PNG." },
     "image-resize": {
       "title": "Resize images",
-      "description": "Batch-resize while preserving ratio.",
+      "description": "Resize to exact dimensions, or crop while keeping the ratio.",
       "page": {
         "title": "Resize image",
-        "subtitle": "Change image dimensions by exact pixels or aspect ratio.",
+        "subtitle": "Resize to exact dimensions, or crop while keeping the ratio.",
         "header": {
           "title": "Resize image",
-          "description": "Change image dimensions by exact pixels or aspect ratio.",
+          "description": "Resize to exact dimensions, or crop while keeping the ratio.",
           "reset": "Reset"
         },
         "originalSize": "Original size",
@@ -557,9 +558,9 @@
         "downloadAgainLabel": "Start over",
         "reupload": "Re-upload",
         "compressLink": "Compress / convert",
-        "uploadPrompt": "Drag an image here, or click to upload",
+        "uploadPrompt": "Drag and drop an image, or click to upload",
         "uploadHint": "JPG, PNG, WebP supported.",
-        "tryAgain": "Try again",
+        "tryAgain": "Start over",
         "cropSelectionLabel": "Selection (drag to move, corners to resize)",
         "stretchModeLabel": "The image is stretched to fit the given size.",
         "cropFooterTemplate": "Crop to {w}×{h} ratio · selection: {cw}×{ch}px"

@@ -1,7 +1,7 @@
 {
   "brand": {
     "name": "온탭",
-    "tagline": "브라우저 탭 위, 언제든 꺼내 쓰는 문서 도구 책상"
+    "tagline": "브라우저 탭 위에서 작동하는 문서 도구"
   },
   "nav": {
     "presentation": "프레젠테이션",
@@ -13,7 +13,7 @@
     "descriptor": "브라우저 탭 위에서 작동하는 문서 도구"
   },
   "common": {
-    "reset": "다시 작업하기",
+    "reset": "도구 초기화",
     "back": "닫기",
     "loading": "처리 중…",
     "download": "다운로드",
@@ -24,6 +24,7 @@
     "click": "클릭해서 찾아보기",
     "fileUpload": {
       "maxSize": "최대 {size}",
+      "maxSizeEach": "파일당 최대 {size}",
       "tooLargeTemplate": "{name}: 파일 크기가 {size}를 초과합니다.",
       "invalidTypeTemplate": "{name}: 지원하지 않는 파일 형식입니다.",
       "errorTemplate": "{name}: {message}",
@@ -49,12 +50,12 @@
       "description": "PPTX 슬라이드 배경을 한 번에 일괄 교체합니다.",
       "page": {
         "header": {
-          "title": "PPTX 배경 일괄 변경",
-          "description": "PPTX 슬라이드의 배경 이미지를 한 번에 교체합니다."
+          "title": "PPT 배경 바꾸기",
+          "description": "PPTX 슬라이드 배경을 한 번에 일괄 교체합니다."
         },
         "upload": {
           "dropzoneLabel": "PPTX 파일을 드래그하거나 클릭하여 업로드",
-          "dropzoneHint": ".pptx 형식만 지원 · 최대 10 MB"
+          "dropzoneHint": ".pptx 파일만 올릴 수 있습니다."
         },
         "conversion": {
           "heading": "이 파일은 .pptx로 변환이 필요합니다",
@@ -121,7 +122,7 @@
           "fromUpload": "직접 업로드한 배경",
           "clear": "선택 해제",
           "uploadLabel": "이미지 업로드",
-          "uploadHint": "JPG, PNG 지원",
+          "uploadHint": "JPG·PNG를 지원합니다.",
           "sourceUpload": "직접 업로드",
           "sourceGallery": "갤러리"
         },
@@ -149,19 +150,19 @@
           "error": "오류 발생",
           "errorBody": "처리 중 문제가 발생했습니다. 다시 시도해 주세요.",
           "retry": "재시도",
-          "reset": "다시 작업하기"
+          "tryAnother": "다시 하기"
         }
       }
     },
     "ppt-extract": {
       "title": "PPT 이미지 추출",
-      "description": "프레젠테이션에 포함된 모든 이미지를 꺼내옵니다.",
+      "description": "프레젠테이션에 포함된 모든 이미지를 추출합니다.",
       "page": {
         "uploadPrompt": "PPT/PPTX 파일을 드래그하거나 클릭하여 업로드",
         "uploadHint": ".ppt 및 .pptx 형식을 지원합니다.",
-        "uploadMaxSize": "파일당 최대 {size}",
+        "uploadMaxSize": "최대 {size}",
         "reupload": "다시 업로드",
-        "reset": "다시 시작",
+        "reset": "도구 초기화",
         "fileInfo": "{name} · {size}",
         "extract": "추출하기",
         "extractCount": "추출하기 ({n}장)",
@@ -170,7 +171,7 @@
         "imageCount": "{n}장",
         "downloadZip": "ZIP 다운로드",
         "downloadOneAria": "{name} 다운로드",
-        "again": "다시 작업",
+        "again": "다시 하기",
         "placeholderLabel": "미리보기 불가",
         "analyzingHint": "분석 중…",
         "previewUnavailable": "미리보기 없음",
@@ -182,13 +183,13 @@
     },
     "ppt-compress": {
       "title": "PPT 용량 줄이기",
-      "description": "PPTX 속 이미지를 다시 압축해 파일 크기를 줄입니다.",
+      "description": "PPTX 속 이미지를 다시 압축해 용량을 줄입니다.",
       "page": {
-        "uploadPrompt": "PPTX를 끌어다 놓거나 선택하세요",
-        "uploadHint": "PPTX 파일 하나를 선택하세요.",
-        "uploadMaxSize": "최대 {maxSize}",
+        "uploadPrompt": "PPTX를 드래그하거나 클릭하여 업로드",
+        "uploadHint": "PPTX 파일 하나만 올릴 수 있습니다.",
+        "uploadMaxSize": "최대 {size}",
         "reupload": "다시 업로드",
-        "reset": "처음으로",
+        "reset": "도구 초기화",
         "fileInfo": "{name} · {size}",
         "slideCount": "슬라이드 {n}장",
         "presetGroupLabel": "압축 강도",
@@ -208,7 +209,7 @@
         "compressedSizeLabel": "압축 후",
         "savingsLabel": "절감률",
         "download": "다운로드",
-        "again": "다시 압축",
+        "again": "다시 하기",
         "analyzingHint": "분석 중…",
         "previewUnavailable": "미리보기를 만들 수 없습니다",
         "imagesLabel": "이미지",
@@ -219,10 +220,10 @@
       }
     },
     "pdf-arrange": {
-      "title": "PDF 합치기 / 나누기 / 정렬",
-      "description": "여러 PDF를 하나의 파일로 합치거나, 구분선으로 여러 파일로 나눕니다.",
+      "title": "PDF 합치기·나누기·정렬",
+      "description": "여러 PDF를 하나로 합치거나, 구분선을 기준으로 여러 파일로 나눕니다.",
       "page": {
-        "reset": "초기화",
+        "reset": "도구 초기화",
         "uploadPrompt": "PDF 또는 이미지를 드래그하거나 클릭하여 업로드",
         "uploadHint": "PDF는 페이지별로, 이미지는 한 페이지로 펼쳐집니다.",
         "reupload": "다시 업로드",
@@ -237,7 +238,7 @@
         "processing": "처리 중…",
         "done": "완료되었습니다",
         "download": "다운로드",
-        "again": "다시 선택",
+        "again": "다시 하기",
         "oversizeWarning": "총 용량이 큽니다({size}). 브라우저에서 처리 시 느려질 수 있습니다.",
         "dismiss": "닫기",
         "resultTitle": "적용 완료",
@@ -252,13 +253,13 @@
     "pdf-split": { "title": "PDF 나누기", "description": "페이지 단위로 나누거나 구간별로 분리합니다." },
     "pdf-compress": {
       "title": "PDF 용량 줄이기",
-      "description": "품질 손실 없이 파일 크기를 줄입니다.",
+      "description": "품질 손실 없이 PDF 용량을 줄입니다.",
       "page": {
-        "uploadPrompt": "PDF를 끌어다 놓거나 클릭하여 업로드",
-        "uploadHint": "단일 PDF 파일을 선택하세요.",
-        "uploadMaxSize": "파일당 최대 {size}",
+        "uploadPrompt": "PDF를 드래그하거나 클릭하여 업로드",
+        "uploadHint": "PDF 파일 하나만 올릴 수 있습니다.",
+        "uploadMaxSize": "최대 {size}",
         "reupload": "다시 업로드",
-        "reset": "다시 시작",
+        "reset": "도구 초기화",
         "fileInfo": "{name} · {size}",
         "presetGroupLabel": "압축 레벨",
         "presetLightLabel": "Light",
@@ -279,20 +280,20 @@
         "compressedSizeLabel": "압축 후",
         "savingsLabel": "절감률",
         "download": "다운로드",
-        "again": "다시 압축",
+        "again": "다시 하기",
         "errorMemory": "브라우저 메모리가 부족합니다. 더 작은 PDF를 사용해 주세요.",
         "errorCorrupt": "압축 결과가 손상되어 사용할 수 없습니다. 다른 압축 강도로 시도해 주세요."
       }
     },
     "pdf-watermark": {
-      "title": "PDF 워터마크 / 페이지번호",
+      "title": "PDF 워터마크·페이지번호",
       "description": "PDF에 페이지 번호를 찍거나 워터마크를 넣습니다.",
       "page": {
-        "uploadPrompt": "PDF를 끌어다 놓거나 클릭하여 업로드",
-        "uploadHint": "단일 PDF 파일을 선택하세요.",
-        "uploadMaxSize": "파일당 최대 {size}",
+        "uploadPrompt": "PDF를 드래그하거나 클릭하여 업로드",
+        "uploadHint": "PDF 파일 하나만 올릴 수 있습니다.",
+        "uploadMaxSize": "최대 {size}",
         "reupload": "다시 업로드",
-        "reset": "다시 시작",
+        "reset": "도구 초기화",
         "fileInfo": "{name} · {size}",
         "pageCount": "{n}페이지",
         "modeNumber": "페이지 번호",
@@ -332,20 +333,20 @@
         "resultPages": "{applied} / {total} 페이지에 적용",
         "resultSize": "결과 크기 {size}",
         "download": "다운로드",
-        "again": "다시 적용",
+        "again": "다시 하기",
         "errorMemory": "브라우저 메모리가 부족합니다. 더 작은 PDF를 사용해 주세요.",
         "errorCorrupt": "결과 PDF가 손상되어 사용할 수 없습니다. 설정을 바꿔 다시 시도해 주세요."
       }
     },
     "pdf-lock": {
-      "title": "PDF 암호 / 잠금",
+      "title": "PDF 암호·잠금",
       "description": "PDF에 열기 암호를 걸거나, 암호를 풀어 잠금을 해제합니다.",
       "page": {
-        "uploadPrompt": "PDF를 끌어다 놓거나 클릭하여 업로드",
-        "uploadHint": "단일 PDF 파일을 선택하세요.",
-        "uploadMaxSize": "파일당 최대 {size}",
+        "uploadPrompt": "PDF를 드래그하거나 클릭하여 업로드",
+        "uploadHint": "PDF 파일 하나만 올릴 수 있습니다.",
+        "uploadMaxSize": "최대 {size}",
         "reupload": "다시 업로드",
-        "reset": "다시 시작",
+        "reset": "도구 초기화",
         "fileInfo": "{name} · {size}",
         "modeLock": "암호 걸기",
         "modeUnlock": "암호 풀기",
@@ -389,9 +390,9 @@
       "title": "이미지 → PPT",
       "description": "이미지를 배경 위 원하는 위치·크기로 배치해 PPTX로 만듭니다.",
       "page": {
-        "uploadPrompt": "이미지를 끌어다 놓거나 선택하세요",
-        "uploadHint": "JPG·PNG, 여러 장 가능",
-        "uploadMaxSize": "최대 {maxSize}",
+        "uploadPrompt": "이미지를 드래그하거나 클릭하여 업로드",
+        "uploadHint": "JPG·PNG 이미지를 여러 장 올릴 수 있습니다.",
+        "uploadMaxSize": "파일당 최대 {size}",
         "reupload": "다시 업로드",
         "convert": "만들기 ({n}장)",
         "filesOne": "{name}",
@@ -432,7 +433,7 @@
       "description": "이미지 여러 장을 하나의 PDF로 묶습니다.",
       "page": {
         "uploadPrompt": "이미지를 드래그하거나 클릭하여 업로드",
-        "uploadHint": "JPG·PNG. 여러 장을 한 번에 올릴 수 있어요.",
+        "uploadHint": "JPG·PNG 이미지를 여러 장 한 번에 올릴 수 있습니다.",
         "uploadMaxSize": "파일당 최대 {size}",
         "reupload": "다시 업로드",
         "convert": "변환하기 ({n}장)",
@@ -452,7 +453,7 @@
         "pageCount": "{n}페이지",
         "download": "다운로드",
         "compressHandoff": "PDF 압축하기",
-        "again": "다시"
+        "again": "다시 하기"
       }
     },
     "pdf-to-image": {
@@ -460,7 +461,7 @@
       "description": "PDF의 각 페이지를 고해상도 이미지로 변환합니다.",
       "page": {
         "uploadPrompt": "PDF를 드래그하거나 클릭하여 업로드",
-        "uploadHint": "PDF 여러 개를 한 번에 올릴 수 있어요.",
+        "uploadHint": "PDF 여러 개를 한 번에 올릴 수 있습니다.",
         "uploadMaxSize": "파일당 최대 {size}",
         "reupload": "다시 업로드",
         "addAria": "PDF 추가",
@@ -485,7 +486,7 @@
         "downloadSingle": "다운로드 ({format})",
         "downloadOneAria": "{name} 다운로드",
         "compressHandoff": "이미지 압축하기",
-        "again": "다시"
+        "again": "다시 하기"
       }
     },
     "image-compress": {
@@ -501,10 +502,10 @@
         },
         "reupload": "다시 업로드",
         "uploadPrompt": "이미지를 드래그하거나 클릭하여 업로드",
-        "uploadHint": "JPG, PNG, WebP 파일을 지원합니다. 여러 장을 한 번에 올릴 수 있습니다.",
+        "uploadHint": "JPG, PNG, WebP, HEIC, HEIF 파일을 지원합니다. 여러 장을 한 번에 올릴 수 있습니다.",
         "formatTitle": "포맷 선택",
         "qualityTitle": "품질",
-        "compressTemplate": "압축하기 ({n}개)",
+        "compressTemplate": "압축하기 ({n}장)",
         "moreImagesTemplate": "+{n}개 이미지",
         "estimateTemplate": "예상 ~{size} · 원본 대비 {pct}",
         "estimating": "예상 용량 계산 중…",
@@ -512,7 +513,7 @@
         "doneTitle": "압축 완료",
         "settingsTemplate": "{format} · 품질 {quality}%",
         "download": "다운로드",
-        "recompress": "다시 압축",
+        "recompress": "다시 하기",
         "sizeChangeTemplate": "{from} → {to}",
         "removeAria": "{name} 제거",
         "prevAria": "이전 이미지",
@@ -523,13 +524,13 @@
     "heic-convert": { "title": "HEIC 변환", "description": "아이폰 HEIC 사진을 JPG·PNG로 변환합니다." },
     "image-resize": {
       "title": "이미지 크기 변경",
-      "description": "픽셀·비율을 유지하며 일괄 리사이즈합니다.",
+      "description": "이미지를 원하는 크기로 변경하거나 비율을 유지하며 잘라냅니다.",
       "page": {
         "title": "이미지 크기 변경",
-        "subtitle": "이미지의 해상도를 원하는 크기 또는 비율로 변경합니다.",
+        "subtitle": "이미지를 원하는 크기로 변경하거나 비율을 유지하며 잘라냅니다.",
         "header": {
           "title": "이미지 크기 변경",
-          "description": "이미지의 해상도를 원하는 크기 또는 비율로 변경합니다.",
+          "description": "이미지를 원하는 크기로 변경하거나 비율을 유지하며 잘라냅니다.",
           "reset": "도구 초기화"
         },
         "originalSize": "원본 크기",
@@ -554,12 +555,12 @@
         "apply": "변경하기",
         "doneTitle": "변경 완료",
         "download": "다운로드",
-        "downloadAgainLabel": "다시 작업하기",
+        "downloadAgainLabel": "다시 하기",
         "reupload": "다시 업로드",
         "compressLink": "압축/변환하러 가기",
         "uploadPrompt": "이미지를 드래그하거나 클릭하여 업로드",
         "uploadHint": "JPG, PNG, WebP 파일을 지원합니다.",
-        "tryAgain": "다시 변경",
+        "tryAgain": "다시 하기",
         "cropSelectionLabel": "영역 선택 (드래그하여 이동, 모서리로 크기 조절)",
         "stretchModeLabel": "이미지를 지정한 크기에 강제로 맞춰 크기를 변경",
         "cropFooterTemplate": "{w}×{h} 비율로 잘라냅니다 · 크롭 영역: {cw}×{ch}px"
