@@ -23,8 +23,6 @@ export const FILE_SIZE_LIMIT = {
 
 export interface ToolInfo {
   slug: string;
-  title: string;
-  description: string;
   i18nKey: string;
   href: string;
   icon: LucideIcon;
@@ -40,11 +38,11 @@ export interface ToolInfo {
   aliasOf?: string;
 }
 
+// User-facing copy (title/description) lives in the i18n dictionaries under
+// `tools.<slug>`, keyed by `i18nKey`. Keep names/wording there, not here.
 export const TOOLS: ToolInfo[] = [
   {
     slug: "ppt-background",
-    title: "PPT 배경 바꾸기",
-    description: "PPTX 슬라이드 배경을 한 번에 일괄 교체합니다.",
     i18nKey: "tools.ppt-background",
     href: "/tools/ppt-background",
     icon: Layers,
@@ -52,8 +50,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "ppt-extract",
-    title: "PPT 이미지 추출",
-    description: "프레젠테이션에 포함된 모든 이미지를 꺼내옵니다.",
     i18nKey: "tools.ppt-extract",
     href: "/tools/ppt-extract",
     icon: ImageDown,
@@ -61,8 +57,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "ppt-compress",
-    title: "PPT 용량 줄이기",
-    description: "PPTX 속 이미지를 다시 압축해 파일 크기를 줄입니다.",
     i18nKey: "tools.ppt-compress",
     href: "/tools/ppt-compress",
     icon: Minimize2,
@@ -71,8 +65,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "pdf-arrange",
-    title: "PDF 합치기 / 나누기 / 정렬",
-    description: "여러 PDF를 하나로 합치거나, 구분선으로 여러 파일로 나눕니다.",
     i18nKey: "tools.pdf-arrange",
     href: "/tools/pdf-arrange",
     icon: LayoutGrid,
@@ -90,8 +82,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "pdf-merge",
-    title: "PDF 합치기",
-    description: "여러 PDF 파일을 하나로 정밀하게 병합합니다.",
     i18nKey: "tools.pdf-merge",
     href: "/tools/pdf-merge",
     icon: Files,
@@ -100,8 +90,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "pdf-split",
-    title: "PDF 나누기",
-    description: "페이지 단위로 나누거나 구간별로 분리합니다.",
     i18nKey: "tools.pdf-split",
     href: "/tools/pdf-split",
     icon: Split,
@@ -110,8 +98,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "pdf-compress",
-    title: "PDF 용량 줄이기",
-    description: "품질 손실 없이 파일 크기를 줄입니다.",
     i18nKey: "tools.pdf-compress",
     href: "/tools/pdf-compress",
     icon: Archive,
@@ -119,8 +105,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "pdf-watermark",
-    title: "PDF 워터마크 / 페이지번호",
-    description: "PDF에 페이지 번호를 찍거나 워터마크를 넣습니다.",
     i18nKey: "tools.pdf-watermark",
     href: "/tools/pdf-watermark",
     icon: Stamp,
@@ -137,8 +121,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "pdf-lock",
-    title: "PDF 암호 / 잠금",
-    description: "PDF에 열기 암호를 걸거나, 암호를 풀어 잠금을 해제합니다.",
     i18nKey: "tools.pdf-lock",
     href: "/tools/pdf-lock",
     icon: Lock,
@@ -157,8 +139,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "pdf-pages",
-    title: "페이지 관리",
-    description: "페이지 순서 변경, 회전, 삭제를 한 곳에서.",
     i18nKey: "tools.pdf-pages",
     href: "/tools/pdf-pages",
     icon: LayoutGrid,
@@ -167,8 +147,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "image-to-pdf",
-    title: "이미지 → PDF",
-    description: "이미지 여러 장을 하나의 PDF로 묶습니다.",
     i18nKey: "tools.image-to-pdf",
     href: "/tools/image-to-pdf",
     icon: ImagePlus,
@@ -176,8 +154,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "image-to-pptx",
-    title: "이미지 → PPT",
-    description: "이미지를 배경 위 원하는 위치·크기로 배치해 PPTX로 만듭니다.",
     i18nKey: "tools.image-to-pptx",
     href: "/tools/image-to-pptx",
     icon: Presentation,
@@ -186,8 +162,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "pdf-to-image",
-    title: "PDF → 이미지",
-    description: "PDF의 각 페이지를 고해상도 이미지로 변환합니다.",
     i18nKey: "tools.pdf-to-image",
     href: "/tools/pdf-to-image",
     icon: FileImage,
@@ -195,8 +169,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "image-compress",
-    title: "이미지 압축·변환",
-    description: "여러 이미지를 한 번에 압축하고 포맷을 바꿉니다.",
     i18nKey: "tools.image-compress",
     href: "/tools/image-compress",
     icon: Shrink,
@@ -205,8 +177,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "heic-convert",
-    title: "HEIC 변환",
-    description: "아이폰 HEIC 사진을 JPG·PNG로 변환합니다.",
     i18nKey: "tools.heic-convert",
     href: "/tools/heic-convert",
     icon: Shrink,
@@ -216,8 +186,6 @@ export const TOOLS: ToolInfo[] = [
   },
   {
     slug: "image-resize",
-    title: "이미지 크기 변경",
-    description: "픽셀·비율을 유지하며 일괄 리사이즈합니다.",
     i18nKey: "tools.image-resize",
     href: "/tools/image-resize",
     icon: Expand,

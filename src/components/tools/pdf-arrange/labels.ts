@@ -41,7 +41,7 @@ export function getPdfArrangeLabels(dict: Dictionary): PdfArrangeLabels {
     reset: page.reset,
     uploadPrompt: page.uploadPrompt,
     uploadHint: page.uploadHint,
-    uploadMaxSize: dict.common.fileUpload.maxSize,
+    uploadMaxSize: dict.common.fileUpload.maxSizeEach,
     reupload: page.reupload,
     filesOneTemplate: page.filesOneTemplate,
     filesManyTemplate: page.filesManyTemplate,

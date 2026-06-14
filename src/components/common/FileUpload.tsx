@@ -103,7 +103,6 @@ export function FileUpload({
     multiple,
   });
 
-  const acceptedExtensions = Object.values(accept).flat().join(", ");
   const maxSizeTemplate = labels?.maxSize ?? "최대 {size}";
   const maxSizeHint = template(maxSizeTemplate, { size: formatBytes(maxSize) });
   const selectedCountTpl = labels?.selectedCountTemplate ?? "{n}개 파일 선택됨";
@@ -135,7 +134,7 @@ export function FileUpload({
           )}
           {!hideAutoHint && (
             <p className="mt-1 text-xs text-muted-foreground">
-              {acceptedExtensions} · {maxSizeHint}
+              {maxSizeHint}
             </p>
           )}
         </div>

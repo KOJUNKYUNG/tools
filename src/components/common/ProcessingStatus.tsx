@@ -30,6 +30,8 @@ interface ProcessingStatusProps {
     error?: string;
     errorBody?: string;
     retry?: string;
+    /** Done-state "do it again" button. Falls back to `retry` when unset. */
+    tryAnother?: string;
   };
 }
 
@@ -120,7 +122,7 @@ export function ProcessingStatus({
                 style={{ color: "var(--ink-strong)" }}
               >
                 <RefreshCwIcon className="size-3" />
-                {L.retry}
+                {L.tryAnother ?? L.retry}
               </button>
             )}
           </div>
