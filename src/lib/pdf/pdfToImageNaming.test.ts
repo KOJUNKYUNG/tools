@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { assignImageNames, deriveZipName } from "./pdfToImageNaming";
+import {
+  assignImageNames,
+  deriveBatchZipName,
+  deriveZipName,
+} from "./pdfToImageNaming";
 
 describe("assignImageNames", () => {
   it("names each image after its own source pdf, numbered within that source", () => {
@@ -56,5 +60,12 @@ describe("assignImageNames", () => {
 describe("deriveZipName", () => {
   it("appends -images.zip to the base", () => {
     expect(deriveZipName("report")).toBe("report-images.zip");
+  });
+});
+
+describe("deriveBatchZipName", () => {
+  it("numbers each batch zip after the source base", () => {
+    expect(deriveBatchZipName("bulletin", 1)).toBe("bulletin-images-1.zip");
+    expect(deriveBatchZipName("bulletin", 12)).toBe("bulletin-images-12.zip");
   });
 });

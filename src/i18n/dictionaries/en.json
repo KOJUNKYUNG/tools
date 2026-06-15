@@ -486,7 +486,10 @@
         "downloadSingle": "Download ({format})",
         "downloadOneAria": "Download {name}",
         "compressHandoff": "Compress images",
-        "again": "Start over"
+        "again": "Start over",
+        "streamedTitle": "Saved",
+        "streamedSummary": "Saved {n} images across {m} zip files.",
+        "batchSavedToast": "Part {n} saved"
       }
     },
     "image-compress": {

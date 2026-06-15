@@ -486,7 +486,10 @@
         "downloadSingle": "다운로드 ({format})",
         "downloadOneAria": "{name} 다운로드",
         "compressHandoff": "이미지 압축하기",
-        "again": "다시 하기"
+        "again": "다시 하기",
+        "streamedTitle": "저장 완료",
+        "streamedSummary": "이미지 {n}장을 zip 파일 {m}개로 나눠 저장했습니다.",
+        "batchSavedToast": "파트 {n} 저장됨"
       }
     },
     "image-compress": {
