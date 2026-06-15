@@ -9,16 +9,27 @@ export type Background =
 export interface PlacedImage { dataUrl: string; placement: Box; }
 export interface AssembleOptions { slideKind: SlideKind; background: Background; }
 
+const BG_MASTER = "ONTAB_BG";
+
 /** Low-level: caller supplies already-downscaled data URLs + placements. */
 export async function assemblePptxFromPlaced(images: PlacedImage[], opts: AssembleOptions): Promise<Uint8Array> {
   const pptx = new PptxGenJS();
   const size = SLIDE_SIZES[opts.slideKind];
   pptx.defineLayout({ name: "ONTAB", width: size.w, height: size.h });
   pptx.layout = "ONTAB";
+  // Define the (deck-wide) background ONCE on a slide master and let every slide
+  // inherit it. Setting `slide.background` per slide makes pptxgenjs embed the
+  // image a fresh copy each time → an N-slide deck stored N copies of the same
+  // background (file bloat; re-extraction yielded N duplicate images). A master
+  // background is stored a single time. Also mirrors ppt-background's single
+  // shared-media model for cross-tool consistency.
+  const masterBg =
+    opts.background.kind === "color"
+      ? { color: opts.background.color }
+      : { data: opts.background.dataUrl };
+  pptx.defineSlideMaster({ title: BG_MASTER, background: masterBg });
   for (const img of images) {
-    const slide = pptx.addSlide();
-    if (opts.background.kind === "color") slide.background = { color: opts.background.color };
-    else slide.background = { data: opts.background.dataUrl };
+    const slide = pptx.addSlide({ masterName: BG_MASTER });
     const p = img.placement;
     slide.addImage({ data: img.dataUrl, x: p.x, y: p.y, w: p.w, h: p.h });
   }
