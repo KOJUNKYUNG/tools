@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RotateCcwIcon } from "lucide-react";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { FileUpload } from "@/components/common/FileUpload";
+import { uploadLimitFor } from "@/lib/constants";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
@@ -425,6 +426,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             <FileUpload
               accept={PPTX_ACCEPT}
               multiple={false}
+              maxSize={uploadLimitFor("ppt-background")}
               onFiles={setPptxFiles}
               label={labels.upload.dropzoneLabel}
               description={labels.upload.dropzoneHint}

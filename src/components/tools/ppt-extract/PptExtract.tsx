@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
+import { uploadLimitFor } from "@/lib/constants";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
@@ -168,6 +169,7 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
           accept={PPTX_ACCEPT}
           multiple={false}
           hideFileList
+          maxSize={uploadLimitFor("ppt-extract")}
           onFiles={handleFilesChange}
           label={labels.uploadPrompt}
           description={labels.uploadHint}

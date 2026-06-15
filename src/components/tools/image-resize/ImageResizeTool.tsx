@@ -6,6 +6,7 @@ import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
+import { uploadLimitFor } from "@/lib/constants";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import {
@@ -401,6 +402,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
         <FileUpload
           accept={IMAGE_ACCEPT}
           multiple={false}
+          maxSize={uploadLimitFor("image-resize")}
           onFiles={(fs) => void handleUpload(fs)}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
