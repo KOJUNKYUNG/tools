@@ -50,6 +50,14 @@ export function uploadLimitFor(slug: string): number {
  */
 export const TOTAL_SIZE_WARN = 100 * MB;
 
+/**
+ * Target accumulated output bytes per batch for pdf-to-image streaming. When a
+ * conversion's running output reaches this (with pages still remaining), the
+ * current batch is zipped and downloaded, then memory is released before the
+ * next batch. Bounds peak memory to ~one batch instead of the whole job.
+ */
+export const PDF_TO_IMAGE_BATCH_BYTES = 50 * MB;
+
 export interface ToolInfo {
   slug: string;
   i18nKey: string;
