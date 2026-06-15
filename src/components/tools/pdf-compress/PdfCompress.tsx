@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
+import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { uploadLimitFor } from "@/lib/constants";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
@@ -267,6 +268,8 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
         return;
       }
       const picked = e.target.files ? Array.from(e.target.files) : [];
+      // No size block: pdf-compress exists to shrink large PDFs, so an oversize
+      // file is accepted and the editor shows an advisory instead of rejecting.
       if (picked.length > 0) handleFilesChange(picked);
       e.target.value = "";
     },
@@ -286,6 +289,15 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   const hasFile = !!file;
   const busy = status === "processing";
   const isDone = status === "done" && !!result;
+
+  // Advisory (never blocks): pdf-compress accepts any size, but warns when a file
+  // is large enough that in-browser compression may be slow or fail.
+  const [oversizeDismissed, setOversizeDismissed] = useState(false);
+  const showOversize =
+    !!file &&
+    status === "idle" &&
+    file.size > uploadLimitFor("pdf-compress") &&
+    !oversizeDismissed;
 
   // Unified compressed candidate: authoritative result in done state, live preview otherwise.
   const compressedCandidate = isDone ? compressedUrl : livePreviewUrl;
@@ -324,11 +336,12 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           accept={PDF_ACCEPT}
           multiple={false}
           hideFileList
-          maxSize={uploadLimitFor("pdf-compress")}
+          hideAutoHint
+          maxSize={Number.POSITIVE_INFINITY}
           onFiles={handleFilesChange}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
-          labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
+          labels={labels.fileUpload}
         />
       ) : (
         <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
@@ -340,6 +353,15 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
             onExecute={status === "idle" ? handleCompressClick : undefined}
             executeLabel={labels.compress}
           />
+
+          {showOversize && file && (
+            <OversizeNotice
+              totalBytes={file.size}
+              warning={labels.fileUpload.largeFileWarning}
+              dismissLabel={labels.fileUpload.dismiss}
+              onDismiss={() => setOversizeDismissed(true)}
+            />
+          )}
 
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2">
             {/* LEFT: preview frame (persists) → compare checkbox */}

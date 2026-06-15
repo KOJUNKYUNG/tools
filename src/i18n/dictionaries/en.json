@@ -26,6 +26,7 @@
       "maxSize": "Up to {size}",
       "maxSizeEach": "Up to {size} each",
       "oversizeWarning": "Large total size ({size}). In-browser processing may be slow.",
+      "largeFileWarning": "Large file ({size}). In-browser processing may be slow or fail.",
       "dismiss": "Dismiss",
       "tooLargeTemplate": "{name}: file exceeds the {size} limit.",
       "invalidTypeTemplate": "{name}: unsupported file type.",
