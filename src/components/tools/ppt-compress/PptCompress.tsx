@@ -7,7 +7,7 @@ import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
-import { FILE_SIZE_LIMIT } from "@/lib/constants";
+import { uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
@@ -184,7 +184,7 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
           accept={PPTX_ACCEPT}
           multiple={false}
           hideFileList
-          maxSize={FILE_SIZE_LIMIT.user}
+          maxSize={uploadLimitFor("ppt-compress")}
           onFiles={handleFilesChange}
           label={labels.uploadPrompt}
           description={labels.uploadHint}

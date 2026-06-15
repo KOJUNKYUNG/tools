@@ -7,7 +7,7 @@ import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
-import { FILE_SIZE_LIMIT } from "@/lib/constants";
+import { uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
@@ -154,12 +154,12 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
       const picked = e.target.files ? Array.from(e.target.files) : [];
       // The dropzone enforces maxSize; this hidden re-upload input bypasses it,
       // so guard here too (mirrors pdf-watermark).
-      const tooLarge = picked.find((f) => f.size > FILE_SIZE_LIMIT.user);
+      const tooLarge = picked.find((f) => f.size > uploadLimitFor("pdf-lock"));
       if (tooLarge) {
         toast.error(
           template(labels.fileUpload.tooLargeTemplate, {
             name: tooLarge.name,
-            size: formatBytes(FILE_SIZE_LIMIT.user),
+            size: formatBytes(uploadLimitFor("pdf-lock")),
           }),
         );
         e.target.value = "";
@@ -266,7 +266,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
           accept={PDF_ACCEPT}
           multiple={false}
           hideFileList
-          maxSize={FILE_SIZE_LIMIT.user}
+          maxSize={uploadLimitFor("pdf-lock")}
           onFiles={handleFilesChange}
           label={labels.uploadPrompt}
           description={labels.uploadHint}

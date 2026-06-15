@@ -6,6 +6,7 @@ import { PlusIcon, RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { FileUpload } from "@/components/common/FileUpload";
+import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { PageItemCard, type SectionTint } from "@/components/pdf-editor/PageItemCard";
 import { buildPageItems, deriveBaseName } from "@/components/pdf-editor/buildPageItems";
@@ -14,7 +15,7 @@ import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { stageFiles } from "@/lib/common/toolHandoff";
-import { FILE_SIZE_LIMIT } from "@/lib/constants";
+import { TOTAL_SIZE_WARN, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { buildConversionJobs } from "@/lib/pdf/buildConversionJobs";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
@@ -105,11 +106,11 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
       for (const f of incoming) {
         if (!isPdf(f)) toast.error(`${f.name}: PDF 파일만 추가할 수 있습니다.`);
       }
-      const accepted = pdfs.filter((f) => f.size <= FILE_SIZE_LIMIT.guest);
+      const accepted = pdfs.filter((f) => f.size <= uploadLimitFor("pdf-to-image"));
       for (const f of pdfs) {
-        if (f.size > FILE_SIZE_LIMIT.guest) {
+        if (f.size > uploadLimitFor("pdf-to-image")) {
           toast.error(
-            `${f.name}: 파일 크기가 ${formatBytes(FILE_SIZE_LIMIT.guest)}를 초과합니다.`,
+            `${f.name}: 파일 크기가 ${formatBytes(uploadLimitFor("pdf-to-image"))}를 초과합니다.`,
           );
         }
       }
@@ -206,6 +207,10 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
   const busy = status === "processing";
   const liveCount = items.filter((p) => !p.deleted).length;
 
+  const [oversizeDismissed, setOversizeDismissed] = useState(false);
+  const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+  const showOversize = totalBytes > TOTAL_SIZE_WARN && !oversizeDismissed;
+
   const filesSummary =
     files.length <= 1
       ? template(labels.filesOneTemplate, { name: files[0]?.name ?? "" })
@@ -298,13 +303,24 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
           accept={PDF_ACCEPT}
           multiple
           hideFileList
+          maxSize={uploadLimitFor("pdf-to-image")}
           onFiles={handleUpload}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : status === "idle" ? (
-        editor
+        <>
+          {showOversize && (
+            <OversizeNotice
+              totalBytes={totalBytes}
+              warning={labels.fileUpload.oversizeWarning}
+              dismissLabel={labels.fileUpload.dismiss}
+              onDismiss={() => setOversizeDismissed(true)}
+            />
+          )}
+          {editor}
+        </>
       ) : status === "done" && result ? (
         <PdfToImageResult
           images={result}

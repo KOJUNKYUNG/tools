@@ -17,14 +17,15 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { PlusIcon, RotateCcwIcon, XIcon } from "lucide-react";
+import { PlusIcon, RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
+import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
-import { FILE_SIZE_LIMIT } from "@/lib/constants";
+import { TOTAL_SIZE_WARN, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { assembleSections, packageOutputs } from "@/lib/pdf/assembleSections";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
@@ -57,9 +58,6 @@ const ACCEPT = {
 };
 const ACCEPT_ATTR =
   "application/pdf,image/png,image/jpeg,image/heic,image/heif,.heic,.heif";
-
-/** Total upload size above which we show a soft (dismissible) slowness warning. */
-const OVERSIZE_THRESHOLD = 100 * 1024 * 1024;
 
 /** Per-section ring tints, cycled across sections — neutral light / mid / dark
  *  (no hue; section grouping reads via tone difference + the divider mark). */
@@ -219,11 +217,11 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
 
       // Per-file size guard — mirrors FileUpload's dropzone limit on the add path
       // (the hidden <input> bypasses react-dropzone's maxSize check).
-      const accepted = normalized.filter((f) => f.size <= FILE_SIZE_LIMIT.guest);
+      const accepted = normalized.filter((f) => f.size <= uploadLimitFor("pdf-arrange"));
       for (const f of normalized) {
-        if (f.size > FILE_SIZE_LIMIT.guest) {
+        if (f.size > uploadLimitFor("pdf-arrange")) {
           toast.error(
-            `${f.name}: 파일 크기가 ${formatBytes(FILE_SIZE_LIMIT.guest)}를 초과합니다.`,
+            `${f.name}: 파일 크기가 ${formatBytes(uploadLimitFor("pdf-arrange"))}를 초과합니다.`,
           );
         }
       }
@@ -369,7 +367,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     for (const b of sourceBytesById.values()) sum += b.byteLength;
     return sum;
   }, [sourceBytesById]);
-  const showOversize = totalBytes > OVERSIZE_THRESHOLD && !oversizeDismissed;
+  const showOversize = totalBytes > TOTAL_SIZE_WARN && !oversizeDismissed;
 
   const sectionCount = countSections(items);
   const hasFiles = items.length > 0;
@@ -386,28 +384,12 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
   const editor = (
     <div className="space-y-3">
       {showOversize && (
-        <div
-          className="flex items-center justify-between gap-2 rounded-[8px] border px-3 py-2 text-[12px]"
-          style={{
-            background: "var(--surface-2)",
-            borderColor: "var(--ink-soft)",
-            color: "var(--ink-strong)",
-          }}
-        >
-          <span>
-            {template(labels.oversizeWarning, { size: formatBytes(totalBytes) })}
-          </span>
-          <button
-            type="button"
-            onClick={() => setOversizeDismissed(true)}
-            aria-label={labels.dismiss}
-            title={labels.dismiss}
-            className="shrink-0 rounded p-1 transition-colors hover:text-[color:var(--ink-strong)]"
-            style={{ color: "var(--ink-soft)" }}
-          >
-            <XIcon className="size-3.5" />
-          </button>
-        </div>
+        <OversizeNotice
+          totalBytes={totalBytes}
+          warning={labels.fileUpload.oversizeWarning}
+          dismissLabel={labels.fileUpload.dismiss}
+          onDismiss={() => setOversizeDismissed(true)}
+        />
       )}
 
       <EditorTopStrip
@@ -501,6 +483,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
           accept={ACCEPT}
           multiple
           hideFileList
+          maxSize={uploadLimitFor("pdf-arrange")}
           onFiles={handleUpload}
           label={labels.uploadPrompt}
           description={labels.uploadHint}

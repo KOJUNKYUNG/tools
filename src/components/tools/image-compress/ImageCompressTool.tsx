@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
+import { OversizeNotice } from "@/components/common/OversizeNotice";
+import { TOTAL_SIZE_WARN, uploadLimitFor } from "@/lib/constants";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
@@ -247,6 +249,10 @@ export function ImageCompressTool({
   const isDone = status === "done" && !!result;
   const busy = status === "processing";
 
+  const [oversizeDismissed, setOversizeDismissed] = useState(false);
+  const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+  const showOversize = totalBytes > TOTAL_SIZE_WARN && !oversizeDismissed;
+
   const body = (
     <div className={inline ? "space-y-5" : "space-y-5 px-6 py-4"}>
       <input
@@ -272,6 +278,7 @@ export function ImageCompressTool({
           accept={IMAGE_ACCEPT}
           multiple
           hideFileList
+          maxSize={uploadLimitFor("image-compress")}
           onFiles={(fs) => void handleUpload(fs)}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
@@ -279,6 +286,14 @@ export function ImageCompressTool({
         />
       ) : (
         <div className="space-y-4">
+          {showOversize && (
+            <OversizeNotice
+              totalBytes={totalBytes}
+              warning={labels.fileUpload.oversizeWarning}
+              dismissLabel={labels.fileUpload.dismiss}
+              onDismiss={() => setOversizeDismissed(true)}
+            />
+          )}
           <ToolTopStrip
             filesSummary={files[currentIndex]?.name ?? ""}
             meta={

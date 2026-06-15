@@ -25,6 +25,8 @@
     "fileUpload": {
       "maxSize": "최대 {size}",
       "maxSizeEach": "파일당 최대 {size}",
+      "oversizeWarning": "총 용량이 큽니다({size}). 브라우저에서 처리 시 느려질 수 있습니다.",
+      "dismiss": "닫기",
       "tooLargeTemplate": "{name}: 파일 크기가 {size}를 초과합니다.",
       "invalidTypeTemplate": "{name}: 지원하지 않는 파일 형식입니다.",
       "errorTemplate": "{name}: {message}",
@@ -239,8 +241,6 @@
         "done": "완료되었습니다",
         "download": "다운로드",
         "again": "다시 하기",
-        "oversizeWarning": "총 용량이 큽니다({size}). 브라우저에서 처리 시 느려질 수 있습니다.",
-        "dismiss": "닫기",
         "resultTitle": "적용 완료",
         "outputCountTemplate": "{n}개 파일 생성됨",
         "pageCountTemplate": "{n}페이지",
