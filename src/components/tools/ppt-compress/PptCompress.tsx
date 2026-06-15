@@ -135,10 +135,23 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
         return;
       }
       const picked = e.target.files ? Array.from(e.target.files) : [];
+      // The dropzone enforces maxSize; this hidden re-upload input bypasses it,
+      // so guard here too (mirrors pdf-lock).
+      const tooLarge = picked.find((f) => f.size > uploadLimitFor("ppt-compress"));
+      if (tooLarge) {
+        toast.error(
+          template(labels.fileUpload.tooLargeTemplate, {
+            name: tooLarge.name,
+            size: formatBytes(uploadLimitFor("ppt-compress")),
+          }),
+        );
+        e.target.value = "";
+        return;
+      }
       if (picked.length > 0) handleFilesChange(picked);
       e.target.value = "";
     },
-    [handleFilesChange, status],
+    [handleFilesChange, status, labels.fileUpload.tooLargeTemplate],
   );
 
   const onReset = useCallback(() => {

@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { uploadLimitFor } from "@/lib/constants";
+import { formatBytes } from "@/lib/common/formatBytes";
+import { template } from "@/lib/common/template";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import {
@@ -368,13 +370,26 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   const handleHiddenInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newFiles = e.target.files ? Array.from(e.target.files) : [];
+      // The dropzone enforces maxSize; this hidden re-upload input bypasses it,
+      // so guard the raw pick here too (before HEIC normalization).
+      const tooLarge = newFiles.find((f) => f.size > uploadLimitFor("image-resize"));
+      if (tooLarge) {
+        toast.error(
+          template(labels.fileUpload.tooLargeTemplate, {
+            name: tooLarge.name,
+            size: formatBytes(uploadLimitFor("image-resize")),
+          }),
+        );
+        e.target.value = "";
+        return;
+      }
       if (newFiles.length > 0) {
         void handleUpload(newFiles);
       }
       // Allow re-selecting the same file in a row
       e.target.value = "";
     },
-    [handleUpload],
+    [handleUpload, labels.fileUpload.tooLargeTemplate],
   );
 
   // In inline mode (Screen3 mount), the chrome/header/reset are suppressed —
