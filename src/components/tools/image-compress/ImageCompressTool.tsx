@@ -5,7 +5,7 @@ import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { OversizeNotice } from "@/components/common/OversizeNotice";
-import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
+import { totalSizeWarnFor } from "@/lib/constants";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
@@ -279,11 +279,12 @@ export function ImageCompressTool({
           accept={IMAGE_ACCEPT}
           multiple
           hideFileList
-          maxSize={uploadLimitFor("image-compress")}
+          hideAutoHint
+          maxSize={Number.POSITIVE_INFINITY}
           onFiles={(fs) => void handleUpload(fs)}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
-          labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
+          labels={labels.fileUpload}
         />
       ) : (
         <div className="space-y-4">

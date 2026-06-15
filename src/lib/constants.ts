@@ -32,6 +32,13 @@ const MB = 1024 * 1024;
  *
  * Read via `uploadLimitFor(slug)`; `DEFAULT_UPLOAD_LIMIT` is the fallback for
  * any slug not listed.
+ *
+ * Enforcement differs by intent:
+ *  - Most tools HARD-block: the dropzone rejects files over the cap.
+ *  - The compression tools (pdf-compress, ppt-compress, image-compress) accept
+ *    any size and only WARN above their value — shrinking a big file is the
+ *    whole point, so blocking it would defeat the tool. (image-compress is
+ *    multi-file and warns on the SUM via `totalSizeWarnFor` instead.)
  */
 export const DEFAULT_UPLOAD_LIMIT = 10 * MB;
 

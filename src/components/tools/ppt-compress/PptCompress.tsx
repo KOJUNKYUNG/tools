@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
+import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
@@ -135,23 +136,12 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
         return;
       }
       const picked = e.target.files ? Array.from(e.target.files) : [];
-      // The dropzone enforces maxSize; this hidden re-upload input bypasses it,
-      // so guard here too (mirrors pdf-lock).
-      const tooLarge = picked.find((f) => f.size > uploadLimitFor("ppt-compress"));
-      if (tooLarge) {
-        toast.error(
-          template(labels.fileUpload.tooLargeTemplate, {
-            name: tooLarge.name,
-            size: formatBytes(uploadLimitFor("ppt-compress")),
-          }),
-        );
-        e.target.value = "";
-        return;
-      }
+      // No size block: ppt-compress exists to shrink large decks, so an oversize
+      // file is accepted and the editor shows an advisory instead of rejecting.
       if (picked.length > 0) handleFilesChange(picked);
       e.target.value = "";
     },
-    [handleFilesChange, status, labels.fileUpload.tooLargeTemplate],
+    [handleFilesChange, status],
   );
 
   const onReset = useCallback(() => {
@@ -164,6 +154,15 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
   const hasFile = !!file;
   const busy = status === "processing";
   const isDone = status === "done" && !!result;
+
+  // Advisory (never blocks): ppt-compress accepts any size, but warns when a deck
+  // is large enough that in-browser compression may be slow or fail.
+  const [oversizeDismissed, setOversizeDismissed] = useState(false);
+  const showOversize =
+    !!file &&
+    status === "idle" &&
+    file.size > uploadLimitFor("ppt-compress") &&
+    !oversizeDismissed;
 
   const fileInfo = file
     ? template(labels.fileInfoTemplate, {
@@ -197,11 +196,12 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
           accept={PPTX_ACCEPT}
           multiple={false}
           hideFileList
-          maxSize={uploadLimitFor("ppt-compress")}
+          hideAutoHint
+          maxSize={Number.POSITIVE_INFINITY}
           onFiles={handleFilesChange}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
-          labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
+          labels={labels.fileUpload}
         />
       ) : (
         <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
@@ -223,6 +223,15 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
             onExecute={status === "idle" ? handleCompressClick : undefined}
             executeLabel={labels.compress}
           />
+
+          {showOversize && file && (
+            <OversizeNotice
+              totalBytes={file.size}
+              warning={labels.fileUpload.largeFileWarning}
+              dismissLabel={labels.fileUpload.dismiss}
+              onDismiss={() => setOversizeDismissed(true)}
+            />
+          )}
 
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2">
             {/* LEFT: thumbnail preview (persists across states) */}
