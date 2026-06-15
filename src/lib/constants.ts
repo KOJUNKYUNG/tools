@@ -16,10 +16,39 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export const FILE_SIZE_LIMIT = {
-  guest: 10 * 1024 * 1024,
-  user: 50 * 1024 * 1024,
-} as const;
+const MB = 1024 * 1024;
+
+/**
+ * Per-tool in-browser upload ceiling, in bytes. Everything runs client-side
+ * (0-server), so this is a MEMORY guard sized to each tool's processing path —
+ * not a transfer limit. There is no auth, so there are no guest/user tiers.
+ *
+ * `UPLOAD_LIMIT` lists only the tools whose path safely handles more than the
+ * default; everything else uses `DEFAULT_UPLOAD_LIMIT`. Read via
+ * `uploadLimitFor(slug)` so the per-tool value is the single source.
+ *
+ * TODO(limits): values are the historical caps, pending empirical per-path
+ * recalibration (memory smoke test per tool).
+ */
+export const DEFAULT_UPLOAD_LIMIT = 10 * MB;
+
+export const UPLOAD_LIMIT: Record<string, number> = {
+  "ppt-compress": 50 * MB,
+  "pdf-watermark": 50 * MB,
+  "pdf-lock": 50 * MB,
+};
+
+export function uploadLimitFor(slug: string): number {
+  return UPLOAD_LIMIT[slug] ?? DEFAULT_UPLOAD_LIMIT;
+}
+
+/**
+ * Advisory total-size threshold for multi-file tools. The per-file cap bounds
+ * each file; this bounds the SUM (the "many medium files" OOM path). Above it,
+ * a tool warns that in-browser processing may be slow or run out of memory.
+ * Dismissable, never blocks.
+ */
+export const TOTAL_SIZE_WARN = 100 * MB;
 
 export interface ToolInfo {
   slug: string;

@@ -8,7 +8,7 @@ import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
-import { FILE_SIZE_LIMIT } from "@/lib/constants";
+import { uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
@@ -158,12 +158,12 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
       const picked = e.target.files ? Array.from(e.target.files) : [];
       // The dropzone enforces maxSize, but this hidden re-upload input bypasses
       // it — guard here so an oversized file can't slip in via "다시 업로드".
-      const tooLarge = picked.find((f) => f.size > FILE_SIZE_LIMIT.user);
+      const tooLarge = picked.find((f) => f.size > uploadLimitFor("pdf-watermark"));
       if (tooLarge) {
         toast.error(
           template(labels.fileUpload.tooLargeTemplate, {
             name: tooLarge.name,
-            size: formatBytes(FILE_SIZE_LIMIT.user),
+            size: formatBytes(uploadLimitFor("pdf-watermark")),
           }),
         );
         e.target.value = "";
@@ -261,7 +261,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
           accept={PDF_ACCEPT}
           multiple={false}
           hideFileList
-          maxSize={FILE_SIZE_LIMIT.user}
+          maxSize={uploadLimitFor("pdf-watermark")}
           onFiles={handleFilesChange}
           label={labels.uploadPrompt}
           description={labels.uploadHint}

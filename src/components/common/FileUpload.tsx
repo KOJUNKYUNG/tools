@@ -6,7 +6,7 @@ import { UploadCloudIcon, XIcon, FileIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { FILE_SIZE_LIMIT } from "@/lib/constants";
+import { DEFAULT_UPLOAD_LIMIT } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 
@@ -46,7 +46,7 @@ interface FileUploadProps {
 
 export function FileUpload({
   accept,
-  maxSize = FILE_SIZE_LIMIT.guest,
+  maxSize = DEFAULT_UPLOAD_LIMIT,
   multiple = true,
   onFiles,
   label = "파일을 드래그하거나 클릭하여 업로드",

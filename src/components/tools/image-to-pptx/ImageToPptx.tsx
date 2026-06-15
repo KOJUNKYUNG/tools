@@ -20,6 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { PlusIcon, RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
+import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { PageItemCard } from "@/components/pdf-editor/PageItemCard";
@@ -28,7 +29,7 @@ import { clearThumbnailCache } from "@/components/pdf-editor/thumbnailCache";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
-import { FILE_SIZE_LIMIT } from "@/lib/constants";
+import { TOTAL_SIZE_WARN, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { type PageItem } from "@/lib/pdf/pageItem";
 import { buildPptx, type BuildPptxInput } from "@/lib/pptx/assemblePptx";
@@ -311,10 +312,10 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           toast.error(template(labels.errNotImage, { name: f.name }));
         }
       }
-      const accepted = images.filter((f) => f.size <= FILE_SIZE_LIMIT.guest);
+      const accepted = images.filter((f) => f.size <= uploadLimitFor("image-to-pptx"));
       for (const f of images) {
-        if (f.size > FILE_SIZE_LIMIT.guest) {
-          toast.error(template(labels.errTooLarge, { name: f.name, size: formatBytes(FILE_SIZE_LIMIT.guest) }));
+        if (f.size > uploadLimitFor("image-to-pptx")) {
+          toast.error(template(labels.errTooLarge, { name: f.name, size: formatBytes(uploadLimitFor("image-to-pptx")) }));
         }
       }
       if (accepted.length === 0) {
@@ -449,6 +450,10 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   const hasFiles = items.length > 0;
   const busy = status === "processing";
 
+  const [oversizeDismissed, setOversizeDismissed] = useState(false);
+  const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+  const showOversize = totalBytes > TOTAL_SIZE_WARN && !oversizeDismissed;
+
   const filesSummary = useMemo(() => {
     return files.length <= 1
       ? template(labels.filesOneTemplate, { name: files[0]?.name ?? "" })
@@ -576,13 +581,24 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           accept={ACCEPT}
           multiple
           hideFileList
+          maxSize={uploadLimitFor("image-to-pptx")}
           onFiles={handleUpload}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : status === "idle" ? (
-        editor
+        <>
+          {showOversize && (
+            <OversizeNotice
+              totalBytes={totalBytes}
+              warning={labels.fileUpload.oversizeWarning}
+              dismissLabel={labels.fileUpload.dismiss}
+              onDismiss={() => setOversizeDismissed(true)}
+            />
+          )}
+          {editor}
+        </>
       ) : status === "done" && result ? (
         <ImageToPptxResult
           result={result}

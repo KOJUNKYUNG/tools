@@ -21,6 +21,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { PlusIcon, RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
+import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { PageItemCard } from "@/components/pdf-editor/PageItemCard";
 import { buildPageItems, deriveBaseName } from "@/components/pdf-editor/buildPageItems";
@@ -28,7 +29,7 @@ import { clearThumbnailCache } from "@/components/pdf-editor/thumbnailCache";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
-import { FILE_SIZE_LIMIT } from "@/lib/constants";
+import { TOTAL_SIZE_WARN, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { normalizeImageFiles } from "@/lib/image/heic";
 import {
@@ -210,11 +211,11 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
           toast.error(`${f.name}: 이미지(JPG/PNG)만 추가할 수 있습니다.`);
         }
       }
-      const accepted = images.filter((f) => f.size <= FILE_SIZE_LIMIT.guest);
+      const accepted = images.filter((f) => f.size <= uploadLimitFor("image-to-pdf"));
       for (const f of images) {
-        if (f.size > FILE_SIZE_LIMIT.guest) {
+        if (f.size > uploadLimitFor("image-to-pdf")) {
           toast.error(
-            `${f.name}: 파일 크기가 ${formatBytes(FILE_SIZE_LIMIT.guest)}를 초과합니다.`,
+            `${f.name}: 파일 크기가 ${formatBytes(uploadLimitFor("image-to-pdf"))}를 초과합니다.`,
           );
         }
       }
@@ -320,6 +321,13 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
 
   const hasFiles = items.length > 0;
   const busy = status === "processing";
+
+  const [oversizeDismissed, setOversizeDismissed] = useState(false);
+  const totalBytes = useMemo(
+    () => files.reduce((sum, f) => sum + f.size, 0),
+    [files],
+  );
+  const showOversize = totalBytes > TOTAL_SIZE_WARN && !oversizeDismissed;
 
   // White page-rect aspect (w/h) shown inside each editor card. null = fit-image
   // (no fixed page → image fills the card directly).
@@ -431,13 +439,24 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
           accept={ACCEPT}
           multiple
           hideFileList
+          maxSize={uploadLimitFor("image-to-pdf")}
           onFiles={handleUpload}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : status === "idle" ? (
-        editor
+        <>
+          {showOversize && (
+            <OversizeNotice
+              totalBytes={totalBytes}
+              warning={labels.fileUpload.oversizeWarning}
+              dismissLabel={labels.fileUpload.dismiss}
+              onDismiss={() => setOversizeDismissed(true)}
+            />
+          )}
+          {editor}
+        </>
       ) : status === "done" && result ? (
         <ImageToPdfResult
           result={result}
