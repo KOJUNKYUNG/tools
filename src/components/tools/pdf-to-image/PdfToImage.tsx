@@ -15,20 +15,22 @@ import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { stageFiles } from "@/lib/common/toolHandoff";
-import { TOTAL_SIZE_WARN, uploadLimitFor } from "@/lib/constants";
+import { PDF_TO_IMAGE_BATCH_BYTES, TOTAL_SIZE_WARN, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { buildConversionJobs } from "@/lib/pdf/buildConversionJobs";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
-import { deriveZipName } from "@/lib/pdf/pdfToImageNaming";
+import { deriveBatchZipName, deriveZipName } from "@/lib/pdf/pdfToImageNaming";
 import {
   pdfToImages,
   type ConvertedImage,
   type DpiOption,
   type OutputFormat,
+  type PdfToImageOutcome,
 } from "@/lib/pdf/pdfToImage";
 import { type PageItem, type Rotation } from "@/lib/pdf/pageItem";
 import { PdfToImageControls } from "./PdfToImageControls";
 import { PdfToImageResult } from "./PdfToImageResult";
+import { PdfToImageStreamedResult } from "./PdfToImageStreamedResult";
 import { PdfToImageTopStrip } from "./PdfToImageTopStrip";
 import type { PdfToImageLabels } from "./labels";
 
@@ -72,13 +74,35 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
     run,
     retry,
     download,
-  } = useToolProcessor<ConvertedImage[]>({
+  } = useToolProcessor<PdfToImageOutcome>({
     processor: async (_files, onProgress) => {
       const jobs = buildConversionJobs(items);
       if (jobs.length === 0) throw new Error("변환할 페이지가 없습니다.");
-      return pdfToImages({ jobs, sourceBytesById, format, dpi, onProgress });
+      const base = deriveBaseName(items[0]?.sourceFileName);
+      return pdfToImages({
+        jobs,
+        sourceBytesById,
+        format,
+        dpi,
+        batchByteTarget: PDF_TO_IMAGE_BATCH_BYTES,
+        onBatch: async (batchImages, batchIndex) => {
+          const zip = new JSZip();
+          for (const img of batchImages) zip.file(img.name, img.blob);
+          const zipBlob = await zip.generateAsync({
+            type: "blob",
+            compression: "STORE",
+          });
+          downloadBlobObject(zipBlob, deriveBatchZipName(base, batchIndex));
+          toast.success(template(labels.batchSavedToast, { n: batchIndex }));
+          // Space sequential downloads so the browser does not block them.
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        },
+        onProgress,
+      });
     },
-    onDownload: async (images) => {
+    onDownload: async (outcome) => {
+      if (outcome.mode !== "preview") return;
+      const images = outcome.images;
       if (images.length === 0) return;
       if (images.length === 1) {
         downloadBlobObject(images[0].blob, images[0].name);
@@ -195,8 +219,8 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
   }, []);
 
   const handleCompress = useCallback(() => {
-    if (!result) return;
-    const imageFiles = result.map(
+    if (!result || result.mode !== "preview") return;
+    const imageFiles = result.images.map(
       (img) => new File([img.blob], img.name, { type: format }),
     );
     stageFiles(imageFiles, "pdf-to-image");
@@ -322,15 +346,24 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
           {editor}
         </>
       ) : status === "done" && result ? (
-        <PdfToImageResult
-          images={result}
-          labels={labels}
-          format={format}
-          onDownloadAll={download}
-          onDownloadOne={handleDownloadOne}
-          onCompress={handleCompress}
-          onAgain={retry}
-        />
+        result.mode === "preview" ? (
+          <PdfToImageResult
+            images={result.images}
+            labels={labels}
+            format={format}
+            onDownloadAll={download}
+            onDownloadOne={handleDownloadOne}
+            onCompress={handleCompress}
+            onAgain={retry}
+          />
+        ) : (
+          <PdfToImageStreamedResult
+            imageCount={result.imageCount}
+            batchCount={result.batchCount}
+            labels={labels}
+            onAgain={retry}
+          />
+        )
       ) : (
         <div style={{ height: "52vh" }}>
           <ProcessingStatus

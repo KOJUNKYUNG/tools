@@ -1,4 +1,5 @@
 import type { PDFDocumentProxy } from "pdfjs-dist";
+import { shouldFlush } from "./batchPlan";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 import { assignImageNames } from "./pdfToImageNaming";
 import type { ConversionJob } from "./buildConversionJobs";
@@ -11,12 +12,24 @@ export interface ConvertedImage {
   blob: Blob;
 }
 
+export type PdfToImageOutcome =
+  | { mode: "preview"; images: ConvertedImage[] }
+  | { mode: "streamed"; imageCount: number; batchCount: number };
+
 export interface PdfToImageOptions {
   jobs: ConversionJob[];
   /** Raw source bytes per file id (shared with the thumbnail cache). */
   sourceBytesById: Map<string, Uint8Array>;
   format: OutputFormat;
   dpi: DpiOption;
+  /** Flush a batch once accumulated output reaches this many bytes. */
+  batchByteTarget: number;
+  /** Called with each filled batch when streaming (more than one batch). */
+  onBatch?: (
+    images: ConvertedImage[],
+    batchIndex: number,
+    isLast: boolean,
+  ) => Promise<void> | void;
   onProgress?: (pct: number) => void;
 }
 
@@ -41,8 +54,10 @@ export async function pdfToImages({
   sourceBytesById,
   format,
   dpi,
+  batchByteTarget,
+  onBatch,
   onProgress,
-}: PdfToImageOptions): Promise<ConvertedImage[]> {
+}: PdfToImageOptions): Promise<PdfToImageOutcome> {
   if (jobs.length === 0) throw new Error("변환할 페이지가 없습니다.");
 
   const pdfjsLib = await getPdfjsLib();
@@ -68,7 +83,21 @@ export async function pdfToImages({
   const total = jobs.length;
   // Name every output after its own source PDF, numbered within that source.
   const names = assignImageNames(jobs, ext);
-  const images: ConvertedImage[] = [];
+
+  // `current` holds only the in-flight batch (released after each flush), so peak
+  // memory is bounded by batchByteTarget rather than the whole job's output.
+  const current: ConvertedImage[] = [];
+  let currentBytes = 0;
+  let streaming = false;
+  let batchIndex = 0;
+  let totalProduced = 0;
+
+  const flush = async (isLast: boolean) => {
+    batchIndex++;
+    await onBatch?.(current.slice(), batchIndex, isLast);
+    current.length = 0;
+    currentBytes = 0;
+  };
 
   try {
     for (let i = 0; i < jobs.length; i++) {
@@ -107,7 +136,9 @@ export async function pdfToImages({
           );
         });
 
-        images.push({ name: names[i], blob });
+        current.push({ name: names[i], blob });
+        currentBytes += blob.size;
+        totalProduced++;
 
         // Release the canvas backing store immediately (OOM guard for big PDFs).
         canvas.width = 0;
@@ -120,14 +151,27 @@ export async function pdfToImages({
       } finally {
         onProgress?.(Math.round(((i + 1) / total) * 100));
       }
+
+      // Mirror planBatches(): flush once the running output reaches the target
+      // and pages still remain (so the final partial batch is never split early).
+      const pagesRemaining = jobs.length - 1 - i;
+      if (shouldFlush(currentBytes, batchByteTarget, pagesRemaining)) {
+        streaming = true;
+        await flush(false);
+      }
     }
   } finally {
     for (const doc of docCache.values()) doc.destroy();
   }
 
-  if (images.length === 0) {
+  if (totalProduced === 0) {
     throw new Error("변환된 페이지가 없습니다.");
   }
 
-  return images;
+  if (streaming) {
+    if (current.length > 0) await flush(true);
+    return { mode: "streamed", imageCount: totalProduced, batchCount: batchIndex };
+  }
+
+  return { mode: "preview", images: current };
 }
