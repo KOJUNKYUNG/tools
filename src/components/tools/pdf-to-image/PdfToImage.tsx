@@ -15,7 +15,11 @@ import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { stageFiles } from "@/lib/common/toolHandoff";
-import { PDF_TO_IMAGE_BATCH_BYTES, TOTAL_SIZE_WARN, uploadLimitFor } from "@/lib/constants";
+import {
+  PDF_TO_IMAGE_BATCH_BYTES,
+  totalSizeWarnFor,
+  uploadLimitFor,
+} from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { buildConversionJobs } from "@/lib/pdf/buildConversionJobs";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
@@ -233,7 +237,8 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
 
   const [oversizeDismissed, setOversizeDismissed] = useState(false);
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
-  const showOversize = totalBytes > TOTAL_SIZE_WARN && !oversizeDismissed;
+  const showOversize =
+    totalBytes > totalSizeWarnFor("pdf-to-image") && !oversizeDismissed;
 
   const filesSummary =
     files.length <= 1

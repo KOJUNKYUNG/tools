@@ -29,7 +29,7 @@ import { clearThumbnailCache } from "@/components/pdf-editor/thumbnailCache";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
-import { TOTAL_SIZE_WARN, uploadLimitFor } from "@/lib/constants";
+import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { normalizeImageFiles } from "@/lib/image/heic";
 import {
@@ -327,7 +327,8 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
     () => files.reduce((sum, f) => sum + f.size, 0),
     [files],
   );
-  const showOversize = totalBytes > TOTAL_SIZE_WARN && !oversizeDismissed;
+  const showOversize =
+    totalBytes > totalSizeWarnFor("image-to-pdf") && !oversizeDismissed;
 
   // White page-rect aspect (w/h) shown inside each editor card. null = fit-image
   // (no fixed page → image fills the card directly).

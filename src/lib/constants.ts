@@ -23,19 +23,33 @@ const MB = 1024 * 1024;
  * (0-server), so this is a MEMORY guard sized to each tool's processing path —
  * not a transfer limit. There is no auth, so there are no guest/user tiers.
  *
- * `UPLOAD_LIMIT` lists only the tools whose path safely handles more than the
- * default; everything else uses `DEFAULT_UPLOAD_LIMIT`. Read via
- * `uploadLimitFor(slug)` so the per-tool value is the single source.
+ * Values are recalibrated per processing-path class:
+ *  - Streaming / sequential (bounded per item): pdf-to-image streams its output
+ *    in batches, so the ceiling is the held source bytes, not the whole output;
+ *    image-compress decodes one image at a time; image-resize is single-file.
+ *  - Single-artifact reassembly (whole input + whole output in memory, ~3-4×
+ *    peak for WASM/pdf-lib): pdf/ppt tools that load and rebuild one document.
  *
- * TODO(limits): values are the historical caps, pending empirical per-path
- * recalibration (memory smoke test per tool).
+ * Read via `uploadLimitFor(slug)`; `DEFAULT_UPLOAD_LIMIT` is the fallback for
+ * any slug not listed.
  */
 export const DEFAULT_UPLOAD_LIMIT = 10 * MB;
 
 export const UPLOAD_LIMIT: Record<string, number> = {
-  "ppt-compress": 50 * MB,
-  "pdf-watermark": 50 * MB,
+  // Streaming / sequential — generous (not bound by whole-output memory).
+  "pdf-to-image": 80 * MB,
+  "image-resize": 30 * MB,
+  "image-compress": 25 * MB,
+  // Single-artifact reassembly — bounded by input bytes × a memory multiplier.
+  "ppt-compress": 100 * MB, // its whole purpose is large decks (church PPT)
+  "pdf-compress": 50 * MB,
   "pdf-lock": 50 * MB,
+  "pdf-watermark": 50 * MB,
+  "pdf-arrange": 50 * MB,
+  "ppt-extract": 50 * MB,
+  "ppt-background": 50 * MB,
+  "image-to-pdf": 25 * MB,
+  "image-to-pptx": 25 * MB,
 };
 
 export function uploadLimitFor(slug: string): number {
@@ -43,12 +57,37 @@ export function uploadLimitFor(slug: string): number {
 }
 
 /**
- * Advisory total-size threshold for multi-file tools. The per-file cap bounds
- * each file; this bounds the SUM (the "many medium files" OOM path). Above it,
- * a tool warns that in-browser processing may be slow or run out of memory.
- * Dismissable, never blocks.
+ * Per-tool advisory total-size threshold for multi-file tools. The per-file cap
+ * bounds each file; this bounds the SUM (the "many medium files" OOM path).
+ * Above it, a tool warns that in-browser processing may be slow or run out of
+ * memory. Dismissable, never blocks. Read via `totalSizeWarnFor(slug)`.
+ *
+ * Group B multi-file (pdf-arrange / image-to-pdf / image-to-pptx) hold all
+ * inputs + the output at once, so the sum IS the peak → lower threshold.
+ * pdf-to-image streams its output and image-compress decodes sequentially, so
+ * the sum is less of a peak driver → higher threshold.
  */
-export const TOTAL_SIZE_WARN = 100 * MB;
+const DEFAULT_TOTAL_SIZE_WARN = 100 * MB;
+
+export const TOTAL_SIZE_WARN: Record<string, number> = {
+  "pdf-arrange": 120 * MB,
+  "image-to-pdf": 120 * MB,
+  "image-to-pptx": 120 * MB,
+  "image-compress": 150 * MB,
+  "pdf-to-image": 200 * MB,
+};
+
+export function totalSizeWarnFor(slug: string): number {
+  return TOTAL_SIZE_WARN[slug] ?? DEFAULT_TOTAL_SIZE_WARN;
+}
+
+/**
+ * Cap for a secondary image embedded ONCE into a document — the ppt-background
+ * background and the pdf-watermark logo. These bypass the tool's primary
+ * UPLOAD_LIMIT (which governs the .pptx/.pdf), and each inflates the output by
+ * one copy of itself, so they get their own (tighter) ceiling.
+ */
+export const EMBEDDED_ASSET_LIMIT = 15 * MB;
 
 /**
  * Target accumulated output bytes per batch for pdf-to-image streaming. When a

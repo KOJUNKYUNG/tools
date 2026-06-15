@@ -25,7 +25,7 @@ import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
-import { TOTAL_SIZE_WARN, uploadLimitFor } from "@/lib/constants";
+import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { assembleSections, packageOutputs } from "@/lib/pdf/assembleSections";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
@@ -367,7 +367,8 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     for (const b of sourceBytesById.values()) sum += b.byteLength;
     return sum;
   }, [sourceBytesById]);
-  const showOversize = totalBytes > TOTAL_SIZE_WARN && !oversizeDismissed;
+  const showOversize =
+    totalBytes > totalSizeWarnFor("pdf-arrange") && !oversizeDismissed;
 
   const sectionCount = countSections(items);
   const hasFiles = items.length > 0;
