@@ -126,7 +126,8 @@
           "uploadLabel": "Upload image",
           "uploadHint": "JPG or PNG.",
           "sourceUpload": "Upload",
-          "sourceGallery": "Gallery"
+          "sourceGallery": "Gallery",
+          "tooLarge": "Background image must be {size} or smaller."
         },
         "gallery": {
           "heading": "Background gallery",
@@ -321,6 +322,7 @@
         "needLogo": "Choose a logo image.",
         "logoSelect": "Choose logo",
         "logoHint": "PNG or JPG",
+        "logoTooLarge": "Logo image must be {size} or smaller.",
         "logoScaleLabel": "Logo size",
         "opacityLabel": "Opacity",
         "angleLabel": "Rotation",

@@ -29,7 +29,7 @@ import { clearThumbnailCache } from "@/components/pdf-editor/thumbnailCache";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
-import { TOTAL_SIZE_WARN, uploadLimitFor } from "@/lib/constants";
+import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { type PageItem } from "@/lib/pdf/pageItem";
 import { buildPptx, type BuildPptxInput } from "@/lib/pptx/assemblePptx";
@@ -452,7 +452,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
   const [oversizeDismissed, setOversizeDismissed] = useState(false);
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
-  const showOversize = totalBytes > TOTAL_SIZE_WARN && !oversizeDismissed;
+  const showOversize =
+    totalBytes > totalSizeWarnFor("image-to-pptx") && !oversizeDismissed;
 
   const filesSummary = useMemo(() => {
     return files.length <= 1

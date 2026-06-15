@@ -5,7 +5,7 @@ import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { OversizeNotice } from "@/components/common/OversizeNotice";
-import { TOTAL_SIZE_WARN, uploadLimitFor } from "@/lib/constants";
+import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
@@ -251,7 +251,8 @@ export function ImageCompressTool({
 
   const [oversizeDismissed, setOversizeDismissed] = useState(false);
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
-  const showOversize = totalBytes > TOTAL_SIZE_WARN && !oversizeDismissed;
+  const showOversize =
+    totalBytes > totalSizeWarnFor("image-compress") && !oversizeDismissed;
 
   const body = (
     <div className={inline ? "space-y-5" : "space-y-5 px-6 py-4"}>

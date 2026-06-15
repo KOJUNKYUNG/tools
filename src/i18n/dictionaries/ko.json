@@ -126,7 +126,8 @@
           "uploadLabel": "이미지 업로드",
           "uploadHint": "JPG·PNG를 지원합니다.",
           "sourceUpload": "직접 업로드",
-          "sourceGallery": "갤러리"
+          "sourceGallery": "갤러리",
+          "tooLarge": "배경 이미지는 최대 {size}까지 올릴 수 있습니다."
         },
         "gallery": {
           "heading": "배경 갤러리",
@@ -321,6 +322,7 @@
         "needLogo": "로고 이미지를 선택하세요.",
         "logoSelect": "로고 선택",
         "logoHint": "PNG 또는 JPG",
+        "logoTooLarge": "로고 이미지는 최대 {size}까지 올릴 수 있습니다.",
         "logoScaleLabel": "로고 크기",
         "opacityLabel": "투명도",
         "angleLabel": "회전",
