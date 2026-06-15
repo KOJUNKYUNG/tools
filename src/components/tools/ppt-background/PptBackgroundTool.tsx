@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RotateCcwIcon } from "lucide-react";
+import { toast } from "sonner";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { FileUpload } from "@/components/common/FileUpload";
-import { uploadLimitFor } from "@/lib/constants";
+import { EMBEDDED_ASSET_LIMIT, uploadLimitFor } from "@/lib/constants";
+import { formatBytes } from "@/lib/common/formatBytes";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
@@ -101,6 +103,7 @@ export interface PptBackgroundToolLabels {
     uploadHint: string;
     sourceUpload: string;
     sourceGallery: string;
+    tooLarge: string;
   };
   gallery: {
     heading: string;
@@ -286,12 +289,23 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
   const handleDirectUpload = useCallback(
     (files: File[]) => {
+      // The background is embedded into the deck, so it bypasses the .pptx
+      // UPLOAD_LIMIT and gets its own (tighter) ceiling.
+      const oversize = files.find((f) => f.size > EMBEDDED_ASSET_LIMIT);
+      if (oversize) {
+        toast.error(
+          template(labels.background.tooLarge, {
+            size: formatBytes(EMBEDDED_ASSET_LIMIT),
+          }),
+        );
+        return;
+      }
       setBgFiles(files);
       setGalleryImage(null);
       if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
       setBgPreviewUrl(files[0] ? URL.createObjectURL(files[0]) : null);
     },
-    [bgPreviewUrl],
+    [bgPreviewUrl, labels.background.tooLarge],
   );
 
   const clearBgSelection = useCallback(() => {

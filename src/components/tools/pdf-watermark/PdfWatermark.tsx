@@ -8,7 +8,7 @@ import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
-import { uploadLimitFor } from "@/lib/constants";
+import { EMBEDDED_ASSET_LIMIT, uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
@@ -186,17 +186,30 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
 
   const handleAgain = useCallback(() => retry(), [retry]);
 
-  const onPickLogo = useCallback(async (logoFile: File | null) => {
-    if (!logoFile) {
-      setWmOpts((p) => ({ ...p, logo: null }));
-      setLogoName(null);
-      return;
-    }
-    const bytes = new Uint8Array(await logoFile.arrayBuffer());
-    const kind = logoFile.type === "image/png" ? "png" : "jpg";
-    setWmOpts((p) => ({ ...p, logo: { bytes, kind } }));
-    setLogoName(logoFile.name);
-  }, []);
+  const onPickLogo = useCallback(
+    async (logoFile: File | null) => {
+      if (!logoFile) {
+        setWmOpts((p) => ({ ...p, logo: null }));
+        setLogoName(null);
+        return;
+      }
+      // The logo is embedded into the PDF, so it bypasses the .pdf UPLOAD_LIMIT
+      // and gets its own (tighter) ceiling.
+      if (logoFile.size > EMBEDDED_ASSET_LIMIT) {
+        toast.error(
+          template(labels.logoTooLarge, {
+            size: formatBytes(EMBEDDED_ASSET_LIMIT),
+          }),
+        );
+        return;
+      }
+      const bytes = new Uint8Array(await logoFile.arrayBuffer());
+      const kind = logoFile.type === "image/png" ? "png" : "jpg";
+      setWmOpts((p) => ({ ...p, logo: { bytes, kind } }));
+      setLogoName(logoFile.name);
+    },
+    [labels.logoTooLarge],
+  );
 
   const patchPage = useCallback(
     (patch: Partial<PageNumberState>) => setPageOpts((p) => ({ ...p, ...patch })),

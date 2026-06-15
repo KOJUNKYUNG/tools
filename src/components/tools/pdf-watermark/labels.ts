@@ -35,6 +35,7 @@ export interface PdfWatermarkLabels {
   needLogo: string;
   logoSelect: string;
   logoHint: string;
+  logoTooLarge: string;
   logoScaleLabel: string;
   opacityLabel: string;
   angleLabel: string;
@@ -91,6 +92,7 @@ export function getPdfWatermarkLabels(dict: Dictionary): PdfWatermarkLabels {
     needLogo: p.needLogo,
     logoSelect: p.logoSelect,
     logoHint: p.logoHint,
+    logoTooLarge: p.logoTooLarge,
     logoScaleLabel: p.logoScaleLabel,
     opacityLabel: p.opacityLabel,
     angleLabel: p.angleLabel,
