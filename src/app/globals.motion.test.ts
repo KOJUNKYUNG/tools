@@ -17,7 +17,7 @@ describe("motion tokens (single source of truth)", () => {
     expect(css).toMatch(/--motion-settle:\s*500ms/);
   });
 
-  it("defines the drop-settle keyframe with the 9 / -4 / 0 stops", () => {
+  it("defines the drop-settle keyframe with the 9 / -3 / 0 stops", () => {
     expect(css).toMatch(/@keyframes\s+drop-settle/);
     expect(css).toMatch(/translateY\(9px\)/);
     expect(css).toMatch(/translateY\(-3px\)/);

@@ -83,7 +83,14 @@
     60%{opacity:1;transform:translateY(-3px);}
     100%{opacity:1;transform:translateY(0);}
   }
+  /* `both` is fine for this self-contained demo (no competing inline transform);
+     production cards use `backwards` so the fill releases to their own zoom/hover. */
   .play-drop { animation:brand-drop-settle var(--motion-settle) var(--ease-settle) both; }
+  /* This doc demonstrates motion, so it must itself honour the reduced-motion principle. */
+  @media (prefers-reduced-motion: reduce) {
+    .play-drop { animation:none; }
+    #demo-btn:hover, #demo-hovercard:hover { transform:none; }
+  }
 </style>
 </head>
 <body>

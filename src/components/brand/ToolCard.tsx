@@ -2,6 +2,9 @@
 import type { ToolIconProps } from "@/components/brand/ToolIcons";
 import type { JSX } from "react";
 
+/** Per-card delay (ms) for the drop & settle grid stagger. */
+const STAGGER_STEP_MS = 70;
+
 interface ToolCardProps {
   slug: string;
   title: string;
@@ -32,7 +35,11 @@ export function ToolCard({ slug, title, description, Icon, onOpen, zooming, inde
         opacity: zooming ? 0 : 1,
         transition:
           "transform var(--motion-base) var(--ease-settle), opacity var(--motion-base) var(--ease-standard), height var(--motion-base) var(--ease-standard), padding var(--motion-base) var(--ease-standard)",
-        animationDelay: `${index * 70}ms`,
+        // Hand off to the open-zoom transform immediately if the card is clicked
+        // mid-entrance — otherwise the running drop-settle keyframe would override
+        // the scale/opacity zoom. STAGGER_STEP_MS (70) per card index.
+        animationName: zooming ? "none" : undefined,
+        animationDelay: `${index * STAGGER_STEP_MS}ms`,
         zIndex: zooming ? 5 : 1,
       }}
     >
