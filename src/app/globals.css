@@ -304,6 +304,7 @@
   animation: drop-settle var(--motion-settle) var(--ease-settle) both;
 }
 
+/* Opacity-only fallback — used solely by .animate-drop-settle under reduced-motion. */
 @keyframes ob-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* Quiet down for reduced-motion: keep a gentle opacity fade, drop all transform. */

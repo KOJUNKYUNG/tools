@@ -21,9 +21,15 @@ describe("motion tokens (single source of truth)", () => {
     expect(css).toMatch(/@keyframes\s+drop-settle/);
     expect(css).toMatch(/translateY\(9px\)/);
     expect(css).toMatch(/translateY\(-4px\)/);
+    // The settle must return to rest — a missing 100% stop would snap, not settle.
+    expect(css).toMatch(/100%[\s\S]*?translateY\(0\)/);
   });
 
-  it("honours prefers-reduced-motion", () => {
+  it("honours prefers-reduced-motion — fade fallback + transform suppression", () => {
     expect(css).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+    // The entrance must fall back to an opacity-only fade (no transform)…
+    expect(css).toMatch(/prefers-reduced-motion[\s\S]*?\.animate-drop-settle[\s\S]*?ob-fade/);
+    // …and hover lifts must be suppressed.
+    expect(css).toMatch(/prefers-reduced-motion[\s\S]*?transform:\s*none/);
   });
 });
