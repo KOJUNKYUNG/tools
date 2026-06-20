@@ -31,7 +31,10 @@ export function ToolCard({ slug, title, description, Icon, onOpen, zooming, inde
       style={{
         height: "var(--tweak-card-height, 96px)",
         padding: "var(--tweak-card-padding, 14px)",
-        transform: zooming ? "scale(0.96)" : "scale(1)",
+        // Only set transform inline while zooming open. At rest, leaving it
+        // unset lets the stylesheet's .toolcard:hover lift (translateY) win —
+        // an inline transform would override the :hover rule and kill the lift.
+        transform: zooming ? "scale(0.96)" : undefined,
         opacity: zooming ? 0 : 1,
         transition:
           "transform var(--motion-base) var(--ease-settle), opacity var(--motion-base) var(--ease-standard), height var(--motion-base) var(--ease-standard), padding var(--motion-base) var(--ease-standard)",
