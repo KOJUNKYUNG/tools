@@ -236,15 +236,18 @@
 }
 .nameplate:hover { border-color: var(--ink-soft); }
 .nameplate:active { background: var(--surface-2); }
-/* Tool card — flat (no metallic inset). */
+/* Tool card — boxless. At rest it's just the icon + text on the page; the
+ * surface only appears on hover (with the lift) as the "pick me" affordance.
+ * Flat depth: no shadow. The transparent 1px border holds the box model steady
+ * so the hover surface doesn't shift layout. */
 .toolcard {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  transition: transform var(--motion-base) var(--ease-settle), border-color var(--motion-fast) var(--ease-standard);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: transform var(--motion-base) var(--ease-settle), background var(--motion-fast) var(--ease-standard);
 }
 .toolcard:hover {
   transform: translateY(-2px);
-  border-color: var(--ink-soft);
+  background: var(--surface);
 }
 
 /* Focus ring — emphasis (maximum contrast). */
