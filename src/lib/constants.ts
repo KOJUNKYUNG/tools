@@ -1,20 +1,20 @@
 import {
-  Layers,
-  ImageDown,
-  Files,
-  Split,
-  Archive,
-  LayoutGrid,
-  ImagePlus,
-  FileImage,
-  Shrink,
-  Expand,
-  Presentation,
-  Minimize2,
-  Stamp,
-  Lock,
-  type LucideIcon,
-} from "lucide-react";
+  ToolLockIcon,
+  ToolWatermarkIcon,
+  ToolArrangeIcon,
+  ToolResizeIcon,
+  ToolCompressIcon,
+  ToolExtractIcon,
+  ToolPdfToImageIcon,
+  ToolImageToPdfIcon,
+  ToolImageToPptxIcon,
+  ToolBackgroundIcon,
+  type ToolIconProps,
+} from "@/components/brand/ToolIcons";
+import type { JSX } from "react";
+
+/** A tool icon component — accepts the same `size`/`className` props lucide did. */
+type ToolIcon = (props: ToolIconProps) => JSX.Element;
 
 const MB = 1024 * 1024;
 
@@ -108,7 +108,7 @@ export interface ToolInfo {
   slug: string;
   i18nKey: string;
   href: string;
-  icon: LucideIcon;
+  icon: ToolIcon;
   category: "pdf" | "ppt" | "image";
   seoDescription?: string;
   keywords?: string[];
@@ -128,21 +128,21 @@ export const TOOLS: ToolInfo[] = [
     slug: "ppt-background",
     i18nKey: "tools.ppt-background",
     href: "/tools/ppt-background",
-    icon: Layers,
+    icon: ToolBackgroundIcon,
     category: "ppt",
   },
   {
     slug: "ppt-extract",
     i18nKey: "tools.ppt-extract",
     href: "/tools/ppt-extract",
-    icon: ImageDown,
+    icon: ToolExtractIcon,
     category: "ppt",
   },
   {
     slug: "ppt-compress",
     i18nKey: "tools.ppt-compress",
     href: "/tools/ppt-compress",
-    icon: Minimize2,
+    icon: ToolCompressIcon,
     category: "ppt",
     keywords: ["pptx", "compress", "압축", "용량", "ppt", "줄이기"],
   },
@@ -150,7 +150,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "pdf-arrange",
     i18nKey: "tools.pdf-arrange",
     href: "/tools/pdf-arrange",
-    icon: LayoutGrid,
+    icon: ToolArrangeIcon,
     category: "pdf",
     keywords: [
       "merge",
@@ -167,7 +167,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "pdf-merge",
     i18nKey: "tools.pdf-merge",
     href: "/tools/pdf-merge",
-    icon: Files,
+    icon: ToolArrangeIcon,
     category: "pdf",
     aliasOf: "pdf-arrange",
   },
@@ -175,7 +175,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "pdf-split",
     i18nKey: "tools.pdf-split",
     href: "/tools/pdf-split",
-    icon: Split,
+    icon: ToolArrangeIcon,
     category: "pdf",
     aliasOf: "pdf-arrange",
   },
@@ -183,14 +183,14 @@ export const TOOLS: ToolInfo[] = [
     slug: "pdf-compress",
     i18nKey: "tools.pdf-compress",
     href: "/tools/pdf-compress",
-    icon: Archive,
+    icon: ToolCompressIcon,
     category: "pdf",
   },
   {
     slug: "pdf-watermark",
     i18nKey: "tools.pdf-watermark",
     href: "/tools/pdf-watermark",
-    icon: Stamp,
+    icon: ToolWatermarkIcon,
     category: "pdf",
     keywords: [
       "watermark",
@@ -206,7 +206,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "pdf-lock",
     i18nKey: "tools.pdf-lock",
     href: "/tools/pdf-lock",
-    icon: Lock,
+    icon: ToolLockIcon,
     category: "pdf",
     keywords: [
       "lock",
@@ -224,7 +224,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "pdf-pages",
     i18nKey: "tools.pdf-pages",
     href: "/tools/pdf-pages",
-    icon: LayoutGrid,
+    icon: ToolArrangeIcon,
     category: "pdf",
     aliasOf: "pdf-arrange",
   },
@@ -232,14 +232,14 @@ export const TOOLS: ToolInfo[] = [
     slug: "image-to-pdf",
     i18nKey: "tools.image-to-pdf",
     href: "/tools/image-to-pdf",
-    icon: ImagePlus,
+    icon: ToolImageToPdfIcon,
     category: "pdf",
   },
   {
     slug: "image-to-pptx",
     i18nKey: "tools.image-to-pptx",
     href: "/tools/image-to-pptx",
-    icon: Presentation,
+    icon: ToolImageToPptxIcon,
     category: "ppt",
     keywords: ["pptx", "slides", "ppt", "image to ppt", "이미지", "슬라이드", "악보"],
   },
@@ -247,14 +247,14 @@ export const TOOLS: ToolInfo[] = [
     slug: "pdf-to-image",
     i18nKey: "tools.pdf-to-image",
     href: "/tools/pdf-to-image",
-    icon: FileImage,
+    icon: ToolPdfToImageIcon,
     category: "pdf",
   },
   {
     slug: "image-compress",
     i18nKey: "tools.image-compress",
     href: "/tools/image-compress",
-    icon: Shrink,
+    icon: ToolCompressIcon,
     category: "image",
     keywords: ["heic", "heif", "iphone", "아이폰", "변환", "convert"],
   },
@@ -262,7 +262,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "heic-convert",
     i18nKey: "tools.heic-convert",
     href: "/tools/heic-convert",
-    icon: Shrink,
+    icon: ToolCompressIcon,
     category: "image",
     aliasOf: "image-compress",
     keywords: ["heic", "heif", "iphone", "아이폰", "jpg", "png"],
@@ -271,7 +271,7 @@ export const TOOLS: ToolInfo[] = [
     slug: "image-resize",
     i18nKey: "tools.image-resize",
     href: "/tools/image-resize",
-    icon: Expand,
+    icon: ToolResizeIcon,
     category: "image",
   },
 ];
