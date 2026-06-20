@@ -1,22 +1,11 @@
-"use client";
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
+/**
+ * FadeInCenter — the signature brand entrance. Content drops a short distance
+ * and settles into place (drop & settle), echoing the brand mark's "tossed
+ * folder landing on a desk". The motion lives in globals.css
+ * (.animate-drop-settle), which also honours prefers-reduced-motion.
+ */
 export function FadeInCenter({ children }: { children: ReactNode }) {
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setShown(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-  return (
-    <div
-      style={{
-        opacity: shown ? 1 : 0,
-        transform: shown ? "scale(1)" : "scale(0.96)",
-        transformOrigin: "50% 50%",
-        transition: "opacity 320ms ease 80ms, transform 360ms cubic-bezier(.4,0,.2,1) 80ms",
-      }}
-    >
-      {children}
-    </div>
-  );
+  return <div className="animate-drop-settle">{children}</div>;
 }
