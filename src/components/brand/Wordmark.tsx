@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/brand/BrandMark";
 
 interface WordmarkProps {
   locale: string;
@@ -12,15 +13,7 @@ export function Wordmark({ locale, className }: WordmarkProps) {
       className={`flex items-center gap-2.5 relative ${className ?? ""}`}
       aria-label="Ontab"
     >
-      <div
-        className="w-6 h-6 rounded-[3px] relative"
-        style={{ background: "var(--ink-strong)" }}
-      >
-        <div
-          className="absolute inset-[5px] rounded-[1px] border"
-          style={{ borderColor: "var(--surface)" }}
-        />
-      </div>
+      <BrandMark className="w-6 h-6 shrink-0" />
       <span
         className="font-display text-[17px] font-medium"
         style={{ color: "var(--headline)" }}
