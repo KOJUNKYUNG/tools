@@ -29,7 +29,7 @@ export function ToolCard({ slug, title, description, Icon, onOpen, zooming }: To
         transform: zooming ? "scale(0.96)" : "scale(1)",
         opacity: zooming ? 0 : 1,
         transition:
-          "transform 280ms cubic-bezier(.4,0,.2,1), opacity 240ms ease, height 200ms ease, padding 200ms ease",
+          "transform var(--motion-base) var(--ease-settle), opacity var(--motion-base) var(--ease-standard), height var(--motion-base) var(--ease-standard), padding var(--motion-base) var(--ease-standard)",
         zIndex: zooming ? 5 : 1,
       }}
     >
