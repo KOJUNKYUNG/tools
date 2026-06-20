@@ -236,18 +236,17 @@
 }
 .nameplate:hover { border-color: var(--ink-soft); }
 .nameplate:active { background: var(--surface-2); }
-/* Tool card — boxless. At rest it's just the icon + text on the page; the
- * surface only appears on hover (with the lift) as the "pick me" affordance.
- * Flat depth: no shadow. The transparent 1px border holds the box model steady
- * so the hover surface doesn't shift layout. */
+/* Tool card — boxless. Always just the icon + text on the page: no surface,
+ * no border, no shadow (flat depth). The only hover affordance is the drop &
+ * settle lift — no box edge ever appears. The transparent 1px border keeps the
+ * box model identical to the bordered era so nothing reflows. */
 .toolcard {
   background: transparent;
   border: 1px solid transparent;
-  transition: transform var(--motion-base) var(--ease-settle), background var(--motion-fast) var(--ease-standard);
+  transition: transform var(--motion-base) var(--ease-settle);
 }
 .toolcard:hover {
   transform: translateY(-2px);
-  background: var(--surface);
 }
 
 /* Focus ring — emphasis (maximum contrast). */
