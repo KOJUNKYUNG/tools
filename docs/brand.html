@@ -70,6 +70,11 @@
     padding:8px 14px; font-family:var(--font-body); font-size:13px; cursor:pointer; }
   .do-dont { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   @media (max-width:640px){ .do-dont{ grid-template-columns:1fr; } }
+  .icon-cell { background:var(--surface); border:1px solid var(--border); border-radius:4px;
+    padding:18px 10px; display:flex; flex-direction:column; align-items:center; gap:10px;
+    color:var(--ink-strong); }
+  .icon-cell svg { width:32px; height:32px; }
+  .icon-cell span { font-size:11.5px; color:var(--ink); font-family:var(--font-mono); }
 </style>
 </head>
 <body>
@@ -170,6 +175,96 @@
   <div class="do-dont">
     <div class="panel"><span class="muted">✘ 마크 색을 테마에 맞춰 임의 반전 (헤더 마크는 고정색)</span></div>
     <div class="panel"><span class="muted">✘ 비율 왜곡 · 그림자/그라데이션 추가 · 회전</span></div>
+  </div>
+
+  <h2>Iconography</h2>
+  <p>도구 아이콘은 자체 Line 세트. 24 그리드 · stroke 1.0 · currentColor(테마 반전) ·
+     round cap/join. 은유 규칙: 페이지(접힌 모서리)·슬라이드(16:9 + 제목선)·이미지(프레임 + 해/봉우리).
+     반복 동사는 한 글리프 — 압축=네 모서리 화살표, 변환=대상 포맷으로 들어가는 화살표, 추출=깔때기.</p>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));">
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M8.5,11 V8 a3.5,3.5 0 0 1 7,0 V11" />
+        <path d="M8,11 h8 a2,2 0 0 1 2,2 v5 a2,2 0 0 1 -2,2 h-8 a2,2 0 0 1 -2,-2 v-5 a2,2 0 0 1 2,-2 z" />
+        <path d="M10.7,15 a1.3,1.3 0 1,0 2.6,0 a1.3,1.3 0 1,0 -2.6,0" />
+        <path d="M12,16.3 V18" />
+      </svg>
+      <span>lock</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9.5,11 V9.5 a2.5,2.5 0 0 1 5,0 V11" />
+        <path d="M7,11 h10 a1.5,1.5 0 0 1 1.5,1.5 v1.5 a1.5,1.5 0 0 1 -1.5,1.5 h-10 a1.5,1.5 0 0 1 -1.5,-1.5 v-1.5 a1.5,1.5 0 0 1 1.5,-1.5 z" />
+        <path d="M8.5,18 H15.5" />
+      </svg>
+      <span>watermark</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9,8 H15 L17.5,10.5 V20.5 H9 Z" />
+        <path d="M15,8 V10.5 H17.5" />
+        <path d="M9,15 H5 V4 H11 L13,6 V8" />
+        <path d="M11,4 V6 H13" />
+      </svg>
+      <span>arrange</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4.5,4.5 L9.3,9.3 M9.3,6.4 V9.3 H6.4" />
+        <path d="M19.5,4.5 L14.7,9.3 M14.7,6.4 V9.3 H17.6" />
+        <path d="M4.5,19.5 L9.3,14.7 M9.3,17.6 V14.7 H6.4" />
+        <path d="M19.5,19.5 L14.7,14.7 M14.7,17.6 V14.7 H17.6" />
+      </svg>
+      <span>compress</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4.5,4 H19.5 L13,11.5 V18 L11,17 V11.5 Z" />
+      </svg>
+      <span>extract</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M2.5,12 H8.7 M6.5,9.7 L8.9,12 L6.5,14.3" />
+        <path d="M10.5,7 H21.5 V17 H10.5 Z" />
+        <path d="M12.8,9.7 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" />
+        <path d="M11,16 L15,10.5 L21,16" />
+      </svg>
+      <span>pdf→image</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M2.5,12 H8.7 M6.5,9.7 L8.9,12 L6.5,14.3" />
+        <path d="M11.5,5 H17.5 L20.5,8 V18.5 H11.5 Z" />
+        <path d="M17.5,5 V8 H20.5" />
+      </svg>
+      <span>image→pdf</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M2.5,12 H8.7 M6.5,9.7 L8.9,12 L6.5,14.3" />
+        <path d="M10.5,8 H21.5 V16 H10.5 Z" />
+        <path d="M13,11 H17.5" />
+      </svg>
+      <span>image→pptx</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5,9 V5 H9" />
+        <path d="M19,15 V19 H15" />
+        <path d="M9.3,9.8 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" />
+        <path d="M6.5,16 L11,11 L17.5,16" />
+      </svg>
+      <span>resize</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M16.5,9.5 V4.5 H3.5 V14.5 H7.5" />
+        <path d="M7.5,9.5 H20.5 V19.5 H7.5 Z" />
+        <path d="M10,12.5 H15.5" />
+      </svg>
+      <span>background</span>
+    </div>
   </div>
 </div>
 <script>
