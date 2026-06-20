@@ -2,7 +2,6 @@
 
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { FadeInCenter } from "@/components/brand/FadeInCenter";
 import { CategoryStrip } from "@/components/brand/CategoryStrip";
 import { ToolCard } from "@/components/brand/ToolCard";
 import { TOOLS } from "@/lib/constants";
@@ -57,37 +56,39 @@ export function Screen2Opened({
           onBack={onClose}
         />
 
-        <FadeInCenter>
+        <div
+          className="absolute left-1/2"
+          style={{
+            top: "calc(50% - 150px + var(--tweak-title-y, 0px))",
+            transform: "translateX(-50%)",
+            width: "min(520px, calc(100vw - 32px))",
+            transition: "top 200ms ease",
+          }}
+        >
+          {/* Keyed by category so switching tabs remounts the grid and replays
+              the per-card drop & settle stagger. */}
           <div
-            className="absolute left-1/2"
-            style={{
-              top: "calc(50% - 150px + var(--tweak-title-y, 0px))",
-              transform: "translateX(-50%)",
-              width: "min(520px, calc(100vw - 32px))",
-              transition: "top 200ms ease",
-            }}
+            key={activeCategory}
+            className="grid grid-cols-2 gap-3 max-[480px]:grid-cols-1"
+            style={{ textAlign: "left" }}
           >
-            <div
-              className="grid grid-cols-2 gap-3 max-[480px]:grid-cols-1"
-              style={{ textAlign: "left" }}
-            >
-              {tools.map((t) => {
-                const toolDict = dict.tools[t.slug as ToolSlugKey];
-                return (
-                  <ToolCard
-                    key={t.slug}
-                    slug={t.slug}
-                    title={toolDict.title}
-                    description={toolDict.description}
-                    Icon={t.icon}
-                    onOpen={onToolOpen}
-                    zooming={zoomingToolSlug === t.slug}
-                  />
-                );
-              })}
-            </div>
+            {tools.map((t, i) => {
+              const toolDict = dict.tools[t.slug as ToolSlugKey];
+              return (
+                <ToolCard
+                  key={t.slug}
+                  slug={t.slug}
+                  title={toolDict.title}
+                  description={toolDict.description}
+                  Icon={t.icon}
+                  onOpen={onToolOpen}
+                  zooming={zoomingToolSlug === t.slug}
+                  index={i}
+                />
+              );
+            })}
           </div>
-        </FadeInCenter>
+        </div>
       </main>
 
       <Footer

@@ -143,7 +143,7 @@
   --ease-settle:   cubic-bezier(.25, .8, .25, 1); /* decelerate-and-rest — brand character */
   --motion-fast:   250ms;  /* hover colour/border, toggles, button lift */
   --motion-base:   300ms;  /* card hover lift, opacity, small transforms */
-  --motion-settle: 600ms;  /* drop & settle signature entrance */
+  --motion-settle: 500ms;  /* drop & settle signature entrance */
 }
 
 .dark {
@@ -297,20 +297,31 @@
 /* ── Drop & settle — the signature brand entrance (shell / launcher level). ── */
 @keyframes drop-settle {
   0%   { opacity: 0; transform: translateY(9px); }
-  60%  { opacity: 1; transform: translateY(-4px); }
+  60%  { opacity: 1; transform: translateY(-3px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 .animate-drop-settle {
   animation: drop-settle var(--motion-settle) var(--ease-settle) both;
 }
 
-/* Opacity-only fallback — used solely by .animate-drop-settle under reduced-motion. */
+/* Per-card grid entrance — the launcher grid settles card-by-card (the caller
+ * sets animation-delay per index for the stagger). `backwards` fill holds the
+ * hidden start state during the stagger delay, then hands the card back to its
+ * own inline transform/opacity (hover lift, open-zoom) once the drop finishes. */
+.toolcard-enter {
+  animation: drop-settle var(--motion-settle) var(--ease-settle) backwards;
+}
+
+/* Opacity-only fallback — used by .animate-drop-settle / .toolcard-enter under reduced-motion. */
 @keyframes ob-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* Quiet down for reduced-motion: keep a gentle opacity fade, drop all transform. */
 @media (prefers-reduced-motion: reduce) {
   .animate-drop-settle {
     animation: ob-fade var(--motion-base) var(--ease-standard) both;
+  }
+  .toolcard-enter {
+    animation: ob-fade var(--motion-base) var(--ease-standard) backwards;
   }
   .toolcard, .btn-primary, .btn-download, .nameplate, .handoff-action {
     transition-duration: 0.01ms !important;

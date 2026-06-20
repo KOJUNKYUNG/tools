@@ -39,7 +39,7 @@
     /* Motion — mirrors src/app/globals.css */
     --ease-standard: cubic-bezier(.4,0,.2,1);
     --ease-settle:   cubic-bezier(.25,.8,.25,1);
-    --motion-fast:   250ms; --motion-base: 300ms; --motion-settle: 600ms;
+    --motion-fast:   250ms; --motion-base: 300ms; --motion-settle: 500ms;
     --bg:var(--mono-100); --surface:var(--mono-0); --border:var(--mono-200);
     --ink:var(--mono-600); --ink-strong:var(--mono-900); --headline:var(--mono-900);
     --font-display:'Clash Display','IBM Plex Sans KR',ui-sans-serif,system-ui,sans-serif;
@@ -80,7 +80,7 @@
   #demo-hovercard:hover { transform:translateY(-2px); border-color:var(--ink-strong); }
   @keyframes brand-drop-settle {
     0%{opacity:0;transform:translateY(9px);}
-    60%{opacity:1;transform:translateY(-4px);}
+    60%{opacity:1;transform:translateY(-3px);}
     100%{opacity:1;transform:translateY(0);}
   }
   .play-drop { animation:brand-drop-settle var(--motion-settle) var(--ease-settle) both; }
@@ -293,7 +293,7 @@
 --ease-settle:   cubic-bezier(.25,.8,.25,1);
 --motion-fast:   250ms;   /* hover 색·테두리·버튼 lift */
 --motion-base:   300ms;   /* 카드 hover lift, opacity */
---motion-settle: 600ms;   /* drop & settle 진입 */</pre>
+--motion-settle: 500ms;   /* drop & settle 진입 */</pre>
 
   <h3>진입 데모</h3>
   <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">

@@ -14,13 +14,13 @@ describe("motion tokens (single source of truth)", () => {
     expect(css).toMatch(/--ease-settle:\s*cubic-bezier\(\.25,\s*\.8,\s*\.25,\s*1\)/);
     expect(css).toMatch(/--motion-fast:\s*250ms/);
     expect(css).toMatch(/--motion-base:\s*300ms/);
-    expect(css).toMatch(/--motion-settle:\s*600ms/);
+    expect(css).toMatch(/--motion-settle:\s*500ms/);
   });
 
   it("defines the drop-settle keyframe with the 9 / -4 / 0 stops", () => {
     expect(css).toMatch(/@keyframes\s+drop-settle/);
     expect(css).toMatch(/translateY\(9px\)/);
-    expect(css).toMatch(/translateY\(-4px\)/);
+    expect(css).toMatch(/translateY\(-3px\)/);
     // The settle must return to rest — a missing 100% stop would snap, not settle.
     expect(css).toMatch(/100%[\s\S]*?translateY\(0\)/);
   });

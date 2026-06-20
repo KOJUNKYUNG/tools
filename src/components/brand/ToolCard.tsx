@@ -9,6 +9,8 @@ interface ToolCardProps {
   Icon: (props: ToolIconProps) => JSX.Element;
   onOpen: (slug: string) => void;
   zooming?: boolean;
+  /** Position in the grid — drives the drop & settle stagger delay. */
+  index?: number;
 }
 
 /**
@@ -18,11 +20,11 @@ interface ToolCardProps {
  * steps down on the single-column (≤480px) layout. currentColor on the icon and
  * the semantic tokens let the whole card invert with the theme.
  */
-export function ToolCard({ slug, title, description, Icon, onOpen, zooming }: ToolCardProps) {
+export function ToolCard({ slug, title, description, Icon, onOpen, zooming, index = 0 }: ToolCardProps) {
   return (
     <button
       onClick={() => onOpen(slug)}
-      className="toolcard focus-ring rounded-[4px] text-left flex gap-3.5 items-center w-full"
+      className="toolcard toolcard-enter focus-ring rounded-[4px] text-left flex gap-3.5 items-center w-full"
       style={{
         height: "var(--tweak-card-height, 96px)",
         padding: "var(--tweak-card-padding, 14px)",
@@ -30,6 +32,7 @@ export function ToolCard({ slug, title, description, Icon, onOpen, zooming }: To
         opacity: zooming ? 0 : 1,
         transition:
           "transform var(--motion-base) var(--ease-settle), opacity var(--motion-base) var(--ease-standard), height var(--motion-base) var(--ease-standard), padding var(--motion-base) var(--ease-standard)",
+        animationDelay: `${index * 70}ms`,
         zIndex: zooming ? 5 : 1,
       }}
     >
