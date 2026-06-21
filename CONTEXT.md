@@ -245,6 +245,21 @@ coordinates; subagents do the writing.
 Subagents must not run `pnpm dev` (no interactive Ctrl+C). Verification is
 `pnpm exec tsc --noEmit` + `pnpm build`. The user runs the dev server.
 
+### Design & brand sync
+Any change that touches design or brand — `globals.css` tokens, brand components
+(`src/components/brand/`), the logo, icons, or motion — keeps the reference docs
+in step **in the same commit**, and consults them **before** starting (they carry
+the *intent*, not just the values):
+
+- **Color / type / component tokens** ↔ [`DESIGN.md`](DESIGN.md) (ADR-0003;
+  `pnpm design:check` guards color drift automatically).
+- **Logo, iconography, motion** ↔ [`docs/brand.html`](docs/brand.html) — a
+  hand-maintained rendered mirror with **no automated guard**, so update its
+  values *and* its design-intent notes whenever the runtime changes.
+
+`brand.html` carries design intent on purpose: it's where the "why" of the logo,
+icon system, and motion lives, so future brand work stays coherent.
+
 ### Staging
 Never `git add -A` — the design handoff folder and other local-only artifacts
 are at risk. Always stage explicit paths.

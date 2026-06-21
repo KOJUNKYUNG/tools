@@ -113,3 +113,16 @@ anchors and asserts each still matches the `--mono-N` value its trailing
 Lint with `pnpm design:lint`. **Always use the `designmd` bin, not `design.md`**
 — the dotted bin name hangs `pnpm exec` (and collides with `DESIGN.md` in file
 search). `--format json` keeps output non-interactive.
+
+### Brand expression: `docs/brand.html` (manual mirror)
+
+`DESIGN.md` only covers what `designmd` can schema-check: color, typography,
+rounded, spacing, components. The brand's **logo, iconography, and motion** have
+no schema there, so they live in [`docs/brand.html`](../brand.html) — a rendered,
+browser-openable reference that mirrors the runtime (`globals.css` motion tokens +
+`src/components/brand/` assets) and records each one's **design intent**.
+
+Unlike the DESIGN.md ↔ globals.css color sync, **there is no automated drift
+check** for `brand.html`. So any change to motion tokens, the logo, or the icon
+set must update `brand.html` (values *and* intent notes) in the same commit. See
+CONTEXT.md → Working conventions → "Design & brand sync".
