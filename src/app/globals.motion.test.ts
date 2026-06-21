@@ -39,7 +39,8 @@ describe("motion tokens (single source of truth)", () => {
     // keyframe scales up from 0.90
     expect(css).toMatch(/@keyframes\s+result-pop/);
     expect(css).toMatch(/scale\(0\.90\)/);
-    // reduced-motion downgrades .result-pop to the opacity-only fade
-    expect(css).toMatch(/prefers-reduced-motion[\s\S]*?\.result-pop[\s\S]*?ob-fade/);
+    // reduced-motion downgrades .result-pop to the opacity-only fade (both fill,
+    // not backwards — backwards would flash the card invisible before the fade).
+    expect(css).toMatch(/prefers-reduced-motion[\s\S]*?\.result-pop[\s\S]*?ob-fade[^;]*both/);
   });
 });
