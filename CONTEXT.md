@@ -29,6 +29,7 @@ wins.
 | What Ontab is, domain terms, architecture contracts, Phase *definitions* | **this file** (`CONTEXT.md`) | A term or concept actually resolves — lazily, via `/grill-with-docs` |
 | A hard-to-reverse decision + its rationale | **`docs/adr/`** | The decision is hard to reverse, surprising without context, and a real trade-off |
 | The design spec — tokens, typography, components, Do's & Don'ts | **`DESIGN.md`** (root) | The design system changes (ADR-0003 / ADR-0004; populated 2026-06) |
+| The brand identity expression — logo, iconography, motion (rendered) | **`docs/brand.html`** (open in a browser) | The brand identity changes — logo, icon system, or motion. Mirrors runtime (`globals.css` + brand components); not a second source of truth |
 | The silver-era implementation contract (historical) | **`docs/_archive/design.md`** | Superseded by root `DESIGN.md` (ADR-0004) — archived, do not extend |
 | The design of one tool/feature | **`docs/superpowers/specs/{date}-{slug}-design.md`** | Before building it, once brainstorming settles the design |
 | The task breakdown to build one tool/feature | **`docs/superpowers/plans/{date}-{slug}.md`** | After the spec, just before implementation |
@@ -103,6 +104,13 @@ Don't propose them as features:
 The design spec is **root [`DESIGN.md`](DESIGN.md)** (Google DESIGN.md standard
 format, ADR-0003) — tokens, typography, components, and Do's & Don'ts live
 there. The entries below define vocabulary only.
+
+The **rendered brand reference** — logo, iconography, and motion shown live, each
+with its design intent — is [`docs/brand.html`](docs/brand.html) (open in a
+browser). It expresses identity and is kept **separate** from `DESIGN.md`: the
+`designmd` token contract has no motion/iconography schema, so putting them there
+would break `design:lint`. `brand.html` mirrors runtime values (`globals.css` +
+the `src/components/brand/` assets) — it is documentation, not a source of truth.
 
 ### Monochrome
 The active visual language (2026-06 redesign): **high-contrast monochrome —

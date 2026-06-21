@@ -52,6 +52,7 @@ holds product content and routing; this file holds the meta rules.**
 | `docs/adr/` | `/grill-with-docs` | Only when a decision passes all three gates below. |
 | `DESIGN.md` (root) | the design system changes | Google-standard design spec (ADR-0003). **Populated and authoritative** since the monochrome redesign (ADR-0004) — tokens, typography, components, Do's & Don'ts. |
 | `docs/_archive/design.md` | — | The silver-era implementation contract, **archived** (superseded by root `DESIGN.md`, ADR-0004). Historical only; do not extend. |
+| `docs/brand.html` | superpowers `brainstorming` (brand foundation) | The brand identity expression changes — logo, iconography, motion. A rendered, browser-openable reference that mirrors runtime (`globals.css` + `src/components/brand/`); kept separate from `DESIGN.md` because `designmd` has no motion/iconography schema. |
 | `docs/superpowers/specs/{date}-{slug}-design.md` | superpowers `brainstorming` | Before building, once the design settles. One tool/feature = one spec. |
 | `docs/superpowers/plans/{date}-{slug}.md` | superpowers `writing-plans` | After the spec, just before implementation. Paired with its spec. |
 | `docs/agents/*` (this file, issue-tracker, triage-labels) | Human / config | Static. Only when operating conventions change. |
