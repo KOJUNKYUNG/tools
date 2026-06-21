@@ -40,7 +40,7 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
             top: "50%",
             transform: `translate(-50%, calc(-50% - 10px + var(--tweak-title-y, 0px))) scale(${heroVisible ? 1 : 0.94})`,
             opacity: heroVisible ? 1 : 0,
-            transition: "transform 320ms cubic-bezier(.4,0,.2,1), opacity 240ms ease",
+            transition: "transform var(--motion-base) var(--ease-settle), opacity var(--motion-base) var(--ease-standard)",
           }}
         >
           {/* Landing hero — tuned via docs/design-preview.html §12
