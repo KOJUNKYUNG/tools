@@ -2,6 +2,9 @@
 import type { ToolIconProps } from "@/components/brand/ToolIcons";
 import type { JSX } from "react";
 
+/** Per-card delay (ms) for the drop & settle grid stagger. */
+const STAGGER_STEP_MS = 70;
+
 interface ToolCardProps {
   slug: string;
   title: string;
@@ -9,6 +12,8 @@ interface ToolCardProps {
   Icon: (props: ToolIconProps) => JSX.Element;
   onOpen: (slug: string) => void;
   zooming?: boolean;
+  /** Position in the grid — drives the drop & settle stagger delay. */
+  index?: number;
 }
 
 /**
@@ -18,18 +23,26 @@ interface ToolCardProps {
  * steps down on the single-column (≤480px) layout. currentColor on the icon and
  * the semantic tokens let the whole card invert with the theme.
  */
-export function ToolCard({ slug, title, description, Icon, onOpen, zooming }: ToolCardProps) {
+export function ToolCard({ slug, title, description, Icon, onOpen, zooming, index = 0 }: ToolCardProps) {
   return (
     <button
       onClick={() => onOpen(slug)}
-      className="toolcard focus-ring rounded-[4px] text-left flex gap-3.5 items-center w-full"
+      className="toolcard toolcard-enter focus-ring rounded-[4px] text-left flex gap-3.5 items-center w-full"
       style={{
         height: "var(--tweak-card-height, 96px)",
         padding: "var(--tweak-card-padding, 14px)",
-        transform: zooming ? "scale(0.96)" : "scale(1)",
+        // Only set transform inline while zooming open. At rest, leaving it
+        // unset lets the stylesheet's .toolcard:hover lift (translateY) win —
+        // an inline transform would override the :hover rule and kill the lift.
+        transform: zooming ? "scale(0.96)" : undefined,
         opacity: zooming ? 0 : 1,
         transition:
-          "transform 280ms cubic-bezier(.4,0,.2,1), opacity 240ms ease, height 200ms ease, padding 200ms ease",
+          "transform var(--motion-base) var(--ease-settle), opacity var(--motion-base) var(--ease-standard), height var(--motion-base) var(--ease-standard), padding var(--motion-base) var(--ease-standard)",
+        // Hand off to the open-zoom transform immediately if the card is clicked
+        // mid-entrance — otherwise the running drop-settle keyframe would override
+        // the scale/opacity zoom. STAGGER_STEP_MS (70) per card index.
+        animationName: zooming ? "none" : undefined,
+        animationDelay: `${index * STAGGER_STEP_MS}ms`,
         zIndex: zooming ? 5 : 1,
       }}
     >
