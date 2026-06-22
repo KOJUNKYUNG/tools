@@ -24,7 +24,7 @@ export function PptCompressResult({
 
   return (
     <div
-      className="flex flex-col gap-3 rounded-[8px] border p-4"
+      className="result-pop flex flex-col gap-3 rounded-[8px] border p-4"
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",

@@ -21,7 +21,7 @@ export function ImageCompressResult({
 }: ImageCompressResultProps) {
   return (
     <div
-      className="space-y-2 rounded-[8px] border p-3"
+      className="result-pop space-y-2 rounded-[8px] border p-3"
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",

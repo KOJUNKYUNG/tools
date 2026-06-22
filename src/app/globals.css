@@ -144,6 +144,7 @@
   --motion-fast:   250ms;  /* hover colour/border, toggles, button lift */
   --motion-base:   300ms;  /* card hover lift, opacity, small transforms */
   --motion-settle: 500ms;  /* drop & settle signature entrance */
+  --ease-pop:      cubic-bezier(.34, 1.40, .64, 1); /* back-out overshoot — result reward */
 }
 
 .dark {
@@ -314,6 +315,14 @@
   animation: drop-settle var(--motion-settle) var(--ease-settle) backwards;
 }
 
+/* Result reveal — the shared "완료" card pops in (a bounded reward, the one
+ * place motion enters tool UI). Opacity-only fallback under reduced motion. */
+@keyframes result-pop {
+  from { opacity: 0; transform: scale(0.90); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.result-pop { animation: result-pop 400ms var(--ease-pop) both; }
+
 /* Opacity-only fallback — used by .animate-drop-settle / .toolcard-enter under reduced-motion. */
 @keyframes ob-fade { from { opacity: 0; } to { opacity: 1; } }
 
@@ -324,6 +333,9 @@
   }
   .toolcard-enter {
     animation: ob-fade var(--motion-base) var(--ease-standard) backwards;
+  }
+  .result-pop {
+    animation: ob-fade var(--motion-base) var(--ease-standard) both;
   }
   .toolcard, .btn-primary, .btn-download, .nameplate, .handoff-action {
     transition-duration: 0.01ms !important;

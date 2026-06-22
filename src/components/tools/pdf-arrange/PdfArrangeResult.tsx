@@ -133,7 +133,7 @@ export function PdfArrangeResult({
       </div>
 
       <div
-        className="flex flex-col gap-2 self-start rounded-[8px] border p-4"
+        className="result-pop flex flex-col gap-2 self-start rounded-[8px] border p-4"
         style={{
           background: "var(--surface)",
           borderColor: "var(--border)",

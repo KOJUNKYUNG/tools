@@ -52,6 +52,7 @@ holds product content and routing; this file holds the meta rules.**
 | `docs/adr/` | `/grill-with-docs` | Only when a decision passes all three gates below. |
 | `DESIGN.md` (root) | the design system changes | Google-standard design spec (ADR-0003). **Populated and authoritative** since the monochrome redesign (ADR-0004) — tokens, typography, components, Do's & Don'ts. |
 | `docs/_archive/design.md` | — | The silver-era implementation contract, **archived** (superseded by root `DESIGN.md`, ADR-0004). Historical only; do not extend. |
+| `docs/brand.html` | superpowers `brainstorming` (brand foundation) | The brand identity expression changes — logo, iconography, motion. A rendered, browser-openable reference that mirrors runtime (`globals.css` + `src/components/brand/`); kept separate from `DESIGN.md` because `designmd` has no motion/iconography schema. |
 | `docs/superpowers/specs/{date}-{slug}-design.md` | superpowers `brainstorming` | Before building, once the design settles. One tool/feature = one spec. |
 | `docs/superpowers/plans/{date}-{slug}.md` | superpowers `writing-plans` | After the spec, just before implementation. Paired with its spec. |
 | `docs/agents/*` (this file, issue-tracker, triage-labels) | Human / config | Static. Only when operating conventions change. |
@@ -112,3 +113,16 @@ anchors and asserts each still matches the `--mono-N` value its trailing
 Lint with `pnpm design:lint`. **Always use the `designmd` bin, not `design.md`**
 — the dotted bin name hangs `pnpm exec` (and collides with `DESIGN.md` in file
 search). `--format json` keeps output non-interactive.
+
+### Brand expression: `docs/brand.html` (manual mirror)
+
+`DESIGN.md` only covers what `designmd` can schema-check: color, typography,
+rounded, spacing, components. The brand's **logo, iconography, and motion** have
+no schema there, so they live in [`docs/brand.html`](../brand.html) — a rendered,
+browser-openable reference that mirrors the runtime (`globals.css` motion tokens +
+`src/components/brand/` assets) and records each one's **design intent**.
+
+Unlike the DESIGN.md ↔ globals.css color sync, **there is no automated drift
+check** for `brand.html`. So any change to motion tokens, the logo, or the icon
+set must update `brand.html` (values *and* intent notes) in the same commit. See
+CONTEXT.md → Working conventions → "Design & brand sync".

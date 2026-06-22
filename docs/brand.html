@@ -40,6 +40,7 @@
     --ease-standard: cubic-bezier(.4,0,.2,1);
     --ease-settle:   cubic-bezier(.25,.8,.25,1);
     --motion-fast:   250ms; --motion-base: 300ms; --motion-settle: 500ms;
+    --ease-pop: cubic-bezier(.34,1.40,.64,1);
     --bg:var(--mono-100); --surface:var(--mono-0); --border:var(--mono-200);
     --ink:var(--mono-600); --ink-strong:var(--mono-900); --headline:var(--mono-900);
     --font-display:'Clash Display','IBM Plex Sans KR',ui-sans-serif,system-ui,sans-serif;
@@ -86,9 +87,15 @@
   /* `both` is fine for this self-contained demo (no competing inline transform);
      production cards use `backwards` so the fill releases to their own zoom/hover. */
   .play-drop { animation:brand-drop-settle var(--motion-settle) var(--ease-settle) both; }
+  @keyframes brand-result-pop {
+    from { opacity:0; transform:scale(0.90); }
+    to   { opacity:1; transform:scale(1); }
+  }
+  .play-pop { animation:brand-result-pop 400ms var(--ease-pop) both; }
   /* This doc demonstrates motion, so it must itself honour the reduced-motion principle. */
   @media (prefers-reduced-motion: reduce) {
     .play-drop { animation:none; }
+    .play-pop { animation:none; }
     #demo-btn:hover, #demo-hovercard:hover { transform:none; }
   }
 </style>
@@ -102,6 +109,12 @@
   <h2>Logo</h2>
   <p>책상 위에 툭 던진 서류철 + "On". 헤더 마크는 고정색(테마 반전 없음 — 사용자 선택),
      파비콘은 정사각·OS 다크 모드에서 반전됩니다.</p>
+  <h3>설계 의도</h3>
+  <ul class="muted" style="max-width:62ch;">
+    <li>책상 위에 툭 올려둔 서류철 + 'On'</li>
+    <li>설치해 여는 프로그램이 아니라, 책상에 두고 바로 집어 쓰는 가벼운 도구함</li>
+    <li>헤더 마크 = 고정색(어디서나 같은 얼굴) · 파비콘만 다크 모드에서 반전</li>
+  </ul>
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
     <div class="panel" style="display:flex;align-items:center;justify-content:center;min-height:160px;">
       <svg
@@ -185,6 +198,48 @@
       <img src="../src/app/icon.svg" width="96" height="96" alt="Ontab favicon (square, OS-inverting)" />
     </div>
   </div>
+  <h3>워드마크 (헤더 로고)</h3>
+  <p class="muted">실제 헤더에 쓰는 잠금 조합 — 마크 + "Ontab"(Clash Display Medium). 마크 24px · 텍스트 17px · 간격 10px (<code>Wordmark.tsx</code>).</p>
+  <div class="panel" style="display:flex;align-items:center;justify-content:center;min-height:84px;">
+    <span style="display:inline-flex;align-items:center;gap:10px;">
+      <svg viewBox="-6 -8.258 111.291 111.291" width="24" height="24" aria-hidden="true">
+        <g transform="translate(-521.62805,-333.85627)">
+          <g transform="matrix(1.1781118,0,-0.0448272,1.2774263,204.24633,-27.84986)">
+            <g transform="translate(-11.489814,5.0279312)">
+              <g>
+                <g transform="matrix(0.59218412,0,0.04780659,0.78742213,91.205264,70.695532)">
+                  <path fill="#242324" stroke-width="0.289365" stroke-linejoin="bevel" d="m 318.8339,344.83463 h 114.043 c 2.20576,0 3.98151,1.77575 3.98151,3.98151 v 4.8517 c 0,2.20576 -1.77575,3.98151 -3.98151,3.98151 h -114.043 c -2.20576,0 -3.98151,-1.77575 -3.98151,-3.98151 v -4.8517 c 0,-2.20576 1.77575,-3.98151 3.98151,-3.98151 z" />
+                  <path fill="#242324" stroke-width="0.929839" stroke-linejoin="bevel" d="m 430.06115,264.65277 h 4.83147 c 3.06167,0 5.52649,2.46481 5.52649,5.52648 v 81.93169 c 0,3.06167 -2.46482,5.52648 -5.52649,5.52648 h -4.83147 c -3.06167,0 -5.52648,-2.46481 -5.52648,-5.52648 v -81.93169 c 0,-3.06167 2.46481,-5.52648 5.52648,-5.52648 z" />
+                  <path fill="#ffffff" stroke="#242324" stroke-width="2.00039" stroke-linejoin="bevel" transform="matrix(1,0,-0.0279541,0.99960921,0,0)" d="m 329.34425,264.53082 h 113.88852 c 2.077,0 3.7491,1.6721 3.7491,3.7491 v 82.48017 c 0,2.07701 -1.6721,3.7491 -3.7491,3.7491 H 329.34425 c -2.077,0 -3.7491,-1.67209 -3.7491,-3.7491 v -82.48017 c 0,-2.077 1.6721,-3.7491 3.7491,-3.7491 z" />
+                </g>
+                <g transform="matrix(1.0241391,0.4104136,-0.4104136,1.0241391,119.85585,-143.21004)">
+                  <g transform="matrix(0.63123163,-0.33965336,0.32926827,0.61203199,302.84656,296.76933)">
+                    <path d="M 10,8 H 44 L 56,20 V 74 H 10 Z" fill="#ffffff" stroke="#242324" stroke-width="2" stroke-linejoin="round" />
+                    <path d="M 44,8 V 20 H 56 Z" fill="#d9d9da" stroke="#242324" stroke-width="2" stroke-linejoin="round" />
+                  </g>
+                  <g transform="matrix(0.71443027,-0.05837109,0.05654606,0.69267834,325.48781,279.78235)">
+                    <path d="M 10,8 H 44 L 56,20 V 74 H 10 Z" fill="#ffffff" stroke="#242324" stroke-width="2" stroke-linejoin="round" />
+                    <path d="M 44,8 V 20 H 56 Z" fill="#d9d9da" stroke="#242324" stroke-width="2" stroke-linejoin="round" />
+                  </g>
+                  <g>
+                    <g transform="matrix(0.72093966,-0.12475416,0.12495306,0.69865461,311.53642,288.26598)">
+                      <path fill="#ffffff" stroke="#242324" stroke-width="2" d="m 11,8 h 42 c 1.662,0 3,1.338 3,3 v 60 c 0,1.662 -1.338,3 -3,3 H 11 C 9.338,74 8,72.662 8,71 V 11 C 8,9.338 9.338,8 11,8 Z" />
+                    </g>
+                  </g>
+                  <g transform="matrix(0.6549072,-0.11332764,0.09289395,0.51940135,309.51209,301.34241)">
+                    <path fill="#242324" d="M 13.160225,12.319982 H 43 c 2.77,0 5,2.854232 5,6.399625 v 20.373078 c 0,3.545393 -2.23,6.399626 -5,6.399626 H 13.160225 c -2.77,0 -5.0000001,-2.854233 -5.0000001,-6.399626 V 18.719607 c 0,-3.545393 2.2300001,-6.399625 5.0000001,-6.399625 z" />
+                    <path fill="#242324" d="m 15,24 h 70 c 3.878,0 7,3.122 7,7 v 44 c 0,3.878 -3.122,7 -7,7 H 15 C 11.122,82 8,78.878 8,75 V 31 c 0,-3.878 3.122,-7 7,-7 z" />
+                  </g>
+                </g>
+                <path fill="#ffffff" stroke-width="3.58811" stroke-linejoin="bevel" transform="matrix(1.0221246,0.21931536,-0.20222823,0.93496257,0,0)" aria-label="On" d="m 375.0113,275.58244 q -4.459,0 -7.79283,-1.75026 -3.33383,-1.79194 -5.16744,-5.00075 -1.83361,-3.25049 -1.83361,-7.62614 0,-4.37566 1.83361,-7.58447 1.83361,-3.25049 5.16744,-5.00075 3.33383,-1.79193 7.79283,-1.79193 4.62569,0 7.95953,1.79193 3.33383,1.75026 5.12576,5.00075 1.83361,3.20881 1.83361,7.58447 0,4.37565 -1.83361,7.62614 -1.79193,3.20881 -5.12576,5.00075 -3.33384,1.75026 -7.95953,1.75026 z m 0,-5.20911 q 3.20882,0 5.20912,-0.91681 2.00029,-0.95847 2.95877,-2.95877 0.95848,-2.04198 0.95848,-5.29246 0,-3.29216 -0.95848,-5.29246 -0.95848,-2.0003 -2.95877,-2.9171 -2.0003,-0.95848 -5.20912,-0.95848 -3.16714,0 -5.16744,0.95848 -1.95862,0.9168 -2.9171,2.9171 -0.9168,2.0003 -0.9168,5.29246 0,3.25048 0.9168,5.29246 0.95848,2.0003 2.9171,2.95877 2.0003,0.91681 5.16744,0.91681 z m 38.7968,4.79238 h -5.41747 v -11.08499 q 0,-2.70874 -1.29186,-3.95893 -1.25019,-1.29186 -4.33398,-1.29186 -3.12547,0 -4.54235,1.45855 -1.37521,1.45856 -1.37521,4.45901 l -0.79178,0.0417 -0.33338,-4.0006 h 1.04182 q 0.29171,-1.75026 1.29186,-3.29216 1.00015,-1.58357 2.79208,-2.54205 1.79194,-1.00015 4.50068,-1.00015 2.83375,0 4.70903,1.12517 1.91696,1.12517 2.83376,3.04212 0.9168,1.91696 0.9168,4.29231 z m -16.96087,0 h -5.41747 v -20.79478 h 5.04242 v 6.50098 l 0.37505,0.20836 z" />
+              </g>
+            </g>
+          </g>
+        </g>
+      </svg>
+      <span style="font-family:var(--font-display);font-size:17px;font-weight:500;color:var(--headline);">Ontab</span>
+    </span>
+  </div>
   <h3>여백 · 최소 크기</h3>
   <p class="muted">클리어 스페이스 = 마크 높이의 25%. 최소 표시 크기 24px(파비콘) / 28px(헤더 마크).</p>
   <h3>금지 사용</h3>
@@ -193,10 +248,40 @@
     <div class="panel"><span class="muted">✘ 비율 왜곡 · 그림자/그라데이션 추가 · 회전</span></div>
   </div>
 
+  <h2>Typography</h2>
+  <h3>설계 의도</h3>
+  <ul class="muted" style="max-width:62ch;">
+    <li>세 글꼴, 세 역할 — 제목 · 본문 · 라벨</li>
+    <li>Clash Display = 또렷한 제목 인상 (라틴 전용 → 한글은 IBM Plex로 자동 폴백)</li>
+    <li>IBM Plex Sans KR = 한·영 본문을 한 글꼴로, 편하게 읽히게</li>
+    <li>Nanum Gothic Coding = 숫자·라벨·코드성 텍스트에 고정폭으로 또렷하게</li>
+  </ul>
+  <div class="grid" style="grid-template-columns:1fr;gap:14px;">
+    <div class="panel">
+      <div class="muted" style="margin-bottom:8px;">Display · Clash Display</div>
+      <div style="font-family:var(--font-display);font-size:40px;font-weight:520;letter-spacing:-0.02em;color:var(--headline);line-height:1;">Ontab 온탭</div>
+    </div>
+    <div class="panel">
+      <div class="muted" style="margin-bottom:8px;">Body · IBM Plex Sans KR</div>
+      <div style="font-family:var(--font-body);font-size:16px;color:var(--ink-strong);line-height:1.5;">파일을 빠르게 고치는 무료 도구함. A free toolbox for fixing files fast.</div>
+    </div>
+    <div class="panel">
+      <div class="muted" style="margin-bottom:8px;">Label / mono · Nanum Gothic Coding</div>
+      <div style="font-family:var(--font-mono);font-size:14px;color:var(--ink-strong);">pdf-compress · 1280×720 · 2.4 MB</div>
+    </div>
+  </div>
+
   <h2>Iconography</h2>
   <p>도구 아이콘은 자체 Line 세트. 24 그리드 · stroke 1.0 · currentColor(테마 반전) ·
      round cap/join. 은유 규칙: 페이지(접힌 모서리)·슬라이드(16:9 + 제목선)·이미지(프레임 + 해/봉우리).
      반복 동사는 한 글리프 — 압축=네 모서리 화살표, 변환=대상 포맷으로 들어가는 화살표, 추출=깔때기.</p>
+  <h3>설계 의도</h3>
+  <ul class="muted" style="max-width:62ch;">
+    <li>이름이 비슷한 도구들 → 글자보다 그림으로 먼저 구분</li>
+    <li>24칸 격자 · 선 굵기 1.0 · 로고 선과 한 가족</li>
+    <li>반복 동작은 한 모양: 압축 = 네 모서리 화살표 · 변환 = 형식으로 들어가는 화살표 · 추출 = 깔때기</li>
+    <li>군더더기 없이, 작아도 또렷하게</li>
+  </ul>
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));">
     <div class="icon-cell">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -287,12 +372,22 @@
   <p>브랜드 모션 언어는 "툭 던져 안착". 셸/런처 레벨(도구를 고르고 들어가는 순간)에만 적용하고,
      도구 작업 화면 안은 조용하게 둡니다. 진입과 hover lift는 같은 settle 감속을 공유합니다.</p>
 
+  <h3>설계 의도</h3>
+  <ul class="muted" style="max-width:62ch;">
+    <li>'책상' 은유를 움직임으로</li>
+    <li>도구 고르기 — 책상에 툭툭 내려놓듯 카드가 차례로 안착</li>
+    <li>카드 hover — 도구를 집어 드는 느낌으로 살짝 들림</li>
+    <li>도구 안 — 움직임 절제, 작업에 집중</li>
+    <li>결과 — 결과 카드가 툭 튀어나오듯 등장 (제목·크기·액션 버튼이 든 그 카드에만)</li>
+  </ul>
+
   <h3>원칙</h3>
   <ol class="muted" style="max-width:62ch;">
     <li>브랜드 모션은 셸/런처 레벨에만.</li>
     <li>도구 안은 조용하게 — 장식 진입·transform 없음, 기능적 마이크로 피드백만.</li>
     <li>하나의 settle 성격 — 진입과 hover lift가 같은 easing(<code>--ease-settle</code>)을 공유.</li>
     <li><code>prefers-reduced-motion</code> 존중 — transform 제거, 페이드만.</li>
+    <li>결과 팝(<code>.result-pop</code>)은 <strong>"결과 카드"(제목·크기·액션 버튼 박스)에만</strong>. 함께 보이는 프리뷰·썸네일·결과 파일 리스트엔 적용하지 않는다.</li>
   </ol>
 
   <h3>토큰</h3>
@@ -300,7 +395,8 @@
 --ease-settle:   cubic-bezier(.25,.8,.25,1);
 --motion-fast:   250ms;   /* hover 색·테두리·버튼 lift */
 --motion-base:   300ms;   /* 카드 hover lift, opacity */
---motion-settle: 500ms;   /* drop & settle 진입 */</pre>
+--motion-settle: 500ms;   /* drop & settle 진입 */
+--ease-pop:      cubic-bezier(.34,1.40,.64,1);   /* 결과 팝 리빌 */</pre>
 
   <h3>진입 데모</h3>
   <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
@@ -316,6 +412,19 @@
         <span style="font-size:14px;font-weight:600;color:var(--headline);">PDF 합치기</span>
         <span style="font-size:11.5px;color:var(--ink);">여러 PDF를 한 파일로</span>
       </span>
+    </div>
+  </div>
+
+  <h3>결과 리빌 데모</h3>
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+    <button class="theme-btn" style="position:static;" id="replay-pop">리빌 리플레이</button>
+    <span class="muted">완료 카드가 팝으로 등장</span>
+  </div>
+  <div class="panel" style="min-height:64px;display:flex;align-items:center;justify-content:center;">
+    <div id="pop-card" style="display:flex;align-items:center;gap:12px;width:100%;max-width:360px;background:var(--surface);border-radius:8px;padding:10px 12px;box-shadow:inset 2px 0 0 var(--ink-strong);transform-origin:center;">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--ink-strong)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
+      <span style="flex:1;"></span>
+      <span style="background:var(--ink-strong);color:var(--bg);border-radius:9px;padding:6px 12px;font-size:11.5px;font-weight:600;white-space:nowrap;">다운로드</span>
     </div>
   </div>
 
@@ -344,6 +453,15 @@
     document.getElementById('replay').addEventListener('click',replay);
     card.addEventListener('click',replay);
     setTimeout(replay,200);
+    var popCard=document.getElementById('pop-card');
+    function replayPop(){
+      popCard.classList.remove('play-pop');
+      void popCard.offsetWidth;
+      popCard.classList.add('play-pop');
+    }
+    document.getElementById('replay-pop').addEventListener('click',replayPop);
+    popCard.addEventListener('click',replayPop);
+    setTimeout(replayPop,400);
   })();
 </script>
 </body>

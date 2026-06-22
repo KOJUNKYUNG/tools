@@ -25,7 +25,7 @@ export function ImageToPptxResult({
   return (
     <div className="flex justify-end">
       <div
-        className="flex w-full max-w-sm flex-col gap-2 rounded-[8px] border p-4"
+        className="result-pop flex w-full max-w-sm flex-col gap-2 rounded-[8px] border p-4"
         style={{
           background: "var(--surface)",
           borderColor: "var(--border)",
