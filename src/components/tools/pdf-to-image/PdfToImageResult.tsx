@@ -114,7 +114,7 @@ export function PdfToImageResult({
       : labels.download;
 
   return (
-    <div className="result-pop grid grid-cols-1 gap-4 md:grid-cols-2" style={{ height: "52vh" }}>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2" style={{ height: "52vh" }}>
       <div className="ob-scroll min-h-0 overflow-y-auto pr-1">
         <div className="grid grid-cols-3 gap-2">
           {images.map((img, i) => (
@@ -132,7 +132,7 @@ export function PdfToImageResult({
       </div>
 
       <div
-        className="flex flex-col gap-2 self-start rounded-[8px] border p-4"
+        className="result-pop flex flex-col gap-2 self-start rounded-[8px] border p-4"
         style={{
           background: "var(--surface)",
           borderColor: "var(--border)",
