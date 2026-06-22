@@ -39,7 +39,7 @@ export function ImageResizeResult({
 }: ImageResizeResultProps) {
   return (
     <div
-      className="rounded-[8px] border p-3 space-y-2"
+      className="result-pop rounded-[8px] border p-3 space-y-2"
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",

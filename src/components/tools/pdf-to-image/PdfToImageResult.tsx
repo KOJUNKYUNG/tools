@@ -114,7 +114,7 @@ export function PdfToImageResult({
       : labels.download;
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2" style={{ height: "52vh" }}>
+    <div className="result-pop grid grid-cols-1 gap-4 md:grid-cols-2" style={{ height: "52vh" }}>
       <div className="ob-scroll min-h-0 overflow-y-auto pr-1">
         <div className="grid grid-cols-3 gap-2">
           {images.map((img, i) => (

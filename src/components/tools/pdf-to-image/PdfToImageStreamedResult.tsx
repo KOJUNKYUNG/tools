@@ -19,7 +19,7 @@ export function PdfToImageStreamedResult({
 }: PdfToImageStreamedResultProps) {
   return (
     <div
-      className="flex flex-col items-center justify-center gap-4 rounded-[8px] border"
+      className="result-pop flex flex-col items-center justify-center gap-4 rounded-[8px] border"
       style={{
         height: "52vh",
         background: "var(--surface)",

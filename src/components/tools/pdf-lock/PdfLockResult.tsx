@@ -25,7 +25,7 @@ export function PdfLockResult({
   const Icon = mode === "lock" ? LockIcon : UnlockIcon;
   return (
     <div
-      className="flex flex-col gap-3 rounded-[8px] border p-4"
+      className="result-pop flex flex-col gap-3 rounded-[8px] border p-4"
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",

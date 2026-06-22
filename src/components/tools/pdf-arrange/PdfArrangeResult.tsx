@@ -85,7 +85,7 @@ export function PdfArrangeResult({
     : labels.downloadPdf;
 
   return (
-    <div className="grid min-h-[440px] grid-cols-1 gap-4 md:grid-cols-2">
+    <div className="result-pop grid min-h-[440px] grid-cols-1 gap-4 md:grid-cols-2">
       <div
         className="ob-scroll space-y-1.5 overflow-y-auto pr-1"
         style={{ maxHeight: "440px" }}
