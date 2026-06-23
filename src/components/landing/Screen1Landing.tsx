@@ -37,8 +37,8 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
 
         {/* Landing hero — centered stack: "Ontab" wordmark, then a quiet value
             layer (headline + benefit blocks) for anyone who pauses to read. The
-            category tabs above stay the lead. Tuned at 1440×900 via
-            docs/landing-explore.html (variant A). */}
+            category tabs above stay the lead. Tuned at 1440×900; previewed in
+            docs/design-preview.html (DESIGN.md → Components → Landing hero). */}
         <div
           className="absolute left-1/2 flex flex-col items-center"
           style={{
