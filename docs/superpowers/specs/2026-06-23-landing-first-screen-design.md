@@ -92,6 +92,7 @@ Reuses existing tokens only. **No new tokens, no color additions.**
 | Benefit desc | `font-ko`, 11px, `line-height 1.5`, `--ink-soft`; one sentence per line |
 | Block | `max-width 215px`, `padding 0 20px` |
 | Block separator | faint 1px vertical line — `color-mix(in srgb, var(--ink-soft) 28%, transparent)` |
+| Responsive | benefit blocks stack vertically under `520px` (`max-[520px]:flex-col`); the vertical divider is hidden when stacked so nothing clips on phones |
 
 Motion: rides the existing lid entrance; no per-element animation; result-pop not
 involved.

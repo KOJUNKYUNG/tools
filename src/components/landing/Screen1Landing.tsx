@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CategoryStrip } from "@/components/brand/CategoryStrip";
@@ -77,42 +78,40 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
             {dict.landing.headline}
           </div>
 
-          {/* Benefit blocks — supporting cast; one sentence per line. */}
-          <div className="flex" style={{ marginTop: 43 }}>
+          {/* Benefit blocks — supporting cast; one sentence per line. Side by
+              side on desktop; stack on narrow screens so nothing clips. */}
+          <div
+            className="flex justify-center max-[520px]:flex-col max-[520px]:items-center max-[520px]:gap-3"
+            style={{ marginTop: 43 }}
+          >
             {dict.landing.benefits.map((b, i) => (
-              <div
-                key={b.label}
-                style={{
-                  padding: "0 20px",
-                  maxWidth: 215,
-                  textAlign: "center",
-                  borderLeft:
-                    i > 0
-                      ? "1px solid color-mix(in srgb, var(--ink-soft) 28%, transparent)"
-                      : undefined,
-                }}
-              >
-                <div
-                  className="font-mono uppercase"
-                  style={{
-                    fontSize: 12,
-                    letterSpacing: "0.12em",
-                    color: "var(--ink-strong)",
-                  }}
-                >
-                  {b.label}
+              <Fragment key={b.label}>
+                {i > 0 && (
+                  <div
+                    aria-hidden
+                    className="w-px self-stretch max-[520px]:hidden"
+                    style={{ background: "color-mix(in srgb, var(--ink-soft) 28%, transparent)" }}
+                  />
+                )}
+                <div style={{ padding: "0 20px", maxWidth: 215, textAlign: "center" }}>
+                  <div
+                    className="font-mono uppercase"
+                    style={{ fontSize: 12, letterSpacing: "0.12em", color: "var(--ink-strong)" }}
+                  >
+                    {b.label}
+                  </div>
+                  <div
+                    className="font-ko"
+                    style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5, color: "var(--ink-soft)" }}
+                  >
+                    {b.desc.map((line, j) => (
+                      <span key={j} style={{ display: "block" }}>
+                        {line}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <div
-                  className="font-ko"
-                  style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5, color: "var(--ink-soft)" }}
-                >
-                  {b.desc.map((line, j) => (
-                    <span key={j} style={{ display: "block" }}>
-                      {line}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              </Fragment>
             ))}
           </div>
         </div>
