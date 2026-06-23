@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CategoryStrip } from "@/components/brand/CategoryStrip";
@@ -34,22 +35,25 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
           />
         </div>
 
+        {/* Landing hero — centered stack: "Ontab" wordmark, then a quiet value
+            layer (headline + benefit blocks) for anyone who pauses to read. The
+            category tabs above stay the lead. Tuned at 1440×900 via
+            docs/landing-explore.html (variant A). */}
         <div
           className="absolute left-1/2 flex flex-col items-center"
           style={{
             top: "50%",
-            transform: `translate(-50%, calc(-50% - 10px + var(--tweak-title-y, 0px))) scale(${heroVisible ? 1 : 0.94})`,
+            transform: `translate(-50%, calc(-50% + 10px + var(--tweak-title-y, 0px))) scale(${heroVisible ? 1 : 0.94})`,
             opacity: heroVisible ? 1 : 0,
-            transition: "transform var(--motion-base) var(--ease-standard), opacity var(--motion-base) var(--ease-standard)",
+            transition:
+              "transform var(--motion-base) var(--ease-standard), opacity var(--motion-base) var(--ease-standard)",
           }}
         >
-          {/* Landing hero — tuned via docs/design-preview.html §12
-              (DESIGN.md → Components → Landing hero). */}
           <div
             className="font-display text-center"
             style={{
               color: "var(--headline)",
-              fontSize: 88,
+              fontSize: 94,
               fontWeight: 520,
               letterSpacing: "-0.02em",
               lineHeight: 1,
@@ -57,19 +61,58 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
           >
             Ontab
           </div>
-          {/* Subhead — Clash Display Light (Hangul falls back to IBM Plex
-              via the font-display stack). */}
+
+          {/* Value headline — Clash Display (Hangul falls back to IBM Plex).
+              Sits close under "Ontab" (7px) so it reads as its subtitle. */}
           <div
-            className="mt-1 font-display text-center"
+            className="font-display text-center"
             style={{
-              color: "var(--ink)",
-              fontSize: 14,
-              fontWeight: 300,
-              letterSpacing: "-0.03em",
-              lineHeight: 1.12,
+              marginTop: 7,
+              color: "var(--ink-strong)",
+              fontSize: 16,
+              fontWeight: 400,
+              letterSpacing: "-0.02em",
+              lineHeight: 1.2,
             }}
           >
-            {dict.landing.descriptor}
+            {dict.landing.headline}
+          </div>
+
+          {/* Benefit blocks — supporting cast; one sentence per line. Side by
+              side on desktop; stack on narrow screens so nothing clips. */}
+          <div
+            className="flex justify-center max-[520px]:flex-col max-[520px]:items-center max-[520px]:gap-3"
+            style={{ marginTop: 43 }}
+          >
+            {dict.landing.benefits.map((b, i) => (
+              <Fragment key={b.label}>
+                {i > 0 && (
+                  <div
+                    aria-hidden
+                    className="w-px self-stretch max-[520px]:hidden"
+                    style={{ background: "color-mix(in srgb, var(--ink-soft) 28%, transparent)" }}
+                  />
+                )}
+                <div style={{ padding: "0 20px", maxWidth: 215, textAlign: "center" }}>
+                  <div
+                    className="font-mono uppercase"
+                    style={{ fontSize: 12, letterSpacing: "0.12em", color: "var(--ink-strong)" }}
+                  >
+                    {b.label}
+                  </div>
+                  <div
+                    className="font-ko"
+                    style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5, color: "var(--ink-soft)" }}
+                  >
+                    {b.desc.map((line, j) => (
+                      <span key={j} style={{ display: "block" }}>
+                        {line}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </Fragment>
+            ))}
           </div>
         </div>
       </main>
