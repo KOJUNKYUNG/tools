@@ -84,7 +84,7 @@ Reuses existing tokens only. **No new tokens, no color additions.**
 | Element | Spec |
 |---|---|
 | Strip position | `CategoryStrip` keeps the original global position (`--tweak-categories-y` −64px); no Screen-1 override |
-| Hero block | centered: `top:50%`, `transform: translate(-50%, calc(-50% - 10px + var(--tweak-title-y))) scale(…)`; lid entrance (scale 0.94→1 + opacity) |
+| Hero block | centered: `top:50%`, `transform: translate(-50%, calc(-50% + 10px + var(--tweak-title-y))) scale(…)`; lid entrance (scale 0.94→1 + opacity) |
 | "Ontab" | `font-display`, 94px, weight 520, track −0.02em, line-height 1, `--headline` |
 | Headline | `font-display`, 16px, weight 400, track −0.02em, line-height 1.2, `--ink-strong`; **7px** below "Ontab" (reads as its subtitle) |
 | Benefit row | 43px below the headline |
