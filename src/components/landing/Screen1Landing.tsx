@@ -1,6 +1,5 @@
 "use client";
 
-import type { CSSProperties } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CategoryStrip } from "@/components/brand/CategoryStrip";
@@ -18,9 +17,7 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
   return (
     <div
       className="flex flex-col h-screen relative overflow-hidden"
-      // Strip sits a touch higher on the landing only; the global
-      // --tweak-categories-y (-64px) stays for Screen 2/3.
-      style={{ background: "var(--bg)", "--tweak-categories-y": "-50px" } as CSSProperties}
+      style={{ background: "var(--bg)" }}
     >
       <Header locale={locale} />
 
@@ -45,7 +42,7 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
           className="absolute left-1/2 flex flex-col items-center"
           style={{
             top: "50%",
-            transform: `translate(-50%, calc(-50% - 20px + var(--tweak-title-y, 0px))) scale(${heroVisible ? 1 : 0.94})`,
+            transform: `translate(-50%, calc(-50% - 10px + var(--tweak-title-y, 0px))) scale(${heroVisible ? 1 : 0.94})`,
             opacity: heroVisible ? 1 : 0,
             transition:
               "transform var(--motion-base) var(--ease-standard), opacity var(--motion-base) var(--ease-standard)",
