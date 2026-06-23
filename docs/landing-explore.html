@@ -334,7 +334,7 @@ footer .mono{ font-family:var(--font-mono); font-size:11px; }
     </div>
     <div class="realcap" id="realcap">기준 뷰포트 1440 × 900 · 실척(절대 px = 실제 화면 값) · 화면 폭에 맞춰 비례 축소 표시</div>
     <div class="realstage" id="realstage">
-      <div class="lp-frame real" data-frame data-variant="tray" id="frameB"></div>
+      <div class="lp-frame real" data-frame data-variant="valuetrust" id="frameB"></div>
     </div>
   </section>
 
@@ -555,7 +555,7 @@ const selB = document.getElementById("selB");
 Object.entries(VARIANTS).forEach(([k,v])=>{
   const o = document.createElement("option"); o.value = k; o.textContent = v.label; selB.appendChild(o);
 });
-selB.value = "tray";
+selB.value = "valuetrust";
 selB.addEventListener("change", ()=>{
   const fB = document.getElementById("frameB");
   fB.setAttribute("data-variant", selB.value);

@@ -34,119 +34,84 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
           />
         </div>
 
-        {/* Landing tray — the tool workspace surface, brought to the first screen.
-            Same width as the live tool tray (--tweak-workspace-width). The "Ontab"
-            wordmark sits tossed at the top (slightly tilted, echoing the brand
-            mark's document-on-a-desk); the value layer (headline + benefit blocks)
-            is centered and quiet — supporting cast for anyone who pauses to read.
-            Tuned at 1440×900 via docs/landing-explore.html (variant B). */}
+        {/* Landing hero — centered stack: "Ontab" wordmark, then a quiet value
+            layer (headline + benefit blocks) for anyone who pauses to read. The
+            category tabs above stay the lead. Tuned at 1440×900 via
+            docs/landing-explore.html (variant A). */}
         <div
-          aria-hidden={!heroVisible}
+          className="absolute left-1/2 flex flex-col items-center"
           style={{
-            position: "absolute",
-            left: "50%",
-            top: 150,
-            bottom: 120,
-            width: "min(var(--tweak-workspace-width), calc(100vw - 32px))",
-            transform: `translateX(-50%) scale(${heroVisible ? 1 : 0.94})`,
-            transformOrigin: "center center",
+            top: "50%",
+            transform: `translate(-50%, calc(-50% - 20px + var(--tweak-title-y, 0px))) scale(${heroVisible ? 1 : 0.94})`,
             opacity: heroVisible ? 1 : 0,
             transition:
               "transform var(--motion-base) var(--ease-standard), opacity var(--motion-base) var(--ease-standard)",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: 14,
-            boxShadow: "var(--shadow-lg)",
-            overflow: "hidden",
-            pointerEvents: "none",
           }}
         >
-          {/* "Ontab" — tossed top-center, slightly tilted. */}
           <div
-            className="font-display"
+            className="font-display text-center"
             style={{
-              position: "absolute",
-              top: 80,
-              left: "50%",
-              transform: "translateX(-50%) rotate(2.5deg)",
-              transformOrigin: "center center",
+              color: "var(--headline)",
               fontSize: 112,
               fontWeight: 520,
               letterSpacing: "-0.02em",
               lineHeight: 1,
-              color: "var(--headline)",
-              whiteSpace: "nowrap",
             }}
           >
             Ontab
           </div>
 
-          {/* Value layer — headline + benefit blocks, centered (slightly below
-              the tray's vertical center). Hangul in the display role falls back
-              to IBM Plex via .font-display. */}
+          {/* Value headline — Clash Display (Hangul falls back to IBM Plex). */}
           <div
+            className="mt-3 font-display text-center"
             style={{
-              position: "absolute",
-              left: "50%",
-              top: "calc(50% + 65px)",
-              transform: "translate(-50%, -50%)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              width: "100%",
-              padding: "0 24px",
+              color: "var(--ink-strong)",
+              fontSize: 21,
+              fontWeight: 450,
+              letterSpacing: "-0.02em",
+              lineHeight: 1.2,
             }}
           >
-            <div
-              className="font-display text-center"
-              style={{
-                fontSize: 21,
-                fontWeight: 450,
-                letterSpacing: "-0.02em",
-                lineHeight: 1.2,
-                color: "var(--ink-strong)",
-              }}
-            >
-              {dict.landing.headline}
-            </div>
+            {dict.landing.headline}
+          </div>
 
-            <div style={{ display: "flex", marginTop: 15 }}>
-              {dict.landing.benefits.map((b, i) => (
+          {/* Benefit blocks — supporting cast; one sentence per line. */}
+          <div className="flex" style={{ marginTop: 15 }}>
+            {dict.landing.benefits.map((b, i) => (
+              <div
+                key={b.label}
+                style={{
+                  padding: "0 20px",
+                  maxWidth: 215,
+                  textAlign: "center",
+                  borderLeft:
+                    i > 0
+                      ? "1px solid color-mix(in srgb, var(--ink-soft) 28%, transparent)"
+                      : undefined,
+                }}
+              >
                 <div
-                  key={b.label}
+                  className="font-mono uppercase"
                   style={{
-                    padding: "0 20px",
-                    maxWidth: 215,
-                    textAlign: "center",
-                    borderLeft:
-                      i > 0
-                        ? "1px solid color-mix(in srgb, var(--ink-soft) 28%, transparent)"
-                        : undefined,
+                    fontSize: 12,
+                    letterSpacing: "0.12em",
+                    color: "var(--ink-strong)",
                   }}
                 >
-                  <div
-                    className="font-mono uppercase"
-                    style={{
-                      fontSize: 12,
-                      letterSpacing: "0.12em",
-                      color: "var(--ink-strong)",
-                    }}
-                  >
-                    {b.label}
-                  </div>
-                  <div
-                    className="font-ko"
-                    style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5, color: "var(--ink-soft)" }}
-                  >
-                    {b.desc.map((line, j) => (
-                      <span key={j} style={{ display: "block" }}>
-                        {line}
-                      </span>
-                    ))}
-                  </div>
+                  {b.label}
                 </div>
-              ))}
-            </div>
+                <div
+                  className="font-ko"
+                  style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5, color: "var(--ink-soft)" }}
+                >
+                  {b.desc.map((line, j) => (
+                    <span key={j} style={{ display: "block" }}>
+                      {line}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </main>
