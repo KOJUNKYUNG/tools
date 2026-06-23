@@ -10,7 +10,17 @@
   },
   "landing": {
     "selectCategory": "Select a category",
-    "descriptor": "The toolbox that lives in your browser tab"
+    "headline": "Document work, done in a browser tab",
+    "benefits": [
+      {
+        "label": "No sign-up",
+        "desc": ["No account or install needed.", "It's free, with no usage limits."]
+      },
+      {
+        "label": "No upload",
+        "desc": ["Files are processed in your browser, never sent to a server.", "So nothing leaves your device."]
+      }
+    ]
   },
   "common": {
     "reset": "Reset",
