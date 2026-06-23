@@ -190,7 +190,7 @@ section.block{ padding:40px 0; border-top:1px solid var(--hairline); }
 .lp-extra{ position:absolute; left:0; right:0; }
 
 /* variant: value headline + two benefit blocks (조연 레이어) */
-.vh{ margin-top:12px; font-family:var(--font-display); font-size:var(--lp-vh-size,17px); font-weight:var(--lp-vh-weight,500); letter-spacing:-0.02em; line-height:1.2; color:var(--ink-strong); text-align:center; }
+.vh{ margin-top:7px; font-family:var(--font-display); font-size:var(--lp-vh-size,17px); font-weight:var(--lp-vh-weight,500); letter-spacing:-0.02em; line-height:1.2; color:var(--ink-strong); text-align:center; }
 .lp-benefits{ display:flex; gap:0; margin-top:var(--lp-benefits-gap,20px); }
 .lp-benefit{ padding:0 var(--lp-benefit-pad,20px); max-width:var(--lp-benefit-w,230px); text-align:center; }
 .lp-benefit + .lp-benefit{ border-left:1px solid color-mix(in srgb, var(--ink-soft) var(--lp-divider-op,28%), transparent); }
@@ -378,8 +378,8 @@ footer .mono{ font-family:var(--font-mono); font-size:11px; }
     <div id="tunewrap">
       <div class="tunehd">히어로 · 스트립 (현재안 / 공통 — 방안 B의 트레이 Ontab도 Hero 크기·굵기·자간 공유)</div>
       <div class="tune">
-        <div class="ctl"><div class="hd"><label>Hero 크기</label><span class="v" id="v-hs">88px</span></div>
-          <input class="rng" type="range" id="s-hs" min="48" max="140" step="1" value="88" data-var="--lp-hero-size" data-unit="px" data-out="v-hs" data-group="hero" data-spec="hero size"></div>
+        <div class="ctl"><div class="hd"><label>Hero 크기</label><span class="v" id="v-hs">100px</span></div>
+          <input class="rng" type="range" id="s-hs" min="48" max="140" step="1" value="100" data-var="--lp-hero-size" data-unit="px" data-out="v-hs" data-group="hero" data-spec="hero size"></div>
         <div class="ctl"><div class="hd"><label>Hero 굵기</label><span class="v" id="v-hw">520</span></div>
           <input class="rng" type="range" id="s-hw" min="200" max="700" step="10" value="520" data-var="--lp-hero-weight" data-unit="" data-out="v-hw" data-group="hero" data-spec="hero weight"></div>
         <div class="ctl"><div class="hd"><label>Hero 자간</label><span class="v" id="v-ht">-0.020em</span></div>
@@ -392,18 +392,18 @@ footer .mono{ font-family:var(--font-mono); font-size:11px; }
           <input class="rng" type="range" id="s-dw" min="200" max="600" step="10" value="300" data-var="--lp-desc-weight" data-unit="" data-out="v-dw" data-group="hero" data-spec="desc weight"></div>
         <div class="ctl"><div class="hd"><label>설명 간격 (baseline)</label><span class="v" id="v-dg">4px</span></div>
           <input class="rng" type="range" id="s-dg" min="0" max="40" step="1" value="4" data-var="--lp-desc-gap" data-unit="px" data-out="v-dg" data-group="hero" data-spec="desc gap"></div>
-        <div class="ctl"><div class="hd"><label>스트립 Y</label><span class="v" id="v-sy">-64px</span></div>
-          <input class="rng" type="range" id="s-sy" min="-140" max="60" step="1" value="-64" data-var="--lp-strip-y" data-unit="px" data-out="v-sy" data-group="hero" data-spec="strip y"></div>
+        <div class="ctl"><div class="hd"><label>스트립 Y</label><span class="v" id="v-sy">-50px</span></div>
+          <input class="rng" type="range" id="s-sy" min="-140" max="60" step="1" value="-50" data-var="--lp-strip-y" data-unit="px" data-out="v-sy" data-group="hero" data-spec="strip y"></div>
       </div>
 
       <div class="tunehd">헤드라인 · benefit (방안 A · B 공통)</div>
       <div class="tune">
-        <div class="ctl"><div class="hd"><label>헤드라인 크기</label><span class="v" id="v-vhs">17px</span></div>
-          <input class="rng" type="range" id="s-vhs" min="11" max="32" step="0.5" value="17" data-var="--lp-vh-size" data-unit="px" data-out="v-vhs" data-group="copy" data-spec="headline size"></div>
+        <div class="ctl"><div class="hd"><label>헤드라인 크기</label><span class="v" id="v-vhs">18px</span></div>
+          <input class="rng" type="range" id="s-vhs" min="11" max="32" step="0.5" value="18" data-var="--lp-vh-size" data-unit="px" data-out="v-vhs" data-group="copy" data-spec="headline size"></div>
         <div class="ctl"><div class="hd"><label>헤드라인 굵기</label><span class="v" id="v-vhw">450</span></div>
           <input class="rng" type="range" id="s-vhw" min="200" max="700" step="10" value="450" data-var="--lp-vh-weight" data-unit="" data-out="v-vhw" data-group="copy" data-spec="headline weight"></div>
-        <div class="ctl"><div class="hd"><label>헤드라인→benefit 간격</label><span class="v" id="v-bg">12px</span></div>
-          <input class="rng" type="range" id="s-bg" min="4" max="48" step="1" value="12" data-var="--lp-benefits-gap" data-unit="px" data-out="v-bg" data-group="copy" data-spec="benefits gap"></div>
+        <div class="ctl"><div class="hd"><label>헤드라인→benefit 간격</label><span class="v" id="v-bg">43px</span></div>
+          <input class="rng" type="range" id="s-bg" min="4" max="60" step="1" value="43" data-var="--lp-benefits-gap" data-unit="px" data-out="v-bg" data-group="copy" data-spec="benefits gap"></div>
         <div class="ctl"><div class="hd"><label>benefit 라벨 크기</label><span class="v" id="v-bls">12px</span></div>
           <input class="rng" type="range" id="s-bls" min="8" max="16" step="0.5" value="12" data-var="--lp-bl-size" data-unit="px" data-out="v-bls" data-group="copy" data-spec="label size"></div>
         <div class="ctl"><div class="hd"><label>benefit 부연 크기</label><span class="v" id="v-bds">11px</span></div>

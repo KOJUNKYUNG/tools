@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CategoryStrip } from "@/components/brand/CategoryStrip";
@@ -17,7 +18,9 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
   return (
     <div
       className="flex flex-col h-screen relative overflow-hidden"
-      style={{ background: "var(--bg)" }}
+      // Strip sits a touch higher on the landing only; the global
+      // --tweak-categories-y (-64px) stays for Screen 2/3.
+      style={{ background: "var(--bg)", "--tweak-categories-y": "-50px" } as CSSProperties}
     >
       <Header locale={locale} />
 
@@ -52,7 +55,7 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
             className="font-display text-center"
             style={{
               color: "var(--headline)",
-              fontSize: 112,
+              fontSize: 100,
               fontWeight: 520,
               letterSpacing: "-0.02em",
               lineHeight: 1,
@@ -61,12 +64,14 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
             Ontab
           </div>
 
-          {/* Value headline — Clash Display (Hangul falls back to IBM Plex). */}
+          {/* Value headline — Clash Display (Hangul falls back to IBM Plex).
+              Sits close under "Ontab" (7px) so it reads as its subtitle. */}
           <div
-            className="mt-3 font-display text-center"
+            className="font-display text-center"
             style={{
+              marginTop: 7,
               color: "var(--ink-strong)",
-              fontSize: 21,
+              fontSize: 18,
               fontWeight: 450,
               letterSpacing: "-0.02em",
               lineHeight: 1.2,
@@ -76,7 +81,7 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
           </div>
 
           {/* Benefit blocks — supporting cast; one sentence per line. */}
-          <div className="flex" style={{ marginTop: 15 }}>
+          <div className="flex" style={{ marginTop: 43 }}>
             {dict.landing.benefits.map((b, i) => (
               <div
                 key={b.label}
