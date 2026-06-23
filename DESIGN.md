@@ -198,7 +198,7 @@ Coding).
 
 | role | family / weight | where it's used |
 | --- | --- | --- |
-| `display` | Clash Display Medium · 39px | the landing brand moment (wordmark, hero) — the largest, rarest text; the landing hero sets it at 88px · weight 520 |
+| `display` | Clash Display Medium · 39px | the landing brand moment (wordmark, hero) — the largest, rarest text; the landing hero sets it at 94px · weight 520 |
 | `headline` | Clash Display Light · 28px | screen / section headings |
 | `title` | IBM Plex Sans KR Medium · 20px | tool titles, result titles |
 | `body` | IBM Plex Sans KR Regular · 16px | descriptions, running UI text (KO + EN) |
@@ -207,7 +207,7 @@ Coding).
 
 Display is set in Medium and Headline in Light — a deliberate editorial
 inversion (a bold statement size over a thin, airy subhead); the landing hero
-("Ontab" + descriptor) is exactly this pairing. Clash Display has no Hangul
+("Ontab" in Medium over a lighter value headline) is exactly this pairing. Clash Display has no Hangul
 glyphs: Korean text in a `display` / `headline` role falls back to IBM Plex
 Sans KR (declared in the `font-display` stack). Labels and mono share Nanum
 Gothic Coding, a Korean monospace, so technical strings in either language
@@ -221,7 +221,8 @@ code applied one "brand" font to almost everything; that is not the target).
 | UI element | role |
 | --- | --- |
 | landing wordmark / hero lettering | `display` |
-| page / screen section heading, landing hero descriptor | `headline` |
+| page / screen section heading | `headline` |
+| landing value headline (under "Ontab") | `display` (light) |
 | tool title, result title, card header | `title` |
 | description, paragraph, **button & toggle label**, **numeric values in inputs & results (size / dimension / %)**, dialog text | `body` |
 | eyebrow, section tag, badge, field label, small caption | `label` |
@@ -335,11 +336,17 @@ box-shadow — see Do's & Don'ts.
   yet, so the row renders with no underline. Never glass, never a filled
   button.
 - **Landing hero** — the brand lettering **"Ontab"** (mixed case, never
-  all-caps) in Clash Display **520 · 88px · −0.02em**, plain `--headline` ink
-  on the flat ground, raised 10px above the optical center; beneath it (4px
-  gap) the descriptor in Clash Display **Light · 14px · −0.03em** (Korean
-  falls back to IBM Plex Sans KR). Tuned via `docs/design-preview.html` §12.
-  No emboss, no blend modes, no text shadows.
+  all-caps) in Clash Display **520 · 94px · −0.02em**, plain `--headline` ink
+  on the flat ground; the centered stack sits ~10px below the optical center.
+  Beneath "Ontab" (7px gap) a quiet **value headline** in Clash Display
+  **400 · 16px · −0.02em** (`--ink-strong`; Korean falls back to IBM Plex Sans
+  KR); below that (43px) two **benefit blocks** — each a `label` (Nanum Gothic
+  Coding, 12px, caps, tracked, `--ink-strong`) over a two-sentence `body` line
+  (IBM Plex Sans KR, 11px, `--ink-soft`, one sentence per line), set side by
+  side with a faint vertical hairline (`color-mix(--ink-soft 28%)`) and
+  stacking vertically under 520px. The category tabs above stay the lead; this
+  value layer is supporting cast for anyone who pauses to read. Tuned via
+  `docs/design-preview.html`. No emboss, no blend modes, no text shadows.
 - **Brand mark** (the square beside the header wordmark) — flat `--ink-strong`
   fill with an inset 1px `--surface` line; no gradient, no shadow.
 - **Footer meta** — version / license strings are `label` (Nanum Gothic Coding,
