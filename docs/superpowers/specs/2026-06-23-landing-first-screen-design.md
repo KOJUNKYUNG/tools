@@ -85,8 +85,8 @@ Reuses existing tokens only. **No new tokens, no color additions.**
 |---|---|
 | Strip position | `CategoryStrip` sits slightly higher on the landing — `--tweak-categories-y` overridden to `-50px` **on Screen 1 only** (the global −64px stays for Screen 2/3) |
 | Hero block | centered: `top:50%`, `transform: translate(-50%, calc(-50% - 20px + var(--tweak-title-y))) scale(…)`; lid entrance (scale 0.94→1 + opacity) |
-| "Ontab" | `font-display`, 100px, weight 520, track −0.02em, line-height 1, `--headline` |
-| Headline | `font-display`, 18px, weight 450, track −0.02em, line-height 1.2, `--ink-strong`; **7px** below "Ontab" (reads as its subtitle) |
+| "Ontab" | `font-display`, 94px, weight 520, track −0.02em, line-height 1, `--headline` |
+| Headline | `font-display`, 16px, weight 400, track −0.02em, line-height 1.2, `--ink-strong`; **7px** below "Ontab" (reads as its subtitle) |
 | Benefit row | 43px below the headline |
 | Benefit label | `font-mono`, 12px, `letter-spacing 0.12em`, uppercase, `--ink-strong` |
 | Benefit desc | `font-ko`, 11px, `line-height 1.5`, `--ink-soft`; one sentence per line |

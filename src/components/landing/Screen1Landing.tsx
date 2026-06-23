@@ -55,7 +55,7 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
             className="font-display text-center"
             style={{
               color: "var(--headline)",
-              fontSize: 100,
+              fontSize: 94,
               fontWeight: 520,
               letterSpacing: "-0.02em",
               lineHeight: 1,
@@ -71,8 +71,8 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
             style={{
               marginTop: 7,
               color: "var(--ink-strong)",
-              fontSize: 18,
-              fontWeight: 450,
+              fontSize: 16,
+              fontWeight: 400,
               letterSpacing: "-0.02em",
               lineHeight: 1.2,
             }}
