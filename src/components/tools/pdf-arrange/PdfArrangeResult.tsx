@@ -1,8 +1,10 @@
 "use client";
 
-import { DownloadIcon, FileIcon, RotateCcwIcon } from "lucide-react";
+import { DownloadIcon, FileIcon } from "lucide-react";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
+import { ResultCard } from "@/components/common/ResultCard";
+import { ResultActions } from "@/components/common/ResultActions";
 import type { PageItem } from "@/lib/pdf/pageItem";
 import type { PdfArrangeLabels } from "./labels";
 import { useLazyThumbnail } from "@/components/pdf-editor/useLazyThumbnail";
@@ -85,10 +87,13 @@ export function PdfArrangeResult({
     : labels.downloadPdf;
 
   return (
-    <div className="grid min-h-[440px] grid-cols-1 gap-4 md:grid-cols-2">
+    <div
+      className="grid grid-cols-1 gap-4 md:grid-cols-2"
+      style={{ minHeight: "var(--tray-h)" }}
+    >
       <div
         className="ob-scroll space-y-1.5 overflow-y-auto pr-1"
-        style={{ maxHeight: "440px" }}
+        style={{ maxHeight: "var(--tray-h)" }}
       >
         {outputs.map((o, i) => (
           <div
@@ -132,47 +137,25 @@ export function PdfArrangeResult({
         ))}
       </div>
 
-      <div
-        className="result-pop flex flex-col gap-2 self-start rounded-[8px] border p-4"
-        style={{
-          background: "var(--surface)",
-          borderColor: "var(--border)",
-          boxShadow: "inset 2px 0 0 var(--emphasis)",
-        }}
-      >
-        <div
-          className="font-ko text-[13px] font-medium"
-          style={{ color: "var(--headline)" }}
+      <div className="self-start">
+        <ResultCard
+          title={labels.resultTitle}
+          actions={
+            <ResultActions
+              download={{ label: primaryLabel, onClick: onDownloadAll }}
+              again={{ label: labels.again, onClick: onAgain }}
+            />
+          }
         >
-          {labels.resultTitle}
-        </div>
-        {isZip && (
-          <div
-            className="font-body text-[11.5px]"
-            style={{ color: "var(--ink-soft)" }}
-          >
-            {template(labels.outputCountTemplate, { n: count })}
-          </div>
-        )}
-        <div className="mt-1 flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={onDownloadAll}
-            className="btn-download inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[12px] font-medium"
-          >
-            <DownloadIcon className="size-3.5" />
-            {primaryLabel}
-          </button>
-          <button
-            type="button"
-            onClick={onAgain}
-            className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
-            style={{ color: "var(--ink-strong)" }}
-          >
-            <RotateCcwIcon className="size-3.5" />
-            {labels.again}
-          </button>
-        </div>
+          {isZip && (
+            <div
+              className="font-body text-[11.5px]"
+              style={{ color: "var(--ink-soft)" }}
+            >
+              {template(labels.outputCountTemplate, { n: count })}
+            </div>
+          )}
+        </ResultCard>
       </div>
     </div>
   );

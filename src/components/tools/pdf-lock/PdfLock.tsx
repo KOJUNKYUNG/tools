@@ -273,7 +273,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : (
-        <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
+        <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
           <ToolTopStrip
             filesSummary={fileInfo}
             meta={

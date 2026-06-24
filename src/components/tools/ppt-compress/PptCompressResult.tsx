@@ -1,8 +1,9 @@
 "use client";
 
-import { DownloadIcon, RotateCcwIcon } from "lucide-react";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { computeSavings } from "@/lib/image/computeSavings";
+import { ResultCard } from "@/components/common/ResultCard";
+import { ResultActions } from "@/components/common/ResultActions";
 import type { PptCompressLabels } from "./labels";
 
 interface PptCompressResultProps {
@@ -23,21 +24,15 @@ export function PptCompressResult({
   const { pct } = computeSavings(originalSize, compressedSize);
 
   return (
-    <div
-      className="result-pop flex flex-col gap-3 rounded-[8px] border p-4"
-      style={{
-        background: "var(--surface)",
-        borderColor: "var(--border)",
-        boxShadow: "inset 2px 0 0 var(--emphasis)",
-      }}
+    <ResultCard
+      title={labels.resultTitle}
+      actions={
+        <ResultActions
+          download={{ label: labels.download, onClick: onDownload }}
+          again={{ label: labels.again, onClick: onAgain }}
+        />
+      }
     >
-      <div
-        className="font-ko text-[13px] font-medium"
-        style={{ color: "var(--headline)" }}
-      >
-        {labels.resultTitle}
-      </div>
-
       <div className="grid grid-cols-3 gap-2 text-center">
         <div>
           <p className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
@@ -73,26 +68,6 @@ export function PptCompressResult({
           </p>
         </div>
       </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          onClick={onDownload}
-          className="btn-download inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[12px] font-medium"
-        >
-          <DownloadIcon className="size-3.5" />
-          {labels.download}
-        </button>
-        <button
-          type="button"
-          onClick={onAgain}
-          className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
-          style={{ color: "var(--ink-strong)" }}
-        >
-          <RotateCcwIcon className="size-3.5" />
-          {labels.again}
-        </button>
-      </div>
-    </div>
+    </ResultCard>
   );
 }

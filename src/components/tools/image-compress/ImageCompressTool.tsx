@@ -287,7 +287,7 @@ export function ImageCompressTool({
           labels={labels.fileUpload}
         />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4" style={{ minHeight: "var(--tray-h)" }}>
           {showOversize && (
             <OversizeNotice
               totalBytes={totalBytes}

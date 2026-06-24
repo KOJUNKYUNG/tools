@@ -348,7 +348,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         });
 
   const editor = (
-    <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
+    <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
       <ImageToPdfTopStrip
         filesSummary={filesSummary}
         onReupload={handleReuploadPick}

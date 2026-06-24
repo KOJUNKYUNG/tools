@@ -367,13 +367,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       }
       style={
         inline
-          ? { maxHeight: "calc(50vh)", ...(lockHeight ? { height: "calc(50vh)" } : {}) }
+          ? { maxHeight: "var(--tray-h)", ...(lockHeight ? { height: "var(--tray-h)" } : {}) }
           : {
               background: "var(--surface)",
               borderColor: "var(--border)",
               boxShadow: "var(--shadow-lg)",
-              maxHeight: "calc(50vh)",
-              ...(lockHeight ? { height: "calc(50vh)" } : {}),
+              maxHeight: "var(--tray-h)",
+              ...(lockHeight ? { height: "var(--tray-h)" } : {}),
             }
       }
     >

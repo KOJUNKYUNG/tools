@@ -281,7 +281,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
       ) : (
-        <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
+        <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
           <ToolTopStrip
             filesSummary={fileInfo}
             meta={

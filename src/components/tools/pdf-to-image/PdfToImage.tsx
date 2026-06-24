@@ -249,7 +249,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
         });
 
   const editor = (
-    <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
+    <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
       <PdfToImageTopStrip
         filesSummary={filesSummary}
         onReupload={handleReuploadPick}
@@ -370,7 +370,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
           />
         )
       ) : (
-        <div style={{ height: "52vh" }}>
+        <div style={{ height: "var(--tray-h)" }}>
           <ProcessingStatus
             status={status}
             progress={progress}

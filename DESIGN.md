@@ -246,12 +246,17 @@ Locked layout constants live in `globals.css` as `--tweak-*` custom properties
 read them as `var(--tweak-*, <fallback>)` so they can be retuned without code
 edits.
 
-**Fixed width, fluid height.** Only the column width is fixed (950px). Height
-flows with content — tools vary in complexity, so there is no single fixed
-workspace height. Stability comes from the layout, not a fixed size: each region
-(preview, controls, result) holds a stable height so a state change never shifts
-its neighbours; reserve space for hints and disabled states, and fit the Done /
-Processing / Error states inside the idle envelope.
+**Unified tray — fixed width, one height envelope.** The column width is fixed
+(950px) and the active workspace ("tray") shares **one height token**,
+`--tray-h` (`globals.css`), so switching tools never makes the footprint jump.
+It is applied as a **min-height envelope**: tools whose content is shorter
+(image-resize, image-compress, pdf-arrange) align within it; tools with an
+internal scroll region (the filmstrip editors, the result galleries) hold it as
+a fixed `height` so their overflow scrolls inside the tray rather than growing
+the page. Within that envelope, each region (preview, controls, result) holds a
+stable height so a state change never shifts its neighbours; reserve space for
+hints and disabled states, and fit the Done / Processing / Error states inside
+the idle envelope. Never hard-code `52vh` — read `var(--tray-h)`.
 
 **Landing-inline execution model.** Every tool runs inline on the landing — the
 user uploads, processes, and downloads without leaving `/`. **Execution → result
@@ -362,8 +367,23 @@ box-shadow — see Do's & Don'ts.
   rendered white output page (e.g. image-to-pdf A4/custom) stays fixed white
   (`--mono-0`) since that previews the real result background.
 - **Tool card** — `.toolcard`: `--surface` fill, `--border` edge, flat.
+- **Upload dropzone** — `.dropzone`: the one initial-upload affordance, shared by
+  every tool (`FileUpload` is the single source). A 2px dashed `--border` target
+  that steps to `--surface-2` on the card ground; hover firms the edge to
+  `--ink-soft`, an active drag (`data-drag="true"`) goes max-contrast
+  (`--emphasis` edge, `--surface` fill). Icon `--ink-soft` → `--ink-strong` on
+  drag; file-list rows are `--surface-2` / `--border`. Never the old shadcn
+  `border-primary` / `bg-muted` look.
 - **Result view** — replaces the controls area after execute; holds the result
-  summary, `.btn-download`, and a `.nameplate` "re-apply".
+  summary, `.btn-download`, and a `.nameplate` "re-apply". Built from **one
+  shared primitive** so size, padding, title, and the action row are identical
+  site-wide: `<ResultCard>` (the `result-pop` shell — flat `--surface`, left
+  `--emphasis` bar, optional title icon, tool-specific body as children) +
+  `<ResultActions>` (the canonical download → handoff → again button set; the
+  retry icon is **RotateCcw everywhere**) + `<HandoffAction>` for the cross-tool
+  link. The 2-column tools (pdf-arrange, ppt-extract, image-to-pdf, pdf-to-image)
+  keep their own grid + left list and render `<ResultCard>` as the right-hand
+  summary card. Never re-declare the card shell or button markup inline.
 - **File-info row** — the same flat row on every tool: the file name / meta as
   plain `body` text (never a button, never a boxed or icon-led panel), with a
   **Toolbar subtle** re-upload button beside it. That button is labelled **"다시

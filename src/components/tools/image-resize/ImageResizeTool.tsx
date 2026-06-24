@@ -426,7 +426,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
       )}
 
       {file && origDims && (
-        <div className="space-y-4">
+        <div className="space-y-4" style={{ minHeight: "var(--tray-h)" }}>
           <ToolTopStrip
             filesSummary={file.name}
             onReupload={handleReupload}

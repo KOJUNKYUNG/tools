@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRightIcon, DownloadIcon, RotateCcwIcon } from "lucide-react";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
+import { ResultCard } from "@/components/common/ResultCard";
+import { ResultActions, HandoffAction } from "@/components/common/ResultActions";
 import type { ExtractedImage } from "@/lib/ppt/extractImages";
 import {
   formatBreakdownString,
@@ -70,7 +71,10 @@ export function PptExtractResult({
   }, [images]);
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2" style={{ height: "52vh" }}>
+    <div
+      className="grid grid-cols-1 gap-4 md:grid-cols-2"
+      style={{ height: "var(--tray-h)" }}
+    >
       <div className="ob-scroll min-h-0 overflow-y-auto pr-1">
         <div className="grid grid-cols-3 gap-2">
           {images.map((img, i) => (
@@ -88,54 +92,30 @@ export function PptExtractResult({
         </div>
       </div>
 
-      <div
-        className="result-pop flex flex-col gap-2 self-start rounded-[8px] border p-4"
-        style={{
-          background: "var(--surface)",
-          borderColor: "var(--border)",
-          boxShadow: "inset 2px 0 0 var(--emphasis)",
-        }}
-      >
-        <div className="font-ko text-[13px] font-medium" style={{ color: "var(--headline)" }}>
-          {labels.resultTitle}
-        </div>
-        <div className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
-          {template(labels.imageCountTemplate, { n: images.length })} · {formatBytes(totalSize)}
-        </div>
-        {breakdown && (
-          <div className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
-            {breakdown}
+      <div className="self-start">
+        <ResultCard
+          title={labels.resultTitle}
+          actions={
+            <ResultActions
+              download={{ label: labels.downloadZip, onClick: onDownloadAll }}
+              extra={
+                images.length > 0 ? (
+                  <HandoffAction label={labels.toPptx} onClick={onToPptx} />
+                ) : undefined
+              }
+              again={{ label: labels.again, onClick: onAgain }}
+            />
+          }
+        >
+          <div className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
+            {template(labels.imageCountTemplate, { n: images.length })} · {formatBytes(totalSize)}
           </div>
-        )}
-        <div className="mt-1 flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={onDownloadAll}
-            className="btn-download inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[12px] font-medium"
-          >
-            <DownloadIcon className="size-3.5" />
-            {labels.downloadZip}
-          </button>
-          {images.length > 0 && (
-            <button
-              type="button"
-              onClick={onToPptx}
-              className="handoff-action inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] border px-3 font-body text-[12px]"
-            >
-              {labels.toPptx}
-              <ArrowRightIcon className="size-3.5" />
-            </button>
+          {breakdown && (
+            <div className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
+              {breakdown}
+            </div>
           )}
-          <button
-            type="button"
-            onClick={onAgain}
-            className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
-            style={{ color: "var(--ink-strong)" }}
-          >
-            <RotateCcwIcon className="size-3.5" />
-            {labels.again}
-          </button>
-        </div>
+        </ResultCard>
       </div>
     </div>
   );

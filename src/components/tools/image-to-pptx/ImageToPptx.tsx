@@ -467,7 +467,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   const slideAspect = slide.w / slide.h;
 
   const editor = (
-    <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
+    <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
       <ToolTopStrip
         filesSummary={filesSummary}
         onReupload={handleReuploadPick}
