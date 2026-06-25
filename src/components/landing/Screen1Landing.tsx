@@ -49,7 +49,7 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
               "transform var(--motion-base) var(--ease-standard), opacity var(--motion-base) var(--ease-standard)",
           }}
         >
-          <div
+          <h1
             className="font-display text-center"
             style={{
               color: "var(--headline)",
@@ -60,7 +60,7 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
             }}
           >
             Ontab
-          </div>
+          </h1>
 
           {/* Value headline — Clash Display (Hangul falls back to IBM Plex).
               Sits close under "Ontab" (7px) so it reads as its subtitle. */}
