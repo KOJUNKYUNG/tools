@@ -4,8 +4,6 @@ import { useCallback, useState } from "react";
 import { useDropzone, type Accept, type FileRejection } from "react-dropzone";
 import { UploadCloudIcon, XIcon, FileIcon } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { DEFAULT_UPLOAD_LIMIT } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
@@ -113,27 +111,34 @@ export function FileUpload({
     <div className="space-y-4">
       <div
         {...getRootProps()}
-        className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 text-center transition-colors",
-          isDragActive
-            ? "border-primary bg-primary/5"
-            : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50",
-        )}
+        data-drag={isDragActive}
+        className="dropzone flex cursor-pointer flex-col items-center justify-center gap-3 rounded-[8px] p-8 text-center"
       >
         <input {...getInputProps()} />
         <UploadCloudIcon
-          className={cn(
-            "size-10 transition-colors",
-            isDragActive ? "text-primary" : "text-muted-foreground",
-          )}
+          className="size-10 transition-colors"
+          style={{ color: isDragActive ? "var(--ink-strong)" : "var(--ink-soft)" }}
         />
         <div>
-          <p className="text-sm font-medium">{label}</p>
+          <p
+            className="font-ko text-[13px] font-medium"
+            style={{ color: "var(--ink-strong)" }}
+          >
+            {label}
+          </p>
           {description && (
-            <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+            <p
+              className="mt-1 font-body text-[11px]"
+              style={{ color: "var(--ink-soft)" }}
+            >
+              {description}
+            </p>
           )}
           {!hideAutoHint && (
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p
+              className="mt-1 font-body text-[11px] tabular-nums"
+              style={{ color: "var(--ink-soft)" }}
+            >
               {maxSizeHint}
             </p>
           )}
@@ -143,32 +148,54 @@ export function FileUpload({
       {!hideFileList && files.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">
+            <p
+              className="font-body text-[12px] font-medium"
+              style={{ color: "var(--ink-strong)" }}
+            >
               {template(selectedCountTpl, { n: files.length })}
             </p>
-            <Button variant="ghost" size="xs" onClick={clearAll}>
+            <button
+              type="button"
+              onClick={clearAll}
+              className="subtle-action shrink-0 rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
+            >
               {clearAllLabel}
-            </Button>
+            </button>
           </div>
           <ul className="space-y-1.5">
             {files.map((file, i) => (
               <li
                 key={`${file.name}-${i}`}
-                className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm"
+                className="flex items-center gap-2 rounded-[6px] border px-3 py-2"
+                style={{
+                  background: "var(--surface-2)",
+                  borderColor: "var(--border)",
+                }}
               >
-                <FileIcon className="size-4 shrink-0 text-muted-foreground" />
-                <span className="flex-1 truncate">{file.name}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
+                <FileIcon
+                  className="size-4 shrink-0"
+                  style={{ color: "var(--ink-soft)" }}
+                />
+                <span
+                  className="flex-1 truncate font-body text-[12px]"
+                  style={{ color: "var(--ink-strong)" }}
+                >
+                  {file.name}
+                </span>
+                <span
+                  className="shrink-0 font-body text-[11px] tabular-nums"
+                  style={{ color: "var(--ink-soft)" }}
+                >
                   {formatBytes(file.size)}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
+                <button
+                  type="button"
                   onClick={() => removeFile(i)}
                   aria-label={template(removeAriaTpl, { name: file.name })}
+                  className="shrink-0 rounded-[5px] p-1 transition-colors text-[color:var(--ink-soft)] hover:text-[color:var(--ink-strong)]"
                 >
                   <XIcon className="size-3.5" />
-                </Button>
+                </button>
               </li>
             ))}
           </ul>

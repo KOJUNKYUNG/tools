@@ -344,7 +344,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           labels={labels.fileUpload}
         />
       ) : (
-        <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
+        <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
           <ToolTopStrip
             filesSummary={fileInfo}
             onReupload={handleReupload}

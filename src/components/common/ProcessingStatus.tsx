@@ -3,7 +3,7 @@
 import type { ProcessingState } from "@/types";
 import {
   DownloadIcon,
-  RefreshCwIcon,
+  RotateCcwIcon,
   CheckCircle2Icon,
   AlertTriangleIcon,
   Loader2Icon,
@@ -121,7 +121,7 @@ export function ProcessingStatus({
                 className="nameplate inline-flex items-center justify-start gap-1.5 rounded-[9px] px-3 h-8 font-body text-[11.5px] whitespace-nowrap"
                 style={{ color: "var(--ink-strong)" }}
               >
-                <RefreshCwIcon className="size-3" />
+                <RotateCcwIcon className="size-3" />
                 {L.tryAnother ?? L.retry}
               </button>
             )}
@@ -164,7 +164,7 @@ export function ProcessingStatus({
               className="nameplate shrink-0 inline-flex items-center justify-start gap-1.5 rounded-[9px] px-3 h-8 font-body text-[11.5px] whitespace-nowrap"
               style={{ color: "var(--ink-strong)" }}
             >
-              <RefreshCwIcon className="size-3" />
+              <RotateCcwIcon className="size-3" />
               {L.retry}
             </button>
           )}

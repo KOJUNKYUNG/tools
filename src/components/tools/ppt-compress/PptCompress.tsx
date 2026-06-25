@@ -204,7 +204,7 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
           labels={labels.fileUpload}
         />
       ) : (
-        <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
+        <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
           <ToolTopStrip
             filesSummary={fileInfo}
             meta={

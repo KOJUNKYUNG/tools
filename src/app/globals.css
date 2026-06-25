@@ -100,6 +100,12 @@
   --tweak-card-padding: 14px;
   --tweak-workspace-width: 950px;
 
+  /* Unified tool tray — the active workspace footprint. One height site-wide so
+   * switching tools never jumps; applied as a min-height ENVELOPE (tools whose
+   * content is shorter align within it; taller content grows). Width is unified
+   * separately via --tweak-workspace-width. */
+  --tray-h: 52vh;
+
   /* ── Monochrome ramp — 5 brand grays + white/black. The whole palette. ── */
   --mono-0:    #ffffff; /* Paper   */
   --mono-100:  #d9d9da; /* Mist    */
@@ -265,6 +271,35 @@
 }
 .handoff-action:hover {
   border-color: var(--emphasis);
+}
+
+/* ── Toolbar subtle — the ONE momentary click-action treatment (re-upload, Clear,
+ * All, Split all, Center H/V, file-list Clear, …). Documented in DESIGN.md as the
+ * "shared util"; centralized here so every site (ToolTopStrip, FileUpload, …)
+ * composes the same class instead of re-declaring it inline. Compose with layout
+ * utilities (rounded-[5px], px-2.5 py-1.5, font-body text-[11px]). */
+.subtle-action {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--ink-strong);
+  transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+}
+.subtle-action:hover:not(:disabled) { border-color: var(--emphasis); }
+.subtle-action:active:not(:disabled) { background: var(--surface); }
+.subtle-action:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* ── Dropzone — the shared initial-upload affordance. One treatment for all 13
+ * tools (FileUpload is the single source). Dashed target that steps to --surface-2
+ * on the card ground; hover firms the edge, an active drag goes max-contrast. */
+.dropzone {
+  background: var(--surface-2);
+  border: 2px dashed var(--border);
+  transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+}
+.dropzone:hover { border-color: var(--ink-soft); }
+.dropzone[data-drag="true"] {
+  border-color: var(--emphasis);
+  background: var(--surface);
 }
 
 /* ── Canonical button treatments ──────────────────────────────────────────

@@ -198,7 +198,7 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
           onToPptx={handleToPptx}
         />
       ) : (
-        <div className="flex flex-col gap-3" style={{ height: "52vh" }}>
+        <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
           <ToolTopStrip
             filesSummary={fileInfo}
             onReupload={handleReupload}

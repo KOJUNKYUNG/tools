@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { DownloadIcon, RotateCcwIcon } from "lucide-react";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
+import { ResultCard } from "@/components/common/ResultCard";
+import { ResultActions } from "@/components/common/ResultActions";
 import type { ImageToPptxLabels } from "./labels";
 import type { ImageToPptxResultData } from "./ImageToPptx";
 
@@ -24,39 +25,20 @@ export function ImageToPptxResult({
 
   return (
     <div className="flex justify-end">
-      <div
-        className="result-pop flex w-full max-w-sm flex-col gap-2 rounded-[8px] border p-4"
-        style={{
-          background: "var(--surface)",
-          borderColor: "var(--border)",
-          boxShadow: "inset 2px 0 0 var(--emphasis)",
-        }}
-      >
-        <div className="font-ko text-[13px] font-medium" style={{ color: "var(--headline)" }}>
-          {labels.resultTitle}
-        </div>
-        <div className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
-          {template(labels.slideCountTemplate, { n: result.slideCount })} · {sizeText}
-        </div>
-        <div className="mt-1 flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={onDownload}
-            className="btn-download inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[12px] font-medium"
-          >
-            <DownloadIcon className="size-3.5" />
-            {labels.download}
-          </button>
-          <button
-            type="button"
-            onClick={onAgain}
-            className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
-            style={{ color: "var(--ink-strong)" }}
-          >
-            <RotateCcwIcon className="size-3.5" />
-            {labels.again}
-          </button>
-        </div>
+      <div className="w-full max-w-sm">
+        <ResultCard
+          title={labels.resultTitle}
+          actions={
+            <ResultActions
+              download={{ label: labels.download, onClick: onDownload }}
+              again={{ label: labels.again, onClick: onAgain }}
+            />
+          }
+        >
+          <div className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
+            {template(labels.slideCountTemplate, { n: result.slideCount })} · {sizeText}
+          </div>
+        </ResultCard>
       </div>
     </div>
   );

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRightIcon, DownloadIcon, RotateCcwIcon } from "lucide-react";
+import { DownloadIcon } from "lucide-react";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
+import { ResultCard } from "@/components/common/ResultCard";
+import { ResultActions, HandoffAction } from "@/components/common/ResultActions";
 import type { ConvertedImage, OutputFormat } from "@/lib/pdf/pdfToImage";
 import type { PdfToImageLabels } from "./labels";
 
@@ -114,7 +116,10 @@ export function PdfToImageResult({
       : labels.download;
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2" style={{ height: "52vh" }}>
+    <div
+      className="grid grid-cols-1 gap-4 md:grid-cols-2"
+      style={{ height: "var(--tray-h)" }}
+    >
       <div className="ob-scroll min-h-0 overflow-y-auto pr-1">
         <div className="grid grid-cols-3 gap-2">
           {images.map((img, i) => (
@@ -131,47 +136,23 @@ export function PdfToImageResult({
         </div>
       </div>
 
-      <div
-        className="result-pop flex flex-col gap-2 self-start rounded-[8px] border p-4"
-        style={{
-          background: "var(--surface)",
-          borderColor: "var(--border)",
-          boxShadow: "inset 2px 0 0 var(--emphasis)",
-        }}
-      >
-        <div className="font-ko text-[13px] font-medium" style={{ color: "var(--headline)" }}>
-          {labels.resultTitle}
-        </div>
-        <div className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
-          {template(labels.imageCountTemplate, { n: images.length })} · {formatBytes(totalSize)}
-        </div>
-        <div className="mt-1 flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={onDownloadAll}
-            className="btn-download inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[12px] font-medium"
-          >
-            <DownloadIcon className="size-3.5" />
-            {primaryDownloadLabel}
-          </button>
-          <button
-            type="button"
-            onClick={onCompress}
-            className="handoff-action inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] border px-3 font-body text-[12px]"
-          >
-            {labels.compressHandoff}
-            <ArrowRightIcon className="size-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={onAgain}
-            className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
-            style={{ color: "var(--ink-strong)" }}
-          >
-            <RotateCcwIcon className="size-3.5" />
-            {labels.again}
-          </button>
-        </div>
+      <div className="self-start">
+        <ResultCard
+          title={labels.resultTitle}
+          actions={
+            <ResultActions
+              download={{ label: primaryDownloadLabel, onClick: onDownloadAll }}
+              extra={
+                <HandoffAction label={labels.compressHandoff} onClick={onCompress} />
+              }
+              again={{ label: labels.again, onClick: onAgain }}
+            />
+          }
+        >
+          <div className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
+            {template(labels.imageCountTemplate, { n: images.length })} · {formatBytes(totalSize)}
+          </div>
+        </ResultCard>
       </div>
     </div>
   );

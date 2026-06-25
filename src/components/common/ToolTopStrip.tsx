@@ -10,12 +10,7 @@ import type { ReactNode } from "react";
  * re-upload) across done / processing while the execute button shows only in idle.
  */
 const SUBTLE =
-  "shrink-0 rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)] disabled:cursor-not-allowed disabled:opacity-50";
-const SUBTLE_STYLE = {
-  background: "var(--surface-2)",
-  borderColor: "var(--border)",
-  color: "var(--ink-strong)",
-} as const;
+  "subtle-action shrink-0 rounded-[5px] px-2.5 py-1.5 font-body text-[11px]";
 
 interface ToolTopStripProps {
   filesSummary: string;
@@ -57,7 +52,6 @@ export function ToolTopStrip({
         <button
           type="button"
           className={SUBTLE}
-          style={SUBTLE_STYLE}
           onClick={onReupload}
           disabled={busy}
         >

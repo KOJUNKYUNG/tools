@@ -255,7 +255,13 @@ the *intent*, not just the values):
   `pnpm design:check` guards color drift automatically).
 - **Logo, iconography, motion** ↔ [`docs/brand.html`](docs/brand.html) — a
   hand-maintained rendered mirror with **no automated guard**, so update its
-  values *and* its design-intent notes whenever the runtime changes.
+  values *and* its design-intent notes whenever the runtime changes. It is the
+  **comprehensive registry**: every icon in the site — the bespoke tool line set
+  *and* the functional lucide UI icons (download, retry, add, delete, status, …)
+  — and **every motion** (brand entrance + component transitions) must be
+  catalogued there. Adding a new icon or motion to code means adding it to
+  `brand.html` in the **same commit**; an icon/motion not in the catalogue is a
+  gap to fix, not an exception.
 
 `brand.html` carries design intent on purpose: it's where the "why" of the logo,
 icon system, and motion lives, so future brand work stays coherent.

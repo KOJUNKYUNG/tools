@@ -383,7 +383,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
         });
 
   const editor = (
-    <div className="space-y-3">
+    <div className="space-y-3" style={{ minHeight: "var(--tray-h)" }}>
       {showOversize && (
         <OversizeNotice
           totalBytes={totalBytes}
