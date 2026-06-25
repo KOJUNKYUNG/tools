@@ -370,12 +370,12 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
       </button>
       <div className="flex items-start gap-3 border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
         <div className="min-w-0 flex-1">
-          <div
+          <h1
             className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
             style={{ color: "var(--headline)" }}
           >
             {labels.title}
-          </div>
+          </h1>
           <div className="mt-1 font-body text-[12px] leading-[1.45]" style={{ color: "var(--ink)" }}>
             {labels.description}
           </div>
