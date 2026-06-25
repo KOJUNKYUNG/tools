@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import { getDictionary, type Locale } from "@/i18n/config";
 import { locales } from "@/i18n/locales";
+import { buildToolMetadata } from "@/lib/seo/toolMetadata";
 import { ImageToPptx } from "@/components/tools/image-to-pptx/ImageToPptx";
 import { getImageToPptxLabels } from "@/components/tools/image-to-pptx/labels";
 
@@ -9,6 +11,11 @@ interface PageProps {
 
 function asLocale(lang: string): Locale {
   return (locales as readonly string[]).includes(lang) ? (lang as Locale) : "ko";
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { lang } = await params;
+  return buildToolMetadata("image-to-pptx", lang);
 }
 
 export default async function ImageToPptxPage({ params }: PageProps) {

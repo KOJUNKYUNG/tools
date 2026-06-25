@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/app/providers";
 import { clashDisplay, ibmPlexSansKR, nanumGothicCoding, pretendard } from "@/app/fonts";
+import { siteUrl } from "@/lib/seo/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  // Resolves every relative canonical / alternate / og:url across the app.
+  metadataBase: new URL(siteUrl),
   title: {
     default: "Ontab — 브라우저 탭 위의 문서 도구 책상",
     template: "%s | Ontab",
