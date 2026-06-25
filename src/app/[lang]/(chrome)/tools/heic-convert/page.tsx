@@ -1,7 +1,9 @@
 // heic-convert is an SEO/sharing alias of image-compress. The slug stays live
 // and renders the same tool (see ToolInfo.aliasOf in constants).
+import type { Metadata } from "next";
 import { getDictionary, type Locale } from "@/i18n/config";
 import { locales } from "@/i18n/locales";
+import { buildToolMetadata } from "@/lib/seo/toolMetadata";
 import { ImageCompressTool } from "@/components/tools/image-compress/ImageCompressTool";
 import { getImageCompressLabels } from "@/components/tools/image-compress/labels";
 
@@ -11,6 +13,11 @@ interface PageProps {
 
 function asLocale(lang: string): Locale {
   return (locales as readonly string[]).includes(lang) ? (lang as Locale) : "ko";
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { lang } = await params;
+  return buildToolMetadata("heic-convert", lang);
 }
 
 export default async function HeicConvertPage({ params }: PageProps) {
