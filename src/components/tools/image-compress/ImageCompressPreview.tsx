@@ -14,6 +14,12 @@ interface ImageCompressPreviewProps {
   showCompressed: boolean;
   onToggleCompressed: (checked: boolean) => void;
   compareLabel: string;
+  /**
+   * True while the compressed preview/estimate is being recomputed (format or
+   * quality changed). Shows a corner spinner over the compressed view so the
+   * still-visible previous render doesn't read as the confirmed result.
+   */
+  updating?: boolean;
 }
 
 export function ImageCompressPreview({
@@ -28,8 +34,12 @@ export function ImageCompressPreview({
   showCompressed,
   onToggleCompressed,
   compareLabel,
+  updating = false,
 }: ImageCompressPreviewProps) {
   const multi = totalCount > 1;
+  // Corner badge only when re-rendering the compressed view that's on screen —
+  // mirrors pdf-compress's ComparePreview treatment.
+  const showCornerSpinner = updating && showCompressed && !!imageUrl;
   return (
     <div className="space-y-3">
       <div
@@ -42,6 +52,11 @@ export function ImageCompressPreview({
             alt={fileName}
             className="absolute inset-0 size-full object-contain"
           />
+        )}
+        {showCornerSpinner && (
+          <div className="pointer-events-none absolute right-2 top-2 rounded-full bg-[color:var(--surface)] p-1 opacity-80 shadow-sm">
+            <span className="block size-3 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
+          </div>
         )}
       </div>
 

@@ -402,11 +402,17 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
+      // Ignore picks while a prior upload is still being prepared (the
+      // re-upload / add buttons are disabled, but the OS picker can race).
+      if (loadingPages) {
+        e.target.value = "";
+        return;
+      }
       const picked = e.target.files ? Array.from(e.target.files) : [];
       if (picked.length > 0) void ingest(picked, pendingModeRef.current);
       e.target.value = "";
     },
-    [ingest],
+    [ingest, loadingPages],
   );
 
   const handleDuplicate = useCallback((id: string) => {
@@ -472,7 +478,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         filesSummary={filesSummary}
         onReupload={handleReuploadPick}
         reuploadLabel={labels.reupload}
-        busy={busy}
+        busy={busy || loadingPages}
+        busyLabel={labels.fileUpload.busy}
         onExecute={run}
         executeLabel={template(labels.convertTemplate, { n: liveItems.length })}
         executeDisabled={!hasFiles}
@@ -583,6 +590,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           multiple
           hideFileList
           maxSize={uploadLimitFor("image-to-pptx")}
+          busy={loadingPages}
           onFiles={handleUpload}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
@@ -615,13 +623,6 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           onRetry={retry}
           onDownload={download}
         />
-      )}
-
-      {loadingPages && (
-        <div className="flex items-center gap-2 text-sm text-[color:var(--ink)]">
-          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
-          {labels.processing}
-        </div>
       )}
     </div>
   );

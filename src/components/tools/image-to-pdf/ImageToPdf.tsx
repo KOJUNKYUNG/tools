@@ -281,11 +281,17 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
+      // Ignore picks while a prior upload is still being prepared (the
+      // re-upload / add buttons are disabled, but the OS picker can race).
+      if (loadingPages) {
+        e.target.value = "";
+        return;
+      }
       const picked = e.target.files ? Array.from(e.target.files) : [];
       if (picked.length > 0) void ingest(picked, pendingModeRef.current);
       e.target.value = "";
     },
-    [ingest],
+    [ingest, loadingPages],
   );
 
   const handleRotate = useCallback((id: string) => {
@@ -356,7 +362,8 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         onConvert={run}
         convertLabel={template(labels.convertTemplate, { n: items.length })}
         convertDisabled={!hasFiles}
-        busy={busy}
+        busy={busy || loadingPages}
+        busyLabel={labels.fileUpload.busy}
       />
 
       <PageSizeSelector
@@ -441,6 +448,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
           multiple
           hideFileList
           maxSize={uploadLimitFor("image-to-pdf")}
+          busy={loadingPages}
           onFiles={handleUpload}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
@@ -475,13 +483,6 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
           onRetry={retry}
           onDownload={download}
         />
-      )}
-
-      {loadingPages && (
-        <div className="flex items-center gap-2 text-sm text-[color:var(--ink)]">
-          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
-          {labels.processing}
-        </div>
       )}
     </div>
   );

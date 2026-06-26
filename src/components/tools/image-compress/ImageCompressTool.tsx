@@ -176,7 +176,11 @@ export function ImageCompressTool({
       return;
     }
     const file = files[currentIndex];
-    if (!file) return;
+    if (!file) {
+      // Defensive: never leave the corner spinner stuck if a prior run set it.
+      setEstimating(false);
+      return;
+    }
     const token = ++estimateTokenRef.current;
     setEstimating(true);
     const timer = setTimeout(async () => {
@@ -228,7 +232,7 @@ export function ImageCompressTool({
 
   const handleHiddenInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (status === "processing") {
+      if (status === "processing" || normalizing) {
         e.target.value = "";
         return;
       }
@@ -236,7 +240,7 @@ export function ImageCompressTool({
       if (newFiles.length > 0) void handleUpload(newFiles);
       e.target.value = "";
     },
-    [handleUpload, status],
+    [handleUpload, status, normalizing],
   );
 
   const onReset = useCallback(() => {
@@ -267,13 +271,6 @@ export function ImageCompressTool({
         tabIndex={-1}
       />
 
-      {normalizing && (
-        <div className="flex items-center gap-2 text-sm text-[color:var(--ink)]">
-          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
-          처리 중…
-        </div>
-      )}
-
       {!hasFiles ? (
         <FileUpload
           accept={IMAGE_ACCEPT}
@@ -281,6 +278,7 @@ export function ImageCompressTool({
           hideFileList
           hideAutoHint
           maxSize={Number.POSITIVE_INFINITY}
+          busy={normalizing}
           onFiles={(fs) => void handleUpload(fs)}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
@@ -310,7 +308,8 @@ export function ImageCompressTool({
             }
             onReupload={handleReupload}
             reuploadLabel={labels.reupload}
-            busy={busy}
+            busy={busy || normalizing}
+            busyLabel={labels.fileUpload.busy}
             onExecute={status === "idle" ? run : undefined}
             executeLabel={template(labels.compressTemplate, { n: files.length })}
             executeDisabled={!outputFormat}
@@ -337,6 +336,7 @@ export function ImageCompressTool({
               showCompressed={showCompressed}
               onToggleCompressed={setShowCompressed}
               compareLabel={labels.comparePreview}
+              updating={estimating}
             />
 
             <div className="space-y-3">
