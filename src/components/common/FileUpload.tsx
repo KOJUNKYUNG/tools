@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useDropzone, type Accept, type FileRejection } from "react-dropzone";
-import { UploadCloudIcon, XIcon, FileIcon } from "lucide-react";
+import { UploadCloudIcon, XIcon, FileIcon, Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { DEFAULT_UPLOAD_LIMIT } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
@@ -15,6 +15,13 @@ interface FileUploadProps {
   onFiles: (files: File[]) => void;
   label?: string;
   description?: string;
+  /**
+   * When true the dropzone is inert — clicks and drops are ignored, the prompt
+   * is replaced by the busy label, and the cloud icon swaps to a spinner. Used
+   * while an upload is being prepared (e.g. HEIC→JPEG normalization) so the
+   * dropzone stays in place instead of a separate block pushing the layout.
+   */
+  busy?: boolean;
   hideFileList?: boolean;
   /** Hide the auto-generated "{exts} · 최대 {size}" hint line. */
   hideAutoHint?: boolean;
@@ -39,6 +46,8 @@ interface FileUploadProps {
     clearAll?: string;
     /** "{name}" — aria-label on the per-file remove button. */
     removeAriaTemplate?: string;
+    /** Prompt shown in place of `label` while `busy` is true. */
+    busy?: string;
   };
 }
 
@@ -49,6 +58,7 @@ export function FileUpload({
   onFiles,
   label = "파일을 드래그하거나 클릭하여 업로드",
   description,
+  busy = false,
   hideFileList = false,
   hideAutoHint = false,
   labels,
@@ -99,7 +109,10 @@ export function FileUpload({
     accept,
     maxSize,
     multiple,
+    disabled: busy,
   });
+
+  const busyLabel = labels?.busy ?? "처리 중…";
 
   const maxSizeTemplate = labels?.maxSize ?? "최대 {size}";
   const maxSizeHint = template(maxSizeTemplate, { size: formatBytes(maxSize) });
@@ -112,19 +125,30 @@ export function FileUpload({
       <div
         {...getRootProps()}
         data-drag={isDragActive}
-        className="dropzone flex cursor-pointer flex-col items-center justify-center gap-3 rounded-[8px] p-8 text-center"
+        data-busy={busy}
+        aria-busy={busy}
+        className={`dropzone flex flex-col items-center justify-center gap-3 rounded-[8px] p-8 text-center ${
+          busy ? "cursor-not-allowed" : "cursor-pointer"
+        }`}
       >
         <input {...getInputProps()} />
-        <UploadCloudIcon
-          className="size-10 transition-colors"
-          style={{ color: isDragActive ? "var(--ink-strong)" : "var(--ink-soft)" }}
-        />
+        {busy ? (
+          <Loader2Icon
+            className="size-10 animate-spin"
+            style={{ color: "var(--emphasis)" }}
+          />
+        ) : (
+          <UploadCloudIcon
+            className="size-10 transition-colors"
+            style={{ color: isDragActive ? "var(--ink-strong)" : "var(--ink-soft)" }}
+          />
+        )}
         <div>
           <p
             className="font-ko text-[13px] font-medium"
             style={{ color: "var(--ink-strong)" }}
           >
-            {label}
+            {busy ? busyLabel : label}
           </p>
           {description && (
             <p

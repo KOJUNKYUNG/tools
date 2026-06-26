@@ -297,6 +297,9 @@
   transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
 }
 .dropzone:hover { border-color: var(--ink-soft); }
+/* While busy (upload being prepared) the zone is inert — don't firm the edge on
+   hover, which would contradict the not-allowed cursor. */
+.dropzone[data-busy="true"]:hover { border-color: var(--border); }
 .dropzone[data-drag="true"] {
   border-color: var(--emphasis);
   background: var(--surface);

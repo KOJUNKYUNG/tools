@@ -369,6 +369,12 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
 
   const handleHiddenInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
+      // Ignore picks while a prior upload is still normalizing (the re-upload
+      // button is already disabled, but the OS picker can race).
+      if (normalizing) {
+        e.target.value = "";
+        return;
+      }
       const newFiles = e.target.files ? Array.from(e.target.files) : [];
       // The dropzone enforces maxSize; this hidden re-upload input bypasses it,
       // so guard the raw pick here too (before HEIC normalization).
@@ -389,7 +395,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
       // Allow re-selecting the same file in a row
       e.target.value = "";
     },
-    [handleUpload, labels.fileUpload.tooLargeTemplate],
+    [handleUpload, normalizing, labels.fileUpload.tooLargeTemplate],
   );
 
   // In inline mode (Screen3 mount), the chrome/header/reset are suppressed —
@@ -406,18 +412,12 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
         aria-hidden="true"
         tabIndex={-1}
       />
-      {normalizing && (
-        <div className="flex items-center gap-2 text-sm text-[color:var(--ink)]">
-          <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
-          처리 중…
-        </div>
-      )}
-
       {!file && (
         <FileUpload
           accept={IMAGE_ACCEPT}
           multiple={false}
           maxSize={uploadLimitFor("image-resize")}
+          busy={normalizing}
           onFiles={(fs) => void handleUpload(fs)}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
@@ -431,7 +431,8 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
             filesSummary={file.name}
             onReupload={handleReupload}
             reuploadLabel={labels.reupload}
-            busy={status === "processing"}
+            busy={status === "processing" || normalizing}
+            busyLabel={labels.fileUpload.busy}
             onExecute={status === "idle" ? run : undefined}
             executeLabel={labels.apply}
           />

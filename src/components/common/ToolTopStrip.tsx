@@ -19,6 +19,8 @@ interface ToolTopStripProps {
   onReupload: () => void;
   reuploadLabel: string;
   busy?: boolean;
+  /** Label shown on the re-upload button while `busy` (e.g. "처리 중…"). */
+  busyLabel?: string;
   /** Optional buttons between re-upload and execute (e.g. Split all / Clear). */
   extraActions?: ReactNode;
   /** Primary execute action. Omit to render the strip without an execute button. */
@@ -33,6 +35,7 @@ export function ToolTopStrip({
   onReupload,
   reuploadLabel,
   busy = false,
+  busyLabel,
   extraActions,
   onExecute,
   executeLabel,
@@ -51,11 +54,11 @@ export function ToolTopStrip({
         {meta}
         <button
           type="button"
-          className={SUBTLE}
+          className={`${SUBTLE} min-w-[68px] text-center`}
           onClick={onReupload}
           disabled={busy}
         >
-          {reuploadLabel}
+          {busy && busyLabel ? busyLabel : reuploadLabel}
         </button>
       </div>
       {(extraActions || onExecute) && (
