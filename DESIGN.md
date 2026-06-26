@@ -373,7 +373,13 @@ box-shadow — see Do's & Don'ts.
   `--ink-soft`, an active drag (`data-drag="true"`) goes max-contrast
   (`--emphasis` edge, `--surface` fill). Icon `--ink-soft` → `--ink-strong` on
   drag; file-list rows are `--surface-2` / `--border`. Never the old shadcn
-  `border-primary` / `bg-muted` look.
+  `border-primary` / `bg-muted` look. **Busy state** (`busy` prop, set while an
+  upload is being prepared — e.g. HEIC→JPEG normalization, page-thumbnail build):
+  the dropzone goes inert (clicks/drops ignored, `cursor-not-allowed`), the cloud
+  icon swaps to a spinning `Loader2` in `--emphasis`, and the prompt is replaced
+  by the busy label ("처리 중…" / "Processing…"). The surrounding DOM is unchanged
+  so the box keeps its height — a prepare step never spawns a separate block that
+  pushes the layout down.
 - **Result view** — replaces the controls area after execute; holds the result
   summary, `.btn-download`, and a `.nameplate` "re-apply". Built from **one
   shared primitive** so size, padding, title, and the action row are identical
@@ -388,7 +394,10 @@ box-shadow — see Do's & Don'ts.
   plain `body` text (never a button, never a boxed or icon-led panel), with a
   **Toolbar subtle** re-upload button beside it. That button is labelled **"다시
   업로드" / "Re-upload"** everywhere — same function ⇒ same label *and* same
-  treatment (no "다시 선택" / "다른 파일 선택" / "Choose again" variants). Numeric
+  treatment (no "다시 선택" / "다른 파일 선택" / "Choose again" variants). When the
+  tool is busy (preparing a re-upload, or executing), that button is disabled and,
+  if a re-upload is being prepared, its label swaps to "처리 중…" / "Processing…";
+  it reserves a min-width so the swap never reflows the row. Numeric
   values (size, %, dimension) in inputs and results use `body` + `tabular-nums`,
   not `mono`.
 

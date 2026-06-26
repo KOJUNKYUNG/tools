@@ -43,7 +43,8 @@
       "errorTemplate": "{name}: {message}",
       "selectedCountTemplate": "{n}개 파일 선택됨",
       "clearAll": "전체 삭제",
-      "removeAriaTemplate": "{name} 제거"
+      "removeAriaTemplate": "{name} 제거",
+      "busy": "처리 중…"
     }
   },
   "footer": {

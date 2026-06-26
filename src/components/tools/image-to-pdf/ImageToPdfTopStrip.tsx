@@ -8,6 +8,8 @@ interface ImageToPdfTopStripProps {
   convertLabel: string;
   convertDisabled: boolean;
   busy: boolean;
+  /** Label shown on the re-upload button while `busy` (e.g. "처리 중…"). */
+  busyLabel?: string;
 }
 
 // Shared subtle button — reupload / All / Clear / Split share this across tools.
@@ -27,6 +29,7 @@ export function ImageToPdfTopStrip({
   convertLabel,
   convertDisabled,
   busy,
+  busyLabel,
 }: ImageToPdfTopStripProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2.5">
@@ -40,12 +43,12 @@ export function ImageToPdfTopStrip({
         </span>
         <button
           type="button"
-          className={SUBTLE}
+          className={`${SUBTLE} min-w-[68px] text-center`}
           style={SUBTLE_STYLE}
           onClick={onReupload}
           disabled={busy}
         >
-          {reuploadLabel}
+          {busy && busyLabel ? busyLabel : reuploadLabel}
         </button>
       </div>
 

@@ -43,7 +43,8 @@
       "errorTemplate": "{name}: {message}",
       "selectedCountTemplate": "{n} file(s) selected",
       "clearAll": "Clear all",
-      "removeAriaTemplate": "Remove {name}"
+      "removeAriaTemplate": "Remove {name}",
+      "busy": "Processing…"
     }
   },
   "footer": {

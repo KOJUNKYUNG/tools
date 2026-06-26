@@ -12,6 +12,8 @@ interface EditorTopStripProps {
   applyLabel: string;
   applyDisabled: boolean;
   busy: boolean;
+  /** Label shown on the re-upload button while `busy` (e.g. "처리 중…"). */
+  busyLabel?: string;
 }
 
 // Shared subtle button — reupload / Split all / Clear dividers share this with
@@ -36,6 +38,7 @@ export function EditorTopStrip({
   applyLabel,
   applyDisabled,
   busy,
+  busyLabel,
 }: EditorTopStripProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2.5">
@@ -49,12 +52,12 @@ export function EditorTopStrip({
         </span>
         <button
           type="button"
-          className={SUBTLE}
+          className={`${SUBTLE} min-w-[68px] text-center`}
           style={SUBTLE_STYLE}
           onClick={onReupload}
           disabled={busy}
         >
-          {reuploadLabel}
+          {busy && busyLabel ? busyLabel : reuploadLabel}
         </button>
       </div>
 

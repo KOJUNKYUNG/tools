@@ -456,10 +456,10 @@
   <ul class="muted" style="max-width:64ch;">
     <li><code>.btn-primary</code> · <code>.btn-download</code> — translateY lift + shadow · <code>--motion-fast</code> / <code>--ease-standard</code></li>
     <li><code>.nameplate</code> · <code>.handoff-action</code> · <code>.subtle-action</code> — border-color · background · <code>--motion-fast</code> / <code>--ease-standard</code></li>
-    <li><code>.dropzone</code> — border-color · background (hover / drag) · <code>--motion-fast</code> / <code>--ease-standard</code></li>
+    <li><code>.dropzone</code> — border-color · background (hover / drag) · <code>--motion-fast</code> / <code>--ease-standard</code>. <strong>busy</strong>(업로드 준비 중 — HEIC 변환·페이지 빌드)일 땐 비활성 + 구름 아이콘→<code>Loader2</code> 회전 + 프롬프트→"처리 중…"으로 자리 그대로 치환(별도 블록으로 레이아웃 안 밀어냄).</li>
     <li><code>.toolcard</code> — translateY lift (집어 드는 느낌) · <code>--motion-base</code> / <code>--ease-settle</code></li>
     <li>진행 막대 — width · <code>transition-[width]</code> (선형, 진행률 반영)</li>
-    <li>스피너(Loader) — rotate · <code>animate-spin</code> (처리 중 지속 회전)</li>
+    <li>스피너(Loader) — rotate · <code>animate-spin</code> (처리 중 지속 회전). 용처: 진행 상태, dropzone busy, <strong>라이브 미리보기 재계산 코너 배지</strong>(image-compress·pdf-compress — 화면에 남은 이전 렌더가 확정값처럼 보이지 않게).</li>
     <li><code>.result-pop</code> — opacity + scale 리빌 · <code>--ease-pop</code> 400ms (결과 카드에만)</li>
     <li>셸 진입 — <code>.animate-drop-settle</code> · <code>.toolcard-enter</code> (스태거) · <code>--motion-settle</code> / <code>--ease-settle</code></li>
   </ul>
