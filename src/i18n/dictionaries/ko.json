@@ -167,7 +167,7 @@
           "tryAnother": "다시 하기"
         },
         "preview": {
-          "selectedCaption": "선택한 배경",
+          "selectedCaption": "새 배경",
           "currentCaptionTemplate": "현재 배경 · {n}종",
           "selectedEmpty": "갤러리에서 배경 선택",
           "currentEmpty": "배경 없음",

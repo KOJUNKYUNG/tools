@@ -167,7 +167,7 @@
           "tryAnother": "Start over"
         },
         "preview": {
-          "selectedCaption": "New background",
+          "selectedCaption": "New",
           "currentCaptionTemplate": "Current · {n}",
           "selectedEmpty": "Pick a background",
           "currentEmpty": "No background",
