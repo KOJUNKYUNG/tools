@@ -11,8 +11,22 @@ export interface ChangeBackgroundOptions {
   onProgress?: (pct: number) => void;
 }
 
-function bgImageMediaName(ext: string): string {
-  return `background_custom.${ext}`;
+/**
+ * Pick a `ppt/media/background_custom*.ext` name that does not already exist in
+ * the deck. A fixed name (`background_custom.png`) would OVERWRITE the media a
+ * previous run embedded, so re-applying a background silently changed every
+ * slide that still referenced the old file — not just the newly targeted ones.
+ * A collision-free name keeps earlier backgrounds intact. Exported for testing.
+ */
+export function uniqueMediaName(zip: JSZip, ext: string): string {
+  const base = "background_custom";
+  let candidate = `${base}.${ext}`;
+  let i = 1;
+  while (zip.file(`ppt/media/${candidate}`)) {
+    candidate = `${base}_${i}.${ext}`;
+    i++;
+  }
+  return candidate;
 }
 
 function getExtension(file: File): string {
@@ -304,7 +318,7 @@ export async function changeBackground({
   const zip = await JSZip.loadAsync(arrayBuffer);
 
   const ext = getExtension(bgImage);
-  const mediaName = bgImageMediaName(ext);
+  const mediaName = uniqueMediaName(zip, ext);
   const mediaPath = `ppt/media/${mediaName}`;
   const bgImageData = new Uint8Array(await bgImage.arrayBuffer());
   zip.file(mediaPath, bgImageData);
