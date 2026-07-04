@@ -407,6 +407,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // content-sized and flex-1 has nothing to grow into, so the accordion's
   // scroll never engages and content bleeds past the panel bottom.
   const lockHeight = showConversionGuide && !pptxFile;
+  // Once a deck is loaded, pin the workspace to the tray height so the gallery
+  // scrolls INSIDE its pane — switching category tabs (different image counts)
+  // must never resize the tool (UI stability contract).
+  const fixedHeight = lockHeight || !!pptxFile;
 
   // ───────── Render ─────────
   return (
@@ -418,13 +422,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       }
       style={
         inline
-          ? { maxHeight: "var(--tray-h)", ...(lockHeight ? { height: "var(--tray-h)" } : {}) }
+          ? { maxHeight: "var(--tray-h)", ...(fixedHeight ? { height: "var(--tray-h)" } : {}) }
           : {
               background: "var(--surface)",
               borderColor: "var(--border)",
               boxShadow: "var(--shadow-lg)",
               maxHeight: "var(--tray-h)",
-              ...(lockHeight ? { height: "var(--tray-h)" } : {}),
+              ...(fixedHeight ? { height: "var(--tray-h)" } : {}),
             }
       }
     >
