@@ -53,6 +53,7 @@ export function getPptBackgroundLabels(
     },
     action: p.action,
     processing: p.processing,
+    preview: p.preview,
     fileUpload: dict.common.fileUpload,
   };
 }

@@ -165,6 +165,15 @@
           "errorBody": "Something went wrong. Please try again.",
           "retry": "Retry",
           "tryAnother": "Start over"
+        },
+        "preview": {
+          "selectedCaption": "New background",
+          "currentCaptionTemplate": "Current · {n}",
+          "selectedEmpty": "Pick a background",
+          "currentEmpty": "No background",
+          "slideCountTemplate": "{n} slides",
+          "zoom": "Zoom",
+          "close": "Close"
         }
       }
     },

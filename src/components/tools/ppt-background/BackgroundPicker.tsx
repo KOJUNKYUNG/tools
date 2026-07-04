@@ -1,43 +1,21 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { ImageIcon, UploadCloudIcon, XIcon } from "lucide-react";
-import { FileUpload } from "@/components/common/FileUpload";
+import { useRef, useState } from "react";
 import { InlineGallery } from "@/components/ppt/InlineGallery";
-import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
-import type { Dictionary } from "@/i18n/config";
+import {
+  GALLERY_CATEGORIES,
+  type GalleryCategory,
+  type GalleryImage,
+} from "@/lib/gallery/types";
 
-const IMAGE_ACCEPT = {
-  "image/jpeg": [".jpg", ".jpeg"],
-  "image/png": [".png"],
-};
-
-type BgSource = "upload" | "gallery";
+type CategoryFilter = "all" | GalleryCategory;
 
 interface BackgroundPickerProps {
-  bgFile: File | null;
-  bgPreviewUrl: string | null;
   galleryImage: GalleryImage | null;
-  onDirectUpload: (files: File[]) => void;
   onGallerySelect: (img: GalleryImage) => void;
-  onClear: () => void;
-  /**
-   * Action area to render to the right of the Preview card in Row 1
-   * (Apply button, ProcessingStatus, etc). Composed by the parent so this
-   * component stays presentational.
-   */
-  actionSlot?: ReactNode;
+  onDirectUpload: (files: File[]) => void;
   labels: {
-    heading: string;
-    previewLabel: string;
-    empty: string;
-    fromGallery: string;
-    fromUpload: string;
-    clear: string;
     uploadLabel: string;
-    uploadHint: string;
-    sourceUpload: string;
-    sourceGallery: string;
     gallery: {
       heading: string;
       countSuffixTemplate: string;
@@ -45,151 +23,95 @@ interface BackgroundPickerProps {
       categoryByKey: Record<GalleryCategory, string>;
       empty: string;
     };
-    fileUpload: Dictionary["common"]["fileUpload"];
   };
 }
 
 export function BackgroundPicker({
-  bgFile,
-  bgPreviewUrl,
   galleryImage,
-  onDirectUpload,
   onGallerySelect,
-  onClear,
-  actionSlot,
+  onDirectUpload,
   labels,
 }: BackgroundPickerProps) {
-  const [source, setSource] = useState<BgSource>("gallery");
+  const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-1.5">
-      {/* Row 1: Preview (left, 240×135) + right column (Action fixed-height + Toggle) */}
-      <div className="flex shrink-0 items-start gap-3">
-        {/* Preview card — 240×135 (16:9) */}
-        <div
-          className="shrink-0 overflow-hidden rounded-[8px] border"
-          style={{
-            background: "var(--surface-2)",
-            borderColor: "var(--border)",
-            width: "240px",
-          }}
+    <div className="flex h-full min-h-0 flex-col gap-2.5">
+      {/* Header row: category tabs (left) + text-only upload button (right) */}
+      <div
+        className="flex shrink-0 items-center justify-between gap-2 border-b"
+        style={{ borderColor: "var(--hairline)" }}
+      >
+        <div className="flex min-w-0 gap-0.5">
+          <CategoryTab
+            active={activeCategory === "all"}
+            onClick={() => setActiveCategory("all")}
+            label={labels.gallery.categoryAll}
+          />
+          {GALLERY_CATEGORIES.map((cat) => (
+            <CategoryTab
+              key={cat}
+              active={activeCategory === cat}
+              onClick={() => setActiveCategory(cat)}
+              label={labels.gallery.categoryByKey[cat]}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="subtle-action mb-1 inline-flex shrink-0 items-center rounded-[6px] border px-2.5 py-1.5 font-body text-[11px]"
+          style={{ borderColor: "var(--border)", color: "var(--ink-strong)" }}
         >
-          <div
-            className="relative aspect-video overflow-hidden"
-            style={{ background: "var(--surface-2)" }}
-          >
-            {bgPreviewUrl ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={bgPreviewUrl}
-                  alt="background preview"
-                  className="size-full object-cover"
-                />
-                <div
-                  className="absolute bottom-1.5 left-1.5 flex max-w-[calc(100%-2.25rem)] items-center gap-1.5 rounded-[4px] px-2 py-0.5"
-                  style={{
-                    background: "color-mix(in oklch, var(--surface) 78%, transparent)",
-                    backdropFilter: "blur(4px)",
-                    WebkitBackdropFilter: "blur(4px)",
-                  }}
-                >
-                  {galleryImage ? (
-                    <ImageIcon
-                      className="size-3 shrink-0"
-                      style={{ color: "var(--ink-soft)" }}
-                    />
-                  ) : (
-                    <UploadCloudIcon
-                      className="size-3 shrink-0"
-                      style={{ color: "var(--ink-soft)" }}
-                    />
-                  )}
-                  <span
-                    className="truncate font-body text-[10.5px] font-medium"
-                    style={{ color: "var(--ink-strong)" }}
-                  >
-                    {galleryImage?.title ?? bgFile?.name ?? ""}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={onClear}
-                  aria-label={labels.clear}
-                  className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full transition-colors"
-                  style={{
-                    background: "color-mix(in oklch, var(--surface) 78%, transparent)",
-                    backdropFilter: "blur(4px)",
-                    WebkitBackdropFilter: "blur(4px)",
-                  }}
-                >
-                  <XIcon className="size-3" style={{ color: "var(--ink-strong)" }} />
-                </button>
-              </>
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <span className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
-                  {labels.empty}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right column of Row 1 */}
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          {/* Action area — FIXED 100px so swapped states never resize the row */}
-          <div className="shrink-0 overflow-hidden" style={{ height: "100px" }}>
-            {actionSlot}
-          </div>
-          {/* Compact Upload/Gallery toggle */}
-          <div
-            className="flex shrink-0 border-b"
-            style={{ borderColor: "var(--hairline)" }}
-          >
-            {(["upload", "gallery"] as const).map((src) => {
-              const active = source === src;
-              const label = src === "upload" ? labels.sourceUpload : labels.sourceGallery;
-              return (
-                <button
-                  key={src}
-                  type="button"
-                  onClick={() => setSource(src)}
-                  className="flex-1 border-b-2 py-1.5 font-body text-[11.5px] font-medium transition-colors"
-                  style={{
-                    color: active ? "var(--ink-strong)" : "var(--ink-soft)",
-                    borderBottomColor: active ? "var(--emphasis)" : "transparent",
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+          {labels.uploadLabel}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg"
+          className="hidden"
+          onChange={(e) => {
+            const files = e.target.files ? Array.from(e.target.files) : [];
+            if (files.length) onDirectUpload(files);
+            e.target.value = "";
+          }}
+        />
       </div>
 
-      {/* Source body — flex-1, fills remaining panel height */}
-      <div className="flex min-h-0 flex-1 flex-col">
-        {source === "upload" ? (
-          <FileUpload
-            accept={IMAGE_ACCEPT}
-            multiple={false}
-            onFiles={onDirectUpload}
-            label={labels.uploadLabel}
-            description={labels.uploadHint}
-            hideFileList
-            labels={labels.fileUpload}
-          />
-        ) : (
-          <InlineGallery
-            onSelect={onGallerySelect}
-            selectedImageId={galleryImage?.id}
-            forceOpen
-            labels={labels.gallery}
-          />
-        )}
+      {/* Gallery grid — fills remaining panel height */}
+      <div className="min-h-0 flex-1">
+        <InlineGallery
+          onSelect={onGallerySelect}
+          selectedImageId={galleryImage?.id}
+          forceOpen
+          category={activeCategory}
+          labels={labels.gallery}
+        />
       </div>
     </div>
+  );
+}
+
+function CategoryTab({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="border-b-2 px-2 py-1.5 font-body text-[11.5px] font-medium transition-colors"
+      style={{
+        color: active ? "var(--ink-strong)" : "var(--ink-soft)",
+        borderBottomColor: active ? "var(--emphasis)" : "transparent",
+      }}
+    >
+      {label}
+    </button>
   );
 }
