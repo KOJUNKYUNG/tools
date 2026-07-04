@@ -51,37 +51,43 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={() => onToggleCheck(group.key)}
-              aria-pressed={checked}
-              className="absolute left-1.5 top-1.5 flex size-5 items-center justify-center rounded-[5px] border"
-              style={{
-                background: checked ? "var(--emphasis)" : "color-mix(in oklch, var(--surface) 55%, transparent)",
-                borderColor: checked ? "var(--emphasis)" : "color-mix(in oklch, var(--surface) 85%, transparent)",
-                color: "var(--mono-0)",
-                backdropFilter: "blur(3px)",
-              }}
-            >
-              {checked && (
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12 L10 17 L19 7" />
-                </svg>
-              )}
-            </button>
+            {/* Checkbox + zoom only when there is an actual background image —
+                a "no background" group has nothing to target or enlarge. */}
+            {url && (
+              <button
+                type="button"
+                onClick={() => onToggleCheck(group.key)}
+                aria-pressed={checked}
+                className="absolute left-1.5 top-1.5 flex size-5 items-center justify-center rounded-[5px] border"
+                style={{
+                  background: checked ? "var(--emphasis)" : "color-mix(in oklch, var(--surface) 55%, transparent)",
+                  borderColor: checked ? "var(--emphasis)" : "color-mix(in oklch, var(--surface) 85%, transparent)",
+                  color: "var(--mono-0)",
+                  backdropFilter: "blur(3px)",
+                }}
+              >
+                {checked && (
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12 L10 17 L19 7" />
+                  </svg>
+                )}
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={onZoom}
-              aria-label={zoomLabel}
-              className="absolute right-1.5 top-1.5 hidden size-6 items-center justify-center rounded-[6px] group-hover:flex"
-              style={{ background: "color-mix(in oklch, var(--surface) 85%, transparent)", color: "var(--ink-strong)", backdropFilter: "blur(4px)" }}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="10.5" cy="10.5" r="6.5" />
-                <path d="M15.2 15.2 L20 20" />
-              </svg>
-            </button>
+            {url && (
+              <button
+                type="button"
+                onClick={onZoom}
+                aria-label={zoomLabel}
+                className="absolute right-1.5 top-1.5 hidden size-6 items-center justify-center rounded-[6px] group-hover:flex"
+                style={{ background: "color-mix(in oklch, var(--surface) 85%, transparent)", color: "var(--ink-strong)", backdropFilter: "blur(4px)" }}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="10.5" cy="10.5" r="6.5" />
+                  <path d="M15.2 15.2 L20 20" />
+                </svg>
+              </button>
+            )}
 
             {groups.length > 1 && (
               <div className="absolute bottom-1.5 left-1.5 flex gap-1">

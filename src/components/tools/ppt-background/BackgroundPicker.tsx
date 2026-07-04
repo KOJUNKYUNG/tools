@@ -60,8 +60,12 @@ export function BackgroundPicker({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="subtle-action mb-1 inline-flex shrink-0 items-center rounded-[6px] border px-2.5 py-1.5 font-body text-[11px]"
-          style={{ borderColor: "var(--border)", color: "var(--ink-strong)" }}
+          className="mb-1 inline-flex shrink-0 items-center rounded-[6px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)]"
+          style={{
+            background: "var(--surface)",
+            borderColor: "var(--border)",
+            color: "var(--ink-strong)",
+          }}
         >
           {labels.uploadLabel}
         </button>

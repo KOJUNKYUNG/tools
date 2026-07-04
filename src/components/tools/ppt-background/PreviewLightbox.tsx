@@ -20,7 +20,7 @@ export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose }: Previ
       aria-modal="true"
     >
       <div
-        className="max-h-full max-w-full overflow-hidden rounded-[8px] border"
+        className="max-h-full max-w-full overflow-hidden border"
         style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-lg)", aspectRatio: aspect }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
