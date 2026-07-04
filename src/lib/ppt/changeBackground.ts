@@ -236,22 +236,32 @@ async function processSlideGroup(
   }
 }
 
-function ensureContentType(zip: JSZip, ext: string): void {
+/**
+ * Insert a `<Default Extension=… ContentType=…/>` into a [Content_Types].xml
+ * body, immediately after the root `<Types …>` opening tag so its namespace
+ * declaration stays intact. No-op when the extension is already declared
+ * (attribute-order agnostic). Pure + exported for testing.
+ */
+export function insertDefaultContentType(
+  xml: string,
+  ext: string,
+  mimeType: string,
+): string {
+  if (new RegExp(`<Default[^>]*\\bExtension="${ext}"`, "i").test(xml)) {
+    return xml;
+  }
+  const override = `<Default Extension="${ext}" ContentType="${mimeType}"/>`;
+  return xml.replace(/(<Types\b[^>]*>)/, `$1${override}`);
+}
+
+async function ensureContentType(zip: JSZip, ext: string): Promise<void> {
   const ctPath = "[Content_Types].xml";
   const ctFile = zip.file(ctPath);
   if (!ctFile) return;
 
-  ctFile.async("text").then((xml) => {
-    const mimeType = getContentType(ext);
-    if (xml.includes(`Extension="${ext}"`)) return;
-
-    const override = `<Default Extension="${ext}" ContentType="${mimeType}"/>`;
-    const updated = xml.replace("<Types", `<Types>\n${override}`).replace(
-      /><Default/,
-      `>\n<Default`,
-    );
-    zip.file(ctPath, updated);
-  });
+  const xml = await ctFile.async("text");
+  const updated = insertDefaultContentType(xml, ext, getContentType(ext));
+  if (updated !== xml) zip.file(ctPath, updated);
 }
 
 function loadImageSize(file: File): Promise<{ w: number; h: number }> {
@@ -299,7 +309,7 @@ export async function changeBackground({
   const bgImageData = new Uint8Array(await bgImage.arrayBuffer());
   zip.file(mediaPath, bgImageData);
 
-  ensureContentType(zip, ext);
+  await ensureContentType(zip, ext);
 
   const [imgSize, slideSize] = await Promise.all([
     loadImageSize(bgImage),
