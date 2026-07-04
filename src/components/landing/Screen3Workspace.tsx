@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { UploadCloud, ShieldCheck, Infinity as InfinityIcon, Zap, RotateCcw as RotateCcwIcon } from "lucide-react";
+import { UploadCloud, ShieldCheck, Infinity as InfinityIcon, Zap } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { FadeInCenter } from "@/components/brand/FadeInCenter";
@@ -63,7 +62,6 @@ export function Screen3Workspace({
 }: Screen3WorkspaceProps) {
   const toolDict = dict.tools[tool.slug as ToolSlugKey];
   const toolHref = `/${locale}/tools/${tool.slug}`;
-  const [pptBgResetKey, setPptBgResetKey] = useState(0);
 
   // zoomState reserved for future use (keep design parity)
   void zoomState;
@@ -77,7 +75,7 @@ export function Screen3Workspace({
     switch (tool.slug) {
       case "ppt-background":
         return (
-          <PptBackgroundTool key={pptBgResetKey} inline labels={getPptBackgroundLabels(dict)} />
+          <PptBackgroundTool inline labels={getPptBackgroundLabels(dict)} />
         );
       case "image-resize":
         return (
@@ -210,18 +208,6 @@ export function Screen3Workspace({
                 boxShadow: "var(--shadow-lg)",
               }}
             >
-              {tool.slug === "ppt-background" && (
-                <button
-                  type="button"
-                  onClick={() => setPptBgResetKey((k) => k + 1)}
-                  aria-label={dict.common.reset}
-                  title={dict.common.reset}
-                  className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
-                  style={{ color: "var(--ink-soft)" }}
-                >
-                  <RotateCcwIcon className="size-4" />
-                </button>
-              )}
               <div
                 className="px-6 pt-3 pb-3 flex items-start gap-3 border-b"
                 style={{ borderColor: "var(--border)" }}
