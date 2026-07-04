@@ -117,8 +117,8 @@
           "optionSpecific": "Select",
           "masterNote": "Slides with their own backgrounds may override the master background.",
           "specificInput": "e.g. 1, 3, 5-7",
-          "specificSelectAll": "Select all",
-          "specificClear": "Clear",
+          "specificSelectAll": "All",
+          "specificClear": "Reset",
           "specificHint": "Check a current background or type a range"
         },
         "thumbnails": {

@@ -15,8 +15,7 @@ import {
 } from "@/lib/ppt/extractCurrentBackgrounds";
 import { getSlideAspect, type SlideAspect } from "@/lib/ppt/getSlideAspect";
 import { groupBackgrounds, type BackgroundGroup } from "@/lib/ppt/groupBackgrounds";
-import { groupsToRangeText } from "@/lib/ppt/groupsToRangeText";
-import { parseRange } from "@/lib/common/pageRange";
+import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
@@ -173,7 +172,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [groupThumbUrls, setGroupThumbUrls] = useState<Map<string, string>>(new Map());
   const [curIndex, setCurIndex] = useState(0);
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
-  const [rangeText, setRangeText] = useState("");
+  const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
   const [zoom, setZoom] = useState<null | "selected" | "current">(null);
 
   const aspectCss =
@@ -208,7 +207,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         mode,
         targetSlides:
           mode === "specific-slides"
-            ? [...parseRange(rangeText, currentBgs.length)].sort((a, b) => a - b)
+            ? [...selectedSlides].sort((a, b) => a - b)
             : undefined,
         onProgress,
       }),
@@ -247,7 +246,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setBgPreviewUrl(null);
       setMode("all-slides");
       setCheckedKeys(new Set());
-      setRangeText("");
+      setSelectedSlides(new Set());
       setZoom(null);
       setPptxFilesRaw(files);
     },
@@ -277,12 +276,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setGroupThumbUrls(new Map());
       setCurIndex(0);
       setCheckedKeys(new Set());
-      setRangeText("");
+      setSelectedSlides(new Set());
       return;
     }
     setCurIndex(0);
     setCheckedKeys(new Set());
-    setRangeText("");
+    setSelectedSlides(new Set());
     let cancelled = false;
 
     getSlideAspect(pptxFile).then((a) => {
@@ -368,38 +367,44 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   );
 
   const totalSlides = currentBgs.length;
-  const rangeSize = parseRange(rangeText, totalSlides).size;
   const canRun =
     !!pptxFile &&
     !!bgFile &&
-    (mode !== "specific-slides" || rangeSize > 0) &&
+    (mode !== "specific-slides" || selectedSlides.size > 0) &&
     status === "idle";
 
   // ───────── Bidirectional check ↔ range binding ─────────
+  // Checking a current-background group selects every slide that uses it and
+  // switches the scope to "선택"; the PageRangeSelector then shows that range
+  // (normalised) and can be edited freely.
   const onToggleCheck = useCallback(
     (key: string) => {
+      const nextChecked = new Set(checkedKeys);
+      if (nextChecked.has(key)) nextChecked.delete(key);
+      else nextChecked.add(key);
+      const union = new Set<number>();
+      for (const g of groups) {
+        if (nextChecked.has(g.key)) for (const i of g.slideIndexes) union.add(i);
+      }
       setMode("specific-slides");
-      setCheckedKeys((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        setRangeText(groupsToRangeText(groups, next));
-        return next;
-      });
+      setCheckedKeys(nextChecked);
+      setSelectedSlides(union);
     },
-    [groups],
+    [checkedKeys, groups],
   );
 
-  const onRangeEdit = useCallback((v: string) => {
-    setRangeText(v);
-    setCheckedKeys(new Set()); // manual edit clears checks
+  // Editing the range directly (typing, 전체, 초기화) detaches it from the
+  // current-background checkboxes.
+  const onRangeChange = useCallback((next: Set<number>) => {
+    setSelectedSlides(next);
+    setCheckedKeys(new Set());
   }, []);
 
   const onModeChange = useCallback((next: BgMode) => {
     setMode(next);
     if (next !== "specific-slides") {
       setCheckedKeys(new Set());
-      setRangeText("");
+      setSelectedSlides(new Set());
     }
   }, []);
 
@@ -409,7 +414,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     setGalleryImage(null);
     if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
     setBgPreviewUrl(null);
-    // Keep pptxFile, currentBgs, groups, groupThumbUrls, mode, rangeText.
+    // Keep pptxFile, currentBgs, groups, groupThumbUrls, mode, selectedSlides.
   }, [retry, bgPreviewUrl]);
 
   // Zoom source URL: selected-bg preview or the current group's thumb.
@@ -599,16 +604,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       </div>
                       <div className="min-w-0 flex-1">
                         {mode === "specific-slides" && (
-                          <input
-                            type="text"
-                            value={rangeText}
-                            onChange={(e) => onRangeEdit(e.target.value)}
-                            placeholder={labels.mode.specificInput}
-                            className="w-full rounded-[6px] border bg-[color:var(--surface)] px-2.5 py-1.5 font-mono text-[11.5px] outline-none"
-                            style={{
-                              borderColor: "var(--border)",
-                              color: "var(--ink-strong)",
-                            }}
+                          <PageRangeSelector
+                            totalPages={totalSlides}
+                            selected={selectedSlides}
+                            onChange={onRangeChange}
+                            inputPlaceholder={labels.mode.specificInput}
+                            selectAllLabel={labels.mode.specificSelectAll}
+                            clearLabel={labels.mode.specificClear}
                           />
                         )}
                         {mode === "master" && (
