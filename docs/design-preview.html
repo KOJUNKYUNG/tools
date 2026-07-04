@@ -447,6 +447,80 @@ footer .mono{ font-family:var(--font-mono); font-size:11px; }
     </div>
   </section>
 
+  <section class="block">
+    <div class="sectlabel">도구 레이아웃 기록</div>
+    <h2 class="secttitle">ppt-background — 워크스페이스 (폴리싱 2026-07-04)</h2>
+    <p class="note">폴리싱 트랙 첫 도구. 결정된 레이아웃과 <b>설계 의도</b>를 기록한다(작업용 시안 <span style="font-family:var(--font-mono)">docs/design-preview-ppt-background.html</span>은 확정 후 삭제). 검수 기준은 <span style="font-family:var(--font-mono)">docs/agents/tool-polishing-checklist.md</span>.</p>
+
+    <div class="stage">
+      <div class="eyebrow" style="margin-bottom:12px">로드 상태 — 좌 갤러리 · 우 미리보기+적용범위 · 실행은 상단 스트립 고정</div>
+      <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">
+        <!-- top strip -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px">
+          <span style="color:var(--ink)"><b>주일예배_1월.pptx</b> <span style="color:var(--ink-soft)">· 2.4 MB · 20 슬라이드</span> <span style="border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-size:11px;color:var(--ink);margin-left:4px">다시 업로드</span></span>
+          <span style="background:var(--ink-strong);color:var(--surface);border-radius:9px;padding:8px 16px;font-size:12px;font-weight:600">변경하기</span>
+        </div>
+        <!-- two panes -->
+        <div style="display:grid;grid-template-columns:1fr 1px 1fr">
+          <div style="padding:12px 14px">
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--hairline);padding-bottom:6px;margin-bottom:8px">
+              <span style="font-size:11.5px"><b style="border-bottom:2px solid var(--emphasis);padding-bottom:6px">그라디언트</b> &nbsp;<span style="color:var(--ink-soft)">자연</span> &nbsp;<span style="color:var(--ink-soft)">사물</span></span>
+              <span style="border:1px solid var(--border);border-radius:6px;padding:4px 9px;font-size:11px;color:var(--ink-strong)">이미지 업로드</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+              <div style="aspect-ratio:16/9;border-radius:6px;background:linear-gradient(135deg,var(--mono-400),var(--mono-900));outline:2px solid var(--emphasis);outline-offset:1px"></div>
+              <div style="aspect-ratio:16/9;border-radius:6px;background:linear-gradient(135deg,var(--mono-200),var(--mono-600))"></div>
+              <div style="aspect-ratio:16/9;border-radius:6px;background:linear-gradient(180deg,var(--mono-400),var(--mono-1000))"></div>
+              <div style="aspect-ratio:16/9;border-radius:6px;background:linear-gradient(135deg,var(--mono-400),var(--mono-900))"></div>
+              <div style="aspect-ratio:16/9;border-radius:6px;background:linear-gradient(135deg,var(--mono-200),var(--mono-600))"></div>
+              <div style="aspect-ratio:16/9;border-radius:6px;background:linear-gradient(180deg,var(--mono-400),var(--mono-1000))"></div>
+            </div>
+          </div>
+          <div style="background:var(--hairline)"></div>
+          <div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;gap:12px">
+              <div style="flex:1">
+                <div style="font-size:10.5px;color:var(--ink-soft);margin-bottom:4px">선택한 배경</div>
+                <div style="aspect-ratio:4/3;border:1px solid var(--border);border-radius:8px;background:linear-gradient(135deg,var(--mono-400),var(--mono-900))"></div>
+              </div>
+              <div style="flex:1">
+                <div style="font-size:10.5px;color:var(--ink-soft);margin-bottom:4px">현재 배경 · 3종</div>
+                <div style="position:relative;aspect-ratio:4/3;border:1px solid var(--border);border-radius:8px;background:linear-gradient(180deg,var(--mono-200),var(--mono-600))">
+                  <span style="position:absolute;left:5px;top:5px;width:16px;height:16px;border-radius:4px;background:var(--emphasis);color:var(--surface);font-size:11px;display:flex;align-items:center;justify-content:center">✓</span>
+                  <span style="position:absolute;right:5px;top:5px;font-size:11px;color:var(--ink-strong);background:rgba(255,255,255,.8);border-radius:4px;padding:0 4px">⌕</span>
+                  <span style="position:absolute;left:5px;bottom:5px;font-size:10px;color:var(--ink-strong);background:rgba(255,255,255,.8);border-radius:4px;padding:0 4px">‹ ›</span>
+                  <span style="position:absolute;right:5px;bottom:5px;font-size:9.5px;color:var(--ink-strong);background:rgba(255,255,255,.8);border-radius:4px;padding:1px 5px">슬라이드 8장</span>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:auto">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.08em">적용 범위</span>
+                <span style="flex:1;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-family:var(--font-mono);font-size:11px;color:var(--ink-strong)">1-8</span>
+              </div>
+              <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:11.5px;text-align:center">
+                <span style="flex:1;padding:6px;color:var(--ink-soft);border-right:1px solid var(--border)">전체</span>
+                <span style="flex:1;padding:6px;color:var(--ink-soft);border-right:1px solid var(--border)">마스터</span>
+                <span style="flex:1;padding:6px;background:var(--ink-strong);color:var(--surface)">선택</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="eyebrow" style="margin:18px 0 8px">설계 의도</div>
+      <ul class="note" style="max-width:64ch;line-height:1.8">
+        <li><b>실행 버튼(변경하기)은 상단 스트립 오른쪽 고정</b> — 전 도구 공통 위치·불가침. 미리보기만 본문에 둔다.</li>
+        <li><b>왼쪽 갤러리 / 오른쪽 미리보기+범위</b>. 갤러리는 카테고리 탭(그라디언트·자연·사물) + 텍스트 업로드 버튼.</li>
+        <li><b>선택·현재 배경을 가로로 나란히</b>, PPT 비율(16:9/4:3) 반영. 4:3 기준으로 세로가 커지므로 상단 정렬로 성장 → 하위(적용범위)가 밀리지 않음.</li>
+        <li><b>현재 배경은 종류별 dedup</b>: 슬라이드 내용을 미리 보여줄 수 없으니 전 슬라이드를 나열하지 않고, 같은 배경을 한 장으로 접어 넘겨본다(20장·3배경 → 3장).</li>
+        <li><b>체크박스 ↔ 적용범위 ‘선택’ 양방향</b>: 현재 배경을 체크하면 그 배경을 쓰는 슬라이드 범위가 자동 입력되고 모드가 ‘선택’으로. 범위 텍스트를 직접 고치면 체크는 해제(텍스트가 진실의 원천).</li>
+        <li><b>호버 돋보기 → 라이트박스</b>로 오른쪽 영역을 채워 확대(brand 아이콘 규격). 완료 시 오른쪽 패널이 공통 ResultCard로 바뀌고 왼쪽 갤러리는 유지.</li>
+        <li><b>단일 파일 도구</b>라 헤더 되돌리기 버튼을 없앴다(다시 업로드로 대체). 스트립 메타 = 파일명 · 크기 · 슬라이드수.</li>
+      </ul>
+    </div>
+  </section>
+
   <footer>
     <div class="wrap" style="padding:0">
       <p class="mono">docs/design-preview.html · 미러(정본 아님) — 토큰=globals.css · 계약=DESIGN.md · 브랜드/로고/모션=brand.html</p>
