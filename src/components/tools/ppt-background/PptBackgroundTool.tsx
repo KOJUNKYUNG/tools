@@ -233,13 +233,25 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         setPptxFilesRaw([]);
         return;
       }
-      // Successful .pptx — reset both the guide visibility and its open state
-      // so a future .ppt drop starts collapsed again.
+      // Successful .pptx — reset the guide visibility/open state so a future
+      // .ppt drop starts collapsed again, AND reset the whole workspace to its
+      // just-entered state: a re-upload must not carry over the previous
+      // background pick, apply-scope, range, zoom, or done/error status.
       setShowConversionGuide(false);
       setGuideOpen(false);
+      retry();
+      setBgFiles([]);
+      setGalleryImage(null);
+      const prevPreview = bgPreviewUrlRef.current;
+      if (prevPreview && prevPreview.startsWith("blob:")) URL.revokeObjectURL(prevPreview);
+      setBgPreviewUrl(null);
+      setMode("all-slides");
+      setCheckedKeys(new Set());
+      setRangeText("");
+      setZoom(null);
       setPptxFilesRaw(files);
     },
-    [setPptxFilesRaw],
+    [setPptxFilesRaw, retry],
   );
 
   const openPptxFileDialog = useCallback(() => {
