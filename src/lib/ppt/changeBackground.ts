@@ -261,7 +261,8 @@ export function insertDefaultContentType(
   ext: string,
   mimeType: string,
 ): string {
-  if (new RegExp(`<Default[^>]*\\bExtension="${ext}"`, "i").test(xml)) {
+  const safeExt = ext.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (new RegExp(`<Default[^>]*\\bExtension="${safeExt}"`, "i").test(xml)) {
     return xml;
   }
   const override = `<Default Extension="${ext}" ContentType="${mimeType}"/>`;

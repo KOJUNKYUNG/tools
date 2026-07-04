@@ -186,6 +186,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const bgFile = bgFiles[0] ?? null;
   const groupThumbUrlsRef = useRef(groupThumbUrls);
   groupThumbUrlsRef.current = groupThumbUrls;
+  // Mirror bgPreviewUrl into a ref so the unmount cleanup (which has an empty
+  // dep array) revokes the LATEST uploaded blob URL, not the mount-time null.
+  const bgPreviewUrlRef = useRef(bgPreviewUrl);
+  bgPreviewUrlRef.current = bgPreviewUrl;
 
   const {
     files: pptxFiles,
@@ -308,9 +312,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   useEffect(() => {
     return () => {
       groupThumbUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-      if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
+      const preview = bgPreviewUrlRef.current;
+      if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleGallerySelect = useCallback(
