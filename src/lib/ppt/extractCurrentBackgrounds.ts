@@ -5,6 +5,8 @@ export interface SlideBackground {
   slideName: string;
   imageBlob: Blob | null;
   source: "slide" | "layout" | "master" | "none";
+  /** Resolved zip path of the background image part — the dedup key. null when source==="none". */
+  imagePath: string | null;
 }
 
 async function resolveBlipImage(
@@ -12,7 +14,7 @@ async function resolveBlipImage(
   xmlDir: string,
   xmlFileName: string,
   slideXml: string,
-): Promise<Blob | null> {
+): Promise<{ blob: Blob; path: string } | null> {
   const bgMatch = slideXml.match(/<p:bg[\s>][\s\S]*?<\/p:bg>/);
   if (!bgMatch) return null;
 
@@ -55,7 +57,8 @@ async function resolveBlipImage(
     emf: "image/x-emf",
     wmf: "image/x-wmf",
   };
-  return new Blob([data], { type: mimeMap[ext] ?? "application/octet-stream" });
+  const blob = new Blob([data], { type: mimeMap[ext] ?? "application/octet-stream" });
+  return { blob, path: targetPath };
 }
 
 export async function extractCurrentBackgrounds(
@@ -89,11 +92,13 @@ export async function extractCurrentBackgrounds(
       slideName: `슬라이드 ${slideNum}`,
       imageBlob: null,
       source: "none",
+      imagePath: null,
     };
 
     const directBg = await resolveBlipImage(zip, "ppt/slides", `slide${slideNum}.xml`, slideXml);
     if (directBg) {
-      bg.imageBlob = directBg;
+      bg.imageBlob = directBg.blob;
+      bg.imagePath = directBg.path;
       bg.source = "slide";
       results.push(bg);
       continue;
@@ -118,7 +123,8 @@ export async function extractCurrentBackgrounds(
           const layoutFileName = layoutPath.split("/").pop()!;
           const layoutBg = await resolveBlipImage(zip, layoutDir, layoutFileName, layoutXml);
           if (layoutBg) {
-            bg.imageBlob = layoutBg;
+            bg.imageBlob = layoutBg.blob;
+            bg.imagePath = layoutBg.path;
             bg.source = "layout";
             results.push(bg);
             continue;
@@ -143,7 +149,8 @@ export async function extractCurrentBackgrounds(
                 const masterFileName = masterPath.split("/").pop()!;
                 const masterBg = await resolveBlipImage(zip, masterDir, masterFileName, masterXml);
                 if (masterBg) {
-                  bg.imageBlob = masterBg;
+                  bg.imageBlob = masterBg.blob;
+                  bg.imagePath = masterBg.path;
                   bg.source = "master";
                   results.push(bg);
                   continue;

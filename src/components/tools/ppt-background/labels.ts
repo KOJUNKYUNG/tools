@@ -12,8 +12,7 @@ export function getPptBackgroundLabels(
   const categoryByKey: Record<GalleryCategory, string> = {
     gradient: p.gallery.categoryGradient,
     nature: p.gallery.categoryNature,
-    texture: p.gallery.categoryTexture,
-    pattern: p.gallery.categoryPattern,
+    object: p.gallery.categoryObject,
   };
 
   return {
@@ -54,6 +53,7 @@ export function getPptBackgroundLabels(
     },
     action: p.action,
     processing: p.processing,
+    preview: p.preview,
     fileUpload: dict.common.fileUpload,
   };
 }

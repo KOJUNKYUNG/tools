@@ -4,7 +4,7 @@ import type { GalleryImage } from "./types";
  * Mock catalog for the inline background gallery.
  *
  * Image sources:
- * - `nature`, `texture`, `pattern` → picsum.photos with stable seeds.
+ * - `nature`, `object` → picsum.photos with stable seeds.
  * - `gradient` → inline SVG data URLs (picsum is photographic only).
  *
  * Tags are populated for future search (no UI in this PR).
@@ -129,10 +129,10 @@ export const MOCK_IMAGES: GalleryImage[] = [
     tags: ["sky", "cloud", "blue"],
   },
 
-  // ── texture ─────────────────────────────────────────────────
+  // ── object ──────────────────────────────────────────────────
   {
     id: "texture-paper",
-    category: "texture",
+    category: "object",
     title: "Paper",
     url: picsum("ontab-paper"),
     thumbnailUrl: picsumThumb("ontab-paper"),
@@ -142,7 +142,7 @@ export const MOCK_IMAGES: GalleryImage[] = [
   },
   {
     id: "texture-concrete",
-    category: "texture",
+    category: "object",
     title: "Concrete",
     url: picsum("ontab-concrete"),
     thumbnailUrl: picsumThumb("ontab-concrete"),
@@ -152,7 +152,7 @@ export const MOCK_IMAGES: GalleryImage[] = [
   },
   {
     id: "texture-fabric",
-    category: "texture",
+    category: "object",
     title: "Fabric",
     url: picsum("ontab-fabric"),
     thumbnailUrl: picsumThumb("ontab-fabric"),
@@ -162,7 +162,7 @@ export const MOCK_IMAGES: GalleryImage[] = [
   },
   {
     id: "texture-metal",
-    category: "texture",
+    category: "object",
     title: "Metal",
     url: picsum("ontab-metal"),
     thumbnailUrl: picsumThumb("ontab-metal"),
@@ -172,7 +172,7 @@ export const MOCK_IMAGES: GalleryImage[] = [
   },
   {
     id: "texture-wood",
-    category: "texture",
+    category: "object",
     title: "Wood",
     url: picsum("ontab-wood"),
     thumbnailUrl: picsumThumb("ontab-wood"),
@@ -180,11 +180,9 @@ export const MOCK_IMAGES: GalleryImage[] = [
     height: 1080,
     tags: ["wood", "warm", "brown"],
   },
-
-  // ── pattern ─────────────────────────────────────────────────
   {
     id: "pattern-geometric",
-    category: "pattern",
+    category: "object",
     title: "Geometric",
     url: picsum("ontab-geo"),
     thumbnailUrl: picsumThumb("ontab-geo"),
@@ -194,7 +192,7 @@ export const MOCK_IMAGES: GalleryImage[] = [
   },
   {
     id: "pattern-grid",
-    category: "pattern",
+    category: "object",
     title: "Grid",
     url: picsum("ontab-grid"),
     thumbnailUrl: picsumThumb("ontab-grid"),
@@ -204,7 +202,7 @@ export const MOCK_IMAGES: GalleryImage[] = [
   },
   {
     id: "pattern-dots",
-    category: "pattern",
+    category: "object",
     title: "Dots",
     url: picsum("ontab-dots"),
     thumbnailUrl: picsumThumb("ontab-dots"),
@@ -214,7 +212,7 @@ export const MOCK_IMAGES: GalleryImage[] = [
   },
   {
     id: "pattern-stripes",
-    category: "pattern",
+    category: "object",
     title: "Stripes",
     url: picsum("ontab-stripes"),
     thumbnailUrl: picsumThumb("ontab-stripes"),
@@ -224,7 +222,7 @@ export const MOCK_IMAGES: GalleryImage[] = [
   },
   {
     id: "pattern-waves",
-    category: "pattern",
+    category: "object",
     title: "Waves",
     url: picsum("ontab-waves"),
     thumbnailUrl: picsumThumb("ontab-waves"),

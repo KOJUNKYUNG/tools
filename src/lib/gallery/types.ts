@@ -1,10 +1,9 @@
-export type GalleryCategory = "gradient" | "nature" | "texture" | "pattern";
+export type GalleryCategory = "gradient" | "nature" | "object";
 
 export const GALLERY_CATEGORIES: GalleryCategory[] = [
   "gradient",
   "nature",
-  "texture",
-  "pattern",
+  "object",
 ];
 
 export interface GalleryImage {

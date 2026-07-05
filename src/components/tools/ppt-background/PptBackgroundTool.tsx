@@ -1,30 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcwIcon } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ToolTopStrip } from "@/components/common/ToolTopStrip";
 import { FileUpload } from "@/components/common/FileUpload";
 import { EMBEDDED_ASSET_LIMIT, uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
-import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
-import {
-  changeBackground,
-  type BgMode,
-} from "@/lib/ppt/changeBackground";
+import { changeBackground, type BgMode } from "@/lib/ppt/changeBackground";
 import {
   extractCurrentBackgrounds,
   type SlideBackground,
 } from "@/lib/ppt/extractCurrentBackgrounds";
+import { getSlideAspect, type SlideAspect } from "@/lib/ppt/getSlideAspect";
+import { groupBackgrounds, type BackgroundGroup } from "@/lib/ppt/groupBackgrounds";
+import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
-import { SlideThumbStrip } from "./SlideThumbStrip";
 import { BackgroundPicker } from "./BackgroundPicker";
+import { SelectedBackgroundFrame } from "./SelectedBackgroundFrame";
+import { CurrentBackgroundFrame } from "./CurrentBackgroundFrame";
+import { PreviewLightbox } from "./PreviewLightbox";
+import { PptBackgroundResult } from "./PptBackgroundResult";
 import { PptConversionGuide, type ConversionMethodLabels } from "./PptConversionGuide";
 
 const PPTX_ACCEPT = {
@@ -128,6 +129,15 @@ export interface PptBackgroundToolLabels {
     retry: string;
     tryAnother: string;
   };
+  preview: {
+    selectedCaption: string;
+    currentCaptionTemplate: string;
+    selectedEmpty: string;
+    currentEmpty: string;
+    slideCountTemplate: string;
+    zoom: string;
+    close: string;
+  };
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
@@ -149,16 +159,36 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [guideOpen, setGuideOpen] = useState(false);
   const [bgFiles, setBgFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<BgMode>("all-slides");
-  const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
   const [galleryImage, setGalleryImage] = useState<GalleryImage | null>(null);
   const [currentBgs, setCurrentBgs] = useState<SlideBackground[]>([]);
-  const [bgLoading, setBgLoading] = useState(false);
-  const [bgObjectUrls, setBgObjectUrls] = useState<Map<number, string>>(new Map());
   const [bgPreviewUrl, setBgPreviewUrl] = useState<string | null>(null);
 
+  // Redesigned workspace state.
+  const [slideAspect, setSlideAspect] = useState<SlideAspect>({
+    kind: "16:9",
+    ratio: 16 / 9,
+  });
+  const [groups, setGroups] = useState<BackgroundGroup[]>([]);
+  const [groupThumbUrls, setGroupThumbUrls] = useState<Map<string, string>>(new Map());
+  const [curIndex, setCurIndex] = useState(0);
+  const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
+  const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
+  const [zoom, setZoom] = useState<null | "selected" | "current">(null);
+
+  const aspectCss =
+    slideAspect.kind === "4:3"
+      ? "4 / 3"
+      : slideAspect.kind === "16:9"
+        ? "16 / 9"
+        : `${slideAspect.ratio}`;
+
   const bgFile = bgFiles[0] ?? null;
-  const objectUrlsRef = useRef(bgObjectUrls);
-  objectUrlsRef.current = bgObjectUrls;
+  const groupThumbUrlsRef = useRef(groupThumbUrls);
+  groupThumbUrlsRef.current = groupThumbUrls;
+  // Mirror bgPreviewUrl into a ref so the unmount cleanup (which has an empty
+  // dep array) revokes the LATEST uploaded blob URL, not the mount-time null.
+  const bgPreviewUrlRef = useRef(bgPreviewUrl);
+  bgPreviewUrlRef.current = bgPreviewUrl;
 
   const {
     files: pptxFiles,
@@ -176,7 +206,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         bgImage: bgFile!,
         mode,
         targetSlides:
-          mode === "specific-slides" ? [...selectedSlides].sort((a, b) => a - b) : undefined,
+          mode === "specific-slides"
+            ? [...selectedSlides].sort((a, b) => a - b)
+            : undefined,
         onProgress,
       }),
     onDownload: (bytes) => {
@@ -200,19 +232,32 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         setPptxFilesRaw([]);
         return;
       }
-      // Successful .pptx — reset both the guide visibility and its open state
-      // so a future .ppt drop starts collapsed again.
+      // Successful .pptx — reset the guide visibility/open state so a future
+      // .ppt drop starts collapsed again, AND reset the whole workspace to its
+      // just-entered state: a re-upload must not carry over the previous
+      // background pick, apply-scope, range, zoom, or done/error status.
       setShowConversionGuide(false);
       setGuideOpen(false);
+      retry();
+      setBgFiles([]);
+      setGalleryImage(null);
+      const prevPreview = bgPreviewUrlRef.current;
+      if (prevPreview && prevPreview.startsWith("blob:")) URL.revokeObjectURL(prevPreview);
+      setBgPreviewUrl(null);
+      setMode("all-slides");
+      setCheckedKeys(new Set());
+      setSelectedSlides(new Set());
+      setZoom(null);
       setPptxFilesRaw(files);
     },
-    [setPptxFilesRaw],
+    [setPptxFilesRaw, retry],
   );
 
   const openPptxFileDialog = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = ".ppt,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint";
+    input.accept =
+      ".ppt,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint";
     input.onchange = (e) => {
       const target = e.target as HTMLInputElement;
       if (target.files && target.files.length > 0) {
@@ -222,32 +267,45 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     input.click();
   }, [setPptxFiles]);
 
-  // Extract current backgrounds when a .pptx is loaded.
+  // Extract current backgrounds + slide aspect when a .pptx is loaded.
   useEffect(() => {
     if (!pptxFile) {
       setCurrentBgs([]);
-      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-      setBgObjectUrls(new Map());
+      setGroups([]);
+      groupThumbUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      setGroupThumbUrls(new Map());
+      setCurIndex(0);
+      setCheckedKeys(new Set());
+      setSelectedSlides(new Set());
       return;
     }
-    setBgLoading(true);
+    setCurIndex(0);
+    setCheckedKeys(new Set());
+    setSelectedSlides(new Set());
     let cancelled = false;
+
+    getSlideAspect(pptxFile).then((a) => {
+      if (!cancelled) setSlideAspect(a);
+    });
+
     extractCurrentBackgrounds(pptxFile)
       .then((bgs) => {
         if (cancelled) return;
         setCurrentBgs(bgs);
-        const urls = new Map<number, string>();
-        for (const bg of bgs) {
-          if (bg.imageBlob) urls.set(bg.slideIndex, URL.createObjectURL(bg.imageBlob));
+        const grouped = groupBackgrounds(bgs);
+        setGroups(grouped);
+        const urls = new Map<string, string>();
+        for (const grp of grouped) {
+          if (grp.imageBlob) urls.set(grp.key, URL.createObjectURL(grp.imageBlob));
         }
-        objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-        setBgObjectUrls(urls);
+        groupThumbUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+        setGroupThumbUrls(urls);
       })
       .catch(() => {
-        if (!cancelled) setCurrentBgs([]);
-      })
-      .finally(() => {
-        if (!cancelled) setBgLoading(false);
+        if (!cancelled) {
+          setCurrentBgs([]);
+          setGroups([]);
+        }
       });
     return () => {
       cancelled = true;
@@ -264,10 +322,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // Cleanup all object URLs on unmount.
   useEffect(() => {
     return () => {
-      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-      if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
+      groupThumbUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      const preview = bgPreviewUrlRef.current;
+      if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleGallerySelect = useCallback(
@@ -308,38 +366,47 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     [bgPreviewUrl, labels.background.tooLarge],
   );
 
-  const clearBgSelection = useCallback(() => {
-    setGalleryImage(null);
-    setBgFiles([]);
-    if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
-    setBgPreviewUrl(null);
-  }, [bgPreviewUrl]);
-
   const totalSlides = currentBgs.length;
-  const specificValid = mode !== "specific-slides" || selectedSlides.size > 0;
-  const canRun = !!pptxFile && !!bgFile && specificValid && status === "idle";
+  const canRun =
+    !!pptxFile &&
+    !!bgFile &&
+    (mode !== "specific-slides" || selectedSlides.size > 0) &&
+    status === "idle";
 
-  const applyDisabledLabel = useMemo(() => {
-    if (!bgFile) return labels.action.applyDisabledHint;
-    if (mode === "specific-slides" && selectedSlides.size === 0) return labels.action.specificEmpty;
-    return null;
-  }, [bgFile, mode, selectedSlides.size, labels]);
+  // ───────── Bidirectional check ↔ range binding ─────────
+  // Checking a current-background group selects every slide that uses it and
+  // switches the scope to "선택"; the PageRangeSelector then shows that range
+  // (normalised) and can be edited freely.
+  const onToggleCheck = useCallback(
+    (key: string) => {
+      const nextChecked = new Set(checkedKeys);
+      if (nextChecked.has(key)) nextChecked.delete(key);
+      else nextChecked.add(key);
+      const union = new Set<number>();
+      for (const g of groups) {
+        if (nextChecked.has(g.key)) for (const i of g.slideIndexes) union.add(i);
+      }
+      setMode("specific-slides");
+      setCheckedKeys(nextChecked);
+      setSelectedSlides(union);
+    },
+    [checkedKeys, groups],
+  );
 
-  const onReset = useCallback(() => {
-    retry();
-    setPptxFilesRaw([]);
-    setShowConversionGuide(false);
-    setBgFiles([]);
-    setGalleryImage(null);
-    setMode("all-slides");
-    setSelectedSlides(new Set());
-    if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
-    setBgPreviewUrl(null);
-    objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-    setBgObjectUrls(new Map());
-    setCurrentBgs([]);
-    setBgLoading(false);
-  }, [retry, setPptxFilesRaw, bgPreviewUrl]);
+  // Editing the range directly (typing, 전체, 초기화) detaches it from the
+  // current-background checkboxes.
+  const onRangeChange = useCallback((next: Set<number>) => {
+    setSelectedSlides(next);
+    setCheckedKeys(new Set());
+  }, []);
+
+  const onModeChange = useCallback((next: BgMode) => {
+    setMode(next);
+    if (next !== "specific-slides") {
+      setCheckedKeys(new Set());
+      setSelectedSlides(new Set());
+    }
+  }, []);
 
   const handleTryAnother = useCallback(() => {
     retry();
@@ -347,8 +414,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     setGalleryImage(null);
     if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
     setBgPreviewUrl(null);
-    // Keep pptxFile, currentBgs, bgObjectUrls, mode, selectedSlides.
+    // Keep pptxFile, currentBgs, groups, groupThumbUrls, mode, selectedSlides.
   }, [retry, bgPreviewUrl]);
+
+  // Zoom source URL: selected-bg preview or the current group's thumb.
+  const currentGroup = groups[curIndex];
+  const currentThumbUrl = currentGroup ? groupThumbUrls.get(currentGroup.key) ?? null : null;
+  const zoomSrc = zoom === "selected" ? bgPreviewUrl : zoom === "current" ? currentThumbUrl : null;
 
   // When the .ppt rejection guide is showing, lock the outer panel to its
   // full 50vh so the body's flex-1 children (the accordion in particular)
@@ -356,6 +428,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // content-sized and flex-1 has nothing to grow into, so the accordion's
   // scroll never engages and content bleeds past the panel bottom.
   const lockHeight = showConversionGuide && !pptxFile;
+  // Once a deck is loaded, pin the workspace to the tray height so the gallery
+  // scrolls INSIDE its pane — switching category tabs (different image counts)
+  // must never resize the tool (UI stability contract).
+  const fixedHeight = lockHeight || !!pptxFile;
 
   // ───────── Render ─────────
   return (
@@ -367,28 +443,16 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       }
       style={
         inline
-          ? { maxHeight: "var(--tray-h)", ...(lockHeight ? { height: "var(--tray-h)" } : {}) }
+          ? { maxHeight: "var(--tray-h)", ...(fixedHeight ? { height: "var(--tray-h)" } : {}) }
           : {
               background: "var(--surface)",
               borderColor: "var(--border)",
               boxShadow: "var(--shadow-lg)",
               maxHeight: "var(--tray-h)",
-              ...(lockHeight ? { height: "var(--tray-h)" } : {}),
+              ...(fixedHeight ? { height: "var(--tray-h)" } : {}),
             }
       }
     >
-      {!inline && (
-        <button
-          type="button"
-          onClick={onReset}
-          aria-label={labels.action.reset}
-          title={labels.action.reset}
-          className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
-          style={{ color: "var(--ink-soft)" }}
-        >
-          <RotateCcwIcon className="size-4" />
-        </button>
-      )}
       {!inline && (
         <div
           className="flex items-start gap-3 border-b px-6 pt-3 pb-3"
@@ -459,10 +523,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   className="shrink-0 font-body text-[12px]"
                   style={{ color: "var(--ink-soft)" }}
                 >
-                  ·{" "}
+                  {`· ${formatBytes(pptxFile.size)}`}
                   {totalSlides > 0
-                    ? template(labels.fileStatus.slideCountTemplate, { n: totalSlides })
-                    : labels.fileStatus.analyzing}
+                    ? ` · ${template(labels.fileStatus.slideCountTemplate, { n: totalSlides })}`
+                    : ` · ${labels.fileStatus.analyzing}`}
                 </span>
               }
               onReupload={openPptxFileDialog}
@@ -473,154 +537,138 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               executeDisabled={!canRun}
             />
           </div>
+
           {/* Two-pane workspace. */}
           <div
             className="grid min-h-0 flex-1"
-            style={{
-              gridTemplateColumns: "minmax(0, 1fr) 1px minmax(0, 1fr)",
-            }}
+            style={{ gridTemplateColumns: "minmax(0, 1fr) 1px minmax(0, 1fr)" }}
           >
-          {/* LEFT panel */}
-          <div className="flex h-full min-h-0 flex-col gap-3 px-6 py-3">
-            {/* ApplyTo row: label (left) + mode-specific dynamic content (right, flex-1) */}
-            <div className="flex shrink-0 items-center gap-3" style={{ minHeight: "44px" }}>
-              <div
-                className="shrink-0 font-mono text-[11px] font-medium uppercase tracking-[0.08em]"
-                style={{ color: "var(--ink-soft)" }}
-              >
-                {labels.mode.label}
-              </div>
-              <div className="min-w-0 flex-1">
-                {mode === "all-slides" && <span>&nbsp;</span>}
-                {mode === "master" && (
-                  <p
-                    className="line-clamp-2 font-body text-[10.5px] leading-[1.35]"
-                    style={{ color: "var(--ink-soft)" }}
-                    title={labels.mode.masterNote}
-                  >
-                    {labels.mode.masterNote}
-                  </p>
-                )}
-                {mode === "specific-slides" && (
-                  <PageRangeSelector
-                    totalPages={totalSlides}
-                    selected={selectedSlides}
-                    onChange={setSelectedSlides}
-                    inputPlaceholder={labels.mode.specificInput}
-                    selectAllLabel={labels.mode.specificSelectAll}
-                    clearLabel={labels.mode.specificClear}
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Mode segmented control */}
-            <div className="shrink-0">
-              <ModeSelector
-                value={mode}
-                onChange={(next) => {
-                  setMode(next);
-                  if (next !== "specific-slides") setSelectedSlides(new Set());
-                }}
+            {/* LEFT panel — gallery only */}
+            <div className="flex h-full min-h-0 flex-col px-6 py-3">
+              <BackgroundPicker
+                galleryImage={galleryImage}
+                onGallerySelect={handleGallerySelect}
+                onDirectUpload={handleDirectUpload}
                 labels={{
-                  optionAll: labels.mode.optionAll,
-                  optionMaster: labels.mode.optionMaster,
-                  optionSpecific: labels.mode.optionSpecific,
+                  uploadLabel: labels.background.uploadLabel,
+                  gallery: labels.gallery,
                 }}
               />
             </div>
 
-            {/* Slide thumbnail strip — flex-1, fills remaining height */}
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              {bgLoading ? (
-                <p className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
-                  {labels.fileStatus.analyzing}
-                </p>
+            {/* Divider */}
+            <div style={{ background: "var(--hairline)" }} />
+
+            {/* RIGHT panel */}
+            <div className="relative flex h-full min-h-0 flex-col px-6 py-3">
+              {status === "idle" ? (
+                <>
+                  <div className="flex items-start gap-3.5">
+                    <SelectedBackgroundFrame
+                      caption={labels.preview.selectedCaption}
+                      previewUrl={bgPreviewUrl}
+                      aspect={aspectCss}
+                      emptyLabel={labels.preview.selectedEmpty}
+                      zoomLabel={labels.preview.zoom}
+                      onZoom={() => setZoom("selected")}
+                    />
+                    <CurrentBackgroundFrame
+                      caption={template(labels.preview.currentCaptionTemplate, {
+                        n: groups.length,
+                      })}
+                      groups={groups}
+                      thumbUrls={groupThumbUrls}
+                      index={curIndex}
+                      onIndex={setCurIndex}
+                      checkedKeys={checkedKeys}
+                      onToggleCheck={onToggleCheck}
+                      aspect={aspectCss}
+                      slideCountTemplate={labels.preview.slideCountTemplate}
+                      emptyLabel={labels.preview.currentEmpty}
+                      zoomLabel={labels.preview.zoom}
+                      onZoom={() => setZoom("current")}
+                    />
+                  </div>
+
+                  {/* Apply-scope block, pinned to bottom */}
+                  <div className="mt-auto pt-2">
+                    <div
+                      className="mb-2 flex items-center gap-2.5"
+                      style={{ minHeight: "32px" }}
+                    >
+                      <div
+                        className="shrink-0 font-mono text-[11px] font-medium uppercase tracking-[0.08em]"
+                        style={{ color: "var(--ink-soft)" }}
+                      >
+                        {labels.mode.label}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        {mode === "specific-slides" && (
+                          <PageRangeSelector
+                            totalPages={totalSlides}
+                            selected={selectedSlides}
+                            onChange={onRangeChange}
+                            inputPlaceholder={labels.mode.specificInput}
+                            selectAllLabel={labels.mode.specificSelectAll}
+                            clearLabel={labels.mode.specificClear}
+                          />
+                        )}
+                        {mode === "master" && (
+                          <p
+                            className="line-clamp-2 font-body text-[10.5px] leading-[1.35]"
+                            style={{ color: "var(--ink-soft)" }}
+                            title={labels.mode.masterNote}
+                          >
+                            {labels.mode.masterNote}
+                          </p>
+                        )}
+                        {mode === "all-slides" && <span>&nbsp;</span>}
+                      </div>
+                    </div>
+                    <ModeSelector
+                      value={mode}
+                      onChange={onModeChange}
+                      labels={{
+                        optionAll: labels.mode.optionAll,
+                        optionMaster: labels.mode.optionMaster,
+                        optionSpecific: labels.mode.optionSpecific,
+                      }}
+                    />
+                  </div>
+                </>
+              ) : status === "done" ? (
+                <PptBackgroundResult
+                  title={labels.processing.done}
+                  downloadLabel={labels.processing.download}
+                  againLabel={labels.processing.tryAnother}
+                  onDownload={download}
+                  onAgain={handleTryAnother}
+                />
               ) : (
-                <SlideThumbStrip
-                  backgrounds={currentBgs}
-                  thumbnailUrls={bgObjectUrls}
-                  selectable={
-                    mode === "specific-slides"
-                      ? {
-                          selected: selectedSlides,
-                          onToggle: (n) => {
-                            setSelectedSlides((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(n)) next.delete(n);
-                              else next.add(n);
-                              return next;
-                            });
-                          },
-                        }
-                      : null
+                <ProcessingStatus
+                  status={status}
+                  progress={progress}
+                  errorMessage={errorMessage}
+                  onRetry={retry}
+                  labels={labels.processing}
+                />
+              )}
+
+              {zoom !== null && zoomSrc && (
+                <PreviewLightbox
+                  src={zoomSrc}
+                  alt={
+                    zoom === "selected"
+                      ? labels.preview.selectedCaption
+                      : template(labels.preview.currentCaptionTemplate, { n: groups.length })
                   }
-                  labels={{
-                    emptyThumb: labels.thumbnails.empty,
-                    sourceByKey: labels.thumbnails.sourceByKey,
-                  }}
+                  aspect={aspectCss}
+                  closeLabel={labels.preview.close}
+                  onClose={() => setZoom(null)}
                 />
               )}
             </div>
           </div>
-
-          {/* Divider */}
-          <div style={{ background: "var(--hairline)" }} />
-
-          {/* RIGHT panel */}
-          <div className="flex h-full min-h-0 flex-col px-6 py-3">
-            <BackgroundPicker
-              bgFile={bgFile}
-              bgPreviewUrl={bgPreviewUrl}
-              galleryImage={galleryImage}
-              onDirectUpload={handleDirectUpload}
-              onGallerySelect={handleGallerySelect}
-              onClear={clearBgSelection}
-              actionSlot={
-                status === "idle" ? (
-                  <div className="flex h-full flex-col justify-center">
-                    <p
-                      className="truncate text-center font-body text-[10.5px] leading-[16px]"
-                      style={{ color: "var(--ink-soft)", minHeight: "16px" }}
-                      title={!canRun && applyDisabledLabel ? applyDisabledLabel : undefined}
-                    >
-                      {!canRun && applyDisabledLabel ? applyDisabledLabel : " "}
-                    </p>
-                  </div>
-                ) : (
-                  <ProcessingStatus
-                    status={status}
-                    progress={progress}
-                    errorMessage={errorMessage}
-                    onRetry={retry}
-                    onDownload={download}
-                    onTryAnother={handleTryAnother}
-                    downloadFileName={
-                      pptxFile
-                        ? `${pptxFile.name.replace(/\.pptx?$/i, "")}-bg-changed.pptx`
-                        : undefined
-                    }
-                    labels={labels.processing}
-                  />
-                )
-              }
-              labels={{
-                heading: labels.background.heading,
-                previewLabel: labels.background.preview,
-                empty: labels.background.empty,
-                fromGallery: labels.background.fromGallery,
-                fromUpload: labels.background.fromUpload,
-                clear: labels.background.clear,
-                uploadLabel: labels.background.uploadLabel,
-                uploadHint: labels.background.uploadHint,
-                sourceUpload: labels.background.sourceUpload,
-                sourceGallery: labels.background.sourceGallery,
-                gallery: labels.gallery,
-                fileUpload: labels.fileUpload,
-              }}
-            />
-          </div>
-        </div>
         </div>
       )}
     </div>

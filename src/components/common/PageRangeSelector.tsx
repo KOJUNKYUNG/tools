@@ -117,7 +117,7 @@ export function PageRangeSelector({
           placeholder={inputPlaceholder}
           className="flex-1 rounded-[5px] border px-2.5 py-1.5 font-body text-[12px] outline-none focus:border-[color:var(--emphasis)]"
           style={{
-            background: "var(--surface)",
+            background: "var(--surface-2)",
             borderColor: "var(--border)",
             color: "var(--ink-strong)",
           }}

@@ -19,6 +19,12 @@ interface InlineGalleryProps {
   forceCollapsed?: boolean;
   /** When true, render in always-open mode without the collapsible header. */
   forceOpen?: boolean;
+  /**
+   * When provided, the category filter is controlled by the parent and the
+   * gallery's own internal category-chip row is hidden. Used by
+   * BackgroundPicker, which renders the category tabs itself (v5 layout).
+   */
+  category?: CategoryFilter;
   labels: {
     heading: string;            // "배경 갤러리" / "Background gallery"
     countSuffixTemplate: string;  // e.g. "({n}개 이미지)"
@@ -33,10 +39,14 @@ export function InlineGallery({
   selectedImageId,
   forceCollapsed,
   forceOpen = false,
+  category: controlledCategory,
   labels,
 }: InlineGalleryProps) {
   const [expanded, setExpanded] = useState(false);
-  const [category, setCategory] = useState<CategoryFilter>("all");
+  const [internalCategory, setInternalCategory] = useState<CategoryFilter>("all");
+  const controlled = controlledCategory !== undefined;
+  const category = controlled ? controlledCategory : internalCategory;
+  const setCategory = setInternalCategory;
   const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -101,21 +111,23 @@ export function InlineGallery({
           )}
           style={{ borderColor: "var(--border)" }}
         >
-          <div className="mb-2 flex shrink-0 flex-wrap items-center gap-1">
-            <CategoryChip
-              active={category === "all"}
-              onClick={() => setCategory("all")}
-              label={labels.categoryAll}
-            />
-            {GALLERY_CATEGORIES.map((cat) => (
+          {!controlled && (
+            <div className="mb-2 flex shrink-0 flex-wrap items-center gap-1">
               <CategoryChip
-                key={cat}
-                active={category === cat}
-                onClick={() => setCategory(cat)}
-                label={labels.categoryByKey[cat]}
+                active={category === "all"}
+                onClick={() => setCategory("all")}
+                label={labels.categoryAll}
               />
-            ))}
-          </div>
+              {GALLERY_CATEGORIES.map((cat) => (
+                <CategoryChip
+                  key={cat}
+                  active={category === cat}
+                  onClick={() => setCategory(cat)}
+                  label={labels.categoryByKey[cat]}
+                />
+              ))}
+            </div>
+          )}
 
           {filtered.length === 0 ? (
             <div
