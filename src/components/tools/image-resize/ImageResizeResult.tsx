@@ -14,8 +14,6 @@ interface ImageResizeResultProps {
   mimeType: string;
   onDownload: () => void;
   onCompressOrConvert: () => void;
-  tryAgainLabel: string;
-  onTryAgain: () => void;
 }
 
 function formatLabel(mime: string): string {
@@ -35,8 +33,6 @@ export function ImageResizeResult({
   mimeType,
   onDownload,
   onCompressOrConvert,
-  tryAgainLabel,
-  onTryAgain,
 }: ImageResizeResultProps) {
   return (
     <ResultCard
@@ -47,7 +43,6 @@ export function ImageResizeResult({
           extra={
             <HandoffAction label={compressLinkLabel} onClick={onCompressOrConvert} />
           }
-          again={{ label: tryAgainLabel, onClick: onTryAgain }}
         />
       }
     >
