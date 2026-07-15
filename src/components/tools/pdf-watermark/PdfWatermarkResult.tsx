@@ -11,7 +11,6 @@ interface PdfWatermarkResultProps {
   pageCount: number;
   outputSize: number;
   onDownload: () => void;
-  onAgain: () => void;
   labels: PdfWatermarkLabels;
 }
 
@@ -20,7 +19,6 @@ export function PdfWatermarkResult({
   pageCount,
   outputSize,
   onDownload,
-  onAgain,
   labels,
 }: PdfWatermarkResultProps) {
   return (
@@ -29,7 +27,6 @@ export function PdfWatermarkResult({
       actions={
         <ResultActions
           download={{ label: labels.download, onClick: onDownload }}
-          again={{ label: labels.again, onClick: onAgain }}
         />
       }
     >

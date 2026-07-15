@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
-import { ToolTopStrip } from "@/components/common/ToolTopStrip";
+import { ToolHeader } from "@/components/common/ToolHeader";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { EMBEDDED_ASSET_LIMIT, uploadLimitFor } from "@/lib/constants";
@@ -175,15 +174,6 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
     [handleFilesChange, status, labels.fileUpload.tooLargeTemplate],
   );
 
-  const onReset = useCallback(() => {
-    handleFilesChange([]);
-    setMode("number");
-    setPageOpts(DEFAULT_PAGE);
-    setWmOpts(DEFAULT_WM);
-    setLogoName(null);
-    setSelectedPages(new Set());
-  }, [handleFilesChange]);
-
   const handleAgain = useCallback(() => retry(), [retry]);
 
   const onPickLogo = useCallback(
@@ -257,6 +247,31 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
     labels.needLogo,
   ]);
 
+  const header = (
+    <ToolHeader
+      title={labels.title}
+      description={labels.description}
+      hasFile={hasFile}
+      fileSummary={fileInfo}
+      meta={
+        analysis ? (
+          <span className="shrink-0 font-body text-[12px]" style={{ color: "var(--ink-soft)" }}>
+            · {template(labels.pageCountTemplate, { n: analysis.numPages })}
+          </span>
+        ) : undefined
+      }
+      status={status}
+      onReupload={handleReupload}
+      reuploadLabel={labels.reupload}
+      busy={busy}
+      executeLabel={labels.apply}
+      processingLabel={labels.processing}
+      againLabel={labels.again}
+      onExecute={handleApplyClick}
+      onAgain={handleAgain}
+    />
+  );
+
   const body = (
     <div className={inline ? "space-y-4" : "space-y-4 px-6 py-3"}>
       <input
@@ -282,22 +297,6 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
         />
       ) : (
         <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
-          <ToolTopStrip
-            filesSummary={fileInfo}
-            meta={
-              analysis ? (
-                <span className="shrink-0 font-body text-[12px]" style={{ color: "var(--ink-soft)" }}>
-                  · {template(labels.pageCountTemplate, { n: analysis.numPages })}
-                </span>
-              ) : undefined
-            }
-            onReupload={handleReupload}
-            reuploadLabel={labels.reupload}
-            busy={busy}
-            onExecute={status === "idle" ? handleApplyClick : undefined}
-            executeLabel={labels.apply}
-          />
-
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2">
             {/* LEFT: live preview (persists) */}
             <div className="flex h-full min-h-0 flex-col gap-2">
@@ -320,7 +319,6 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
                 pageCount={result.pageCount}
                 outputSize={result.data.length}
                 onDownload={download}
-                onAgain={handleAgain}
                 labels={labels}
               />
             </div>
@@ -397,7 +395,15 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
     </div>
   );
 
-  if (inline) return body;
+  if (inline)
+    return (
+      <>
+        <div className="border-b pb-3" style={{ borderColor: "var(--border)" }}>
+          {header}
+        </div>
+        {body}
+      </>
+    );
 
   return (
     <div
@@ -408,29 +414,8 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
         boxShadow: "var(--shadow-lg)",
       }}
     >
-      <button
-        type="button"
-        onClick={onReset}
-        disabled={busy}
-        aria-label={labels.reset}
-        title={labels.reset}
-        className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)] disabled:cursor-not-allowed disabled:opacity-50"
-        style={{ color: "var(--ink-soft)" }}
-      >
-        <RotateCcwIcon className="size-4" />
-      </button>
-      <div className="flex items-start gap-3 border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
-        <div className="min-w-0 flex-1">
-          <h1
-            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
-            style={{ color: "var(--headline)" }}
-          >
-            {labels.title}
-          </h1>
-          <div className="mt-1 font-body text-[12px] leading-[1.45]" style={{ color: "var(--ink)" }}>
-            {labels.description}
-          </div>
-        </div>
+      <div className="border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
+        {header}
       </div>
       {body}
     </div>
