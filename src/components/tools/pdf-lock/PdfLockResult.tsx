@@ -12,7 +12,6 @@ interface PdfLockResultProps {
   mode: LockMode;
   outputSize: number;
   onDownload: () => void;
-  onAgain: () => void;
   labels: PdfLockLabels;
 }
 
@@ -20,7 +19,6 @@ export function PdfLockResult({
   mode,
   outputSize,
   onDownload,
-  onAgain,
   labels,
 }: PdfLockResultProps) {
   const title = mode === "lock" ? labels.resultLockTitle : labels.resultUnlockTitle;
@@ -32,7 +30,6 @@ export function PdfLockResult({
       actions={
         <ResultActions
           download={{ label: labels.download, onClick: onDownload }}
-          again={{ label: labels.again, onClick: onAgain }}
         />
       }
     >
