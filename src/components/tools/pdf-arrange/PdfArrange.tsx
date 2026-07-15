@@ -17,11 +17,12 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { PlusIcon, RotateCcwIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
+import { ToolHeader } from "@/components/common/ToolHeader";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
@@ -39,7 +40,6 @@ import {
 import { buildPageItems, deriveBaseName } from "@/components/pdf-editor/buildPageItems";
 import { normalizeImageFiles } from "@/lib/image/heic";
 import { Divider } from "./Divider";
-import { EditorTopStrip } from "./EditorTopStrip";
 import { PageItemCard, type SectionTint } from "@/components/pdf-editor/PageItemCard";
 import {
   type ArrangeResult,
@@ -271,15 +271,6 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     [retry, ingest],
   );
 
-  // Header reset (top-right): clear everything back to the dropzone.
-  const handleReset = useCallback(() => {
-    retry();
-    clearThumbnailCache();
-    setItems([]);
-    setSourceBytesById(new Map());
-    setFiles([]);
-  }, [retry, setFiles]);
-
   // Re-upload button: open the picker directly and REPLACE the current files.
   const handleReuploadPick = useCallback(() => {
     pendingModeRef.current = "replace";
@@ -399,21 +390,6 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
         />
       )}
 
-      <EditorTopStrip
-        filesSummary={filesSummary}
-        onReupload={handleReuploadPick}
-        reuploadLabel={labels.reupload}
-        onSplitAll={handleSplitAll}
-        splitAllLabel={labels.splitAll}
-        onClearSplits={handleClearSplits}
-        clearSplitsLabel={labels.clearSplits}
-        onApply={run}
-        applyLabel={template(labels.applyTemplate, { n: sectionCount })}
-        applyDisabled={!hasFiles}
-        busy={busy || loadingPages}
-        busyLabel={labels.fileUpload.busy}
-      />
-
       <div
         className="ob-scroll max-h-[400px] overflow-y-auto rounded-2xl p-3"
         style={{
@@ -473,6 +449,51 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     </div>
   );
 
+  // Split all / Clear dividers are editing actions — only meaningful while
+  // arranging (idle), so they ride in the header's extraActions slot in idle.
+  const editorActions =
+    status === "idle" ? (
+      <>
+        <button
+          type="button"
+          onClick={handleSplitAll}
+          disabled={busy || loadingPages}
+          className="subtle-action shrink-0 rounded-[5px] px-2.5 py-1.5 font-body text-[11px] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {labels.splitAll}
+        </button>
+        <button
+          type="button"
+          onClick={handleClearSplits}
+          disabled={busy || loadingPages}
+          className="subtle-action shrink-0 rounded-[5px] px-2.5 py-1.5 font-body text-[11px] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {labels.clearSplits}
+        </button>
+      </>
+    ) : undefined;
+
+  const header = (
+    <ToolHeader
+      title={labels.title}
+      description={labels.description}
+      hasFile={hasFiles}
+      fileSummary={filesSummary}
+      status={status}
+      onReupload={handleReuploadPick}
+      reuploadLabel={labels.reupload}
+      busy={busy || loadingPages}
+      busyReuploadLabel={labels.fileUpload.busy}
+      executeLabel={template(labels.applyTemplate, { n: sectionCount })}
+      processingLabel={labels.processing}
+      againLabel={labels.again}
+      onExecute={run}
+      onAgain={retry}
+      executeDisabled={!hasFiles}
+      extraActions={editorActions}
+    />
+  );
+
   const body = (
     <div className={inline ? "space-y-4" : "space-y-4 px-6 py-3"}>
       <input
@@ -507,7 +528,6 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
           labels={labels}
           onDownloadAll={download}
           onDownloadOne={handleDownloadOne}
-          onAgain={retry}
         />
       ) : (
         <ProcessingStatus
@@ -521,7 +541,15 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     </div>
   );
 
-  if (inline) return body;
+  if (inline)
+    return (
+      <>
+        <div className="border-b pb-3" style={{ borderColor: "var(--border)" }}>
+          {header}
+        </div>
+        {body}
+      </>
+    );
 
   return (
     <div
@@ -532,35 +560,8 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
         boxShadow: "var(--shadow-lg)",
       }}
     >
-      <button
-        type="button"
-        onClick={handleReset}
-        disabled={busy}
-        aria-label={labels.reset}
-        title={labels.reset}
-        className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-        style={{ color: "var(--ink-soft)" }}
-      >
-        <RotateCcwIcon className="size-4" />
-      </button>
-      <div
-        className="flex items-start gap-3 border-b px-6 pb-3 pt-3"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <div className="min-w-0 flex-1">
-          <h1
-            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
-            style={{ color: "var(--headline)" }}
-          >
-            {labels.title}
-          </h1>
-          <div
-            className="mt-1 font-body text-[12px] leading-[1.45]"
-            style={{ color: "var(--ink)" }}
-          >
-            {labels.description}
-          </div>
-        </div>
+      <div className="border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
+        {header}
       </div>
       {body}
     </div>
