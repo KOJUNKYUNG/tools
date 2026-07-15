@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { uploadLimitFor } from "@/lib/constants";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
-import { ToolTopStrip } from "@/components/common/ToolTopStrip";
+import { ToolHeader } from "@/components/common/ToolHeader";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
@@ -165,6 +164,29 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
   const displayError =
     errorMessage === "NO_IMAGES" ? labels.errorNoImages : errorMessage;
 
+  const header = (
+    <ToolHeader
+      title={labels.title}
+      description={labels.description}
+      hasFile={hasFile}
+      fileSummary={fileInfo}
+      status={status}
+      onReupload={handleReupload}
+      reuploadLabel={labels.reupload}
+      busy={busy}
+      executeLabel={
+        analysis
+          ? template(labels.extractCountTemplate, { n: analysis.imageCount })
+          : labels.extract
+      }
+      processingLabel={labels.processing}
+      againLabel={labels.again}
+      onExecute={handleExtract}
+      onAgain={onReset}
+      executeDisabled={noImagesConfirmed}
+    />
+  );
+
   const body = (
     <div className={inline ? "space-y-4" : "space-y-4 px-6 py-3"}>
       <input
@@ -194,25 +216,10 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
           labels={labels}
           onDownloadAll={handleDownloadAll}
           onDownloadOne={handleDownloadOne}
-          onAgain={onReset}
           onToPptx={handleToPptx}
         />
       ) : (
         <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
-          <ToolTopStrip
-            filesSummary={fileInfo}
-            onReupload={handleReupload}
-            reuploadLabel={labels.reupload}
-            busy={busy}
-            onExecute={status === "idle" ? handleExtract : undefined}
-            executeLabel={
-              analysis
-                ? template(labels.extractCountTemplate, { n: analysis.imageCount })
-                : labels.extract
-            }
-            executeDisabled={noImagesConfirmed}
-          />
-
           {/* Analysis preview (idle) persists; swaps to status while extracting */}
           <div className="min-h-0 flex-1">
             {status === "idle" ? (
@@ -236,7 +243,15 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
     </div>
   );
 
-  if (inline) return body;
+  if (inline)
+    return (
+      <>
+        <div className="border-b pb-3" style={{ borderColor: "var(--border)" }}>
+          {header}
+        </div>
+        {body}
+      </>
+    );
 
   return (
     <div
@@ -247,35 +262,11 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
         boxShadow: "var(--shadow-lg)",
       }}
     >
-      <button
-        type="button"
-        onClick={onReset}
-        disabled={busy}
-        aria-label={labels.reset}
-        title={labels.reset}
-        className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)] disabled:cursor-not-allowed disabled:opacity-50"
-        style={{ color: "var(--ink-soft)" }}
-      >
-        <RotateCcwIcon className="size-4" />
-      </button>
       <div
-        className="flex items-start gap-3 border-b px-6 pb-3 pt-3"
+        className="border-b px-6 pb-3 pt-3"
         style={{ borderColor: "var(--border)" }}
       >
-        <div className="min-w-0 flex-1">
-          <h1
-            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
-            style={{ color: "var(--headline)" }}
-          >
-            {labels.title}
-          </h1>
-          <div
-            className="mt-1 font-body text-[12px] leading-[1.45]"
-            style={{ color: "var(--ink)" }}
-          >
-            {labels.description}
-          </div>
-        </div>
+        {header}
       </div>
       {body}
     </div>
