@@ -7,18 +7,14 @@ interface ImageCompressResultProps {
   doneTitle: string;
   settingsText: string;
   downloadLabel: string;
-  recompressLabel: string;
   onDownload: () => void;
-  onRecompress: () => void;
 }
 
 export function ImageCompressResult({
   doneTitle,
   settingsText,
   downloadLabel,
-  recompressLabel,
   onDownload,
-  onRecompress,
 }: ImageCompressResultProps) {
   return (
     <ResultCard
@@ -26,7 +22,6 @@ export function ImageCompressResult({
       actions={
         <ResultActions
           download={{ label: downloadLabel, onClick: onDownload }}
-          again={{ label: recompressLabel, onClick: onRecompress }}
         />
       }
     >
