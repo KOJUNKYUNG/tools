@@ -26,6 +26,12 @@ interface ToolHeaderProps {
   onExecute?: () => void;
   onAgain?: () => void;
   executeDisabled?: boolean;
+  /**
+   * Optional momentary editing actions (e.g. Split all / Clear dividers),
+   * rendered between re-upload and the primary button — the slot the old
+   * ToolTopStrip exposed for tools with in-strip editing controls.
+   */
+  extraActions?: ReactNode;
 }
 
 export function ToolHeader({
@@ -45,6 +51,7 @@ export function ToolHeader({
   onExecute,
   onAgain,
   executeDisabled = false,
+  extraActions,
 }: ToolHeaderProps) {
   const primary = derivePrimaryState({ hasFile, status });
 
@@ -86,6 +93,7 @@ export function ToolHeader({
               {busy && busyReuploadLabel ? busyReuploadLabel : reuploadLabel}
             </button>
           )}
+          {extraActions}
           {primary === "execute" && (
             <button
               type="button"
