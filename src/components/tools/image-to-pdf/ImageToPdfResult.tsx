@@ -53,7 +53,6 @@ interface ImageToPdfResultProps {
   result: ImageToPdfResultData;
   labels: ImageToPdfLabels;
   onDownload: () => void;
-  onAgain: () => void;
   lang: string;
   router: ReturnType<typeof useRouter>;
 }
@@ -62,7 +61,6 @@ export function ImageToPdfResult({
   result,
   labels,
   onDownload,
-  onAgain,
   lang,
   router,
 }: ImageToPdfResultProps) {
@@ -123,7 +121,6 @@ export function ImageToPdfResult({
               extra={
                 <HandoffAction label={labels.compressHandoff} onClick={handleCompress} />
               }
-              again={{ label: labels.again, onClick: onAgain }}
             />
           }
         >
