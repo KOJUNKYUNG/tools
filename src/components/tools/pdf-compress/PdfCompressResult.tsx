@@ -10,7 +10,6 @@ interface PdfCompressResultProps {
   originalSize: number;
   compressedSize: number;
   onDownload: () => void;
-  onAgain: () => void;
   labels: PdfCompressLabels;
 }
 
@@ -18,7 +17,6 @@ export function PdfCompressResult({
   originalSize,
   compressedSize,
   onDownload,
-  onAgain,
   labels,
 }: PdfCompressResultProps) {
   const { pct } = computeSavings(originalSize, compressedSize);
@@ -29,7 +27,6 @@ export function PdfCompressResult({
       actions={
         <ResultActions
           download={{ label: labels.download, onClick: onDownload }}
-          again={{ label: labels.again, onClick: onAgain }}
         />
       }
     >
