@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ToolTopStrip } from "@/components/common/ToolTopStrip";
+import { ToolHeader } from "@/components/common/ToolHeader";
 import { FileUpload } from "@/components/common/FileUpload";
 import { EMBEDDED_ASSET_LIMIT, uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
@@ -433,6 +433,35 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // must never resize the tool (UI stability contract).
   const fixedHeight = lockHeight || !!pptxFile;
 
+  const header = (
+    <ToolHeader
+      title={labels.header.title}
+      description={labels.header.description}
+      hasFile={!!pptxFile}
+      fileSummary={pptxFile?.name}
+      meta={
+        pptxFile ? (
+          <span className="shrink-0 font-body text-[12px]" style={{ color: "var(--ink-soft)" }}>
+            {`· ${formatBytes(pptxFile.size)}`}
+            {totalSlides > 0
+              ? ` · ${template(labels.fileStatus.slideCountTemplate, { n: totalSlides })}`
+              : ` · ${labels.fileStatus.analyzing}`}
+          </span>
+        ) : undefined
+      }
+      status={status}
+      onReupload={openPptxFileDialog}
+      reuploadLabel={labels.fileStatus.changeFile}
+      busy={status === "processing"}
+      executeLabel={labels.action.apply}
+      processingLabel={labels.processing.processing}
+      againLabel={labels.processing.tryAnother}
+      onExecute={run}
+      onAgain={handleTryAnother}
+      executeDisabled={!canRun}
+    />
+  );
+
   // ───────── Render ─────────
   return (
     <div
@@ -453,27 +482,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             }
       }
     >
-      {!inline && (
-        <div
-          className="flex items-start gap-3 border-b px-6 pt-3 pb-3"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <div className="min-w-0 flex-1">
-            <h1
-              className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
-              style={{ color: "var(--headline)" }}
-            >
-              {labels.header.title}
-            </h1>
-            <div
-              className="mt-1 font-body text-[12px] leading-[1.45]"
-              style={{ color: "var(--ink)" }}
-            >
-              {labels.header.description}
-            </div>
-          </div>
-        </div>
-      )}
+      <div
+        className="border-b px-6 pb-3 pt-3"
+        style={{ borderColor: "var(--border)" }}
+      >
+        {header}
+      </div>
 
       {/* Body */}
       {!pptxFile ? (
@@ -515,28 +529,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <div className="px-6 pt-3">
-            <ToolTopStrip
-              filesSummary={pptxFile.name}
-              meta={
-                <span
-                  className="shrink-0 font-body text-[12px]"
-                  style={{ color: "var(--ink-soft)" }}
-                >
-                  {`· ${formatBytes(pptxFile.size)}`}
-                  {totalSlides > 0
-                    ? ` · ${template(labels.fileStatus.slideCountTemplate, { n: totalSlides })}`
-                    : ` · ${labels.fileStatus.analyzing}`}
-                </span>
-              }
-              onReupload={openPptxFileDialog}
-              reuploadLabel={labels.fileStatus.changeFile}
-              busy={status === "processing"}
-              onExecute={status === "idle" ? run : undefined}
-              executeLabel={labels.action.apply}
-              executeDisabled={!canRun}
-            />
-          </div>
 
           {/* Two-pane workspace. */}
           <div
@@ -640,9 +632,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 <PptBackgroundResult
                   title={labels.processing.done}
                   downloadLabel={labels.processing.download}
-                  againLabel={labels.processing.tryAnother}
                   onDownload={download}
-                  onAgain={handleTryAnother}
                 />
               ) : (
                 <ProcessingStatus
