@@ -330,6 +330,18 @@ top-level mode tabs. **Every category is migrated**; the legacy
 a real 2px bottom border (transparent when inactive), never an inset
 box-shadow — see Do's & Don'ts.
 
+**Tool header** — every tool renders one shared `ToolHeader` (title over
+description) in **both** the standalone card and the landing-inline mount; the
+mount only supplies the card chrome, never its own header. Once a file is loaded
+the header swaps the description for the file-info row (`name · size · count`)
+and reveals the right-side actions: the **Toolbar-subtle re-upload** button, an
+optional editing-actions slot (Split all / Clear dividers), and one **primary**
+button that follows the run lifecycle — **execute → processing (disabled, "처리
+중…") → again ("다시 하기")**, returning to execute after again. There is no
+separate in-body top strip — the header *is* the strip. The old absolute header
+**reset (RotateCcw) is retired**: re-upload is the reset path (single-file tools
+replace the file; multi-file tools keep their in-body add / remove controls).
+
 **Other components:**
 
 - **Category tabs** — the site-level category selector (Screen 1's three
@@ -381,18 +393,20 @@ box-shadow — see Do's & Don'ts.
   so the box keeps its height — a prepare step never spawns a separate block that
   pushes the layout down.
 - **Result view** — replaces the controls area after execute; holds the result
-  summary, `.btn-download`, and a `.nameplate` "re-apply". Built from **one
-  shared primitive** so size, padding, title, and the action row are identical
-  site-wide: `<ResultCard>` (the `result-pop` shell — flat `--surface`, left
-  `--emphasis` bar, optional title icon, tool-specific body as children) +
-  `<ResultActions>` (the canonical download → handoff → again button set; the
-  retry icon is **RotateCcw everywhere**) + `<HandoffAction>` for the cross-tool
-  link. The 2-column tools (pdf-arrange, ppt-extract, image-to-pdf, pdf-to-image)
-  keep their own grid + left list and render `<ResultCard>` as the right-hand
-  summary card. Never re-declare the card shell or button markup inline.
-- **File-info row** — the same flat row on every tool: the file name / meta as
-  plain `body` text (never a button, never a boxed or icon-led panel), with a
-  **Toolbar subtle** re-upload button beside it. That button is labelled **"다시
+  summary and `.btn-download`. Built from **one shared primitive** so size,
+  padding, title, and the action row are identical site-wide: `<ResultCard>`
+  (the `result-pop` shell — flat `--surface`, left `--emphasis` bar, optional
+  title icon, tool-specific body as children) + `<ResultActions>` (the canonical
+  **download → handoff** button set) + `<HandoffAction>` for the cross-tool link.
+  The **again ("다시 하기") no longer lives in the card** — it is the header's
+  primary button in the done state (see Tool header). The 2-column tools
+  (pdf-arrange, ppt-extract, image-to-pdf, pdf-to-image) keep their own grid +
+  left list and render `<ResultCard>` as the right-hand summary card. Never
+  re-declare the card shell or button markup inline.
+- **File-info row** — the same flat row on every tool, now the **left column of
+  the `ToolHeader`** once a file is loaded (it replaces the description): the file
+  name / meta as plain `body` text (never a button, never a boxed or icon-led
+  panel), with a **Toolbar subtle** re-upload button beside it. That button is labelled **"다시
   업로드" / "Re-upload"** everywhere — same function ⇒ same label *and* same
   treatment (no "다시 선택" / "다른 파일 선택" / "Choose again" variants). When the
   tool is busy (preparing a re-upload, or executing), that button is disabled and,
