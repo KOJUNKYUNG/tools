@@ -23,7 +23,6 @@
     ]
   },
   "common": {
-    "reset": "도구 초기화",
     "back": "닫기",
     "loading": "처리 중…",
     "download": "다운로드",
@@ -153,8 +152,7 @@
         "action": {
           "apply": "변경하기",
           "applyDisabledHint": "이미지를 먼저 선택하세요",
-          "specificEmpty": "적용할 슬라이드를 선택하세요",
-          "reset": "도구 초기화"
+          "specificEmpty": "적용할 슬라이드를 선택하세요"
         },
         "processing": {
           "processing": "변환 중…",
@@ -185,7 +183,6 @@
         "uploadHint": ".ppt 및 .pptx 형식을 지원합니다.",
         "uploadMaxSize": "최대 {size}",
         "reupload": "다시 업로드",
-        "reset": "도구 초기화",
         "fileInfo": "{name} · {size}",
         "extract": "추출하기",
         "extractCount": "추출하기 ({n}장)",
@@ -212,7 +209,6 @@
         "uploadHint": "PPTX 파일 하나만 올릴 수 있습니다.",
         "uploadMaxSize": "최대 {size}",
         "reupload": "다시 업로드",
-        "reset": "도구 초기화",
         "fileInfo": "{name} · {size}",
         "slideCount": "슬라이드 {n}장",
         "presetGroupLabel": "압축 강도",
@@ -246,7 +242,6 @@
       "title": "PDF 합치기·나누기·정렬",
       "description": "여러 PDF를 하나로 합치거나, 구분선을 기준으로 여러 파일로 나눕니다.",
       "page": {
-        "reset": "도구 초기화",
         "uploadPrompt": "PDF 또는 이미지를 드래그하거나 클릭하여 업로드",
         "uploadHint": "PDF는 페이지별로, 이미지는 한 페이지로 펼쳐집니다.",
         "reupload": "다시 업로드",
@@ -280,7 +275,6 @@
         "uploadHint": "PDF 파일 하나만 올릴 수 있습니다.",
         "uploadMaxSize": "최대 {size}",
         "reupload": "다시 업로드",
-        "reset": "도구 초기화",
         "fileInfo": "{name} · {size}",
         "presetGroupLabel": "압축 레벨",
         "presetLightLabel": "Light",
@@ -314,7 +308,6 @@
         "uploadHint": "PDF 파일 하나만 올릴 수 있습니다.",
         "uploadMaxSize": "최대 {size}",
         "reupload": "다시 업로드",
-        "reset": "도구 초기화",
         "fileInfo": "{name} · {size}",
         "pageCount": "{n}페이지",
         "modeNumber": "페이지 번호",
@@ -368,7 +361,6 @@
         "uploadHint": "PDF 파일 하나만 올릴 수 있습니다.",
         "uploadMaxSize": "최대 {size}",
         "reupload": "다시 업로드",
-        "reset": "도구 초기화",
         "fileInfo": "{name} · {size}",
         "modeLock": "암호 걸기",
         "modeUnlock": "암호 풀기",
@@ -522,8 +514,7 @@
         "subtitle": "JPG·PNG·WebP 이미지를 압축하거나 다른 형식으로 변환합니다.",
         "header": {
           "title": "이미지 압축·변환",
-          "description": "JPG·PNG·WebP 이미지를 압축하거나 다른 형식으로 변환합니다.",
-          "reset": "도구 초기화"
+          "description": "JPG·PNG·WebP 이미지를 압축하거나 다른 형식으로 변환합니다."
         },
         "reupload": "다시 업로드",
         "uploadPrompt": "이미지를 드래그하거나 클릭하여 업로드",
@@ -555,8 +546,7 @@
         "subtitle": "이미지를 원하는 크기로 변경하거나 비율을 유지하며 잘라냅니다.",
         "header": {
           "title": "이미지 크기 변경",
-          "description": "이미지를 원하는 크기로 변경하거나 비율을 유지하며 잘라냅니다.",
-          "reset": "도구 초기화"
+          "description": "이미지를 원하는 크기로 변경하거나 비율을 유지하며 잘라냅니다."
         },
         "originalSize": "원본 크기",
         "revertToOriginal": "원본 크기로 되돌리기",

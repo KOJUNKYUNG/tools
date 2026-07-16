@@ -117,7 +117,6 @@ export interface PptBackgroundToolLabels {
     apply: string;
     applyDisabledHint: string;
     specificEmpty: string;
-    reset: string;
   };
   processing: {
     processing: string;

@@ -7,7 +7,6 @@ export interface PdfWatermarkLabels {
   uploadHint: string;
   uploadMaxSize: string;
   reupload: string;
-  reset: string;
   fileInfoTemplate: string;
   pageCountTemplate: string;
   modeNumber: string;
@@ -64,7 +63,6 @@ export function getPdfWatermarkLabels(dict: Dictionary): PdfWatermarkLabels {
     uploadHint: p.uploadHint,
     uploadMaxSize: p.uploadMaxSize,
     reupload: p.reupload,
-    reset: p.reset,
     fileInfoTemplate: p.fileInfo,
     pageCountTemplate: p.pageCount,
     modeNumber: p.modeNumber,

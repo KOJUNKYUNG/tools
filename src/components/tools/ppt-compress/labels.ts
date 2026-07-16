@@ -7,7 +7,6 @@ export interface PptCompressLabels {
   uploadHint: string;
   uploadMaxSize: string;
   reupload: string;
-  reset: string;
   fileInfoTemplate: string;
   slideCountTemplate: string;
   presetGroupLabel: string;
@@ -48,7 +47,6 @@ export function getPptCompressLabels(dict: Dictionary): PptCompressLabels {
     uploadHint: p.uploadHint,
     uploadMaxSize: p.uploadMaxSize,
     reupload: p.reupload,
-    reset: p.reset,
     fileInfoTemplate: p.fileInfo,
     slideCountTemplate: p.slideCount,
     presetGroupLabel: p.presetGroupLabel,

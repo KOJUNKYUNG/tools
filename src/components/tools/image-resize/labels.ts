@@ -3,7 +3,7 @@ import type { Dictionary } from "@/i18n/config";
 export interface ImageResizeLabels {
   title: string;
   subtitle: string;
-  header: { title: string; description: string; reset: string };
+  header: { title: string; description: string };
   originalSize: string;
   revertToOriginal: string;
   widthLabel: string;
