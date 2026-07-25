@@ -273,11 +273,12 @@
   border-color: var(--emphasis);
 }
 
-/* ── Toolbar subtle — the ONE momentary click-action treatment (re-upload, Clear,
- * All, Split all, Center H/V, file-list Clear, …). Documented in DESIGN.md as the
- * "shared util"; centralized here so every site (ToolHeader, FileUpload, …)
- * composes the same class instead of re-declaring it inline. Compose with layout
- * utilities (rounded-[5px], px-2.5 py-1.5, font-body text-[11px]). */
+/* ── Toolbar subtle — the STATE-SETTING momentary click-action treatment (All,
+ * Clear, Split all, Clear dividers, Center H/V, …). Recessed --surface-2 fill.
+ * File-open actions (re-upload / choose-logo / gallery upload) use .file-action
+ * instead — see below. Documented in DESIGN.md; centralized here so every site
+ * composes the same class. Compose with layout utilities (rounded-[5px],
+ * px-2.5 py-1.5, font-body text-[11px]). */
 .subtle-action {
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -287,6 +288,19 @@
 .subtle-action:hover:not(:disabled) { border-color: var(--emphasis); }
 .subtle-action:active:not(:disabled) { background: var(--surface); }
 .subtle-action:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* ── File-open action — the momentary click-action that opens the OS file
+ * picker (re-upload, choose-logo, gallery upload). Split from .subtle-action by
+ * a raised --surface fill (vs recessed --surface-2 state chips); neutral, no
+ * hue. Compose with the same layout utilities. */
+.file-action {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink-strong);
+  transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+}
+.file-action:hover:not(:disabled) { border-color: var(--emphasis); }
+.file-action:disabled { cursor: not-allowed; opacity: 0.5; }
 
 /* ── Dropzone — the shared initial-upload affordance. One treatment for all 13
  * tools (FileUpload is the single source). Dashed target that steps to --surface-2

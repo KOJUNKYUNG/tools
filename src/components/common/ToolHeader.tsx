@@ -5,7 +5,7 @@ import { derivePrimaryState } from "./toolHeaderState";
 import type { ProcessingState } from "@/types";
 
 const SUBTLE =
-  "subtle-action shrink-0 rounded-[5px] px-2.5 py-1.5 font-body text-[11px] min-w-[68px] text-center";
+  "file-action shrink-0 rounded-[5px] px-2.5 py-1.5 font-body text-[11px] min-w-[68px] text-center";
 const PRIMARY =
   "btn-primary inline-flex h-9 min-w-[140px] items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[13px] font-semibold tabular-nums disabled:cursor-not-allowed disabled:opacity-50";
 

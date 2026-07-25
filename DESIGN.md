@@ -311,7 +311,8 @@ grayscale alone separates them):
 | role | class | treatment |
 | --- | --- | --- |
 | Secondary / toolbar | `.nameplate` | flat outline — `--surface` fill, `--border` edge (e.g. result-card re-apply) |
-| Toolbar subtle | shared util | small outline — `--surface-2` fill, `--border` edge, `rounded-[5px]`, `px-2.5 py-1.5`, `font-body text-[11px]`, hover `--emphasis` edge. **The one treatment for every momentary click-action**: re-upload · All · Clear · Split all · Clear dividers · Center H/V · … — never `.nameplate` for these. |
+| State-setting momentary | `.subtle-action` | small outline — recessed `--surface-2` fill, `--border` edge, `rounded-[5px]`, `px-2.5 py-1.5`, `font-body text-[11px]`, hover `--emphasis` edge. Pure UI-state actions: All · Clear · Split all · Clear dividers · Center H/V · … — never `.nameplate` for these. |
+| File-open momentary | `.file-action` | same size/shape as `.subtle-action` but a **raised `--surface` fill** — the actions that open the OS file picker: re-upload · choose-logo · gallery upload. The fill difference (raised vs recessed) is the only signal (neutral, no hue, no glyph). |
 | Selected toggle | segmented tab | **tab underline** — bold label + `--emphasis` bottom rule, *no* fill |
 | Primary execute | `.btn-primary` | dark fill — `--ink-strong` bg, theme-inverting `--bg` label |
 | Download | `.btn-download` | maximum-contrast fill — `--emphasis` (Black / Paper) |
@@ -378,6 +379,9 @@ replace the file; multi-file tools keep their in-body add / remove controls).
   the document *inside* is the palette exception and renders original colors. A
   rendered white output page (e.g. image-to-pdf A4/custom) stays fixed white
   (`--mono-0`) since that previews the real result background.
+- **Panel divider** — 2-panel workspaces (preview + controls) separate the two
+  columns with a single 1px `--border` (`border-l` on the right column), never a
+  drop shadow or a gap-only split. Same 1px `--border` used for region seams.
 - **Tool card** — `.toolcard`: `--surface` fill, `--border` edge, flat.
 - **Upload dropzone** — `.dropzone`: the one initial-upload affordance, shared by
   every tool (`FileUpload` is the single source). A 2px dashed `--border` target
