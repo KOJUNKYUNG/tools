@@ -273,7 +273,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
   );
 
   const body = (
-    <div className={inline ? "space-y-4" : "space-y-4 px-6 py-3"}>
+    <div className={inline ? "space-y-4" : "space-y-4 px-6 pb-3"}>
       <input
         ref={reuploadInputRef}
         type="file"
@@ -347,7 +347,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
   if (inline)
     return (
       <>
-        <div className="border-b pb-3" style={{ borderColor: "var(--border)" }}>
+        <div className="mb-2 border-b pb-1" style={{ borderColor: "var(--border)" }}>
           {header}
         </div>
         {body}
@@ -363,7 +363,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
         boxShadow: "var(--shadow-lg)",
       }}
     >
-      <div className="border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
+      <div className="mb-2 border-b px-6 pb-1 pt-3" style={{ borderColor: "var(--border)" }}>
         {header}
       </div>
       {body}

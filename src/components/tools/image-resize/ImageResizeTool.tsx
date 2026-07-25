@@ -415,7 +415,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   // the surrounding surface provides chrome. In page-route mode, this component
   // renders its own card chrome + header + reset, mirroring ppt-background.
   const body = (
-    <div className={inline ? "space-y-5" : "space-y-5 px-6 py-4"}>
+    <div className={inline ? "space-y-5" : "space-y-5 px-6 pb-4"}>
       <input
         ref={reuploadInputRef}
         type="file"
@@ -529,7 +529,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
   if (inline)
     return (
       <>
-        <div className="border-b pb-3" style={{ borderColor: "var(--border)" }}>
+        <div className="mb-2 border-b pb-1" style={{ borderColor: "var(--border)" }}>
           {header}
         </div>
         {body}
@@ -545,7 +545,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
         boxShadow: "var(--shadow-lg)",
       }}
     >
-      <div className="border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
+      <div className="mb-2 border-b px-6 pb-1 pt-3" style={{ borderColor: "var(--border)" }}>
         {header}
       </div>
       {body}

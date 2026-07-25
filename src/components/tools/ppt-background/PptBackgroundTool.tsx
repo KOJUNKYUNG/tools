@@ -482,7 +482,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       }
     >
       <div
-        className="border-b px-6 pb-3 pt-3"
+        className="mb-2 border-b px-6 pb-1 pt-3"
         style={{ borderColor: "var(--border)" }}
       >
         {header}
