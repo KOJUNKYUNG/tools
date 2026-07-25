@@ -23,7 +23,7 @@ interface WatermarkControlsProps {
 const GROUP_LABEL =
   "font-mono text-[11px] font-medium uppercase tracking-[0.08em]";
 const SEG =
-  "flex-1 border-b-2 py-2 font-body text-[12px] transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+  "border-b-2 px-4 py-2 font-body text-[12px] transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
 export function WatermarkControls({
   value,
@@ -38,7 +38,7 @@ export function WatermarkControls({
   return (
     <div className="space-y-2">
       {/* source: text vs image */}
-      <div className="flex border-b" style={{ borderColor: "var(--hairline)" }}>
+      <div className="inline-flex border-b" style={{ borderColor: "var(--hairline)" }}>
         {(["text", "image"] as const).map((src) => {
           const active = value.source === src;
           return (
@@ -91,7 +91,7 @@ export function WatermarkControls({
               placeholder={labels.textPlaceholder}
               onChange={(e) => onChange({ text: e.target.value })}
               className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px]"
-              style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--ink-strong)" }}
+              style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
             />
           </label>
           <label className="w-16 space-y-1">
@@ -106,7 +106,7 @@ export function WatermarkControls({
               disabled={disabled}
               onChange={(e) => onChange({ fontPx: Math.min(200, Math.max(8, Number(e.target.value) || 48)) })}
               className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
-              style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--ink-strong)" }}
+              style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
             />
           </label>
           <label className="w-10 space-y-1">
@@ -164,6 +164,22 @@ export function WatermarkControls({
             onChange={(v) => onChange({ angle: v })}
             suffix="°"
           />
+          {/* Tile-gap: only meaningful while tiling. Always rendered (visibility
+              toggle) so enabling tile never shifts the control column height. */}
+          <div
+            style={{ visibility: value.tile ? "visible" : "hidden" }}
+            aria-hidden={!value.tile}
+          >
+            <Slider
+              label={labels.tileGapLabel}
+              min={50}
+              max={300}
+              value={Math.round(value.tileGap * 100)}
+              disabled={disabled || !value.tile}
+              onChange={(v) => onChange({ tileGap: v / 100 })}
+              suffix="%"
+            />
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -173,7 +189,7 @@ export function WatermarkControls({
                 type="button"
                 disabled={disabled}
                 onClick={() => logoInputRef.current?.click()}
-                className="nameplate h-8 w-full rounded-[7px] px-3 font-body text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+                className="file-action h-8 w-full rounded-[7px] px-3 font-body text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ color: "var(--ink-strong)" }}
               >
                 {labels.logoSelect}
@@ -246,7 +262,7 @@ function Slider({ label, min, max, value, onChange, suffix, disabled }: SliderPr
               if (Number.isFinite(raw)) onChange(clamp(raw));
             }}
             className="h-6 w-12 rounded-[5px] border px-1 text-right font-body text-[11px] tabular-nums"
-            style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--ink-strong)" }}
+            style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
           />
           {suffix && (
             <span className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
