@@ -77,53 +77,97 @@ export function WatermarkControls({
         }}
       />
 
-      {/* Text mode only: the text field needs full width; font + color beside it. */}
-      {value.source === "text" && (
+      {/* SOURCE INPUT — one skeleton (3-cell row + reserved caption line) so
+          switching text↔logo keeps a constant footprint (no rows shift). */}
+      <div className="space-y-1">
         <div className="grid grid-cols-[1fr_auto_auto] gap-2">
-          <label className="space-y-1">
+          {/* cell 1 — text field / choose-logo */}
+          <label className="min-w-0 space-y-1">
             <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
-              {labels.textLabel}
+              {value.source === "text" ? labels.textLabel : labels.sourceImage}
             </span>
-            <input
-              type="text"
-              value={value.text}
-              disabled={disabled}
-              placeholder={labels.textPlaceholder}
-              onChange={(e) => onChange({ text: e.target.value })}
-              className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px]"
-              style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
-            />
+            {value.source === "text" ? (
+              <input
+                type="text"
+                value={value.text}
+                disabled={disabled}
+                placeholder={labels.textPlaceholder}
+                onChange={(e) => onChange({ text: e.target.value })}
+                className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px]"
+                style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
+              />
+            ) : (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => logoInputRef.current?.click()}
+                className="file-action h-8 w-full truncate rounded-[6px] px-3 text-left font-body text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ color: "var(--ink-strong)" }}
+              >
+                {labels.logoSelect}
+              </button>
+            )}
           </label>
+          {/* cell 2 — font size / logo scale */}
           <label className="w-16 space-y-1">
             <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
-              {labels.fontSizeLabel}
+              {value.source === "text" ? labels.fontSizeLabel : labels.logoScaleLabel}
             </span>
-            <input
-              type="number"
-              min={8}
-              max={200}
-              value={value.fontPx}
-              disabled={disabled}
-              onChange={(e) => onChange({ fontPx: Math.min(200, Math.max(8, Number(e.target.value) || 48)) })}
-              className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
-              style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
-            />
+            {value.source === "text" ? (
+              <input
+                type="number"
+                min={8}
+                max={200}
+                value={value.fontPx}
+                disabled={disabled}
+                onChange={(e) => onChange({ fontPx: Math.min(200, Math.max(8, Number(e.target.value) || 48)) })}
+                className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
+                style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
+              />
+            ) : (
+              <input
+                type="number"
+                min={5}
+                max={100}
+                value={Math.round(value.logoScale * 100)}
+                disabled={disabled}
+                onChange={(e) => onChange({ logoScale: Math.min(100, Math.max(5, Number(e.target.value) || 40)) / 100 })}
+                className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
+                style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
+              />
+            )}
           </label>
+          {/* cell 3 — color (text) / reserved spacer (image) */}
           <label className="w-10 space-y-1">
-            <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+            <span
+              className={GROUP_LABEL}
+              style={{ color: "var(--ink-soft)", visibility: value.source === "text" ? "visible" : "hidden" }}
+            >
               {labels.colorLabel}
             </span>
-            <input
-              type="color"
-              value={value.color}
-              disabled={disabled}
-              onChange={(e) => onChange({ color: e.target.value })}
-              className="h-8 w-full cursor-pointer rounded-[6px] border"
-              style={{ borderColor: "var(--border)" }}
-            />
+            {value.source === "text" ? (
+              <input
+                type="color"
+                value={value.color}
+                disabled={disabled}
+                onChange={(e) => onChange({ color: e.target.value })}
+                className="h-8 w-full cursor-pointer rounded-[6px] border"
+                style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
+              />
+            ) : (
+              <div className="h-8" aria-hidden="true" />
+            )}
           </label>
         </div>
-      )}
+        {/* caption — reserved line; shows the picked logo name in image mode */}
+        <span
+          className="block h-[15px] truncate font-body text-[11px]"
+          style={{ color: "var(--ink-soft)" }}
+          title={value.source === "image" ? (logoName ?? labels.logoHint) : undefined}
+        >
+          {value.source === "image" ? (logoName ?? labels.logoHint) : " "}
+        </span>
+      </div>
 
       {/*
         Fixed 2-column layout, identical for text + image modes:
@@ -135,17 +179,6 @@ export function WatermarkControls({
       */}
       <div className="grid grid-cols-2 gap-x-4">
         <div className="space-y-3">
-          {value.source === "image" && (
-            <Slider
-              label={labels.logoScaleLabel}
-              min={5}
-              max={100}
-              value={Math.round(value.logoScale * 100)}
-              disabled={disabled}
-              onChange={(v) => onChange({ logoScale: v / 100 })}
-              suffix="%"
-            />
-          )}
           <Slider
             label={labels.opacityLabel}
             min={5}
@@ -167,26 +200,6 @@ export function WatermarkControls({
         </div>
 
         <div className="space-y-2">
-          {value.source === "image" && (
-            <div className="space-y-1">
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => logoInputRef.current?.click()}
-                className="file-action h-8 w-full rounded-[7px] px-3 font-body text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ color: "var(--ink-strong)" }}
-              >
-                {labels.logoSelect}
-              </button>
-              <span
-                className="block truncate font-body text-[11px]"
-                style={{ color: "var(--ink-soft)" }}
-                title={logoName ?? labels.logoHint}
-              >
-                {logoName ?? labels.logoHint}
-              </span>
-            </div>
-          )}
           <label
             className="flex items-center gap-2 font-body text-[12px]"
             style={{ color: "var(--ink-strong)" }}
