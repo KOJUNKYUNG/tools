@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ontab — pdf-watermark polish (working preview)</title>
+<!--
+  WORKING preview for the pdf-watermark polish (chore/polish-pdf-watermark).
+  Iterates the layout-redesign options the user requested (7 items). Once a
+  direction is locked, the decided structure + intent gets folded into
+  docs/design-preview.html and THIS file is deleted (per tool-polishing-checklist).
+  Tokens mirror src/app/globals.css; contract is DESIGN.md. Open directly; toggle
+  light/dark top-right. Static mockup except the §4 drag demo (interactive).
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic+Coding:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+@font-face{ font-family:'Clash Display'; src:url('../src/fonts/ClashDisplay-Variable.woff2') format('woff2'); font-weight:200 700; font-style:normal; font-display:swap; }
+@font-face{ font-family:'IBM Plex Sans KR'; src:url('../src/fonts/IBMPlexSansKR-Regular.ttf') format('truetype'); font-weight:400; font-display:swap; }
+@font-face{ font-family:'IBM Plex Sans KR'; src:url('../src/fonts/IBMPlexSansKR-Medium.ttf') format('truetype'); font-weight:500; font-display:swap; }
+
+:root{
+  --mono-0:#ffffff; --mono-100:#d9d9da; --mono-200:#c6c6c7; --mono-400:#9d9c9e;
+  --mono-600:#4a494a; --mono-900:#242324; --mono-1000:#000000;
+  --emphasis:var(--mono-1000);
+  --bg:var(--mono-100); --bg-soft:var(--mono-200); --surface:var(--mono-0); --surface-2:var(--mono-100);
+  --border:var(--mono-200); --hairline:var(--mono-400);
+  --ink-soft:var(--mono-400); --ink:var(--mono-600); --ink-strong:var(--mono-900); --headline:var(--mono-900);
+  --shadow-lg:0 1px 0 rgba(0,0,0,.05), 0 12px 32px -8px rgba(0,0,0,.18);
+  --font-display:'Clash Display','IBM Plex Sans KR',ui-sans-serif,system-ui,sans-serif;
+  --font-body:'IBM Plex Sans KR',ui-sans-serif,system-ui,sans-serif;
+  --font-ko:'IBM Plex Sans KR',ui-sans-serif,system-ui,sans-serif;
+  --font-mono:'Nanum Gothic Coding',ui-monospace,monospace;
+  --radius:3px; --radius-lg:4px;
+}
+html.dark{
+  --bg:var(--mono-900); --bg-soft:var(--mono-1000); --surface:var(--mono-600); --surface-2:var(--mono-900);
+  --border:var(--mono-400); --hairline:var(--mono-400);
+  --ink-soft:var(--mono-400); --ink:var(--mono-200); --ink-strong:var(--mono-100); --headline:var(--mono-0);
+  --emphasis:var(--mono-0);
+  --shadow-lg:0 1px 0 rgba(0,0,0,.3), 0 16px 40px -8px rgba(0,0,0,.6);
+}
+*{ box-sizing:border-box; }
+html{ -webkit-font-smoothing:antialiased; }
+body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--font-body); line-height:1.6; transition:background-color .4s, color .4s; }
+.wrap{ max-width:1120px; margin:0 auto; padding:0 32px 80px; }
+header.top{ position:sticky; top:0; z-index:10; background:var(--bg); border-bottom:1px solid var(--hairline); }
+.top-inner{ display:flex; align-items:baseline; gap:16px; padding:16px 32px; max-width:1120px; margin:0 auto; }
+.brand{ font-family:var(--font-display); font-weight:600; font-size:18px; letter-spacing:-0.02em; color:var(--headline); }
+.tag{ font-family:var(--font-mono); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-soft); border:1px solid var(--hairline); padding:3px 7px; border-radius:2px; }
+.top-spacer{ flex:1; }
+.toggle{ font-family:var(--font-mono); font-size:12px; background:var(--surface); color:var(--ink-strong); border:1px solid var(--border); border-radius:var(--radius); padding:7px 13px; cursor:pointer; }
+.toggle:hover{ border-color:var(--ink-soft); }
+
+.hero-intro{ padding:40px 0 4px; }
+.sectlabel{ font-family:var(--font-mono); font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--ink-soft); margin:0 0 6px; }
+.hero-intro h1{ font-family:var(--font-display); font-weight:600; color:var(--headline); font-size:clamp(26px,3.4vw,38px); line-height:1.06; letter-spacing:-0.03em; margin:0 0 12px; }
+.hero-intro p{ max-width:74ch; margin:0; color:var(--ink); font-size:14.5px; }
+.reqs{ margin:18px 0 0; padding:0; list-style:none; display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; max-width:960px; }
+.reqs li{ font-size:13px; color:var(--ink); padding-left:26px; position:relative; }
+.reqs li b{ color:var(--ink-strong); }
+.reqs li .n{ position:absolute; left:0; top:1px; font-family:var(--font-mono); font-size:11px; color:var(--surface); background:var(--ink-strong); width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; }
+@media(max-width:820px){ .reqs{ grid-template-columns:1fr; } }
+
+section.block{ padding:36px 0; border-top:1px solid var(--hairline); }
+.secttitle{ font-family:var(--font-display); font-weight:600; color:var(--headline); font-size:21px; letter-spacing:-0.02em; margin:0 0 6px; }
+.note{ font-size:13px; color:var(--ink-soft); max-width:78ch; line-height:1.65; }
+.note b{ color:var(--ink-strong); font-weight:600; }
+.rec{ display:inline-block; font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--surface); background:var(--emphasis); padding:2px 7px; border-radius:2px; margin-left:8px; vertical-align:middle; }
+.flag{ display:inline-block; font-family:var(--font-mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-strong); border:1px solid var(--hairline); padding:2px 7px; border-radius:2px; margin-left:8px; vertical-align:middle; }
+
+.variants{ display:grid; gap:18px; margin-top:20px; }
+.variants.v2{ grid-template-columns:1fr 1fr; }
+.variants.v3{ grid-template-columns:1fr 1fr 1fr; }
+@media(max-width:900px){ .variants.v2,.variants.v3{ grid-template-columns:1fr; } }
+.variant{ border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--surface); overflow:hidden; }
+.variant > .vh{ padding:11px 14px; border-bottom:1px solid var(--hairline); display:flex; align-items:baseline; gap:8px; }
+.variant .vt{ font-family:var(--font-mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-strong); font-weight:700; }
+.variant .vd{ font-size:11.5px; color:var(--ink-soft); }
+.variant .vbody{ padding:16px; }
+
+/* ── shared mini-component tokens (mirror the real tool) ── */
+.grouplabel{ font-family:var(--font-mono); font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-soft); }
+.tabrow{ display:flex; border-bottom:1px solid var(--hairline); }
+.tabrow.hug{ display:inline-flex; }
+.tab{ background:transparent; border:0; border-bottom:2px solid transparent; padding:8px 4px; font-family:var(--font-body); font-size:12px; color:var(--ink-soft); cursor:pointer; }
+.tabrow:not(.hug) .tab{ flex:1; }
+.tabrow.hug .tab{ padding:8px 14px; }
+.tab.on{ color:var(--ink-strong); border-bottom-color:var(--emphasis); font-weight:500; }
+.field{ display:block; }
+.field .grouplabel{ display:block; margin-bottom:4px; }
+.inp{ height:32px; width:100%; border:1px solid var(--border); border-radius:6px; padding:0 8px; font-family:var(--font-body); font-size:12px; background:var(--surface-2); color:var(--ink-strong); font-variant-numeric:tabular-nums; }
+.inp.white{ background:var(--surface); }
+.swatchinp{ height:32px; width:100%; border:1px solid var(--border); border-radius:6px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; }
+.swatchinp .chip{ width:20px; height:20px; border-radius:4px; background:#888; border:1px solid var(--border); }
+
+/* button roles */
+.b-subtle{ font-family:var(--font-body); font-size:11px; background:var(--surface-2); color:var(--ink-strong); border:1px solid var(--border); border-radius:5px; padding:5px 10px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+.b-subtle:hover{ border-color:var(--emphasis); }
+.b-file{ font-family:var(--font-body); font-size:11px; background:var(--surface); color:var(--ink-strong); border:1px solid var(--hairline); border-radius:5px; padding:5px 10px 5px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+.b-file:hover{ border-color:var(--emphasis); }
+.b-file svg,.b-subtle svg{ width:13px; height:13px; }
+.b-exec{ font-family:var(--font-ko); font-size:12px; font-weight:500; background:var(--ink-strong); color:var(--bg); border:1px solid var(--ink-strong); border-radius:6px; padding:7px 16px; cursor:pointer; }
+.b-download{ font-family:var(--font-ko); font-size:12px; font-weight:600; background:var(--emphasis); color:var(--surface); border:1px solid var(--emphasis); border-radius:6px; padding:7px 16px; cursor:pointer; }
+.b-name{ font-family:var(--font-ko); font-size:12px; background:var(--surface); color:var(--ink-strong); border:1px solid var(--border); border-radius:6px; padding:7px 16px; cursor:pointer; }
+
+/* position grid */
+.posgrid{ display:grid; grid-template-columns:repeat(3,1fr); gap:4px; width:78px; border:1px solid var(--border); border-radius:6px; padding:4px; background:var(--surface-2); }
+.posgrid button{ width:20px; height:20px; border:1px solid var(--border); border-radius:3px; background:var(--surface); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
+.posgrid button.on{ background:var(--emphasis); }
+.posgrid button .dot{ width:6px; height:6px; border-radius:50%; background:var(--ink-soft); }
+.posgrid button.on .dot{ background:var(--surface); }
+
+/* page-range cells */
+.pr{ display:flex; flex-direction:column; gap:8px; }
+.pr .head{ display:flex; align-items:center; justify-content:space-between; }
+.pr .cnt{ font-size:11px; color:var(--ink); font-variant-numeric:tabular-nums; }
+.pr .cells{ display:flex; flex-wrap:wrap; gap:4px; padding:8px; border:1px solid var(--border); border-radius:6px; background:var(--surface-2); }
+.pr.tray-white .cells{ background:var(--surface); }
+.pr .cell{ min-width:24px; height:24px; padding:0 6px; border:1px solid var(--border); border-radius:4px; background:var(--surface); color:var(--ink); font-size:11px; font-variant-numeric:tabular-nums; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.pr.cell-white .cell{ background:var(--surface); }
+.pr .cell.on{ background:var(--emphasis); color:var(--surface); border-color:var(--emphasis); }
+.pr .cellbar{ display:flex; gap:6px; align-items:center; }
+.pr .textinp{ flex:1; }
+
+/* workspace mock */
+.ws{ border:1px solid var(--border); border-radius:12px; background:var(--surface); box-shadow:var(--shadow-lg); overflow:hidden; margin-top:20px; }
+.ws .hd{ display:flex; align-items:flex-start; gap:12px; padding:12px 18px; border-bottom:1px solid var(--border); }
+.ws .hd .ttl{ font-family:var(--font-ko); font-size:15px; font-weight:500; color:var(--headline); }
+.ws .hd .dsc{ font-size:12px; color:var(--ink); margin-top:2px; }
+.ws .hd .hd-right{ margin-left:auto; display:flex; align-items:center; gap:10px; }
+.ws .strip{ display:flex; align-items:center; gap:10px; padding:10px 18px; border-bottom:1px solid var(--hairline); }
+.ws .strip .fi{ font-size:12px; color:var(--ink); }
+.ws .strip .fi .soft{ color:var(--ink-soft); }
+.ws .strip .sp{ flex:1; }
+.ws .panels{ display:grid; grid-template-columns:1.05fr 1fr; }
+.ws .panels.divided > .right{ border-left:1px solid var(--border); }
+.ws .left{ padding:16px; }
+.ws .right{ padding:16px; display:flex; flex-direction:column; gap:12px; }
+.pagebox{ position:relative; width:100%; aspect-ratio:3/4; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+.pagebox .paper{ position:absolute; inset:8%; background:#fbf7ef; border-radius:2px; box-shadow:0 1px 6px rgba(0,0,0,.18); }
+.pagebox .paper .ln{ height:5px; background:#cfc9bd; border-radius:2px; margin:0 14% 8px; }
+.pagebox .paper .ln:first-child{ margin-top:16%; width:56%; background:#b7a98f; }
+.numtag{ position:absolute; font-family:var(--font-ko); font-weight:500; color:#444; font-size:15px; user-select:none; }
+.numtag.drag{ cursor:grab; padding:2px 5px; border-radius:3px; }
+.numtag.drag:hover{ outline:1px dashed var(--hairline); }
+.numtag.drag.grabbing{ cursor:grabbing; outline:2px solid var(--emphasis); }
+.snaprow{ display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12px; color:var(--ink); }
+.slider{ display:flex; flex-direction:column; gap:4px; }
+.slider .top{ display:flex; align-items:center; justify-content:space-between; }
+.slider .num{ width:44px; height:24px; border:1px solid var(--border); border-radius:5px; background:var(--surface-2); text-align:right; padding:0 4px; font-size:11px; color:var(--ink-strong); font-variant-numeric:tabular-nums; }
+.slider input[type=range]{ width:100%; accent-color:var(--emphasis); }
+.legend{ font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); margin-top:12px; line-height:1.8; }
+.legend b{ color:var(--ink-strong); }
+.settingsbox{ border:1px solid var(--border); border-radius:8px; padding:12px; }
+.settingsbox .boxhd{ display:flex; border-bottom:1px solid var(--hairline); margin:-12px -12px 12px; padding:0 8px; }
+.co{ display:flex; gap:8px; align-items:flex-start; }
+.grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+.mini{ font-size:11px; color:var(--ink-soft); margin-top:2px; }
+.pillrow{ display:inline-flex; padding:3px; gap:3px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; }
+.pill{ font-family:var(--font-body); font-size:12px; padding:5px 14px; border-radius:6px; border:0; background:transparent; color:var(--ink-soft); cursor:pointer; }
+.pill.on{ background:var(--surface); color:var(--ink-strong); font-weight:500; box-shadow:0 1px 2px rgba(0,0,0,.08); }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <span class="brand">Ontab</span>
+    <span class="tag">pdf-watermark · working preview</span>
+    <span class="top-spacer"></span>
+    <button class="toggle" id="themeToggle" type="button">◑ Theme</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="hero-intro">
+    <p class="sectlabel">Polish · layout redesign</p>
+    <h1>pdf-watermark — 개편 시안</h1>
+    <p class="note">요청한 7개 항목의 검토안. 결정이 필요한 항목은 <b>2~3개 변형</b>을 나란히 두었고,
+      명확한 항목은 §7 최종 조립안에 반영했습니다. <span class="rec">권장</span> 표시는 제 추천안이며 최종은 직접 고르시면 됩니다.
+      §4 페이지번호 드래그는 실제로 <b>끌어볼 수 있습니다</b>.</p>
+    <ul class="reqs">
+      <li><span class="n">1</span> 좌·우 패널 <b>구분선</b> 신설 (DESIGN.md에도 규격 추가)</li>
+      <li><span class="n">2</span> 기본값 <b>워터마크</b> + 토글 왼쪽에 워터마크</li>
+      <li><span class="n">3</span> 모드 토글의 <b>상위 위계</b> · 하위 토글 폭 축소</li>
+      <li><span class="n">4</span> 미리보기에서 페이지번호 <b>드래그 배치</b></li>
+      <li><span class="n">5</span> 입력 필드 <b>컴팩트</b> 재배열</li>
+      <li><span class="n">6</span> 적용페이지 <b>배경</b> + <b>버튼 구분</b>(상태/파일열기)</li>
+      <li><span class="n">7</span> 상단 스트립을 <b>도구 헤더</b>로 이관 검토</li>
+    </ul>
+  </div>
+
+  <!-- ③ toggle hierarchy -->
+  <section class="block">
+    <h2 class="secttitle">③ 모드 토글 위계 + 하위 토글 폭</h2>
+    <p class="note">현재는 <b>페이지번호/워터마크</b>(모드) · <b>형식</b> · <b>텍스트/로고</b> 세 토글이 모두 full-width 밑줄탭이라
+      위계가 안 느껴집니다. 세 변형: 모드 토글을 어떻게 상위로 읽히게 할지.</p>
+    <div class="variants v3">
+      <!-- A -->
+      <div class="variant">
+        <div class="vh"><span class="vt">A · 폭만 축소</span><span class="vd">모드=밑줄탭(내용폭) · 하위=내용폭</span></div>
+        <div class="vbody">
+          <div class="tabrow hug" style="margin-bottom:14px"><button class="tab on">워터마크</button><button class="tab">페이지 번호</button></div>
+          <div class="tabrow hug" style="margin-bottom:12px"><button class="tab on">텍스트</button><button class="tab">로고 이미지</button></div>
+          <div class="mini">모드와 하위가 같은 밑줄탭이라 여전히 위계 약함 — 폭만 줄인 최소 변경.</div>
+        </div>
+      </div>
+      <!-- B -->
+      <div class="variant">
+        <div class="vh"><span class="vt">B · 설정 감싸기</span><span class="vd">모드=탭 · 아래 설정을 박스로</span><span class="rec">권장</span></div>
+        <div class="vbody">
+          <div class="tabrow hug" style="margin-bottom:12px"><button class="tab on">워터마크</button><button class="tab">페이지 번호</button></div>
+          <div class="settingsbox">
+            <div class="tabrow hug" style="margin-bottom:10px"><button class="tab on">텍스트</button><button class="tab">로고 이미지</button></div>
+            <div class="mini">설정 영역이 박스로 묶여 모드 토글이 그 위 상위 항목으로 읽힘. 하위 토글 밑줄은 <b>버튼 폭만</b> 받침.</div>
+          </div>
+        </div>
+      </div>
+      <!-- C -->
+      <div class="variant">
+        <div class="vh"><span class="vt">C · 세그먼트 필</span><span class="vd">모드=pill · 하위=밑줄탭</span></div>
+        <div class="vbody">
+          <div class="pillrow" style="margin-bottom:14px"><button class="pill on">워터마크</button><button class="pill">페이지 번호</button></div>
+          <div class="tabrow hug"><button class="tab on">텍스트</button><button class="tab">로고 이미지</button></div>
+          <div class="mini" style="margin-top:10px">모드=pill로 형태 자체가 달라 위계 명확. <b>단, DESIGN.md는 단일선택=밑줄탭 canon</b> — pill 도입은 계약 확장 필요.</div>
+        </div>
+      </div>
+    </div>
+    <p class="legend"><b>메모</b> · C의 pill은 지금 canon(모든 단일선택=밑줄탭, filled 금지)과 충돌 → 채택 시 DESIGN.md 개정 필요.
+      B는 canon 유지하며 위계만 부여(박스=구조적 마크). 그래서 B 권장.</p>
+  </section>
+
+  <!-- ⑦ strip vs header -->
+  <section class="block">
+    <h2 class="secttitle">⑦ 상단 스트립 → 도구 헤더 이관 <span class="flag">구조 파급</span></h2>
+    <p class="note">헤더 오른쪽이 늘 비어 있으니 파일정보·실행버튼을 거기로 올리자는 제안. 다만 <b>ToolTopStrip은 전 도구 공통</b>이고,
+      헤더는 <b>standalone 페이지에만</b> 있습니다(랜딩 인라인 마운트엔 헤더 없음). 그래서 파급이 큽니다.</p>
+    <div class="variants v2">
+      <div class="variant">
+        <div class="vh"><span class="vt">A · 현행(스트립 body)</span><span class="vd">헤더=제목/설명, 스트립=본문 상단</span></div>
+        <div class="vbody">
+          <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <div class="ws-mini-hd" style="padding:10px 14px;border-bottom:1px solid var(--border)">
+              <div style="font-family:var(--font-ko);font-size:14px;font-weight:500;color:var(--headline)">PDF 워터마크·페이지번호</div>
+              <div style="font-size:11px;color:var(--ink)">문서에 페이지 번호를 넣거나 워터마크를 추가합니다.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--hairline)">
+              <span style="font-size:11.5px;color:var(--ink)">악보.pdf <span style="color:var(--ink-soft)">· 84 KB · 12페이지</span></span>
+              <button class="b-file" style="margin-left:auto">다시 업로드</button>
+              <button class="b-exec">적용하기</button>
+            </div>
+            <div style="padding:14px;color:var(--ink-soft);font-size:11px">…미리보기 · 컨트롤…</div>
+          </div>
+          <div class="mini" style="margin-top:8px">전 도구와 동일 footprint. 헤더 오른쪽 빈 공간 유지.</div>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="vh"><span class="vt">B · 헤더로 이관</span><span class="vd">파일정보·실행이 헤더 우측</span></div>
+        <div class="vbody">
+          <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)">
+              <div>
+                <div style="font-family:var(--font-ko);font-size:14px;font-weight:500;color:var(--headline)">PDF 워터마크·페이지번호</div>
+                <div style="font-size:11px;color:var(--ink)">악보.pdf <span style="color:var(--ink-soft)">· 84 KB · 12페이지</span></div>
+              </div>
+              <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+                <button class="b-file">다시 업로드</button>
+                <button class="b-exec">적용하기</button>
+              </div>
+            </div>
+            <div style="padding:14px;color:var(--ink-soft);font-size:11px">…미리보기 · 컨트롤…</div>
+          </div>
+          <div class="mini" style="margin-top:8px">헤더 우측 활용·수직 1행 절약. <b>단</b> 설명문이 파일정보로 대체되고, 인라인 마운트(헤더 없음)와 갈림 → 공통 규격 E 재정의 필요.</div>
+        </div>
+      </div>
+    </div>
+    <p class="legend"><b>권장 처리</b> · ⑦은 전 도구·인라인까지 건드리는 공통 컴포넌트 변경이라 <b>이 PR에서 확정하기엔 큼</b>.
+      두 경로: (1) 이번엔 A 유지(pdf-watermark만 튀지 않게) + ⑦은 별도 "전 도구 헤더-스트립 통합" PR로. (2) 지금 B를 canon으로 정하고 전 도구·인라인 규격까지 이 세션에서 재설계.
+      어느 쪽이든 <b>pdf-watermark만 단독 이관은 지양</b>(E 통일 붕괴). 방향 결정 부탁.</p>
+  </section>
+
+  <!-- ⑥ page bg + button distinction -->
+  <section class="block">
+    <h2 class="secttitle">⑥ 적용페이지 배경 · 버튼 구분(상태 vs 파일열기)</h2>
+    <p class="note"><b>(a)</b> 적용페이지 영역이 회색(<code>--surface-2</code>)인 이유 = DESIGN.md 입력/트레이 canon.
+      셀을 흰색으로 뺄지 비교. <b>(b)</b> 상태설정 버튼(전체·지우기)과 파일열기 버튼(다시 업로드·로고 선택·이미지 업로드)을 시각 구분.</p>
+
+    <p class="grouplabel" style="margin:22px 0 0">(a) 적용페이지 셀 배경</p>
+    <div class="variants v3">
+      <div class="variant"><div class="vh"><span class="vt">a1 · 트레이 surface-2</span><span class="vd">현행</span></div><div class="vbody">
+        <div class="pr">
+          <div class="head"><span class="grouplabel">적용 페이지</span><span class="cnt">12 / 12</span></div>
+          <div class="cellbar"><input class="inp textinp" placeholder="예: 1, 3, 5-7" style="height:28px"><button class="b-subtle">전체</button><button class="b-subtle">지우기</button></div>
+          <div class="cells"><span class="cell on">1</span><span class="cell on">2</span><span class="cell on">3</span><span class="cell">4</span><span class="cell">5</span><span class="cell">6</span></div>
+        </div></div></div>
+      <div class="variant"><div class="vh"><span class="vt">a2 · 트레이 흰색</span><span class="vd">셀 tray=surface</span><span class="rec">권장</span></div><div class="vbody">
+        <div class="pr tray-white">
+          <div class="head"><span class="grouplabel">적용 페이지</span><span class="cnt">12 / 12</span></div>
+          <div class="cellbar"><input class="inp textinp" placeholder="예: 1, 3, 5-7" style="height:28px"><button class="b-subtle">전체</button><button class="b-subtle">지우기</button></div>
+          <div class="cells"><span class="cell on">1</span><span class="cell on">2</span><span class="cell on">3</span><span class="cell">4</span><span class="cell">5</span><span class="cell">6</span></div>
+        </div>
+        <div class="mini" style="margin-top:8px">트레이만 흰색, 텍스트 입력은 surface-2 유지(입력 canon). 셀 대비 ↑.</div></div></div>
+      <div class="variant"><div class="vh"><span class="vt">a3 · 셀만 강조</span><span class="vd">tray surface-2 · 셀 테두리만</span></div><div class="vbody">
+        <div class="pr">
+          <div class="head"><span class="grouplabel">적용 페이지</span><span class="cnt">12 / 12</span></div>
+          <div class="cellbar"><input class="inp textinp" placeholder="예: 1, 3, 5-7" style="height:28px"><button class="b-subtle">전체</button><button class="b-subtle">지우기</button></div>
+          <div class="cells" style="background:var(--surface-2)"><span class="cell on">1</span><span class="cell on">2</span><span class="cell on">3</span><span class="cell">4</span><span class="cell">5</span><span class="cell">6</span></div>
+        </div>
+        <div class="mini" style="margin-top:8px">배경 그대로, 대비는 셀 on-state로만.</div></div></div>
+    </div>
+
+    <p class="grouplabel" style="margin:26px 0 0">(b) 버튼 구분 — <b style="color:var(--ink-strong)">상태설정</b> vs <b style="color:var(--ink-strong)">파일열기</b></p>
+    <div class="variants v2">
+      <div class="variant"><div class="vh"><span class="vt">b1 · 선행 글리프</span><span class="vd">파일열기=아이콘+흰 fill</span><span class="rec">권장</span></div><div class="vbody">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <span class="grouplabel" style="width:100%;margin-bottom:2px">상태설정(surface-2, 텍스트만)</span>
+          <button class="b-subtle">전체</button><button class="b-subtle">지우기</button>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">
+          <span class="grouplabel" style="width:100%;margin-bottom:2px">파일열기(surface + 업로드 글리프)</span>
+          <button class="b-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5M7 10l5-5 5 5M5 19h14"/></svg>다시 업로드</button>
+          <button class="b-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5M7 10l5-5 5 5M5 19h14"/></svg>로고 선택</button>
+          <button class="b-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5M7 10l5-5 5 5M5 19h14"/></svg>이미지 업로드</button>
+        </div>
+        <div class="mini" style="margin-top:12px">구분 = 색상 아님(canon: hue 금지). <b>fill(surface vs surface-2) + 구조 마크(업로드 글리프)</b>. 글리프는 brand 규격(24그리드·stroke≈1).</div>
+      </div></div>
+      <div class="variant"><div class="vh"><span class="vt">b2 · fill 차이만</span><span class="vd">글리프 없이 fill로만</span></div><div class="vbody">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <span class="grouplabel" style="width:100%;margin-bottom:2px">상태설정(surface-2)</span>
+          <button class="b-subtle">전체</button><button class="b-subtle">지우기</button>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">
+          <span class="grouplabel" style="width:100%;margin-bottom:2px">파일열기(surface + 진한 테두리)</span>
+          <button class="b-file">다시 업로드</button><button class="b-file">로고 선택</button><button class="b-file">이미지 업로드</button>
+        </div>
+        <div class="mini" style="margin-top:12px">글리프 없이 fill·테두리 대비만. 구분이 약하고 아이콘 백로그와도 무관 — 접근성/명료성은 b1이 우위.</div>
+      </div></div>
+    </div>
+    <p class="legend"><b>메모</b> · 이 구분은 DESIGN.md L314/L477의 "모든 momentary action = 단일 Toolbar-subtle" 규정을 <b>2역할로 분화</b>하는 개정.
+      상태설정 = 기존 Toolbar-subtle(surface-2), 파일열기 = surface fill + 선행 업로드 글리프. 확정 시 DESIGN.md·brand.html 동기화.</p>
+  </section>
+
+  <!-- ④ drag -->
+  <section class="block">
+    <h2 class="secttitle">④ 미리보기에서 페이지번호 드래그 배치 <span class="flag">데이터 모델</span></h2>
+    <p class="note"><span class="rec">결정</span> <b>둘 다 유지</b>: 우측 패널의 <b>9앵커 그리드</b>(PositionGrid)는 프리셋 선택으로 그대로 두고,
+      미리보기에서 번호를 끌면 <b>자유 위치</b>가 됩니다. 아래에서 직접 끌어보세요 — 기본이 자유 이동입니다.</p>
+    <div class="variants v2">
+      <div class="variant"><div class="vh"><span class="vt">데모 · 자유 드래그</span><span class="vd">끌면 임의 좌표</span></div><div class="vbody">
+        <div class="pagebox" id="dragPage">
+          <div class="paper"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+          <div class="numtag drag" id="dragNum" style="left:50%;bottom:9%;transform:translateX(-50%)">12</div>
+        </div>
+        <div class="snaprow">
+          <label style="display:inline-flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="snapChk"> 9앵커에 스냅(참고용)</label>
+          <span id="posReadout" class="mini" style="margin:0"></span>
+        </div>
+      </div></div>
+      <div class="variant"><div class="vh"><span class="vt">상호작용 규칙</span></div><div class="vbody">
+        <p class="note" style="margin:0 0 10px"><b>9앵커 그리드(우패널)</b> — 클릭 시 해당 프리셋 위치로 스냅(빠른 모서리/중앙 지정). <code>GridPosition</code> 유지.</p>
+        <p class="note" style="margin:0 0 10px"><b>프리뷰 드래그</b> — 자유 <code>(x,y)</code>로 이동. 이때 그리드는 프리셋 선택 해제(=커스텀 상태) 표시. 그리드 다시 클릭하면 프리셋으로 복귀.</p>
+        <p class="note" style="margin:0"><b>모델</b> — 옵션에 정규화 <code>position:{x,y}</code>(또는 grid=custom+offset) 추가. <code>overlayLayout</code>·프리뷰·export가 같은 좌표계 공유. 회전/타일은 페이지번호 모드에선 미적용이라 상호작용 단순.</p>
+        <div class="mini" style="margin-top:10px">적용 대상 = 페이지번호 모드(요청 범위). 워터마크 자유배치는 후속 확장 여지.</div>
+      </div></div>
+    </div>
+    <p class="legend"><b>확정</b> · 9앵커 프리셋(우패널) + 프리뷰 자유 드래그 병행. 데이터모델에 정규화 좌표 추가 → overlayLayout/export 확장(⑧ 검증에서 회전·경계 클램프 테스트).</p>
+  </section>
+
+  <!-- ⑤ compact inputs (shown within full assembly) -->
+  <section class="block">
+    <h2 class="secttitle">⑤ 입력 컴팩트 재배열</h2>
+    <p class="note">시작·글자크기·색상·워터마크 문구를 더 조밀하게. 아래 §7 조립안의 우측 컨트롤에 반영해 두었습니다.</p>
+  </section>
+
+  <!-- ⑦ FULL ASSEMBLY -->
+  <section class="block">
+    <h2 class="secttitle">최종 조립안 (확정 선택 반영) <span class="rec">종합</span></h2>
+    <p class="note">① 구분선 · ② 기본 워터마크/좌측 · ③-B 설정박스 · ④ 9앵커+자유드래그 · ⑤ 컴팩트 · ⑥ a2 흰 셀트레이 + b2 fill구분 + <b>입력 surface-2 통일</b> · ⑦-B <b>헤더 통합</b>.
+      실제 도구 비율(좌 프리뷰 · 1px 구분선 · 우 컨트롤)로 근사. ⑦-B는 전 도구 공통이 되는 헤더 레이아웃.</p>
+    <div class="ws">
+      <div class="hd">
+        <div>
+          <div class="ttl">PDF 워터마크·페이지번호</div>
+          <div class="dsc">악보.pdf <span style="color:var(--ink-soft)">· 84 KB · 12페이지</span></div>
+        </div>
+        <div class="hd-right">
+          <button class="b-file">다시 업로드</button>
+          <button class="b-exec">적용하기</button>
+        </div>
+      </div>
+      <div class="panels divided">
+        <div class="left">
+          <div class="pagebox">
+            <div class="paper"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+            <div class="numtag" style="left:50%;bottom:9%;transform:translateX(-50%)">12</div>
+          </div>
+          <div class="mini" style="margin-top:8px">프리뷰(항상 유지) · 번호는 드래그로 <b>자유 이동</b>, 오른쪽 '위치'에서 9앵커 선택.</div>
+        </div>
+        <div class="right">
+          <div class="tabrow hug"><button class="tab on">워터마크</button><button class="tab">페이지 번호</button></div>
+          <div class="settingsbox">
+            <div class="tabrow hug" style="margin-bottom:12px"><button class="tab on">텍스트</button><button class="tab">로고 이미지</button></div>
+            <div class="co" style="align-items:stretch;gap:10px">
+              <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+                <div class="grid3">
+                  <label class="field"><span class="grouplabel">문구</span><input class="inp" value="CONFIDENTIAL" style="grid-column:span 3"></label>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px">
+                  <label class="field"><span class="grouplabel">글자</span><input class="inp" value="48"></label>
+                  <label class="field" style="width:52px"><span class="grouplabel">색</span><span class="swatchinp"><span class="chip"></span></span></label>
+                  <label class="field" style="width:52px"><span class="grouplabel">각도</span><input class="inp" value="45"></label>
+                </div>
+                <div class="slider"><div class="top"><span class="grouplabel">불투명도</span><input class="num" value="30"></div><input type="range" min="5" max="100" value="30"></div>
+              </div>
+              <div style="width:1px;background:var(--hairline)"></div>
+              <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+                <span class="grouplabel">위치</span>
+                <div class="posgrid">
+                  <button><span class="dot"></span></button><button><span class="dot"></span></button><button><span class="dot"></span></button>
+                  <button class="on"><span class="dot"></span></button><button><span class="dot"></span></button><button><span class="dot"></span></button>
+                  <button><span class="dot"></span></button><button><span class="dot"></span></button><button><span class="dot"></span></button>
+                </div>
+                <label style="display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-strong);cursor:pointer"><input type="checkbox"> 타일 반복</label>
+              </div>
+            </div>
+          </div>
+          <div class="pr">
+            <div class="head"><span class="grouplabel">적용 페이지</span><span class="cnt">12 / 12</span></div>
+            <div class="cellbar"><input class="inp textinp" value="1-12" style="height:30px"><button class="b-subtle">전체</button><button class="b-subtle">지우기</button></div>
+            <div class="mini">텍스트로만 선택(예: 1, 3, 5-7) · 셀 트레이 없음(기존 PageRangeSelector 그대로).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="legend">
+      <b>확정 반영</b> — ① 우패널 <code>border-left</code> 구분선 · ② 워터마크 기본·좌측 · ③-B 설정 박스(하위 토글 밑줄=버튼 폭만) · ④ 자유 드래그+우측 9앵커 · ⑤ 조밀 입력(전부 surface-2) · ⑥ 적용페이지=텍스트 전용(셀 없음)·상태버튼 surface-2 · ⑦-B 헤더 통합.<br>
+      <b>PR-1 헤더 버튼 수명주기</b> — idle: <code>[다시 업로드][적용하기]</code> → processing: <code>[다시 업로드⋯][처리 중…(비활성)]</code> → done: <code>[다시 업로드][다시 하기]</code>. '다시 하기'는 결과카드에서 헤더로 이관(ResultActions는 다운로드→핸드오프만).
+    </p>
+  </section>
+</div>
+
+<script>
+  document.getElementById('themeToggle').addEventListener('click', function(){
+    document.documentElement.classList.toggle('dark');
+  });
+  // ④ drag demo
+  (function(){
+    var page = document.getElementById('dragPage');
+    var num = document.getElementById('dragNum');
+    var snap = document.getElementById('snapChk');
+    var readout = document.getElementById('posReadout');
+    if(!page||!num) return;
+    var dragging = false;
+    // 9 anchors as fractions (x,y) with y measured from TOP for CSS
+    var anchors = [
+      [0.06,0.06,'top-left'],[0.5,0.06,'top-center'],[0.94,0.06,'top-right'],
+      [0.06,0.5,'mid-left'],[0.5,0.5,'center'],[0.94,0.5,'mid-right'],
+      [0.06,0.94,'bottom-left'],[0.5,0.94,'bottom-center'],[0.94,0.94,'bottom-right']
+    ];
+    function place(fx, fy){
+      num.style.left = (fx*100)+'%';
+      num.style.top = (fy*100)+'%';
+      num.style.bottom = 'auto';
+      num.style.transform = 'translate(-50%,-50%)';
+    }
+    function nearestAnchor(fx, fy){
+      var best=anchors[0], bd=1e9;
+      for(var i=0;i<anchors.length;i++){
+        var dx=anchors[i][0]-fx, dy=anchors[i][1]-fy, d=dx*dx+dy*dy;
+        if(d<bd){bd=d;best=anchors[i];}
+      }
+      return best;
+    }
+    function setReadout(label){ if(readout) readout.textContent = label ? ('→ '+label) : ''; }
+    function onMove(e){
+      if(!dragging) return;
+      var r = page.getBoundingClientRect();
+      var cx = (e.touches?e.touches[0].clientX:e.clientX);
+      var cy = (e.touches?e.touches[0].clientY:e.clientY);
+      var fx = Math.min(1,Math.max(0,(cx-r.left)/r.width));
+      var fy = Math.min(1,Math.max(0,(cy-r.top)/r.height));
+      place(fx,fy);
+      if(snap.checked){ var a=nearestAnchor(fx,fy); setReadout(a[2]); }
+      else setReadout(Math.round(fx*100)+'% , '+Math.round(fy*100)+'%');
+    }
+    function onUp(){
+      if(!dragging) return;
+      dragging=false; num.classList.remove('grabbing');
+      if(snap.checked){
+        var r = page.getBoundingClientRect();
+        var fx = (parseFloat(num.style.left)||50)/100;
+        var fy = (parseFloat(num.style.top)||50)/100;
+        var a = nearestAnchor(fx,fy);
+        place(a[0],a[1]); setReadout(a[2]);
+      }
+      window.removeEventListener('mousemove',onMove);
+      window.removeEventListener('mouseup',onUp);
+      window.removeEventListener('touchmove',onMove);
+      window.removeEventListener('touchend',onUp);
+    }
+    function onDown(e){
+      dragging=true; num.classList.add('grabbing'); e.preventDefault();
+      window.addEventListener('mousemove',onMove);
+      window.addEventListener('mouseup',onUp);
+      window.addEventListener('touchmove',onMove,{passive:false});
+      window.addEventListener('touchend',onUp);
+    }
+    num.addEventListener('mousedown',onDown);
+    num.addEventListener('touchstart',onDown,{passive:false});
+    setReadout('50% , 94% (자유)');
+  })();
+</script>
+</body>
+</html>
