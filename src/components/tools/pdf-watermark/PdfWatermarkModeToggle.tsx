@@ -10,7 +10,7 @@ interface PdfWatermarkModeToggleProps {
   disabled?: boolean;
 }
 
-const ORDER: WatermarkMode[] = ["number", "watermark"];
+const ORDER: WatermarkMode[] = ["watermark", "number"];
 
 export function PdfWatermarkModeToggle({
   value,
@@ -19,7 +19,7 @@ export function PdfWatermarkModeToggle({
   disabled = false,
 }: PdfWatermarkModeToggleProps) {
   return (
-    <div className="flex border-b" style={{ borderColor: "var(--hairline)" }}>
+    <div className="inline-flex border-b" style={{ borderColor: "var(--hairline)" }}>
       {ORDER.map((mode) => {
         const active = value === mode;
         const label = mode === "number" ? labels.modeNumber : labels.modeWatermark;
@@ -29,7 +29,7 @@ export function PdfWatermarkModeToggle({
             type="button"
             onClick={() => onChange(mode)}
             disabled={disabled}
-            className="flex-1 border-b-2 py-2 font-body text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            className="border-b-2 px-4 py-2 font-body text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               color: active ? "var(--ink-strong)" : "var(--ink-soft)",
               borderBottomColor: active ? "var(--emphasis)" : "transparent",
