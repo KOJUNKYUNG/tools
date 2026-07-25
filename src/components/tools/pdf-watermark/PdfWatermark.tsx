@@ -36,6 +36,7 @@ const DEFAULT_PAGE: PageNumberState = {
   fontPx: 12,
   color: "#444444",
   margin: 24,
+  position: null,
 };
 
 const DEFAULT_WM: WatermarkState = {
@@ -48,6 +49,7 @@ const DEFAULT_WM: WatermarkState = {
   opacity: 0.3,
   angle: 45,
   tile: false,
+  tileGap: 1,
   grid: "center",
   margin: 24,
 };

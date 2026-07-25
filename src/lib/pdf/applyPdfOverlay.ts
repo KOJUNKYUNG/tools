@@ -2,10 +2,10 @@ import { PDFDocument, PDFImage, PDFPage, degrees } from "pdf-lib";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 import { formatPageNumber, type PageNumberFormat } from "./pageNumberFormat";
 import {
-  computeAnchor,
   computeTilePositions,
   cornerForCenter,
-  defaultTileGaps,
+  scaledTileGaps,
+  resolveNumberCenter,
   visualSize,
   visualPointToUser,
   normalizeRotation,
@@ -38,6 +38,9 @@ export interface PageNumberOptions {
   fontPx: number;
   color: string;
   margin: number;
+  /** Normalized CENTER (0..1, top-left origin) for free placement, or null to
+   *  use the `grid` anchor + margin. */
+  position: { x: number; y: number } | null;
   /** Explicit 1-based pages to apply to. */
   pages: number[];
 }
@@ -56,6 +59,8 @@ export interface WatermarkOptions {
   angle: number;
   /** Repeat across the whole page on a grid. */
   tile: boolean;
+  /** Spacing multiplier between tiled repeats (0.5–3.0; 1 = default). */
+  tileGap: number;
   /** Anchor used when not tiling. */
   grid: GridPosition;
   margin: number;
@@ -98,8 +103,14 @@ export async function analyzePdfForOverlay(
   }
 }
 
-function tileCenters(pw: number, ph: number, w: number, h: number): Point[] {
-  const { gapX, gapY } = defaultTileGaps(w, h);
+function tileCenters(
+  pw: number,
+  ph: number,
+  w: number,
+  h: number,
+  gapMult: number,
+): Point[] {
+  const { gapX, gapY } = scaledTileGaps(w, h, gapMult);
   // The grid points double as tile CENTERS; edge tiles clip naturally.
   return computeTilePositions(pw, ph, w, h, gapX, gapY);
 }
@@ -108,6 +119,10 @@ interface DrawOpts {
   grid: GridPosition;
   margin: number;
   tile: boolean;
+  /** Tile-gap multiplier (only used when tiling). */
+  tileGap: number;
+  /** Free normalized center (top-left origin) for a non-tiled overlay, or null. */
+  position: { x: number; y: number } | null;
   /** Desired VISUAL angle in degrees (0 = upright as the user sees it). */
   angleDeg: number;
   opacity: number;
@@ -131,12 +146,17 @@ function drawOverlayOnPage(
   const { vw, vh } = visualSize(rotation, W, H);
 
   const centersV: Point[] = opts.tile
-    ? tileCenters(vw, vh, dw, dh)
+    ? tileCenters(vw, vh, dw, dh, opts.tileGap)
     : [
-        (() => {
-          const c = computeAnchor(opts.grid, vw, vh, dw, dh, opts.margin);
-          return { x: c.x + dw / 2, y: c.y + dh / 2 };
-        })(),
+        resolveNumberCenter({
+          grid: opts.grid,
+          position: opts.position,
+          pageW: vw,
+          pageH: vh,
+          boxW: dw,
+          boxH: dh,
+          margin: opts.margin,
+        }),
       ];
 
   const alphaDeg = opts.angleDeg + rotation;
@@ -188,7 +208,7 @@ export async function applyOverlay({
     pdf = await PDFDocument.load(bytes);
   } catch {
     throw new Error(
-      "PDF를 열 수 없습니다. 암호화되었거나 손상된 파일일 수 있습니다.",
+      "INVALID_INPUT: PDF를 열 수 없습니다. 암호화되었거나 손상된 파일일 수 있습니다.",
     );
   }
 
@@ -244,6 +264,8 @@ export async function applyOverlay({
           grid: options.grid,
           margin: options.margin,
           tile: false,
+          tileGap: 1,
+          position: options.position,
           angleDeg: 0,
           opacity: 1,
         });
@@ -303,6 +325,8 @@ export async function applyOverlay({
           grid: options.grid,
           margin: options.margin,
           tile: options.tile,
+          tileGap: options.tileGap,
+          position: null,
           angleDeg: options.angle,
           opacity,
         });
