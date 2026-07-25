@@ -136,13 +136,17 @@ export function defaultTileGaps(
   };
 }
 
-/** defaultTileGaps scaled by a user multiplier (>0); non-positive/NaN → 1. */
+/**
+ * defaultTileGaps scaled by a user multiplier. Any finite multiplier is honored,
+ * including 0 (tiles touch) and negatives (tiles overlap / denser than touching);
+ * `computeTilePositions` floors the resulting step at 1px. NaN → 1 (safety).
+ */
 export function scaledTileGaps(
   tileW: number,
   tileH: number,
   multiplier: number,
 ): { gapX: number; gapY: number } {
-  const m = Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  const m = Number.isFinite(multiplier) ? multiplier : 1;
   const base = defaultTileGaps(tileW, tileH);
   return { gapX: base.gapX * m, gapY: base.gapY * m };
 }

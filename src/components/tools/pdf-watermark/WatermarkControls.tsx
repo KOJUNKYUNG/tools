@@ -24,6 +24,11 @@ const GROUP_LABEL =
   "font-mono text-[11px] font-medium uppercase tracking-[0.08em] whitespace-nowrap";
 const SEG =
   "border-b-2 px-4 py-2 font-body text-[12px] transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+const INPUT_STYLE = {
+  borderColor: "var(--border)",
+  background: "var(--surface-2)",
+  color: "var(--ink-strong)",
+} as const;
 
 export function WatermarkControls({
   value,
@@ -34,6 +39,8 @@ export function WatermarkControls({
   disabled,
 }: WatermarkControlsProps) {
   const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const isText = value.source === "text";
+  const isImage = value.source === "image";
 
   return (
     <div className="space-y-2">
@@ -59,7 +66,7 @@ export function WatermarkControls({
         })}
       </div>
 
-      {/* Hidden logo picker — triggered by the Choose-logo button in the grid. */}
+      {/* Hidden logo picker — triggered by the Choose-logo button below. */}
       <input
         ref={logoInputRef}
         type="file"
@@ -77,106 +84,112 @@ export function WatermarkControls({
         }}
       />
 
-      {/* SOURCE INPUT — one skeleton (3-cell row + reserved caption line) with a
-          reserved min-height so switching text↔logo never shifts the rows below. */}
-      <div className="min-h-[72px] space-y-1">
-        <div className="grid grid-cols-[1fr_auto_auto] gap-2">
-          {/* cell 1 — text field / choose-logo */}
+      {/* SOURCE INPUT — the text and logo controls share ONE grid cell: both are
+          always laid out (only the active one is visible), so the slot is always
+          as tall as the taller mode. Switching source cannot change the height —
+          no reserved pixels, no shift by construction. */}
+      <div className="grid items-start">
+        {/* TEXT — text field + font + color */}
+        <div
+          className={`col-start-1 row-start-1 grid grid-cols-[1fr_auto_auto] gap-2${
+            isText ? "" : " invisible pointer-events-none"
+          }`}
+          aria-hidden={!isText}
+        >
           <label className="min-w-0 space-y-1">
             <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
-              {value.source === "text" ? labels.textLabel : labels.sourceImage}
+              {labels.textLabel}
             </span>
-            {value.source === "text" ? (
-              <input
-                type="text"
-                value={value.text}
-                disabled={disabled}
-                placeholder={labels.textPlaceholder}
-                onChange={(e) => onChange({ text: e.target.value })}
-                className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px]"
-                style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
-              />
-            ) : (
+            <input
+              type="text"
+              value={value.text}
+              disabled={disabled || !isText}
+              placeholder={labels.textPlaceholder}
+              onChange={(e) => onChange({ text: e.target.value })}
+              className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px]"
+              style={INPUT_STYLE}
+            />
+          </label>
+          <label className="w-16 space-y-1">
+            <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+              {labels.fontSizeLabel}
+            </span>
+            <input
+              type="number"
+              min={8}
+              max={200}
+              value={value.fontPx}
+              disabled={disabled || !isText}
+              onChange={(e) => onChange({ fontPx: Math.min(200, Math.max(8, Number(e.target.value) || 48)) })}
+              className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
+              style={INPUT_STYLE}
+            />
+          </label>
+          <label className="w-10 space-y-1">
+            <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+              {labels.colorLabel}
+            </span>
+            <input
+              type="color"
+              value={value.color}
+              disabled={disabled || !isText}
+              onChange={(e) => onChange({ color: e.target.value })}
+              className="h-8 w-full cursor-pointer rounded-[6px] border"
+              style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
+            />
+          </label>
+        </div>
+        {/* LOGO — choose button + scale, with the picked file name below */}
+        <div
+          className={`col-start-1 row-start-1 space-y-1${
+            isImage ? "" : " invisible pointer-events-none"
+          }`}
+          aria-hidden={!isImage}
+        >
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <label className="min-w-0 space-y-1">
+              <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+                {labels.sourceImage}
+              </span>
               <button
                 type="button"
-                disabled={disabled}
+                disabled={disabled || !isImage}
                 onClick={() => logoInputRef.current?.click()}
                 className="file-action h-8 w-full truncate rounded-[6px] px-3 text-center font-body text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ color: "var(--ink-strong)" }}
               >
                 {labels.logoSelect}
               </button>
-            )}
-          </label>
-          {/* cell 2 — font size / logo scale */}
-          <label className="w-16 space-y-1">
-            <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
-              {value.source === "text" ? labels.fontSizeLabel : labels.logoScaleLabel}
-            </span>
-            {value.source === "text" ? (
-              <input
-                type="number"
-                min={8}
-                max={200}
-                value={value.fontPx}
-                disabled={disabled}
-                onChange={(e) => onChange({ fontPx: Math.min(200, Math.max(8, Number(e.target.value) || 48)) })}
-                className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
-                style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
-              />
-            ) : (
+            </label>
+            <label className="w-16 space-y-1">
+              <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+                {labels.logoScaleLabel}
+              </span>
               <input
                 type="number"
                 min={5}
                 max={100}
                 value={Math.round(value.logoScale * 100)}
-                disabled={disabled}
+                disabled={disabled || !isImage}
                 onChange={(e) => onChange({ logoScale: Math.min(100, Math.max(5, Number(e.target.value) || 40)) / 100 })}
                 className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
-                style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
+                style={INPUT_STYLE}
               />
-            )}
-          </label>
-          {/* cell 3 — color (text) / reserved spacer (image) */}
-          <label className="w-10 space-y-1">
-            <span
-              className={GROUP_LABEL}
-              style={{ color: "var(--ink-soft)", visibility: value.source === "text" ? "visible" : "hidden" }}
-            >
-              {labels.colorLabel}
-            </span>
-            {value.source === "text" ? (
-              <input
-                type="color"
-                value={value.color}
-                disabled={disabled}
-                onChange={(e) => onChange({ color: e.target.value })}
-                className="h-8 w-full cursor-pointer rounded-[6px] border"
-                style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
-              />
-            ) : (
-              <div className="h-8" aria-hidden="true" />
-            )}
-          </label>
+            </label>
+          </div>
+          <span
+            className="block truncate font-body text-[11px]"
+            style={{ color: "var(--ink-soft)" }}
+            title={logoName ?? labels.logoHint}
+          >
+            {logoName ?? labels.logoHint}
+          </span>
         </div>
-        {/* caption — reserved line; shows the picked logo name in image mode */}
-        <span
-          className="block h-[15px] truncate font-body text-[11px]"
-          style={{ color: "var(--ink-soft)" }}
-          title={value.source === "image" ? (logoName ?? labels.logoHint) : undefined}
-        >
-          {value.source === "image" ? (logoName ?? labels.logoHint) : " "}
-        </span>
       </div>
 
-      {/*
-        Fixed 2-column layout, identical for text + image modes:
-          LEFT  — opacity over rotation (stacked)
-          RIGHT — tile-repeat toggle over the position grid
-        The position grid is ALWAYS rendered (dimmed + disabled while tiling),
-        so toggling tile repeat never changes the height — no layout jump, no
-        scrollbar appearing/disappearing.
-      */}
+      {/* Fixed 2-column body, identical for both sources:
+          LEFT  — opacity over rotation
+          RIGHT — tile toggle over the position-grid / tile-spacing slot */}
       <div className="grid grid-cols-2 gap-x-4">
         <div className="space-y-3">
           <Slider
@@ -212,28 +225,37 @@ export function WatermarkControls({
             />
             {labels.tileLabel}
           </label>
-          {/* Reserved-height slot: position grid (preset) OR the labeled
-              tile-spacing slider — a tiled mark ignores the anchor. min-h
-              matches the grid so toggling tile never shifts the layout. */}
-          <div className="min-h-[104px]">
-            {value.tile ? (
-              <Slider
-                label={labels.tileGapLabel}
-                min={10}
-                max={300}
-                value={Math.round(value.tileGap * 100)}
-                disabled={disabled}
-                onChange={(v) => onChange({ tileGap: v / 100 })}
-                suffix="%"
-              />
-            ) : (
+          {/* The position grid (preset) and the tile-spacing slider share ONE
+              grid cell — both always laid out, only the active one visible — so
+              the slot is always as tall as the grid. Toggling tile can't shift
+              the layout, with no reserved pixels. A tiled mark ignores the
+              anchor, so tiling shows spacing instead of position. */}
+          <div className="grid items-start">
+            <div
+              className={`col-start-1 row-start-1${value.tile ? " invisible pointer-events-none" : ""}`}
+              aria-hidden={value.tile}
+            >
               <PositionGrid
                 value={value.grid}
                 onChange={(grid: GridPosition) => onChange({ grid, position: null })}
                 label={labels.positionLabel}
-                disabled={disabled}
+                disabled={disabled || value.tile}
               />
-            )}
+            </div>
+            <div
+              className={`col-start-1 row-start-1${value.tile ? "" : " invisible pointer-events-none"}`}
+              aria-hidden={!value.tile}
+            >
+              <Slider
+                label={labels.tileGapLabel}
+                min={-50}
+                max={300}
+                value={Math.round(value.tileGap * 100)}
+                disabled={disabled || !value.tile}
+                onChange={(v) => onChange({ tileGap: v / 100 })}
+                suffix="%"
+              />
+            </div>
           </div>
         </div>
       </div>

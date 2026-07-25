@@ -165,8 +165,14 @@ describe("scaledTileGaps", () => {
     expect(s.gapX).toBeCloseTo(base.gapX * 2);
     expect(s.gapY).toBeCloseTo(base.gapY * 2);
   });
-  it("clamps a non-positive/NaN multiplier to 1", () => {
-    expect(scaledTileGaps(100, 40, 0)).toEqual(defaultTileGaps(100, 40));
+  it("honors 0 (touching) and negative (overlapping) multipliers", () => {
+    expect(scaledTileGaps(100, 40, 0)).toEqual({ gapX: 0, gapY: 0 });
+    const base = defaultTileGaps(100, 40);
+    const neg = scaledTileGaps(100, 40, -0.5);
+    expect(neg.gapX).toBeCloseTo(base.gapX * -0.5);
+    expect(neg.gapY).toBeCloseTo(base.gapY * -0.5);
+  });
+  it("falls back to 1 on a NaN multiplier", () => {
     expect(scaledTileGaps(100, 40, Number.NaN)).toEqual(defaultTileGaps(100, 40));
   });
 });
