@@ -200,38 +200,43 @@ export function WatermarkControls({
         </div>
 
         <div className="space-y-2">
-          <label
-            className="flex items-center gap-2 font-body text-[12px]"
-            style={{ color: "var(--ink-strong)" }}
-          >
+          <div className="flex items-center gap-3">
+            <label
+              className="flex shrink-0 items-center gap-2 font-body text-[12px]"
+              style={{ color: "var(--ink-strong)" }}
+            >
+              <input
+                type="checkbox"
+                checked={value.tile}
+                disabled={disabled}
+                onChange={(e) => onChange({ tile: e.target.checked })}
+              />
+              {labels.tileLabel}
+            </label>
+            {/* Tile spacing rides the checkbox row (reserved) so toggling tile
+                never changes the column height. */}
             <input
-              type="checkbox"
-              checked={value.tile}
-              disabled={disabled}
-              onChange={(e) => onChange({ tile: e.target.checked })}
-            />
-            {labels.tileLabel}
-          </label>
-          {/* Position vs tile-gap are mutually exclusive: a tiled watermark
-              ignores the anchor, so the slot swaps to the spacing slider. */}
-          {value.tile ? (
-            <Slider
-              label={labels.tileGapLabel}
-              min={50}
+              type="range"
+              min={10}
               max={300}
               value={Math.round(value.tileGap * 100)}
-              disabled={disabled}
-              onChange={(v) => onChange({ tileGap: v / 100 })}
-              suffix="%"
+              disabled={disabled || !value.tile}
+              onChange={(e) => onChange({ tileGap: Number(e.target.value) / 100 })}
+              className="min-w-0 flex-1 accent-[color:var(--emphasis)]"
+              style={{ visibility: value.tile ? "visible" : "hidden" }}
+              aria-label={labels.tileGapLabel}
             />
-          ) : (
+          </div>
+          {/* Position grid: always rendered (dimmed while tiling, which ignores
+              the anchor) so tile toggle never shifts the layout. */}
+          <div style={{ opacity: value.tile ? 0.4 : 1 }} aria-hidden={value.tile}>
             <PositionGrid
               value={value.grid}
-              onChange={(grid: GridPosition) => onChange({ grid })}
+              onChange={(grid: GridPosition) => onChange({ grid, position: null })}
               label={labels.positionLabel}
-              disabled={disabled}
+              disabled={disabled || value.tile}
             />
-          )}
+          </div>
         </div>
       </div>
     </div>

@@ -64,6 +64,9 @@ export interface WatermarkOptions {
   /** Anchor used when not tiling. */
   grid: GridPosition;
   margin: number;
+  /** Normalized CENTER (0..1, top-left origin) for free placement when not
+   *  tiling, or null to use the `grid` anchor + margin. */
+  position: { x: number; y: number } | null;
   /** Explicit 1-based pages to apply to. */
   pages: number[];
 }
@@ -326,7 +329,7 @@ export async function applyOverlay({
           margin: options.margin,
           tile: options.tile,
           tileGap: options.tileGap,
-          position: null,
+          position: options.tile ? null : options.position,
           angleDeg: options.angle,
           opacity,
         });

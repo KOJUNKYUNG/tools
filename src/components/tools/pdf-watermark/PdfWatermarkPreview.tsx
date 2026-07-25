@@ -68,7 +68,7 @@ export function PdfWatermarkPreview({
 }: PdfWatermarkPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // Number-mode hit box (canvas-internal coords) for drag hit-testing.
-  const numBoxRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const overlayBoxRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   const draggingRef = useRef(false);
   const [cursor, setCursor] = useState<"grab" | "grabbing" | "default">("default");
   const pageCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -208,10 +208,10 @@ export function PdfWatermarkPreview({
       ctx.fillStyle = pageOpts.color;
       ctx.textBaseline = "alphabetic";
       ctx.fillText(text, cornerX + box.pad, topY + box.pad + box.ascent);
-      numBoxRef.current = { x: cornerX, y: topY, w: box.width, h: box.height };
+      overlayBoxRef.current = { x: cornerX, y: topY, w: box.width, h: box.height };
       return;
     }
-    numBoxRef.current = null;
+    overlayBoxRef.current = null;
 
     // watermark
     ctx.globalAlpha = clampOpacity(wmOpts.opacity);
@@ -262,7 +262,7 @@ export function PdfWatermarkPreview({
       : [
           resolveNumberCenter({
             grid: wmOpts.grid,
-            position: null,
+            position: wmOpts.position,
             pageW,
             pageH,
             boxW: drawW,
@@ -272,9 +272,24 @@ export function PdfWatermarkPreview({
         ];
     for (const c of centers) paint(c.x, c.y);
     ctx.globalAlpha = 1;
+    // A single (non-tiled) watermark is draggable — store its hit box (the
+    // axis-aligned box around the center; rotation is ignored for hit-testing).
+    if (!wmOpts.tile) {
+      const c = centers[0];
+      overlayBoxRef.current = {
+        x: c.x - drawW / 2,
+        y: pageH - c.y - drawH / 2,
+        w: drawW,
+        h: drawH,
+      };
+    }
   }
 
   const showPlaceholder = !file || (!pageCanvasRef.current && analyzing);
+
+  // A single overlay is draggable: the page number, or a non-tiled watermark.
+  const draggable =
+    !!onPositionChange && (mode === "number" || (mode === "watermark" && !wmOpts.tile));
 
   // Map a pointer event to normalized (0..1) + canvas-internal coords.
   function canvasPoint(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -287,17 +302,17 @@ export function PdfWatermarkPreview({
     return { nx, ny, cx: nx * canvas.width, cy: ny * canvas.height };
   }
 
-  function hitNumber(cx: number, cy: number) {
-    const b = numBoxRef.current;
+  function hitOverlay(cx: number, cy: number) {
+    const b = overlayBoxRef.current;
     if (!b) return false;
     const pad = 12;
     return cx >= b.x - pad && cx <= b.x + b.w + pad && cy >= b.y - pad && cy <= b.y + b.h + pad;
   }
 
   function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (mode !== "number" || !onPositionChange) return;
+    if (!draggable) return;
     const p = canvasPoint(e);
-    if (!p || !hitNumber(p.cx, p.cy)) return;
+    if (!p || !hitOverlay(p.cx, p.cy)) return;
     draggingRef.current = true;
     setCursor("grabbing");
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -305,7 +320,7 @@ export function PdfWatermarkPreview({
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (mode !== "number") return;
+    if (!draggable) return;
     const p = canvasPoint(e);
     if (!p) return;
     if (draggingRef.current && onPositionChange) {
@@ -315,7 +330,7 @@ export function PdfWatermarkPreview({
       });
       return;
     }
-    setCursor(hitNumber(p.cx, p.cy) ? "grab" : "default");
+    setCursor(hitOverlay(p.cx, p.cy) ? "grab" : "default");
   }
 
   function endDrag(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -337,7 +352,7 @@ export function PdfWatermarkPreview({
       <canvas
         ref={canvasRef}
         className="absolute inset-0 m-auto max-h-full max-w-full object-contain"
-        style={{ cursor: mode === "number" ? cursor : "default", touchAction: "none" }}
+        style={{ cursor: draggable ? cursor : "default", touchAction: "none" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={endDrag}
