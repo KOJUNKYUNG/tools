@@ -16,6 +16,13 @@ const ERROR_MESSAGES: Record<ToolErrorCode, string> = {
  */
 export const WRONG_PASSWORD_PREFIX = "WRONG_PASSWORD";
 
+/**
+ * Sentinel prefix for a caller-detected invalid/unreadable input (e.g. a PDF
+ * pdf-lib refuses to parse). Lets a tool supply a task-specific hint while
+ * defaulting to the shared INVALID_FILE message.
+ */
+export const INVALID_INPUT_PREFIX = "INVALID_INPUT";
+
 export interface GetErrorMessageOptions {
   fallbackMessage?: string;
   memoryHint?: string;
@@ -30,6 +37,11 @@ export interface GetErrorMessageOptions {
    * by the `WRONG_PASSWORD:` prefix on the thrown error message.
    */
   wrongPasswordHint?: string;
+  /**
+   * Override message for an input the caller flagged as invalid/unreadable.
+   * Detected by the `INVALID_INPUT` prefix on the thrown error message.
+   */
+  invalidInputHint?: string;
 }
 
 export function getErrorMessage(
@@ -43,6 +55,14 @@ export function getErrorMessage(
       code: ToolErrorCode.INVALID_FILE,
       message:
         options.wrongPasswordHint ?? ERROR_MESSAGES[ToolErrorCode.INVALID_FILE],
+    };
+  }
+
+  if (rawMessage.startsWith(INVALID_INPUT_PREFIX)) {
+    return {
+      code: ToolErrorCode.INVALID_FILE,
+      message:
+        options.invalidInputHint ?? ERROR_MESSAGES[ToolErrorCode.INVALID_FILE],
     };
   }
 
