@@ -21,7 +21,7 @@ interface WatermarkControlsProps {
 }
 
 const GROUP_LABEL =
-  "font-mono text-[11px] font-medium uppercase tracking-[0.08em]";
+  "font-mono text-[11px] font-medium uppercase tracking-[0.08em] whitespace-nowrap";
 const SEG =
   "border-b-2 px-4 py-2 font-body text-[12px] transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -77,9 +77,9 @@ export function WatermarkControls({
         }}
       />
 
-      {/* SOURCE INPUT — one skeleton (3-cell row + reserved caption line) so
-          switching text↔logo keeps a constant footprint (no rows shift). */}
-      <div className="space-y-1">
+      {/* SOURCE INPUT — one skeleton (3-cell row + reserved caption line) with a
+          reserved min-height so switching text↔logo never shifts the rows below. */}
+      <div className="min-h-[72px] space-y-1">
         <div className="grid grid-cols-[1fr_auto_auto] gap-2">
           {/* cell 1 — text field / choose-logo */}
           <label className="min-w-0 space-y-1">
@@ -101,7 +101,7 @@ export function WatermarkControls({
                 type="button"
                 disabled={disabled}
                 onClick={() => logoInputRef.current?.click()}
-                className="file-action h-8 w-full truncate rounded-[6px] px-3 text-left font-body text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+                className="file-action h-8 w-full truncate rounded-[6px] px-3 text-center font-body text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ color: "var(--ink-strong)" }}
               >
                 {labels.logoSelect}
@@ -200,42 +200,40 @@ export function WatermarkControls({
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <label
-              className="flex shrink-0 items-center gap-2 font-body text-[12px]"
-              style={{ color: "var(--ink-strong)" }}
-            >
-              <input
-                type="checkbox"
-                checked={value.tile}
-                disabled={disabled}
-                onChange={(e) => onChange({ tile: e.target.checked })}
-              />
-              {labels.tileLabel}
-            </label>
-            {/* Tile spacing rides the checkbox row (reserved) so toggling tile
-                never changes the column height. */}
+          <label
+            className="flex items-center gap-2 font-body text-[12px]"
+            style={{ color: "var(--ink-strong)" }}
+          >
             <input
-              type="range"
-              min={10}
-              max={300}
-              value={Math.round(value.tileGap * 100)}
-              disabled={disabled || !value.tile}
-              onChange={(e) => onChange({ tileGap: Number(e.target.value) / 100 })}
-              className="min-w-0 flex-1 accent-[color:var(--emphasis)]"
-              style={{ visibility: value.tile ? "visible" : "hidden" }}
-              aria-label={labels.tileGapLabel}
+              type="checkbox"
+              checked={value.tile}
+              disabled={disabled}
+              onChange={(e) => onChange({ tile: e.target.checked })}
             />
-          </div>
-          {/* Position grid: always rendered (dimmed while tiling, which ignores
-              the anchor) so tile toggle never shifts the layout. */}
-          <div style={{ opacity: value.tile ? 0.4 : 1 }} aria-hidden={value.tile}>
-            <PositionGrid
-              value={value.grid}
-              onChange={(grid: GridPosition) => onChange({ grid, position: null })}
-              label={labels.positionLabel}
-              disabled={disabled || value.tile}
-            />
+            {labels.tileLabel}
+          </label>
+          {/* Reserved-height slot: position grid (preset) OR the labeled
+              tile-spacing slider — a tiled mark ignores the anchor. min-h
+              matches the grid so toggling tile never shifts the layout. */}
+          <div className="min-h-[104px]">
+            {value.tile ? (
+              <Slider
+                label={labels.tileGapLabel}
+                min={10}
+                max={300}
+                value={Math.round(value.tileGap * 100)}
+                disabled={disabled}
+                onChange={(v) => onChange({ tileGap: v / 100 })}
+                suffix="%"
+              />
+            ) : (
+              <PositionGrid
+                value={value.grid}
+                onChange={(grid: GridPosition) => onChange({ grid, position: null })}
+                label={labels.positionLabel}
+                disabled={disabled}
+              />
+            )}
           </div>
         </div>
       </div>
