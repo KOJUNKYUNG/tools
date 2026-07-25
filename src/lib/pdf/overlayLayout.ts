@@ -137,6 +137,35 @@ export function defaultTileGaps(
 }
 
 /**
+ * Center (visual space, bottom-left origin, y-up) at which to place a page
+ * number. `position` is normalized top-left (0..1, y-down — canvas-natural);
+ * null falls back to the `grid` anchor + margin. Clamped so the box stays on-page.
+ */
+export function resolveNumberCenter(opts: {
+  grid: GridPosition;
+  position: { x: number; y: number } | null;
+  pageW: number;
+  pageH: number;
+  boxW: number;
+  boxH: number;
+  margin: number;
+}): Point {
+  const { grid, position, pageW, pageH, boxW, boxH, margin } = opts;
+  const clamp = (v: number, lo: number, hi: number) =>
+    Math.min(Math.max(v, lo), Math.min(hi, Math.max(lo, hi)));
+  if (position) {
+    const cx = position.x * pageW;
+    const cy = pageH - position.y * pageH; // flip top-left → bottom-left
+    return {
+      x: clamp(cx, boxW / 2, pageW - boxW / 2),
+      y: clamp(cy, boxH / 2, pageH - boxH / 2),
+    };
+  }
+  const corner = computeAnchor(grid, pageW, pageH, boxW, boxH, margin);
+  return { x: corner.x + boxW / 2, y: corner.y + boxH / 2 };
+}
+
+/**
  * Page rotation handling (pdf `/Rotate`, clockwise when displayed).
  *
  * pdf-lib's `drawImage` draws in UNROTATED user space (MediaBox coords,

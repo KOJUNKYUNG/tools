@@ -10,6 +10,7 @@ import {
   clampOpacity,
   degToRad,
   GRID_POSITIONS,
+  resolveNumberCenter,
 } from "./overlayLayout";
 
 const page = { w: 200, h: 100 };
@@ -150,6 +151,31 @@ describe("visualPointToUser (upright-view point → pdf user space)", () => {
     const u = visualPointToUser(90, W, H, 70, 120);
     const vBack = { x: u.y, y: W - u.x };
     expect(vBack).toEqual({ x: 70, y: 120 });
+  });
+});
+
+describe("resolveNumberCenter", () => {
+  const base = { pageW: 200, pageH: 100, boxW: 20, boxH: 10, margin: 8 };
+  it("null position === the grid anchor's center (preset parity)", () => {
+    const c = resolveNumberCenter({ grid: "bottom-center", position: null, ...base });
+    const corner = computeAnchor("bottom-center", base.pageW, base.pageH, base.boxW, base.boxH, base.margin);
+    expect(c.x).toBeCloseTo(corner.x + base.boxW / 2);
+    expect(c.y).toBeCloseTo(corner.y + base.boxH / 2);
+  });
+  it("free position maps normalized top-left to visual bottom-left center", () => {
+    const c = resolveNumberCenter({ grid: "center", position: { x: 0.5, y: 0.25 }, ...base });
+    expect(c.x).toBeCloseTo(100);
+    expect(c.y).toBeCloseTo(75);
+  });
+  it("clamps a top-left corner drag so the box stays fully on-page", () => {
+    const c = resolveNumberCenter({ grid: "center", position: { x: 0, y: 0 }, ...base });
+    expect(c.x).toBeCloseTo(10);
+    expect(c.y).toBeCloseTo(95);
+  });
+  it("clamps an out-of-range position into the page", () => {
+    const c = resolveNumberCenter({ grid: "center", position: { x: 1.5, y: 1.5 }, ...base });
+    expect(c.x).toBeCloseTo(base.pageW - base.boxW / 2);
+    expect(c.y).toBeCloseTo(base.boxH / 2);
   });
 });
 
