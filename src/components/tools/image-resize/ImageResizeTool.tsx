@@ -478,7 +478,6 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                       onRetry={retry}
                       onDownload={download}
                       downloadFileName={downloadFileName}
-                      onTryAnother={retry}
                     />
                   )}
 

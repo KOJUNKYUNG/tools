@@ -15,7 +15,7 @@ describe("derivePrimaryState", () => {
   it("returns 'again' when done", () => {
     expect(derivePrimaryState({ hasFile: true, status: "done" })).toBe("again");
   });
-  it("returns 'execute' on error so the user can re-run", () => {
-    expect(derivePrimaryState({ hasFile: true, status: "error" })).toBe("execute");
+  it("returns null on error — the body's ProcessingStatus owns retry there", () => {
+    expect(derivePrimaryState({ hasFile: true, status: "error" })).toBeNull();
   });
 });
