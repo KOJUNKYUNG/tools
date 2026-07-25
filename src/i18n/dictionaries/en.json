@@ -340,6 +340,7 @@
         "opacityLabel": "Opacity",
         "angleLabel": "Rotation",
         "tileLabel": "Tile repeat",
+        "tileGapLabel": "Tile spacing",
         "apply": "Apply",
         "processing": "Processing…",
         "analyzingHint": "Analyzing…",
@@ -350,7 +351,8 @@
         "download": "Download",
         "again": "Start over",
         "errorMemory": "Browser ran out of memory. Try a smaller PDF.",
-        "errorCorrupt": "The output PDF is unusable. Adjust the settings and try again."
+        "errorCorrupt": "The output PDF is unusable. Adjust the settings and try again.",
+        "errorOpen": "Couldn't open this PDF. It may be encrypted or damaged."
       }
     },
     "pdf-lock": {
