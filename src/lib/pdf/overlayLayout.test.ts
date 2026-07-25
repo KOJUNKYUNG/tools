@@ -11,6 +11,7 @@ import {
   degToRad,
   GRID_POSITIONS,
   resolveNumberCenter,
+  scaledTileGaps,
 } from "./overlayLayout";
 
 const page = { w: 200, h: 100 };
@@ -151,6 +152,22 @@ describe("visualPointToUser (upright-view point → pdf user space)", () => {
     const u = visualPointToUser(90, W, H, 70, 120);
     const vBack = { x: u.y, y: W - u.x };
     expect(vBack).toEqual({ x: 70, y: 120 });
+  });
+});
+
+describe("scaledTileGaps", () => {
+  it("multiplier 1 === defaultTileGaps", () => {
+    expect(scaledTileGaps(100, 40, 1)).toEqual(defaultTileGaps(100, 40));
+  });
+  it("scales both gaps by the multiplier", () => {
+    const base = defaultTileGaps(100, 40);
+    const s = scaledTileGaps(100, 40, 2);
+    expect(s.gapX).toBeCloseTo(base.gapX * 2);
+    expect(s.gapY).toBeCloseTo(base.gapY * 2);
+  });
+  it("clamps a non-positive/NaN multiplier to 1", () => {
+    expect(scaledTileGaps(100, 40, 0)).toEqual(defaultTileGaps(100, 40));
+    expect(scaledTileGaps(100, 40, Number.NaN)).toEqual(defaultTileGaps(100, 40));
   });
 });
 

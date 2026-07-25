@@ -136,6 +136,17 @@ export function defaultTileGaps(
   };
 }
 
+/** defaultTileGaps scaled by a user multiplier (>0); non-positive/NaN → 1. */
+export function scaledTileGaps(
+  tileW: number,
+  tileH: number,
+  multiplier: number,
+): { gapX: number; gapY: number } {
+  const m = Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+  const base = defaultTileGaps(tileW, tileH);
+  return { gapX: base.gapX * m, gapY: base.gapY * m };
+}
+
 /**
  * Center (visual space, bottom-left origin, y-up) at which to place a page
  * number. `position` is normalized top-left (0..1, y-down — canvas-natural);
