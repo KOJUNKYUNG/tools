@@ -60,7 +60,7 @@ interface PdfWatermarkProps {
 }
 
 export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
-  const [mode, setMode] = useState<WatermarkMode>("number");
+  const [mode, setMode] = useState<WatermarkMode>("watermark");
   const [pageOpts, setPageOpts] = useState<PageNumberState>(DEFAULT_PAGE);
   const [wmOpts, setWmOpts] = useState<WatermarkState>(DEFAULT_WM);
   const [logoName, setLogoName] = useState<string | null>(null);
@@ -101,6 +101,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
     errorOptions: {
       memoryHint: labels.errorMemory,
       corruptOutputHint: labels.errorCorrupt,
+      invalidInputHint: labels.errorOpen,
     },
   });
 
@@ -271,6 +272,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
       againLabel={labels.again}
       onExecute={handleApplyClick}
       onAgain={handleAgain}
+      executeDisabled={selectedPages.size === 0}
     />
   );
 
@@ -299,9 +301,9 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
         />
       ) : (
         <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 md:grid-cols-2">
             {/* LEFT: live preview (persists) */}
-            <div className="flex h-full min-h-0 flex-col gap-2">
+            <div className="flex h-full min-h-0 flex-col gap-2 md:pr-5">
               <PdfWatermarkPreview
               file={file}
               mode={mode}
@@ -310,10 +312,15 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
               analysis={analysis}
               analyzing={analyzing}
               labels={labels}
+              onPositionChange={(position) => patchPage({ position })}
             />
           </div>
 
-          {/* RIGHT: controls / result / status */}
+          {/* RIGHT: controls / result / status — 1px panel divider */}
+          <div
+            className="flex h-full min-h-0 flex-col md:border-l md:pl-5"
+            style={{ borderColor: "var(--border)" }}
+          >
           {isDone && result ? (
             <div className="self-start">
               <PdfWatermarkResult
@@ -334,7 +341,11 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
                 labels={labels}
                 disabled={busy}
               />
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                <div
+                  className="space-y-3 rounded-[8px] border p-3"
+                  style={{ borderColor: "var(--border)" }}
+                >
                 {mode === "number" ? (
                   <PageNumberControls
                     value={pageOpts}
@@ -380,6 +391,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
                     )}
                   </>
                 )}
+                </div>
               </div>
             </div>
           ) : (
@@ -391,6 +403,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
               labels={{ processing: labels.processing }}
             />
           )}
+          </div>
           </div>
         </div>
       )}
