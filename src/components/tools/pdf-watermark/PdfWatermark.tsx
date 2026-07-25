@@ -334,16 +334,16 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
           ) : status === "idle" ? (
             // Mode toggle + apply stay pinned; only the controls scroll, so the
             // taller watermark controls never clip the top of the card.
-            <div className="flex h-full min-h-0 flex-col gap-3">
+            <div className="flex h-full min-h-0 flex-col gap-2.5">
               <PdfWatermarkModeToggle
                 value={mode}
                 onChange={setMode}
                 labels={labels}
                 disabled={busy}
               />
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="min-h-0 flex-1 pr-1">
                 <div
-                  className="space-y-3 rounded-[8px] border p-3"
+                  className="space-y-2.5 rounded-[8px] border p-2.5"
                   style={{ borderColor: "var(--border)" }}
                 >
                 {mode === "number" ? (

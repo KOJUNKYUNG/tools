@@ -164,22 +164,6 @@ export function WatermarkControls({
             onChange={(v) => onChange({ angle: v })}
             suffix="°"
           />
-          {/* Tile-gap: only meaningful while tiling. Always rendered (visibility
-              toggle) so enabling tile never shifts the control column height. */}
-          <div
-            style={{ visibility: value.tile ? "visible" : "hidden" }}
-            aria-hidden={!value.tile}
-          >
-            <Slider
-              label={labels.tileGapLabel}
-              min={50}
-              max={300}
-              value={Math.round(value.tileGap * 100)}
-              disabled={disabled || !value.tile}
-              onChange={(v) => onChange({ tileGap: v / 100 })}
-              suffix="%"
-            />
-          </div>
         </div>
 
         <div className="space-y-2">
@@ -215,17 +199,26 @@ export function WatermarkControls({
             />
             {labels.tileLabel}
           </label>
-          <div
-            style={{ opacity: value.tile ? 0.4 : 1 }}
-            aria-hidden={value.tile}
-          >
+          {/* Position vs tile-gap are mutually exclusive: a tiled watermark
+              ignores the anchor, so the slot swaps to the spacing slider. */}
+          {value.tile ? (
+            <Slider
+              label={labels.tileGapLabel}
+              min={50}
+              max={300}
+              value={Math.round(value.tileGap * 100)}
+              disabled={disabled}
+              onChange={(v) => onChange({ tileGap: v / 100 })}
+              suffix="%"
+            />
+          ) : (
             <PositionGrid
               value={value.grid}
               onChange={(grid: GridPosition) => onChange({ grid })}
               label={labels.positionLabel}
-              disabled={disabled || value.tile}
+              disabled={disabled}
             />
-          </div>
+          )}
         </div>
       </div>
     </div>
