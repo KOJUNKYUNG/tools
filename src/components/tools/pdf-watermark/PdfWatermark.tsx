@@ -300,17 +300,6 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
           description={labels.uploadHint}
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
-      ) : isDone && result ? (
-        // Done — the result card spans the full workspace width.
-        <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
-          <PdfWatermarkResult
-            appliedPages={result.appliedPages}
-            pageCount={result.pageCount}
-            outputSize={result.data.length}
-            onDownload={download}
-            labels={labels}
-          />
-        </div>
       ) : (
         <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 md:grid-cols-2">
@@ -335,7 +324,15 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
             className="flex h-full min-h-0 flex-col md:border-l md:pl-5"
             style={{ borderColor: "var(--border)" }}
           >
-          {status === "idle" ? (
+          {isDone && result ? (
+            <PdfWatermarkResult
+              appliedPages={result.appliedPages}
+              pageCount={result.pageCount}
+              outputSize={result.data.length}
+              onDownload={download}
+              labels={labels}
+            />
+          ) : status === "idle" ? (
             <div className="flex h-full min-h-0 flex-col gap-2.5">
               <PdfWatermarkModeToggle
                 value={mode}
