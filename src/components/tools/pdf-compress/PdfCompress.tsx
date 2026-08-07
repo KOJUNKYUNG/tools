@@ -6,7 +6,6 @@ import { FileUpload } from "@/components/common/FileUpload";
 import { uploadLimitFor } from "@/lib/constants";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolHeader } from "@/components/common/ToolHeader";
-import { PreviewLightbox } from "@/components/common/PreviewLightbox";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
@@ -29,6 +28,11 @@ import type { PdfCompressLabels } from "./labels";
 
 const PDF_ACCEPT = { "application/pdf": [".pdf"] };
 
+// Render page-1 previews at high resolution so the in-frame click-to-zoom
+// (up to 4×) stays reasonably sharp.
+const PREVIEW_WIDTH = 1500;
+const PREVIEW_MAX_SCALE = 3;
+
 interface PdfCompressProps {
   labels: PdfCompressLabels;
   inline?: boolean;
@@ -38,7 +42,6 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   const [preset, setPreset] = useState<CompressionPreset>("medium");
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
-  const [showCompressed, setShowCompressed] = useState(true);
   const reuploadInputRef = useRef<HTMLInputElement | null>(null);
 
   // Live preview: faithful whole-doc compress of the current preset (gated by size).
@@ -50,10 +53,6 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   const livePreviewTokenRef = useRef(0);
   // Precompute cache: preset -> whole-doc result for the CURRENT file. Cleared on file change.
   const previewCacheRef = useRef<Map<CompressionPreset, CompressPdfResult>>(new Map());
-
-  // Zoom (hi-res lightbox) state.
-  const [zoomUrl, setZoomUrl] = useState<string | null>(null);
-  const [zooming, setZooming] = useState(false);
 
   // filesRef gives onDownload a stable reference to the current files array
   // without creating a circular type dependency (TS7022/7023).
@@ -119,7 +118,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       try {
         const ab = await file.arrayBuffer();
         const bytes = new Uint8Array(ab);
-        const blob = await renderPdfFirstPage(bytes.slice());
+        const blob = await renderPdfFirstPage(bytes.slice(), PREVIEW_WIDTH, PREVIEW_MAX_SCALE);
         if (cancelled) return;
         createdUrl = URL.createObjectURL(blob);
         setOriginalUrl(createdUrl);
@@ -148,11 +147,10 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     let createdUrl: string | null = null;
     (async () => {
       try {
-        const blob = await renderPdfFirstPage(result.data.slice());
+        const blob = await renderPdfFirstPage(result.data.slice(), PREVIEW_WIDTH, PREVIEW_MAX_SCALE);
         if (cancelled) return;
         createdUrl = URL.createObjectURL(blob);
         setCompressedUrl(createdUrl);
-        setShowCompressed(true);
       } catch {
         if (!cancelled) setCompressedUrl(null);
       }
@@ -231,7 +229,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           previewCacheRef.current.set(preset, result);
         }
         setLiveResult(result);
-        const blob = await renderPdfFirstPage(result.data.slice());
+        const blob = await renderPdfFirstPage(result.data.slice(), PREVIEW_WIDTH, PREVIEW_MAX_SCALE);
         if (token !== livePreviewTokenRef.current) return;
         createdUrl = URL.createObjectURL(blob);
         if (token !== livePreviewTokenRef.current) return;
@@ -253,16 +251,12 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     };
   }, [file, preset, status]);
 
-  // Revoke live preview + zoom URLs on unmount only.
+  // Revoke the live preview URL on unmount only.
   useEffect(() => {
     return () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps
       livePreviewTokenRef.current++;
       setLivePreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
-      setZoomUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
       });
@@ -274,7 +268,6 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     (newFiles: File[]) => {
       retry();
       setFiles(newFiles.slice(0, 1));
-      setShowCompressed(true);
     },
     [retry, setFiles],
   );
@@ -301,44 +294,11 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
 
   const handleAgain = useCallback(() => {
     retry();
-    setShowCompressed(true);
   }, [retry]);
 
   const hasFile = !!file;
   const busy = status === "processing";
   const isDone = status === "done" && !!result;
-
-  const handleZoom = useCallback(async () => {
-    const showingCompressed =
-      showCompressed && (isDone ? !!compressedUrl : !!livePreviewUrl);
-    setZooming(true);
-    try {
-      let bytes: Uint8Array;
-      if (showingCompressed && isDone && result) {
-        bytes = result.data.slice();
-      } else if (showingCompressed && liveResult) {
-        bytes = liveResult.data.slice();
-      } else if (file) {
-        bytes = new Uint8Array(await file.arrayBuffer());
-      } else {
-        return;
-      }
-      const blob = await renderPdfFirstPage(bytes, 1800, 4);
-      const url = URL.createObjectURL(blob);
-      setZoomUrl(url);
-    } catch {
-      // Zoom render failed — silently ignore; inline preview still works.
-    } finally {
-      setZooming(false);
-    }
-  }, [showCompressed, isDone, compressedUrl, livePreviewUrl, liveResult, file, result]);
-
-  const handleZoomClose = useCallback(() => {
-    setZoomUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
-  }, []);
 
   const overLimit = !!file && file.size > uploadLimitFor("pdf-compress");
 
@@ -355,7 +315,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   const headerMeta = overLimit ? (
     <span
       className="shrink-0 whitespace-nowrap font-body text-[11px]"
-      style={{ color: "var(--emphasis)" }}
+      style={{ color: "var(--ink-soft)" }}
       title={labels.fileUpload.largeFileWarning}
     >
       · {labels.oversizeBadge}
@@ -364,8 +324,6 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
 
   // Unified compressed candidate: authoritative result in done state, live preview otherwise.
   const compressedCandidate = isDone ? compressedUrl : livePreviewUrl;
-  // Checkbox is now active in idle too — once livePreviewUrl arrives, the user can toggle.
-  const showToggle = !!compressedCandidate;
 
   const handleCompressClick = useCallback(() => {
     if (!file) {
@@ -424,36 +382,14 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           style={{ height: "var(--tray-h)" }}
         >
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2">
-            {/* LEFT: preview frame (persists) → compare checkbox */}
-            <div className="flex h-full flex-col gap-2">
+            {/* LEFT: preview frame — always shows the compressed page, click to zoom */}
+            <div className="flex h-full flex-col">
               <ComparePreview
                 originalUrl={originalUrl}
                 compressedUrl={compressedCandidate}
-                showCompressed={showCompressed && showToggle}
                 loading={livePreviewLoading && status === "idle"}
-                onZoom={handleZoom}
                 zoomAria={labels.zoomAria}
               />
-              <div className="flex h-7 items-center justify-end">
-                <label
-                  className="inline-flex cursor-pointer select-none items-center gap-1.5 font-body text-[11px]"
-                  style={{
-                    color: showToggle ? "var(--ink-strong)" : "var(--ink-soft)",
-                    opacity: showToggle ? 1 : 0.4,
-                    pointerEvents: showToggle ? "auto" : "none",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={showCompressed}
-                    onChange={(e) => setShowCompressed(e.target.checked)}
-                    disabled={!showToggle}
-                    aria-label={labels.compareToggleAria}
-                    style={{ accentColor: "var(--emphasis)" }}
-                  />
-                  {labels.comparePreview}
-                </label>
-              </div>
             </div>
 
             {/* RIGHT: controls / result / status — 1px panel divider (canon) */}
@@ -462,14 +398,12 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
               style={{ borderColor: "var(--border)" }}
             >
               {isDone && result ? (
-                <div className="self-start">
-                  <PdfCompressResult
-                    originalSize={result.originalSize}
-                    compressedSize={result.compressedSize}
-                    onDownload={download}
-                    labels={labels}
-                  />
-                </div>
+                <PdfCompressResult
+                  originalSize={result.originalSize}
+                  compressedSize={result.compressedSize}
+                  onDownload={download}
+                  labels={labels}
+                />
               ) : status === "idle" ? (
                 <div className="flex h-full flex-col gap-3">
                   <PdfCompressControls
@@ -499,24 +433,6 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
               )}
             </div>
           </div>
-
-          {zooming && !zoomUrl && (
-            <div
-              className="absolute inset-0 z-10 grid place-items-center"
-              style={{ background: "color-mix(in oklch, var(--surface) 70%, transparent)" }}
-            >
-              <span className="inline-block size-5 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
-            </div>
-          )}
-
-          {zoomUrl && (
-            <PreviewLightbox
-              src={zoomUrl}
-              alt=""
-              closeLabel={labels.lightboxClose}
-              onClose={handleZoomClose}
-            />
-          )}
         </div>
       )}
     </div>
