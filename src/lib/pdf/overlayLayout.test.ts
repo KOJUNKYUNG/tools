@@ -70,6 +70,15 @@ describe("computeTilePositions", () => {
     expect(xs).toEqual([0, 100]);
     expect(ys).toEqual([0, 50]);
   });
+  it("floors the step on a large negative gap so the tile count stays bounded", () => {
+    // A tiny tile with a huge negative gap would give step≈0 (a hang) without the
+    // floor. Step is floored at max(tile*0.5, 24) → far fewer than page/1 tiles.
+    const pts = computeTilePositions(600, 800, 10, 10, -1000, -1000);
+    // Without the floor, step≈1 → ~480k tiles (a hang). Floored to 24px it is ~850.
+    expect(pts.length).toBeLessThan(2000);
+    const xs = [...new Set(pts.map((p) => p.x))].sort((a, b) => a - b);
+    expect(xs[1] - xs[0]).toBeCloseTo(24); // step floored to 24, not ~1
+  });
 });
 
 describe("cornerForCenter (rotate about the image center)", () => {

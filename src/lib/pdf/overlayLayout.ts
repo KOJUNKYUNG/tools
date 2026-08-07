@@ -74,6 +74,11 @@ export function computeAnchor(
 /**
  * Bottom-left corners for a tiled watermark covering the page on a regular
  * grid. Step is tile size + gap on each axis. Always returns at least one tile.
+ *
+ * The step is floored at HALF the tile (min 24px) so a large negative gap
+ * (overlapping tiles) can't collapse the step toward zero and explode the tile
+ * count into a browser hang / gigantic PDF. Positive gaps are never affected
+ * (their step already exceeds the tile size).
  */
 export function computeTilePositions(
   pageW: number,
@@ -83,8 +88,8 @@ export function computeTilePositions(
   gapX: number,
   gapY: number,
 ): Point[] {
-  const stepX = Math.max(1, tileW + gapX);
-  const stepY = Math.max(1, tileH + gapY);
+  const stepX = Math.max(tileW * 0.5, 24, tileW + gapX);
+  const stepY = Math.max(tileH * 0.5, 24, tileH + gapY);
   const points: Point[] = [];
   for (let y = 0; y < pageH; y += stepY) {
     for (let x = 0; x < pageW; x += stepX) {
