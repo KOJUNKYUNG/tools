@@ -1,12 +1,14 @@
 "use client";
 
+import { NumberField } from "@/components/common/NumberField";
+
 export type PageSizeMode = "fit" | "a4" | "custom";
 
 export interface CustomSize {
   /** Page width in px (mapped 1px → 1pt at assemble time). */
-  w: string;
+  w: number;
   /** Page height in px. */
-  h: string;
+  h: number;
 }
 
 interface PageSizeSelectorProps {
@@ -74,12 +76,13 @@ export function PageSizeSelector({
             >
               {labels.customWidth}
             </span>
-            <input
-              type="number"
+            <NumberField
               min={1}
               max={14400}
+              fallback={1}
               value={custom.w}
-              onChange={(e) => onCustomChange({ ...custom, w: e.target.value })}
+              onCommit={(w) => onCustomChange({ ...custom, w })}
+              ariaLabel={labels.customWidth}
               className="w-full rounded-[5px] border px-2.5 py-1.5 font-body text-[12px] tabular-nums outline-none focus:border-[color:var(--emphasis)] focus:ring-1 focus:ring-[color:var(--emphasis)]"
               style={{
                 background: "var(--surface)",
@@ -98,12 +101,13 @@ export function PageSizeSelector({
             >
               {labels.customHeight}
             </span>
-            <input
-              type="number"
+            <NumberField
               min={1}
               max={14400}
+              fallback={1}
               value={custom.h}
-              onChange={(e) => onCustomChange({ ...custom, h: e.target.value })}
+              onCommit={(h) => onCustomChange({ ...custom, h })}
+              ariaLabel={labels.customHeight}
               className="w-full rounded-[5px] border px-2.5 py-1.5 font-body text-[12px] tabular-nums outline-none focus:border-[color:var(--emphasis)] focus:ring-1 focus:ring-[color:var(--emphasis)]"
               style={{
                 background: "var(--surface)",
