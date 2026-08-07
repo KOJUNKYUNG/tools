@@ -133,8 +133,3 @@ export async function compressPdfFromBytes({
   onProgress?.(100);
   return summary;
 }
-
-// Live-preview path skips the redundant File→arrayBuffer roundtrip: callers
-// pass already-decoded bytes (e.g. the output of extractPageOne).
-export type CompressPdfLivePreviewOptions = CompressPdfFromBytesOptions;
-export const compressPdfLivePreview = compressPdfFromBytes;
