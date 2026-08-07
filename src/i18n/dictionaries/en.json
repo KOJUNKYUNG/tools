@@ -23,7 +23,6 @@
     ]
   },
   "common": {
-    "reset": "Reset",
     "back": "Close toolbox",
     "loading": "Processing…",
     "download": "Download",
@@ -153,8 +152,7 @@
         "action": {
           "apply": "Apply",
           "applyDisabledHint": "Choose an image first",
-          "specificEmpty": "Select at least one slide",
-          "reset": "Reset"
+          "specificEmpty": "Select at least one slide"
         },
         "processing": {
           "processing": "Converting…",
@@ -185,7 +183,6 @@
         "uploadHint": "Supports .ppt and .pptx.",
         "uploadMaxSize": "Up to {size}",
         "reupload": "Re-upload",
-        "reset": "Reset",
         "fileInfo": "{name} · {size}",
         "extract": "Extract",
         "extractCount": "Extract ({n})",
@@ -212,7 +209,6 @@
         "uploadHint": "One PPTX file at a time.",
         "uploadMaxSize": "Up to {size}",
         "reupload": "Re-upload",
-        "reset": "Reset",
         "fileInfo": "{name} · {size}",
         "slideCount": "{n} slides",
         "presetGroupLabel": "Compression level",
@@ -246,7 +242,6 @@
       "title": "Merge·split·arrange PDF",
       "description": "Combine PDFs into one file, or use dividers to split into several.",
       "page": {
-        "reset": "Reset",
         "uploadPrompt": "Drag and drop PDFs or images, or click to upload",
         "uploadHint": "PDFs expand per page; images become a single page.",
         "reupload": "Re-upload",
@@ -280,7 +275,6 @@
         "uploadHint": "One PDF file at a time.",
         "uploadMaxSize": "Up to {size}",
         "reupload": "Re-upload",
-        "reset": "Reset",
         "fileInfo": "{name} · {size}",
         "presetGroupLabel": "Compression level",
         "presetLightLabel": "Light",
@@ -314,7 +308,6 @@
         "uploadHint": "One PDF file at a time.",
         "uploadMaxSize": "Up to {size}",
         "reupload": "Re-upload",
-        "reset": "Reset",
         "fileInfo": "{name} · {size}",
         "pageCount": "{n} pages",
         "modeNumber": "Page numbers",
@@ -368,7 +361,6 @@
         "uploadHint": "One PDF file at a time.",
         "uploadMaxSize": "Up to {size}",
         "reupload": "Re-upload",
-        "reset": "Reset",
         "fileInfo": "{name} · {size}",
         "modeLock": "Add password",
         "modeUnlock": "Remove password",
@@ -522,8 +514,7 @@
         "subtitle": "Compress JPG/PNG/WebP images or convert them to another format.",
         "header": {
           "title": "Compress & convert images",
-          "description": "Compress JPG/PNG/WebP images or convert them to another format.",
-          "reset": "Reset"
+          "description": "Compress JPG/PNG/WebP images or convert them to another format."
         },
         "reupload": "Re-upload",
         "uploadPrompt": "Drag and drop images, or click to upload",
@@ -555,8 +546,7 @@
         "subtitle": "Resize to exact dimensions, or crop while keeping the ratio.",
         "header": {
           "title": "Resize image",
-          "description": "Resize to exact dimensions, or crop while keeping the ratio.",
-          "reset": "Reset"
+          "description": "Resize to exact dimensions, or crop while keeping the ratio."
         },
         "originalSize": "Original size",
         "revertToOriginal": "Reset to original size",

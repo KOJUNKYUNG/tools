@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
-import { ToolTopStrip } from "@/components/common/ToolTopStrip";
+import { ToolHeader } from "@/components/common/ToolHeader";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import {
   resizeImage,
@@ -355,11 +354,6 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     ? `${file.name.replace(/\.[^.]+$/, "")}-resized.${file.name.split(".").pop()}`
     : "resized.png";
 
-  const onReset = useCallback(() => {
-    retry();
-    handleFilesChange([]);
-  }, [retry, handleFilesChange]);
-
   // Body "다시 업로드" — open the OS file picker on the current view via a
   // hidden <input type="file">. No remount, no upload-screen flash, no
   // StrictMode-induced double-open.
@@ -398,11 +392,30 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     [handleUpload, normalizing, labels.fileUpload.tooLargeTemplate],
   );
 
+  const header = (
+    <ToolHeader
+      title={labels.header.title}
+      description={labels.header.description}
+      hasFile={!!file && !!origDims}
+      fileSummary={file?.name}
+      status={status}
+      onReupload={handleReupload}
+      reuploadLabel={labels.reupload}
+      busy={status === "processing" || normalizing}
+      busyReuploadLabel={labels.fileUpload.busy}
+      executeLabel={labels.apply}
+      processingLabel={labels.fileUpload.busy}
+      againLabel={labels.tryAgain}
+      onExecute={run}
+      onAgain={retry}
+    />
+  );
+
   // In inline mode (Screen3 mount), the chrome/header/reset are suppressed —
   // the surrounding surface provides chrome. In page-route mode, this component
   // renders its own card chrome + header + reset, mirroring ppt-background.
   const body = (
-    <div className={inline ? "space-y-5" : "space-y-5 px-6 py-4"}>
+    <div className={inline ? "space-y-5" : "space-y-5 px-6 pb-4"}>
       <input
         ref={reuploadInputRef}
         type="file"
@@ -427,16 +440,6 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
 
       {file && origDims && (
         <div className="space-y-4" style={{ minHeight: "var(--tray-h)" }}>
-          <ToolTopStrip
-            filesSummary={file.name}
-            onReupload={handleReupload}
-            reuploadLabel={labels.reupload}
-            busy={status === "processing" || normalizing}
-            busyLabel={labels.fileUpload.busy}
-            onExecute={status === "idle" ? run : undefined}
-            executeLabel={labels.apply}
-          />
-
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {/* Left: preview (persists) */}
             <ImageResizePreview
@@ -464,8 +467,6 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                   mimeType={result.blob.type}
                   onDownload={download}
                   onCompressOrConvert={handleCompressOrConvert}
-                  tryAgainLabel={labels.tryAgain}
-                  onTryAgain={retry}
                 />
               ) : (
                 <>
@@ -477,7 +478,6 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                       onRetry={retry}
                       onDownload={download}
                       downloadFileName={downloadFileName}
-                      onTryAnother={retry}
                     />
                   )}
 
@@ -525,7 +525,15 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     </div>
   );
 
-  if (inline) return body;
+  if (inline)
+    return (
+      <>
+        <div className="mb-2 border-b pb-1" style={{ borderColor: "var(--border)" }}>
+          {header}
+        </div>
+        {body}
+      </>
+    );
 
   return (
     <div
@@ -536,34 +544,8 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
         boxShadow: "var(--shadow-lg)",
       }}
     >
-      <button
-        type="button"
-        onClick={onReset}
-        aria-label={labels.header.reset}
-        title={labels.header.reset}
-        className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)]"
-        style={{ color: "var(--ink-soft)" }}
-      >
-        <RotateCcwIcon className="size-4" />
-      </button>
-      <div
-        className="flex items-start gap-3 border-b px-6 pt-3 pb-3"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <div className="min-w-0 flex-1">
-          <h1
-            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
-            style={{ color: "var(--headline)" }}
-          >
-            {labels.header.title}
-          </h1>
-          <div
-            className="mt-1 font-body text-[12px] leading-[1.45]"
-            style={{ color: "var(--ink)" }}
-          >
-            {labels.header.description}
-          </div>
-        </div>
+      <div className="mb-2 border-b px-6 pb-1 pt-3" style={{ borderColor: "var(--border)" }}>
+        {header}
       </div>
       {body}
     </div>

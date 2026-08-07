@@ -14,8 +14,12 @@ interface ResultActionsProps {
    * (e.g. pdf-to-image streamed already saved its zips during processing).
    */
   download?: ActionSpec;
-  /** "다시 / Again" reset (`.nameplate`, RotateCcw — the one canonical retry icon). */
-  again: ActionSpec;
+  /**
+   * "다시 / Again" reset (`.nameplate`, RotateCcw — the one canonical retry icon).
+   * Optional and being retired: the retry action is moving into `ToolHeader`'s
+   * primary button, so newer callers omit it.
+   */
+  again?: ActionSpec;
   /** Optional cross-tool handoff button(s), placed between download and again. */
   extra?: ReactNode;
 }
@@ -39,15 +43,17 @@ export function ResultActions({ download, again, extra }: ResultActionsProps) {
         </button>
       )}
       {extra}
-      <button
-        type="button"
-        onClick={again.onClick}
-        className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
-        style={{ color: "var(--ink-strong)" }}
-      >
-        <RotateCcwIcon className="size-3.5" />
-        {again.label}
-      </button>
+      {again && (
+        <button
+          type="button"
+          onClick={again.onClick}
+          className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
+          style={{ color: "var(--ink-strong)" }}
+        >
+          <RotateCcwIcon className="size-3.5" />
+          {again.label}
+        </button>
+      )}
     </div>
   );
 }

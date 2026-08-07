@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { totalSizeWarnFor } from "@/lib/constants";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
-import { ToolTopStrip } from "@/components/common/ToolTopStrip";
+import { ToolHeader } from "@/components/common/ToolHeader";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import {
@@ -243,12 +242,6 @@ export function ImageCompressTool({
     [handleUpload, status, normalizing],
   );
 
-  const onReset = useCallback(() => {
-    handleFilesChange([]);
-    setOutputFormat(null);
-    setQuality(100);
-  }, [handleFilesChange]);
-
   const hasFiles = files.length > 0;
   const isDone = status === "done" && !!result;
   const busy = status === "processing";
@@ -258,8 +251,38 @@ export function ImageCompressTool({
   const showOversize =
     totalBytes > totalSizeWarnFor("image-compress") && !oversizeDismissed;
 
+  const header = (
+    <ToolHeader
+      title={labels.header.title}
+      description={labels.header.description}
+      hasFile={hasFiles}
+      fileSummary={files[currentIndex]?.name ?? ""}
+      meta={
+        files.length > 1 ? (
+          <span
+            className="shrink-0 font-body text-[12px]"
+            style={{ color: "var(--ink-soft)" }}
+          >
+            {template(labels.moreImagesTemplate, { n: files.length - 1 })}
+          </span>
+        ) : undefined
+      }
+      status={status}
+      onReupload={handleReupload}
+      reuploadLabel={labels.reupload}
+      busy={busy || normalizing}
+      busyReuploadLabel={labels.fileUpload.busy}
+      executeLabel={template(labels.compressTemplate, { n: files.length })}
+      processingLabel={labels.fileUpload.busy}
+      againLabel={labels.recompress}
+      onExecute={run}
+      onAgain={retry}
+      executeDisabled={!outputFormat}
+    />
+  );
+
   const body = (
-    <div className={inline ? "space-y-5" : "space-y-5 px-6 py-4"}>
+    <div className={inline ? "space-y-5" : "space-y-5 px-6 pb-4"}>
       <input
         ref={reuploadInputRef}
         type="file"
@@ -294,27 +317,6 @@ export function ImageCompressTool({
               onDismiss={() => setOversizeDismissed(true)}
             />
           )}
-          <ToolTopStrip
-            filesSummary={files[currentIndex]?.name ?? ""}
-            meta={
-              files.length > 1 ? (
-                <span
-                  className="shrink-0 font-body text-[12px]"
-                  style={{ color: "var(--ink-soft)" }}
-                >
-                  {template(labels.moreImagesTemplate, { n: files.length - 1 })}
-                </span>
-              ) : undefined
-            }
-            onReupload={handleReupload}
-            reuploadLabel={labels.reupload}
-            busy={busy || normalizing}
-            busyLabel={labels.fileUpload.busy}
-            onExecute={status === "idle" ? run : undefined}
-            executeLabel={template(labels.compressTemplate, { n: files.length })}
-            executeDisabled={!outputFormat}
-          />
-
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <ImageCompressPreview
               fileName={files[currentIndex]?.name ?? ""}
@@ -351,9 +353,7 @@ export function ImageCompressTool({
                       quality,
                     })}
                     downloadLabel={labels.download}
-                    recompressLabel={labels.recompress}
                     onDownload={download}
-                    onRecompress={retry}
                   />
                 ) : status === "idle" ? (
                   <ImageCompressControls
@@ -401,7 +401,15 @@ export function ImageCompressTool({
     </div>
   );
 
-  if (inline) return body;
+  if (inline)
+    return (
+      <>
+        <div className="mb-2 border-b pb-1" style={{ borderColor: "var(--border)" }}>
+          {header}
+        </div>
+        {body}
+      </>
+    );
 
   return (
     <div
@@ -412,35 +420,8 @@ export function ImageCompressTool({
         boxShadow: "var(--shadow-lg)",
       }}
     >
-      <button
-        type="button"
-        onClick={onReset}
-        disabled={busy}
-        aria-label={labels.header.reset}
-        title={labels.header.reset}
-        className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)] disabled:cursor-not-allowed disabled:opacity-50"
-        style={{ color: "var(--ink-soft)" }}
-      >
-        <RotateCcwIcon className="size-4" />
-      </button>
-      <div
-        className="flex items-start gap-3 border-b px-6 pt-3 pb-3"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <div className="min-w-0 flex-1">
-          <h1
-            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
-            style={{ color: "var(--headline)" }}
-          >
-            {labels.header.title}
-          </h1>
-          <div
-            className="mt-1 font-body text-[12px] leading-[1.45]"
-            style={{ color: "var(--ink)" }}
-          >
-            {labels.header.description}
-          </div>
-        </div>
+      <div className="mb-2 border-b px-6 pb-1 pt-3" style={{ borderColor: "var(--border)" }}>
+        {header}
       </div>
       {body}
     </div>

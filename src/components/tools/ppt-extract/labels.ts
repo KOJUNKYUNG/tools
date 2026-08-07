@@ -9,7 +9,6 @@ export interface PptExtractLabels {
   uploadHint: string;
   uploadMaxSize: string;
   reupload: string;
-  reset: string;
   // File info
   fileInfoTemplate: string;
   // Action
@@ -46,7 +45,6 @@ export function getPptExtractLabels(dict: Dictionary): PptExtractLabels {
     uploadHint: p.uploadHint,
     uploadMaxSize: p.uploadMaxSize,
     reupload: p.reupload,
-    reset: p.reset,
     fileInfoTemplate: p.fileInfo,
     extract: p.extract,
     extractCountTemplate: p.extractCount,

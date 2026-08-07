@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PlusIcon, RotateCcwIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { FileUpload } from "@/components/common/FileUpload";
 import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
+import { ToolHeader } from "@/components/common/ToolHeader";
 import { PageItemCard, type SectionTint } from "@/components/pdf-editor/PageItemCard";
 import { buildPageItems, deriveBaseName } from "@/components/pdf-editor/buildPageItems";
 import { clearThumbnailCache } from "@/components/pdf-editor/thumbnailCache";
@@ -35,7 +36,6 @@ import { type PageItem, type Rotation } from "@/lib/pdf/pageItem";
 import { PdfToImageControls } from "./PdfToImageControls";
 import { PdfToImageResult } from "./PdfToImageResult";
 import { PdfToImageStreamedResult } from "./PdfToImageStreamedResult";
-import { PdfToImageTopStrip } from "./PdfToImageTopStrip";
 import type { PdfToImageLabels } from "./labels";
 
 const PDF_ACCEPT = { "application/pdf": [".pdf"] };
@@ -178,14 +178,6 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
     [retry, ingest],
   );
 
-  const handleReset = useCallback(() => {
-    retry();
-    clearThumbnailCache();
-    setItems([]);
-    setSourceBytesById(new Map());
-    setFiles([]);
-  }, [retry, setFiles]);
-
   const handleReuploadPick = useCallback(() => {
     pendingModeRef.current = "replace";
     retry();
@@ -250,16 +242,6 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
 
   const editor = (
     <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
-      <PdfToImageTopStrip
-        filesSummary={filesSummary}
-        onReupload={handleReuploadPick}
-        reuploadLabel={labels.reupload}
-        onConvert={run}
-        convertLabel={template(labels.convertTemplate, { n: liveCount })}
-        convertDisabled={liveCount === 0}
-        busy={busy}
-      />
-
       <PdfToImageControls
         format={format}
         dpi={dpi}
@@ -314,8 +296,27 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
     </div>
   );
 
+  const header = (
+    <ToolHeader
+      title={labels.title}
+      description={labels.description}
+      hasFile={hasFiles}
+      fileSummary={filesSummary}
+      status={status}
+      onReupload={handleReuploadPick}
+      reuploadLabel={labels.reupload}
+      busy={busy}
+      executeLabel={template(labels.convertTemplate, { n: liveCount })}
+      processingLabel={labels.processing}
+      againLabel={labels.again}
+      onExecute={run}
+      onAgain={retry}
+      executeDisabled={liveCount === 0}
+    />
+  );
+
   const body = (
-    <div className={inline ? "space-y-4" : "space-y-4 px-6 py-3"}>
+    <div className={inline ? "space-y-4" : "space-y-4 px-6 pb-3"}>
       <input
         ref={fileInputRef}
         type="file"
@@ -359,14 +360,12 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
             onDownloadAll={download}
             onDownloadOne={handleDownloadOne}
             onCompress={handleCompress}
-            onAgain={retry}
           />
         ) : (
           <PdfToImageStreamedResult
             imageCount={result.imageCount}
             batchCount={result.batchCount}
             labels={labels}
-            onAgain={retry}
           />
         )
       ) : (
@@ -391,7 +390,15 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
     </div>
   );
 
-  if (inline) return body;
+  if (inline)
+    return (
+      <>
+        <div className="mb-2 border-b pb-1" style={{ borderColor: "var(--border)" }}>
+          {header}
+        </div>
+        {body}
+      </>
+    );
 
   return (
     <div
@@ -402,35 +409,11 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
         boxShadow: "var(--shadow-lg)",
       }}
     >
-      <button
-        type="button"
-        onClick={handleReset}
-        disabled={busy}
-        aria-label={labels.reupload}
-        title={labels.reupload}
-        className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-        style={{ color: "var(--ink-soft)" }}
-      >
-        <RotateCcwIcon className="size-4" />
-      </button>
       <div
-        className="flex items-start gap-3 border-b px-6 pb-3 pt-3"
+        className="mb-2 border-b px-6 pb-1 pt-3"
         style={{ borderColor: "var(--border)" }}
       >
-        <div className="min-w-0 flex-1">
-          <h1
-            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
-            style={{ color: "var(--headline)" }}
-          >
-            {labels.title}
-          </h1>
-          <div
-            className="mt-1 font-body text-[12px] leading-[1.45]"
-            style={{ color: "var(--ink)" }}
-          >
-            {labels.description}
-          </div>
-        </div>
+        {header}
       </div>
       {body}
     </div>

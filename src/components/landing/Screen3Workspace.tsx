@@ -44,8 +44,6 @@ interface Screen3WorkspaceProps {
   onCategoryChange: (cat: Category) => void;
 }
 
-type ToolSlugKey = keyof Dictionary["tools"];
-
 function inferCategory(tool: ToolInfo): Category {
   if (tool.category === "ppt") return "presentation";
   if (tool.category === "pdf") return "document";
@@ -60,7 +58,6 @@ export function Screen3Workspace({
   onClose,
   onCategoryChange,
 }: Screen3WorkspaceProps) {
-  const toolDict = dict.tools[tool.slug as ToolSlugKey];
   const toolHref = `/${locale}/tools/${tool.slug}`;
 
   // zoomState reserved for future use (keep design parity)
@@ -208,32 +205,9 @@ export function Screen3Workspace({
                 boxShadow: "var(--shadow-lg)",
               }}
             >
-              <div
-                className="px-6 pt-3 pb-3 flex items-start gap-3 border-b"
-                style={{ borderColor: "var(--border)" }}
-              >
-                <div className="flex-1 min-w-0">
-                  <div
-                    className="font-ko text-[16px] font-semibold leading-[1.2] tracking-[0.005em]"
-                    style={{ color: "var(--headline)" }}
-                  >
-                    {toolDict.title}
-                  </div>
-                  <div
-                    className="mt-1 font-body text-[12px] leading-[1.45]"
-                    style={{ color: "var(--ink)" }}
-                  >
-                    {toolDict.description}
-                  </div>
-                </div>
-                <span
-                  className="shrink-0 font-body text-[9px] tracking-[0.18em] uppercase font-mono pt-1"
-                  style={{ color: "var(--ink-soft)", display: "none" }}
-                >
-                  {tool.slug}
-                </span>
-              </div>
-
+              {/* The tool now renders its own ToolHeader (title/description →
+                  file-info + actions) in both mounts, so the workspace card
+                  no longer draws a header block — just the tool body. */}
               <div className="px-6 py-3">{renderToolBody()}</div>
             </div>
           </div>

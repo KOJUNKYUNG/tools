@@ -7,7 +7,6 @@ export interface PdfLockLabels {
   uploadHint: string;
   uploadMaxSize: string;
   reupload: string;
-  reset: string;
   fileInfoTemplate: string;
   modeLock: string;
   modeUnlock: string;
@@ -57,7 +56,6 @@ export function getPdfLockLabels(dict: Dictionary): PdfLockLabels {
     uploadHint: p.uploadHint,
     uploadMaxSize: p.uploadMaxSize,
     reupload: p.reupload,
-    reset: p.reset,
     fileInfoTemplate: p.fileInfo,
     modeLock: p.modeLock,
     modeUnlock: p.modeUnlock,

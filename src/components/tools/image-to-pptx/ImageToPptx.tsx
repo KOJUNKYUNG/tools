@@ -17,12 +17,12 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { PlusIcon, RotateCcwIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
-import { ToolTopStrip } from "@/components/common/ToolTopStrip";
+import { ToolHeader } from "@/components/common/ToolHeader";
 import { PageItemCard } from "@/components/pdf-editor/PageItemCard";
 import { buildPageItems, deriveBaseName } from "@/components/pdf-editor/buildPageItems";
 import { clearThumbnailCache } from "@/components/pdf-editor/thumbnailCache";
@@ -379,16 +379,6 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     [retry, ingest],
   );
 
-  const handleReset = useCallback(() => {
-    retry();
-    clearThumbnailCache();
-    setItems([]);
-    setSourceBytesById(new Map());
-    setFileById(new Map());
-    setFiles([]);
-    initedForRef.current = null;
-  }, [retry, setFiles]);
-
   const handleReuploadPick = useCallback(() => {
     pendingModeRef.current = "replace";
     retry();
@@ -474,17 +464,6 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
   const editor = (
     <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
-      <ToolTopStrip
-        filesSummary={filesSummary}
-        onReupload={handleReuploadPick}
-        reuploadLabel={labels.reupload}
-        busy={busy || loadingPages}
-        busyLabel={labels.fileUpload.busy}
-        onExecute={run}
-        executeLabel={template(labels.convertTemplate, { n: liveItems.length })}
-        executeDisabled={!hasFiles}
-      />
-
       {/* Two-column editor: left = image grid, right = slide controls */}
       <div className="flex min-h-0 flex-1 gap-3">
         {/* Left: DnD image grid */}
@@ -571,8 +550,28 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     </div>
   );
 
+  const header = (
+    <ToolHeader
+      title={labels.title}
+      description={labels.description}
+      hasFile={hasFiles}
+      fileSummary={filesSummary}
+      status={status}
+      onReupload={handleReuploadPick}
+      reuploadLabel={labels.reupload}
+      busy={busy || loadingPages}
+      busyReuploadLabel={labels.fileUpload.busy}
+      executeLabel={template(labels.convertTemplate, { n: liveItems.length })}
+      processingLabel={labels.processing}
+      againLabel={labels.again}
+      onExecute={run}
+      onAgain={retry}
+      executeDisabled={!hasFiles}
+    />
+  );
+
   const body = (
-    <div className={inline ? "space-y-4" : "space-y-4 px-6 py-3"}>
+    <div className={inline ? "space-y-4" : "space-y-4 px-6 pb-3"}>
       <input
         ref={fileInputRef}
         type="file"
@@ -613,7 +612,6 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           result={result}
           labels={labels}
           onDownload={download}
-          onAgain={retry}
         />
       ) : (
         <ProcessingStatus
@@ -627,7 +625,15 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     </div>
   );
 
-  if (inline) return body;
+  if (inline)
+    return (
+      <>
+        <div className="mb-2 border-b pb-1" style={{ borderColor: "var(--border)" }}>
+          {header}
+        </div>
+        {body}
+      </>
+    );
 
   return (
     <div
@@ -638,26 +644,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         boxShadow: "var(--shadow-lg)",
       }}
     >
-      <button
-        type="button"
-        onClick={handleReset}
-        disabled={busy}
-        aria-label={labels.reupload}
-        title={labels.reupload}
-        className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-        style={{ color: "var(--ink-soft)" }}
-      >
-        <RotateCcwIcon className="size-4" />
-      </button>
-      <div className="flex items-start gap-3 border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
-        <div className="min-w-0 flex-1">
-          <h1 className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]" style={{ color: "var(--headline)" }}>
-            {labels.title}
-          </h1>
-          <div className="mt-1 font-body text-[12px] leading-[1.45]" style={{ color: "var(--ink)" }}>
-            {labels.description}
-          </div>
-        </div>
+      <div className="mb-2 border-b px-6 pb-1 pt-3" style={{ borderColor: "var(--border)" }}>
+        {header}
       </div>
       {body}
     </div>

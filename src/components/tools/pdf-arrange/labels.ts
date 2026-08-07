@@ -3,7 +3,6 @@ import type { Dictionary } from "@/i18n/config";
 export interface PdfArrangeLabels {
   title: string;
   description: string;
-  reset: string;
   uploadPrompt: string;
   uploadHint: string;
   uploadMaxSize: string;
@@ -36,7 +35,6 @@ export function getPdfArrangeLabels(dict: Dictionary): PdfArrangeLabels {
   return {
     title: tool.title,
     description: tool.description,
-    reset: page.reset,
     uploadPrompt: page.uploadPrompt,
     uploadHint: page.uploadHint,
     uploadMaxSize: dict.common.fileUpload.maxSizeEach,

@@ -19,7 +19,6 @@ interface PptExtractResultProps {
   labels: PptExtractLabels;
   onDownloadAll: () => void;
   onDownloadOne: (image: ExtractedImage) => void;
-  onAgain: () => void;
   onToPptx: () => void;
 }
 
@@ -28,7 +27,6 @@ export function PptExtractResult({
   labels,
   onDownloadAll,
   onDownloadOne,
-  onAgain,
   onToPptx,
 }: PptExtractResultProps) {
   // StrictMode-safe object URL batch — re-keyed on `images`.
@@ -103,7 +101,6 @@ export function PptExtractResult({
                   <HandoffAction label={labels.toPptx} onClick={onToPptx} />
                 ) : undefined
               }
-              again={{ label: labels.again, onClick: onAgain }}
             />
           }
         >

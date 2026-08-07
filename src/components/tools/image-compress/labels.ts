@@ -3,7 +3,7 @@ import type { Dictionary } from "@/i18n/config";
 export interface ImageCompressLabels {
   title: string;
   subtitle: string;
-  header: { title: string; description: string; reset: string };
+  header: { title: string; description: string };
   reupload: string;
   uploadPrompt: string;
   uploadHint: string;

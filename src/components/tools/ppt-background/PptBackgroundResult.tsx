@@ -10,18 +10,14 @@ interface PptBackgroundResultProps {
   /** Short summary line, e.g. "20개 슬라이드 배경을 변경했습니다." (optional) */
   summary?: string;
   downloadLabel: string;
-  againLabel: string;
   onDownload: () => void;
-  onAgain: () => void;
 }
 
 export function PptBackgroundResult({
   title,
   summary,
   downloadLabel,
-  againLabel,
   onDownload,
-  onAgain,
 }: PptBackgroundResultProps) {
   return (
     <ResultCard
@@ -29,7 +25,6 @@ export function PptBackgroundResult({
       actions={
         <ResultActions
           download={{ label: downloadLabel, onClick: onDownload }}
-          again={{ label: againLabel, onClick: onAgain }}
         />
       }
     >

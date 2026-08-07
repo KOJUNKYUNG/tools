@@ -10,7 +10,6 @@ interface PptCompressResultProps {
   originalSize: number;
   compressedSize: number;
   onDownload: () => void;
-  onAgain: () => void;
   labels: PptCompressLabels;
 }
 
@@ -18,7 +17,6 @@ export function PptCompressResult({
   originalSize,
   compressedSize,
   onDownload,
-  onAgain,
   labels,
 }: PptCompressResultProps) {
   const { pct } = computeSavings(originalSize, compressedSize);
@@ -29,7 +27,6 @@ export function PptCompressResult({
       actions={
         <ResultActions
           download={{ label: labels.download, onClick: onDownload }}
-          again={{ label: labels.again, onClick: onAgain }}
         />
       }
     >

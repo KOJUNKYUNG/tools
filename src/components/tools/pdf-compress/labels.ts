@@ -9,7 +9,6 @@ export interface PdfCompressLabels {
   uploadHint: string;
   uploadMaxSize: string;
   reupload: string;
-  reset: string;
   // File info
   fileInfoTemplate: string;
   // Preset group
@@ -53,7 +52,6 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     uploadHint: p.uploadHint,
     uploadMaxSize: p.uploadMaxSize,
     reupload: p.reupload,
-    reset: p.reset,
     fileInfoTemplate: p.fileInfo,
     presetGroupLabel: p.presetGroupLabel,
     presetLightLabel: p.presetLightLabel,

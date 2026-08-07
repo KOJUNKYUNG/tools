@@ -68,7 +68,6 @@ interface PdfArrangeResultProps {
   labels: PdfArrangeLabels;
   onDownloadAll: () => void;
   onDownloadOne: (entry: OutputEntry) => void;
-  onAgain: () => void;
 }
 
 export function PdfArrangeResult({
@@ -77,7 +76,6 @@ export function PdfArrangeResult({
   labels,
   onDownloadAll,
   onDownloadOne,
-  onAgain,
 }: PdfArrangeResultProps) {
   const { outputs, isZip } = result;
   const count = outputs.length;
@@ -143,7 +141,6 @@ export function PdfArrangeResult({
           actions={
             <ResultActions
               download={{ label: primaryLabel, onClick: onDownloadAll }}
-              again={{ label: labels.again, onClick: onAgain }}
             />
           }
         >

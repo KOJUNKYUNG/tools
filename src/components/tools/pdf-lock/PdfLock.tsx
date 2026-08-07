@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RotateCcwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
-import { ToolTopStrip } from "@/components/common/ToolTopStrip";
+import { ToolHeader } from "@/components/common/ToolHeader";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
@@ -171,15 +170,6 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
     [handleFilesChange, status, labels.fileUpload.tooLargeTemplate],
   );
 
-  const onReset = useCallback(() => {
-    handleFilesChange([]);
-    setMode("lock");
-    setLockState(DEFAULT_LOCK);
-    setUnlockState(DEFAULT_UNLOCK);
-    setEncrypted(null);
-    bytesRef.current = null;
-  }, [handleFilesChange]);
-
   const handleAgain = useCallback(() => retry(), [retry]);
 
   const patchLock = useCallback(
@@ -249,8 +239,41 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
 
   const actionLabel = mode === "lock" ? labels.lock : labels.unlock;
 
+  const header = (
+    <ToolHeader
+      title={labels.title}
+      description={labels.description}
+      hasFile={hasFile}
+      fileSummary={fileInfo}
+      meta={
+        encrypted !== null ? (
+          <span
+            className="shrink-0 rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] font-medium"
+            style={{
+              background: encrypted ? "var(--emphasis)" : "var(--surface-2)",
+              color: encrypted ? "var(--surface)" : "var(--ink-soft)",
+              border: encrypted ? undefined : "1px solid var(--border)",
+            }}
+          >
+            {encrypted ? labels.badgeEncrypted : labels.badgePlain}
+          </span>
+        ) : undefined
+      }
+      status={status}
+      onReupload={handleReupload}
+      reuploadLabel={labels.reupload}
+      busy={busy}
+      executeLabel={actionLabel}
+      processingLabel={labels.processing}
+      againLabel={labels.again}
+      onExecute={handleActionClick}
+      onAgain={handleAgain}
+      executeDisabled={actionDisabled}
+    />
+  );
+
   const body = (
-    <div className={inline ? "space-y-4" : "space-y-4 px-6 py-3"}>
+    <div className={inline ? "space-y-4" : "space-y-4 px-6 pb-3"}>
       <input
         ref={reuploadInputRef}
         type="file"
@@ -274,30 +297,6 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
         />
       ) : (
         <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
-          <ToolTopStrip
-            filesSummary={fileInfo}
-            meta={
-              encrypted !== null ? (
-                <span
-                  className="shrink-0 rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] font-medium"
-                  style={{
-                    background: encrypted ? "var(--emphasis)" : "var(--surface-2)",
-                    color: encrypted ? "var(--surface)" : "var(--ink-soft)",
-                    border: encrypted ? undefined : "1px solid var(--border)",
-                  }}
-                >
-                  {encrypted ? labels.badgeEncrypted : labels.badgePlain}
-                </span>
-              ) : undefined
-            }
-            onReupload={handleReupload}
-            reuploadLabel={labels.reupload}
-            busy={busy}
-            onExecute={status === "idle" ? handleActionClick : undefined}
-            executeLabel={actionLabel}
-            executeDisabled={actionDisabled}
-          />
-
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2">
             {/* LEFT: preview (persists) */}
             <div className="flex h-full min-h-0 flex-col gap-2">
@@ -311,7 +310,6 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
                 mode={resultMode}
                 outputSize={result.data.length}
                 onDownload={download}
-                onAgain={handleAgain}
                 labels={labels}
               />
             </div>
@@ -346,7 +344,15 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
     </div>
   );
 
-  if (inline) return body;
+  if (inline)
+    return (
+      <>
+        <div className="mb-2 border-b pb-1" style={{ borderColor: "var(--border)" }}>
+          {header}
+        </div>
+        {body}
+      </>
+    );
 
   return (
     <div
@@ -357,29 +363,8 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
         boxShadow: "var(--shadow-lg)",
       }}
     >
-      <button
-        type="button"
-        onClick={onReset}
-        disabled={busy}
-        aria-label={labels.reset}
-        title={labels.reset}
-        className="absolute right-6 top-4 z-10 rounded-md p-1.5 transition-colors hover:text-[color:var(--ink-strong)] disabled:cursor-not-allowed disabled:opacity-50"
-        style={{ color: "var(--ink-soft)" }}
-      >
-        <RotateCcwIcon className="size-4" />
-      </button>
-      <div className="flex items-start gap-3 border-b px-6 pb-3 pt-3" style={{ borderColor: "var(--border)" }}>
-        <div className="min-w-0 flex-1">
-          <h1
-            className="font-ko text-[16px] font-medium leading-[1.2] tracking-[0.005em]"
-            style={{ color: "var(--headline)" }}
-          >
-            {labels.title}
-          </h1>
-          <div className="mt-1 font-body text-[12px] leading-[1.45]" style={{ color: "var(--ink)" }}>
-            {labels.description}
-          </div>
-        </div>
+      <div className="mb-2 border-b px-6 pb-1 pt-3" style={{ borderColor: "var(--border)" }}>
+        {header}
       </div>
       {body}
     </div>

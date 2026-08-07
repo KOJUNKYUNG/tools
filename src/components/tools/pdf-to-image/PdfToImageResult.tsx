@@ -77,7 +77,6 @@ interface PdfToImageResultProps {
   onDownloadAll: () => void;
   onDownloadOne: (image: ConvertedImage) => void;
   onCompress: () => void;
-  onAgain: () => void;
 }
 
 export function PdfToImageResult({
@@ -87,7 +86,6 @@ export function PdfToImageResult({
   onDownloadAll,
   onDownloadOne,
   onCompress,
-  onAgain,
 }: PdfToImageResultProps) {
   // Create object URLs for the result blobs, keyed on the images array, and
   // revoke them on cleanup. StrictMode double-mount re-creates fresh URLs and
@@ -145,7 +143,6 @@ export function PdfToImageResult({
               extra={
                 <HandoffAction label={labels.compressHandoff} onClick={onCompress} />
               }
-              again={{ label: labels.again, onClick: onAgain }}
             />
           }
         >

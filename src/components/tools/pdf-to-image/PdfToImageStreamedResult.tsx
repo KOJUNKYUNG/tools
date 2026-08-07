@@ -1,21 +1,18 @@
 "use client";
 
 import { template } from "@/lib/common/template";
-import { ResultActions } from "@/components/common/ResultActions";
 import type { PdfToImageLabels } from "./labels";
 
 interface PdfToImageStreamedResultProps {
   imageCount: number;
   batchCount: number;
   labels: PdfToImageLabels;
-  onAgain: () => void;
 }
 
 export function PdfToImageStreamedResult({
   imageCount,
   batchCount,
   labels,
-  onAgain,
 }: PdfToImageStreamedResultProps) {
   return (
     <div
@@ -35,7 +32,6 @@ export function PdfToImageStreamedResult({
       <div className="font-body text-[12.5px]" style={{ color: "var(--ink-soft)" }}>
         {template(labels.streamedSummary, { n: imageCount, m: batchCount })}
       </div>
-      <ResultActions again={{ label: labels.again, onClick: onAgain }} />
     </div>
   );
 }

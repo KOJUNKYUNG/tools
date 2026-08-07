@@ -275,7 +275,7 @@
 
 /* ── Toolbar subtle — the ONE momentary click-action treatment (re-upload, Clear,
  * All, Split all, Center H/V, file-list Clear, …). Documented in DESIGN.md as the
- * "shared util"; centralized here so every site (ToolTopStrip, FileUpload, …)
+ * "shared util"; centralized here so every site (ToolHeader, FileUpload, …)
  * composes the same class instead of re-declaring it inline. Compose with layout
  * utilities (rounded-[5px], px-2.5 py-1.5, font-body text-[11px]). */
 .subtle-action {

@@ -12,14 +12,12 @@ interface ImageToPptxResultProps {
   result: ImageToPptxResultData;
   labels: ImageToPptxLabels;
   onDownload: () => void;
-  onAgain: () => void;
 }
 
 export function ImageToPptxResult({
   result,
   labels,
   onDownload,
-  onAgain,
 }: ImageToPptxResultProps) {
   const sizeText = useMemo(() => formatBytes(result.bytes.byteLength), [result.bytes]);
 
@@ -31,7 +29,6 @@ export function ImageToPptxResult({
           actions={
             <ResultActions
               download={{ label: labels.download, onClick: onDownload }}
-              again={{ label: labels.again, onClick: onAgain }}
             />
           }
         >
