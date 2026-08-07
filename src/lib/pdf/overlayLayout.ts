@@ -169,11 +169,13 @@ export function resolveNumberCenter(opts: {
   const clamp = (v: number, lo: number, hi: number) =>
     Math.min(Math.max(v, lo), Math.min(hi, Math.max(lo, hi)));
   if (position) {
+    // Free placement may overhang the page: only the CENTER is clamped to the
+    // page bounds, so a mark can sit half-off at an edge or corner.
     const cx = position.x * pageW;
     const cy = pageH - position.y * pageH; // flip top-left → bottom-left
     return {
-      x: clamp(cx, boxW / 2, pageW - boxW / 2),
-      y: clamp(cy, boxH / 2, pageH - boxH / 2),
+      x: clamp(cx, 0, pageW),
+      y: clamp(cy, 0, pageH),
     };
   }
   const corner = computeAnchor(grid, pageW, pageH, boxW, boxH, margin);

@@ -312,16 +312,13 @@ export async function applyOverlay({
         let drawW = baseW;
         let drawH = baseH;
         if (options.source === "image") {
-          // Logo size is a fraction of the VISUAL page width (what the user
-          // sees); clamp to the visual height so a tall logo never overflows.
-          const { vw, vh } = visualPageSize(page);
-          const frac = Math.min(1, Math.max(0.05, options.logoScale));
+          // Logo size is a fraction (0.05–2) of the VISUAL page width. The mark
+          // may exceed the page — an oversized logo overflows and the PDF page
+          // clips it at its edges, so no height clamp.
+          const { vw } = visualPageSize(page);
+          const frac = Math.min(2, Math.max(0.05, options.logoScale));
           drawW = vw * frac;
           drawH = (baseH / baseW) * drawW;
-          if (drawH > vh) {
-            drawH = vh;
-            drawW = (baseW / baseH) * drawH;
-          }
         }
 
         drawOverlayOnPage(page, img, drawW, drawH, {

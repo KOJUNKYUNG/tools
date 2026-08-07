@@ -117,10 +117,10 @@ export function WatermarkControls({
             <input
               type="number"
               min={8}
-              max={200}
+              max={400}
               value={value.fontPx}
               disabled={disabled || !isText}
-              onChange={(e) => onChange({ fontPx: Math.min(200, Math.max(8, Number(e.target.value) || 48)) })}
+              onChange={(e) => onChange({ fontPx: Math.min(400, Math.max(8, Number(e.target.value) || 48)) })}
               className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
               style={INPUT_STYLE}
             />
@@ -168,10 +168,10 @@ export function WatermarkControls({
               <input
                 type="number"
                 min={5}
-                max={100}
+                max={200}
                 value={Math.round(value.logoScale * 100)}
                 disabled={disabled || !isImage}
-                onChange={(e) => onChange({ logoScale: Math.min(100, Math.max(5, Number(e.target.value) || 40)) / 100 })}
+                onChange={(e) => onChange({ logoScale: Math.min(200, Math.max(5, Number(e.target.value) || 40)) / 100 })}
                 className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
                 style={INPUT_STYLE}
               />

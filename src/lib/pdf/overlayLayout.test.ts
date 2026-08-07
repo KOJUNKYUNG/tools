@@ -190,15 +190,16 @@ describe("resolveNumberCenter", () => {
     expect(c.x).toBeCloseTo(100);
     expect(c.y).toBeCloseTo(75);
   });
-  it("clamps a top-left corner drag so the box stays fully on-page", () => {
+  it("a corner drag puts the CENTER on the page corner (box may overhang)", () => {
+    // top-left (0,0) → center at the top-left page corner; the box straddles it.
     const c = resolveNumberCenter({ grid: "center", position: { x: 0, y: 0 }, ...base });
-    expect(c.x).toBeCloseTo(10);
-    expect(c.y).toBeCloseTo(95);
+    expect(c.x).toBeCloseTo(0);
+    expect(c.y).toBeCloseTo(100);
   });
-  it("clamps an out-of-range position into the page", () => {
+  it("clamps an out-of-range position to the page bounds", () => {
     const c = resolveNumberCenter({ grid: "center", position: { x: 1.5, y: 1.5 }, ...base });
-    expect(c.x).toBeCloseTo(base.pageW - base.boxW / 2);
-    expect(c.y).toBeCloseTo(base.boxH / 2);
+    expect(c.x).toBeCloseTo(base.pageW); // 200
+    expect(c.y).toBeCloseTo(0);
   });
 });
 

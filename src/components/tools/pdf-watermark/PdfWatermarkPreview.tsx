@@ -241,7 +241,7 @@ export function PdfWatermarkPreview({
         ctx.globalAlpha = 1;
         return;
       }
-      const frac = Math.min(1, Math.max(0.05, wmOpts.logoScale));
+      const frac = Math.min(2, Math.max(0.05, wmOpts.logoScale));
       drawW = pageW * frac;
       drawH = (bmp.height / bmp.width) * drawW;
     } else {
