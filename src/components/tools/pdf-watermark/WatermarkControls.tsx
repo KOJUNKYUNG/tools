@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { toast } from "sonner";
 import type { WatermarkOptions } from "@/lib/pdf/applyPdfOverlay";
 import type { GridPosition } from "@/lib/pdf/overlayLayout";
+import { NumberField } from "@/components/common/NumberField";
 import type { PdfWatermarkLabels } from "./labels";
 import { PositionGrid } from "./PositionGrid";
 
@@ -114,13 +115,13 @@ export function WatermarkControls({
             <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
               {labels.fontSizeLabel}
             </span>
-            <input
-              type="number"
+            <NumberField
+              value={value.fontPx}
+              onCommit={(fontPx) => onChange({ fontPx })}
               min={8}
               max={400}
-              value={value.fontPx}
+              fallback={48}
               disabled={disabled || !isText}
-              onChange={(e) => onChange({ fontPx: Math.min(400, Math.max(8, Number(e.target.value) || 48)) })}
               className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
               style={INPUT_STYLE}
             />
@@ -165,13 +166,13 @@ export function WatermarkControls({
               <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
                 {labels.logoScaleLabel}
               </span>
-              <input
-                type="number"
+              <NumberField
+                value={Math.round(value.logoScale * 100)}
+                onCommit={(pct) => onChange({ logoScale: pct / 100 })}
                 min={5}
                 max={200}
-                value={Math.round(value.logoScale * 100)}
+                fallback={40}
                 disabled={disabled || !isImage}
-                onChange={(e) => onChange({ logoScale: Math.min(200, Math.max(5, Number(e.target.value) || 40)) / 100 })}
                 className="h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums"
                 style={INPUT_STYLE}
               />
@@ -274,7 +275,6 @@ interface SliderProps {
 }
 
 function Slider({ label, min, max, value, onChange, suffix, disabled }: SliderProps) {
-  const clamp = (v: number) => Math.min(max, Math.max(min, v));
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
@@ -282,16 +282,13 @@ function Slider({ label, min, max, value, onChange, suffix, disabled }: SliderPr
           {label}
         </span>
         <span className="flex items-center gap-0.5">
-          <input
-            type="number"
+          <NumberField
+            value={value}
+            onCommit={onChange}
             min={min}
             max={max}
-            value={value}
             disabled={disabled}
-            onChange={(e) => {
-              const raw = Number(e.target.value);
-              if (Number.isFinite(raw)) onChange(clamp(raw));
-            }}
+            ariaLabel={label}
             className="h-6 w-12 rounded-[5px] border px-1 text-right font-body text-[11px] tabular-nums"
             style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
           />

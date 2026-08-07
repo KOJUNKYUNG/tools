@@ -2,6 +2,7 @@
 
 import { template } from "@/lib/common/template";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
+import { NumberField } from "@/components/common/NumberField";
 import type { PageNumberOptions } from "@/lib/pdf/applyPdfOverlay";
 import type { PageNumberFormat } from "@/lib/pdf/pageNumberFormat";
 import type { GridPosition } from "@/lib/pdf/overlayLayout";
@@ -68,12 +69,12 @@ export function PageNumberControls({
               <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
                 {labels.startLabel}
               </span>
-              <input
-                type="number"
-                min={0}
+              <NumberField
                 value={value.start}
+                onCommit={(start) => onChange({ start })}
+                min={0}
+                fallback={0}
                 disabled={disabled}
-                onChange={(e) => onChange({ start: Math.max(0, Number(e.target.value) || 0) })}
                 className={INPUT}
                 style={INPUT_STYLE}
               />
@@ -82,13 +83,13 @@ export function PageNumberControls({
               <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
                 {labels.fontSizeLabel}
               </span>
-              <input
-                type="number"
+              <NumberField
+                value={value.fontPx}
+                onCommit={(fontPx) => onChange({ fontPx })}
                 min={6}
                 max={96}
-                value={value.fontPx}
+                fallback={12}
                 disabled={disabled}
-                onChange={(e) => onChange({ fontPx: Math.min(96, Math.max(6, Number(e.target.value) || 12)) })}
                 className={INPUT}
                 style={INPUT_STYLE}
               />
