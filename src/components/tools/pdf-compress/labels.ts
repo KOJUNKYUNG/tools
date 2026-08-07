@@ -7,10 +7,11 @@ export interface PdfCompressLabels {
   // Upload
   uploadPrompt: string;
   uploadHint: string;
-  uploadMaxSize: string;
   reupload: string;
   // File info
   fileInfoTemplate: string;
+  pageCountTemplate: string;
+  oversizeBadge: string;
   // Preset group
   presetGroupLabel: string;
   presetLightLabel: string;
@@ -25,6 +26,8 @@ export interface PdfCompressLabels {
   // Compare / estimate
   comparePreview: string;
   compareToggleAria: string;
+  zoomAria: string;
+  lightboxClose: string;
   estimateTemplate: string;
   estimateActualTemplate: string;
   estimateNoChange: string;
@@ -50,9 +53,10 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     description: t.description,
     uploadPrompt: p.uploadPrompt,
     uploadHint: p.uploadHint,
-    uploadMaxSize: p.uploadMaxSize,
     reupload: p.reupload,
     fileInfoTemplate: p.fileInfo,
+    pageCountTemplate: p.pageCount,
+    oversizeBadge: p.oversizeBadge,
     presetGroupLabel: p.presetGroupLabel,
     presetLightLabel: p.presetLightLabel,
     presetLightDesc: p.presetLightDesc,
@@ -64,6 +68,8 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     processing: p.processing,
     comparePreview: p.comparePreview,
     compareToggleAria: p.compareToggleAria,
+    zoomAria: p.zoomAria,
+    lightboxClose: p.lightboxClose,
     estimateTemplate: p.estimateTemplate,
     estimateActualTemplate: p.estimateActualTemplate,
     estimateNoChange: p.estimateNoChange,
