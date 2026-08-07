@@ -326,7 +326,7 @@
         "rangeSelectAll": "전체",
         "rangeClear": "지우기",
         "rangeCount": "{n}개 페이지",
-        "pageUnitSuffix": "쪽",
+        "pageUnitSuffix": "p",
         "sourceText": "텍스트",
         "sourceImage": "로고 이미지",
         "textLabel": "워터마크 문구",
@@ -340,6 +340,7 @@
         "opacityLabel": "투명도",
         "angleLabel": "회전",
         "tileLabel": "바둑판 반복",
+        "tileGapLabel": "반복 간격",
         "apply": "적용하기",
         "processing": "처리 중…",
         "analyzingHint": "분석 중…",
@@ -350,7 +351,8 @@
         "download": "다운로드",
         "again": "다시 하기",
         "errorMemory": "브라우저 메모리가 부족합니다. 더 작은 PDF를 사용해 주세요.",
-        "errorCorrupt": "결과 PDF가 손상되어 사용할 수 없습니다. 설정을 바꿔 다시 시도해 주세요."
+        "errorCorrupt": "결과 PDF가 손상되어 사용할 수 없습니다. 설정을 바꿔 다시 시도해 주세요.",
+        "errorOpen": "PDF를 열 수 없습니다. 암호화되었거나 손상된 파일일 수 있습니다."
       }
     },
     "pdf-lock": {

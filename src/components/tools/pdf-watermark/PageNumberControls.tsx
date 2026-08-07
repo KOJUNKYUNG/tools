@@ -2,6 +2,7 @@
 
 import { template } from "@/lib/common/template";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
+import { NumberField } from "@/components/common/NumberField";
 import type { PageNumberOptions } from "@/lib/pdf/applyPdfOverlay";
 import type { PageNumberFormat } from "@/lib/pdf/pageNumberFormat";
 import type { GridPosition } from "@/lib/pdf/overlayLayout";
@@ -30,11 +31,11 @@ const INPUT =
   "h-8 w-full rounded-[6px] border px-2 font-body text-[12px] tabular-nums";
 const INPUT_STYLE = {
   borderColor: "var(--border)",
-  background: "var(--surface)",
+  background: "var(--surface-2)",
   color: "var(--ink-strong)",
 } as const;
 const FORMAT_TAB =
-  "flex-1 border-b-2 py-2 font-body text-[12px] tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+  "border-b-2 px-4 py-2 font-body text-[12px] tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
 export function PageNumberControls({
   value,
@@ -57,7 +58,7 @@ export function PageNumberControls({
       <div className="flex items-start gap-4">
         <PositionGrid
           value={value.grid}
-          onChange={(grid: GridPosition) => onChange({ grid })}
+          onChange={(grid: GridPosition) => onChange({ grid, position: null })}
           label={labels.positionLabel}
           disabled={disabled}
         />
@@ -68,12 +69,12 @@ export function PageNumberControls({
               <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
                 {labels.startLabel}
               </span>
-              <input
-                type="number"
-                min={0}
+              <NumberField
                 value={value.start}
+                onCommit={(start) => onChange({ start })}
+                min={0}
+                fallback={0}
                 disabled={disabled}
-                onChange={(e) => onChange({ start: Math.max(0, Number(e.target.value) || 0) })}
                 className={INPUT}
                 style={INPUT_STYLE}
               />
@@ -82,13 +83,13 @@ export function PageNumberControls({
               <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
                 {labels.fontSizeLabel}
               </span>
-              <input
-                type="number"
+              <NumberField
+                value={value.fontPx}
+                onCommit={(fontPx) => onChange({ fontPx })}
                 min={6}
                 max={96}
-                value={value.fontPx}
+                fallback={12}
                 disabled={disabled}
-                onChange={(e) => onChange({ fontPx: Math.min(96, Math.max(6, Number(e.target.value) || 12)) })}
                 className={INPUT}
                 style={INPUT_STYLE}
               />
@@ -103,7 +104,7 @@ export function PageNumberControls({
                 disabled={disabled}
                 onChange={(e) => onChange({ color: e.target.value })}
                 className="h-8 w-full cursor-pointer rounded-[6px] border"
-                style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+                style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
               />
             </label>
           </div>
@@ -137,7 +138,7 @@ export function PageNumberControls({
         <p className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
           {labels.formatLabel}
         </p>
-        <div className="flex border-b" style={{ borderColor: "var(--hairline)" }}>
+        <div className="inline-flex border-b" style={{ borderColor: "var(--hairline)" }}>
           {formats.map((f) => {
             const active = value.format === f.value;
             return (

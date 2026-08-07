@@ -10,6 +10,8 @@ import {
   clampOpacity,
   degToRad,
   GRID_POSITIONS,
+  resolveNumberCenter,
+  scaledTileGaps,
 } from "./overlayLayout";
 
 const page = { w: 200, h: 100 };
@@ -67,6 +69,15 @@ describe("computeTilePositions", () => {
     const ys = [...new Set(pts.map((p) => p.y))].sort((a, b) => a - b);
     expect(xs).toEqual([0, 100]);
     expect(ys).toEqual([0, 50]);
+  });
+  it("floors the step on a large negative gap so the tile count stays bounded", () => {
+    // A tiny tile with a huge negative gap would give step≈0 (a hang) without the
+    // floor. Step is floored at max(tile*0.5, 24) → far fewer than page/1 tiles.
+    const pts = computeTilePositions(600, 800, 10, 10, -1000, -1000);
+    // Without the floor, step≈1 → ~480k tiles (a hang). Floored to 24px it is ~850.
+    expect(pts.length).toBeLessThan(2000);
+    const xs = [...new Set(pts.map((p) => p.x))].sort((a, b) => a - b);
+    expect(xs[1] - xs[0]).toBeCloseTo(24); // step floored to 24, not ~1
   });
 });
 
@@ -150,6 +161,54 @@ describe("visualPointToUser (upright-view point → pdf user space)", () => {
     const u = visualPointToUser(90, W, H, 70, 120);
     const vBack = { x: u.y, y: W - u.x };
     expect(vBack).toEqual({ x: 70, y: 120 });
+  });
+});
+
+describe("scaledTileGaps", () => {
+  it("multiplier 1 === defaultTileGaps", () => {
+    expect(scaledTileGaps(100, 40, 1)).toEqual(defaultTileGaps(100, 40));
+  });
+  it("scales both gaps by the multiplier", () => {
+    const base = defaultTileGaps(100, 40);
+    const s = scaledTileGaps(100, 40, 2);
+    expect(s.gapX).toBeCloseTo(base.gapX * 2);
+    expect(s.gapY).toBeCloseTo(base.gapY * 2);
+  });
+  it("honors 0 (touching) and negative (overlapping) multipliers", () => {
+    expect(scaledTileGaps(100, 40, 0)).toEqual({ gapX: 0, gapY: 0 });
+    const base = defaultTileGaps(100, 40);
+    const neg = scaledTileGaps(100, 40, -0.5);
+    expect(neg.gapX).toBeCloseTo(base.gapX * -0.5);
+    expect(neg.gapY).toBeCloseTo(base.gapY * -0.5);
+  });
+  it("falls back to 1 on a NaN multiplier", () => {
+    expect(scaledTileGaps(100, 40, Number.NaN)).toEqual(defaultTileGaps(100, 40));
+  });
+});
+
+describe("resolveNumberCenter", () => {
+  const base = { pageW: 200, pageH: 100, boxW: 20, boxH: 10, margin: 8 };
+  it("null position === the grid anchor's center (preset parity)", () => {
+    const c = resolveNumberCenter({ grid: "bottom-center", position: null, ...base });
+    const corner = computeAnchor("bottom-center", base.pageW, base.pageH, base.boxW, base.boxH, base.margin);
+    expect(c.x).toBeCloseTo(corner.x + base.boxW / 2);
+    expect(c.y).toBeCloseTo(corner.y + base.boxH / 2);
+  });
+  it("free position maps normalized top-left to visual bottom-left center", () => {
+    const c = resolveNumberCenter({ grid: "center", position: { x: 0.5, y: 0.25 }, ...base });
+    expect(c.x).toBeCloseTo(100);
+    expect(c.y).toBeCloseTo(75);
+  });
+  it("a corner drag puts the CENTER on the page corner (box may overhang)", () => {
+    // top-left (0,0) → center at the top-left page corner; the box straddles it.
+    const c = resolveNumberCenter({ grid: "center", position: { x: 0, y: 0 }, ...base });
+    expect(c.x).toBeCloseTo(0);
+    expect(c.y).toBeCloseTo(100);
+  });
+  it("clamps an out-of-range position to the page bounds", () => {
+    const c = resolveNumberCenter({ grid: "center", position: { x: 1.5, y: 1.5 }, ...base });
+    expect(c.x).toBeCloseTo(base.pageW); // 200
+    expect(c.y).toBeCloseTo(0);
   });
 });
 

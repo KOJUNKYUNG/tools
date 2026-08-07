@@ -74,6 +74,11 @@ export function computeAnchor(
 /**
  * Bottom-left corners for a tiled watermark covering the page on a regular
  * grid. Step is tile size + gap on each axis. Always returns at least one tile.
+ *
+ * The step is floored at HALF the tile (min 24px) so a large negative gap
+ * (overlapping tiles) can't collapse the step toward zero and explode the tile
+ * count into a browser hang / gigantic PDF. Positive gaps are never affected
+ * (their step already exceeds the tile size).
  */
 export function computeTilePositions(
   pageW: number,
@@ -83,8 +88,8 @@ export function computeTilePositions(
   gapX: number,
   gapY: number,
 ): Point[] {
-  const stepX = Math.max(1, tileW + gapX);
-  const stepY = Math.max(1, tileH + gapY);
+  const stepX = Math.max(tileW * 0.5, 24, tileW + gapX);
+  const stepY = Math.max(tileH * 0.5, 24, tileH + gapY);
   const points: Point[] = [];
   for (let y = 0; y < pageH; y += stepY) {
     for (let x = 0; x < pageW; x += stepX) {
@@ -134,6 +139,52 @@ export function defaultTileGaps(
     gapX: Math.max(tileW * 0.5, 48),
     gapY: Math.max(tileH * 0.5, 48),
   };
+}
+
+/**
+ * defaultTileGaps scaled by a user multiplier. Any finite multiplier is honored,
+ * including 0 (tiles touch) and negatives (tiles overlap / denser than touching);
+ * `computeTilePositions` floors the resulting step at 1px. NaN → 1 (safety).
+ */
+export function scaledTileGaps(
+  tileW: number,
+  tileH: number,
+  multiplier: number,
+): { gapX: number; gapY: number } {
+  const m = Number.isFinite(multiplier) ? multiplier : 1;
+  const base = defaultTileGaps(tileW, tileH);
+  return { gapX: base.gapX * m, gapY: base.gapY * m };
+}
+
+/**
+ * Center (visual space, bottom-left origin, y-up) at which to place a page
+ * number. `position` is normalized top-left (0..1, y-down — canvas-natural);
+ * null falls back to the `grid` anchor + margin. Clamped so the box stays on-page.
+ */
+export function resolveNumberCenter(opts: {
+  grid: GridPosition;
+  position: { x: number; y: number } | null;
+  pageW: number;
+  pageH: number;
+  boxW: number;
+  boxH: number;
+  margin: number;
+}): Point {
+  const { grid, position, pageW, pageH, boxW, boxH, margin } = opts;
+  const clamp = (v: number, lo: number, hi: number) =>
+    Math.min(Math.max(v, lo), Math.min(hi, Math.max(lo, hi)));
+  if (position) {
+    // Free placement may overhang the page: only the CENTER is clamped to the
+    // page bounds, so a mark can sit half-off at an edge or corner.
+    const cx = position.x * pageW;
+    const cy = pageH - position.y * pageH; // flip top-left → bottom-left
+    return {
+      x: clamp(cx, 0, pageW),
+      y: clamp(cy, 0, pageH),
+    };
+  }
+  const corner = computeAnchor(grid, pageW, pageH, boxW, boxH, margin);
+  return { x: corner.x + boxW / 2, y: corner.y + boxH / 2 };
 }
 
 /**

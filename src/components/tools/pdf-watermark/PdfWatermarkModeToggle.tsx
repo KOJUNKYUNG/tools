@@ -10,7 +10,7 @@ interface PdfWatermarkModeToggleProps {
   disabled?: boolean;
 }
 
-const ORDER: WatermarkMode[] = ["number", "watermark"];
+const ORDER: WatermarkMode[] = ["watermark", "number"];
 
 export function PdfWatermarkModeToggle({
   value,

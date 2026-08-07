@@ -39,6 +39,7 @@ export interface PdfWatermarkLabels {
   opacityLabel: string;
   angleLabel: string;
   tileLabel: string;
+  tileGapLabel: string;
   apply: string;
   processing: string;
   analyzingHint: string;
@@ -50,6 +51,7 @@ export interface PdfWatermarkLabels {
   again: string;
   errorMemory: string;
   errorCorrupt: string;
+  errorOpen: string;
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
@@ -95,6 +97,7 @@ export function getPdfWatermarkLabels(dict: Dictionary): PdfWatermarkLabels {
     opacityLabel: p.opacityLabel,
     angleLabel: p.angleLabel,
     tileLabel: p.tileLabel,
+    tileGapLabel: p.tileGapLabel,
     apply: p.apply,
     processing: p.processing,
     analyzingHint: p.analyzingHint,
@@ -106,6 +109,7 @@ export function getPdfWatermarkLabels(dict: Dictionary): PdfWatermarkLabels {
     again: p.again,
     errorMemory: p.errorMemory,
     errorCorrupt: p.errorCorrupt,
+    errorOpen: p.errorOpen,
     fileUpload: dict.common.fileUpload,
   };
 }

@@ -522,6 +522,77 @@ footer .mono{ font-family:var(--font-mono); font-size:11px; }
     </div>
   </section>
 
+  <section class="block">
+    <div class="sectlabel">도구 레이아웃 기록</div>
+    <h2 class="secttitle">pdf-watermark — 워크스페이스 (폴리싱 2026-07-15)</h2>
+    <p class="note">두 모드(워터마크 · 페이지번호)를 가진 최상위 복잡도 도구. 최종 레이아웃과 <b>설계 의도</b>를 기록한다(작업용 시안 <span style="font-family:var(--font-mono)">docs/design-preview-pdf-watermark.html</span>은 삭제). 헤더는 PR-1 공통 <span style="font-family:var(--font-mono)">ToolHeader</span>가 소유(실행→처리중→다시하기).</p>
+
+    <div class="stage">
+      <div class="eyebrow" style="margin-bottom:12px">로드 상태 — 좌 프리뷰 · 1px 구분선 · 우 컨트롤(모드 토글 → 설정 박스)</div>
+      <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">
+        <!-- header (ToolHeader) -->
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px">
+          <span style="flex:1"><b>악보.pdf</b> <span style="color:var(--ink-soft)">· 84 KB · 12페이지</span></span>
+          <span style="background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:4px 9px;font-size:11px;color:var(--ink-strong)">다시 업로드</span>
+          <span style="background:var(--ink-strong);color:var(--surface);border-radius:9px;padding:8px 16px;font-size:12px;font-weight:600">적용하기</span>
+        </div>
+        <!-- two panes -->
+        <div style="display:grid;grid-template-columns:1fr 1px 1fr">
+          <div style="padding:12px 14px">
+            <div style="position:relative;aspect-ratio:3/4;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);overflow:hidden">
+              <div style="position:absolute;inset:8%;background:#fbf7ef;border-radius:2px"></div>
+              <span style="position:absolute;left:50%;bottom:9%;transform:translateX(-50%);font-size:15px;color:#444;outline:1px dashed var(--hairline);border-radius:3px;padding:1px 4px">12</span>
+            </div>
+            <div style="font-size:10.5px;color:var(--ink-soft);margin-top:6px">프리뷰 항상 유지 · 번호/워터마크를 <b>드래그로 자유 배치</b>(가장자리 걸침 가능)</div>
+          </div>
+          <div style="background:var(--border)"></div>
+          <div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;font-size:11.5px;border-bottom:1px solid var(--hairline)">
+              <span style="flex:1;text-align:center;padding-bottom:6px;border-bottom:2px solid var(--emphasis)"><b>워터마크</b></span>
+              <span style="flex:1;text-align:center;padding-bottom:6px;color:var(--ink-soft)">페이지 번호</span>
+            </div>
+            <div style="border:1px solid var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px">
+              <span style="display:inline-flex;font-size:11px"><b style="border-bottom:2px solid var(--emphasis);padding:0 8px 4px">텍스트</b><span style="color:var(--ink-soft);padding:0 8px">로고 이미지</span></span>
+              <div style="display:grid;grid-template-columns:1fr auto auto;gap:6px">
+                <span style="height:26px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2)"></span>
+                <span style="width:44px;height:26px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2)"></span>
+                <span style="width:30px;height:26px;border:1px solid var(--border);border-radius:6px;background:#888"></span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div style="display:flex;flex-direction:column;gap:6px;font-size:10px;color:var(--ink-soft)"><span>불투명도</span><span>회전</span></div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <span style="font-size:11px">☐ 바둑판 반복</span>
+                  <div style="display:grid;grid-template-columns:repeat(3,14px);gap:3px">
+                    <span style="width:14px;height:14px;border:1px solid var(--border);border-radius:3px"></span><span style="width:14px;height:14px;border:1px solid var(--border);border-radius:3px"></span><span style="width:14px;height:14px;border:1px solid var(--border);border-radius:3px"></span>
+                    <span style="width:14px;height:14px;border:1px solid var(--border);border-radius:3px"></span><span style="width:14px;height:14px;background:var(--emphasis);border-radius:3px"></span><span style="width:14px;height:14px;border:1px solid var(--border);border-radius:3px"></span>
+                    <span style="width:14px;height:14px;border:1px solid var(--border);border-radius:3px"></span><span style="width:14px;height:14px;border:1px solid var(--border);border-radius:3px"></span><span style="width:14px;height:14px;border:1px solid var(--border);border-radius:3px"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px">
+              <span style="flex:1;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-family:var(--font-mono);color:var(--ink-strong)">1-12</span>
+              <span style="background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:4px 8px">전체</span>
+              <span style="background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:4px 8px">지우기</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="eyebrow" style="margin:18px 0 8px">설계 의도</div>
+      <ul class="note" style="max-width:66ch;line-height:1.8">
+        <li><b>기본 = 워터마크</b>, 모드 토글 순서 [워터마크 · 페이지번호]. 모드 토글은 <b>전체 폭(상위 tier)</b>, 하위 토글(텍스트/로고 · 형식)은 <b>내용 폭(hug)</b> — 밑줄이 버튼만 받쳐 위계가 읽힘.</li>
+        <li><b>좌 프리뷰 · 1px <span style="font-family:var(--font-mono)">--border</span> 구분선 · 우 컨트롤</b>. 모드별 컨트롤은 <b>설정 박스</b>로 묶어 모드 토글의 하위임을 보인다.</li>
+        <li><b>소스(텍스트/로고)는 한 그리드 셀에 겹쳐</b> 둘 다 항상 레이아웃하고 활성만 표시(<span style="font-family:var(--font-mono)">invisible</span>) — 슬롯 높이 = max(두 모드)로 <b>전환 시 흔들림이 구조적으로 0</b>(고정 픽셀 예약 없음). 타일 토글도 위치 그리드 ↔ 간격 슬라이더를 같은 방식으로 겹쳐 처리.</li>
+        <li><b>배치 = 9앵커 프리셋(우) + 프리뷰 자유 드래그</b>. 번호·비타일 워터마크 모두. <span style="font-family:var(--font-mono)">resolveNumberCenter</span>가 프리뷰·export 공유(드래그=출력). 자유 배치는 <b>센터만 페이지 경계로 클램프</b> → 가장자리/모서리 걸침 허용. 타일은 앵커 무시라 켜면 <b>간격 슬라이더(−50%~300%, 음수=겹침)</b>로 바뀜.</li>
+        <li><b>입력은 <span style="font-family:var(--font-mono)">--surface-2</span></b>, 숫자 입력은 공유 <span style="font-family:var(--font-mono)">NumberField</span>로 <b>blur/Enter 시 커밋</b>(키마다 아님) — 지우고 다시 입력이 편함. 짝 슬라이더는 실시간.</li>
+        <li><b>버튼 2역할</b>: 파일열기(다시 업로드·로고 선택 = <span style="font-family:var(--font-mono)">.file-action</span>, 도드라진 <span style="font-family:var(--font-mono)">--surface</span>) vs 상태설정(전체·지우기 = <span style="font-family:var(--font-mono)">.subtle-action</span>, 눌린 <span style="font-family:var(--font-mono)">--surface-2</span>).</li>
+        <li><b>큰 마크 허용</b>: 텍스트 ≤400, 로고 ≤200% 페이지폭. 페이지를 넘으면 PDF가 가장자리에서 클립.</li>
+        <li><b>완료 = 우측 패널 ResultCard, 좌 프리뷰 유지</b>. 실행/다시하기는 헤더가 소유. 적용 페이지 0개면 실행 비활성. 암호화·손상 PDF는 지역화 오류(<span style="font-family:var(--font-mono)">errorOpen</span>), 페이지번호 접미사는 ko/en 모두 <span style="font-family:var(--font-mono)">1p</span>.</li>
+      </ul>
+    </div>
+  </section>
+
   <footer>
     <div class="wrap" style="padding:0">
       <p class="mono">docs/design-preview.html · 미러(정본 아님) — 토큰=globals.css · 계약=DESIGN.md · 브랜드/로고/모션=brand.html</p>

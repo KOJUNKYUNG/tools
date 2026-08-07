@@ -5,9 +5,9 @@ import { StampIcon } from "lucide-react";
 import { getPdfjsLib, pdfjsDocParams } from "@/lib/pdf/pdfjs";
 import { formatPageNumber } from "@/lib/pdf/pageNumberFormat";
 import {
-  computeAnchor,
+  resolveNumberCenter,
   computeTilePositions,
-  defaultTileGaps,
+  scaledTileGaps,
   clampOpacity,
   degToRad,
   type Point,
@@ -25,6 +25,9 @@ interface PdfWatermarkPreviewProps {
   analysis: { numPages: number; firstPageWidth: number; firstPageHeight: number } | null;
   analyzing: boolean;
   labels: PdfWatermarkLabels;
+  /** Number mode: dragging the number on the preview reports a normalized
+   *  top-left position (0..1). */
+  onPositionChange?: (pos: { x: number; y: number }) => void;
 }
 
 const PREVIEW_TARGET_W = 560;
@@ -61,8 +64,13 @@ export function PdfWatermarkPreview({
   analysis,
   analyzing,
   labels,
+  onPositionChange,
 }: PdfWatermarkPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Number-mode hit box (canvas-internal coords) for drag hit-testing.
+  const overlayBoxRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const draggingRef = useRef(false);
+  const [cursor, setCursor] = useState<"grab" | "grabbing" | "default">("default");
   const pageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const logoBitmapRef = useRef<ImageBitmap | null>(null);
   const renderTokenRef = useRef(0);
@@ -186,13 +194,24 @@ export function PdfWatermarkPreview({
       const fpx = pageOpts.fontPx * s;
       ctx.font = `${fpx}px ${family}`;
       const box = measureBox(ctx, text, fpx);
-      const corner = computeAnchor(pageOpts.grid, pageW, pageH, box.width, box.height, pageOpts.margin * s);
-      const topY = pageH - corner.y - box.height; // bottom-left origin → canvas top-left
+      const center = resolveNumberCenter({
+        grid: pageOpts.grid,
+        position: pageOpts.position,
+        pageW,
+        pageH,
+        boxW: box.width,
+        boxH: box.height,
+        margin: pageOpts.margin * s,
+      });
+      const cornerX = center.x - box.width / 2;
+      const topY = pageH - center.y - box.height / 2; // visual center → canvas top-left of box
       ctx.fillStyle = pageOpts.color;
       ctx.textBaseline = "alphabetic";
-      ctx.fillText(text, corner.x + box.pad, topY + box.pad + box.ascent);
+      ctx.fillText(text, cornerX + box.pad, topY + box.pad + box.ascent);
+      overlayBoxRef.current = { x: cornerX, y: topY, w: box.width, h: box.height };
       return;
     }
+    overlayBoxRef.current = null;
 
     // watermark
     ctx.globalAlpha = clampOpacity(wmOpts.opacity);
@@ -222,7 +241,7 @@ export function PdfWatermarkPreview({
         ctx.globalAlpha = 1;
         return;
       }
-      const frac = Math.min(1, Math.max(0.05, wmOpts.logoScale));
+      const frac = Math.min(2, Math.max(0.05, wmOpts.logoScale));
       drawW = pageW * frac;
       drawH = (bmp.height / bmp.width) * drawW;
     } else {
@@ -237,20 +256,93 @@ export function PdfWatermarkPreview({
       drawH = box.height;
     }
 
-    const tileGaps = defaultTileGaps(drawW, drawH);
+    const tileGaps = scaledTileGaps(drawW, drawH, wmOpts.tileGap);
     const centers: Point[] = wmOpts.tile
       ? computeTilePositions(pageW, pageH, drawW, drawH, tileGaps.gapX, tileGaps.gapY)
       : [
-          (() => {
-            const corner = computeAnchor(wmOpts.grid, pageW, pageH, drawW, drawH, wmOpts.margin * s);
-            return { x: corner.x + drawW / 2, y: corner.y + drawH / 2 };
-          })(),
+          resolveNumberCenter({
+            grid: wmOpts.grid,
+            position: wmOpts.position,
+            pageW,
+            pageH,
+            boxW: drawW,
+            boxH: drawH,
+            margin: wmOpts.margin * s,
+          }),
         ];
     for (const c of centers) paint(c.x, c.y);
     ctx.globalAlpha = 1;
+    // A single (non-tiled) watermark is draggable — store its hit box (the
+    // axis-aligned box around the center; rotation is ignored for hit-testing).
+    if (!wmOpts.tile) {
+      const c = centers[0];
+      overlayBoxRef.current = {
+        x: c.x - drawW / 2,
+        y: pageH - c.y - drawH / 2,
+        w: drawW,
+        h: drawH,
+      };
+    }
   }
 
   const showPlaceholder = !file || (!pageCanvasRef.current && analyzing);
+
+  // A single overlay is draggable: the page number, or a non-tiled watermark.
+  const draggable =
+    !!onPositionChange && (mode === "number" || (mode === "watermark" && !wmOpts.tile));
+
+  // Map a pointer event to normalized (0..1) + canvas-internal coords.
+  function canvasPoint(e: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    const nx = (e.clientX - rect.left) / rect.width;
+    const ny = (e.clientY - rect.top) / rect.height;
+    return { nx, ny, cx: nx * canvas.width, cy: ny * canvas.height };
+  }
+
+  function hitOverlay(cx: number, cy: number) {
+    const b = overlayBoxRef.current;
+    if (!b) return false;
+    const pad = 12;
+    return cx >= b.x - pad && cx <= b.x + b.w + pad && cy >= b.y - pad && cy <= b.y + b.h + pad;
+  }
+
+  function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!draggable) return;
+    const p = canvasPoint(e);
+    if (!p || !hitOverlay(p.cx, p.cy)) return;
+    draggingRef.current = true;
+    setCursor("grabbing");
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!draggable) return;
+    const p = canvasPoint(e);
+    if (!p) return;
+    if (draggingRef.current && onPositionChange) {
+      onPositionChange({
+        x: Math.min(1, Math.max(0, p.nx)),
+        y: Math.min(1, Math.max(0, p.ny)),
+      });
+      return;
+    }
+    setCursor(hitOverlay(p.cx, p.cy) ? "grab" : "default");
+  }
+
+  function endDrag(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    setCursor("default");
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* pointer already released */
+    }
+  }
 
   return (
     <div
@@ -260,6 +352,11 @@ export function PdfWatermarkPreview({
       <canvas
         ref={canvasRef}
         className="absolute inset-0 m-auto max-h-full max-w-full object-contain"
+        style={{ cursor: draggable ? cursor : "default", touchAction: "none" }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={endDrag}
+        onPointerLeave={endDrag}
       />
       {showPlaceholder && (
         <div className="absolute inset-0 grid place-items-center px-4 text-center">

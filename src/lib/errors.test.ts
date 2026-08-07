@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getErrorMessage, WRONG_PASSWORD_PREFIX } from "./errors";
+import { getErrorMessage, WRONG_PASSWORD_PREFIX, INVALID_INPUT_PREFIX } from "./errors";
 import { ToolErrorCode } from "@/types";
 
 describe("getErrorMessage — WRONG_PASSWORD sentinel", () => {
@@ -32,6 +32,17 @@ describe("getErrorMessage — CORRUPT_OUTPUT still works (regression)", () => {
       corruptOutputHint: "CORRUPT",
     });
     expect(wrong.message).toBe("PW");
+  });
+});
+
+describe("getErrorMessage INVALID_INPUT", () => {
+  it("maps an INVALID_INPUT-prefixed error to the provided hint", () => {
+    const err = new Error(`${INVALID_INPUT_PREFIX}: broken`);
+    expect(getErrorMessage(err, { invalidInputHint: "Couldn't open this PDF." }).message).toBe("Couldn't open this PDF.");
+  });
+  it("falls back to the default INVALID_FILE message when no hint is given", () => {
+    const err = new Error(`${INVALID_INPUT_PREFIX}: broken`);
+    expect(getErrorMessage(err).message).toBe("지원하지 않거나 손상된 파일입니다.");
   });
 });
 
