@@ -421,16 +421,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const currentThumbUrl = currentGroup ? groupThumbUrls.get(currentGroup.key) ?? null : null;
   const zoomSrc = zoom === "selected" ? bgPreviewUrl : zoom === "current" ? currentThumbUrl : null;
 
-  // When the .ppt rejection guide is showing, lock the outer panel to its
-  // full 50vh so the body's flex-1 children (the accordion in particular)
-  // have a definite height to flex against — without this the outer is
-  // content-sized and flex-1 has nothing to grow into, so the accordion's
-  // scroll never engages and content bleeds past the panel bottom.
+  // When the .ppt rejection guide is showing, give the empty-state body itself
+  // a definite 50vh height so its flex-1 children (the accordion in particular)
+  // have something to flex against — without a definite height the accordion's
+  // scroll never engages and content bleeds past the panel bottom. The tray
+  // height lives on the body container, not the outer card, so the card is
+  // `header + 50vh` (canon = pdf-watermark), never `50vh` clipping the header.
   const lockHeight = showConversionGuide && !pptxFile;
-  // Once a deck is loaded, pin the workspace to the tray height so the gallery
-  // scrolls INSIDE its pane — switching category tabs (different image counts)
-  // must never resize the tool (UI stability contract).
-  const fixedHeight = lockHeight || !!pptxFile;
 
   const header = (
     <ToolHeader
@@ -471,13 +468,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       }
       style={
         inline
-          ? { maxHeight: "var(--tray-h)", ...(fixedHeight ? { height: "var(--tray-h)" } : {}) }
+          ? undefined
           : {
               background: "var(--surface)",
               borderColor: "var(--border)",
               boxShadow: "var(--shadow-lg)",
-              maxHeight: "var(--tray-h)",
-              ...(fixedHeight ? { height: "var(--tray-h)" } : {}),
             }
       }
     >
@@ -491,17 +486,18 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       {/* Body */}
       {!pptxFile ? (
         // Empty state — natural-size dropzone normally (matches the other
-        // tools). When a .ppt is rejected, the outer panel is locked to
-        // 50vh above (see lockHeight) and this body uses flex-1 to fill
-        // that space, so the accordion's expanded body scrolls within the
-        // panel instead of bleeding past it. Collapsed and expanded states
-        // share the same vertical footprint by construction.
+        // tools). When a .ppt is rejected, THIS body is pinned to 50vh (see
+        // lockHeight) and its flex-1 children fill that space, so the
+        // accordion's expanded body scrolls within the panel instead of
+        // bleeding past it. Collapsed and expanded states share the same
+        // vertical footprint by construction.
         <div
           className={
             lockHeight
               ? "flex min-h-0 flex-1 flex-col gap-4 px-6 py-4"
               : "flex flex-col gap-4 px-6 py-4"
           }
+          style={lockHeight ? { height: "var(--tray-h)" } : undefined}
         >
           {showConversionGuide && (
             <PptConversionGuide
@@ -527,7 +523,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
           )}
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-3">
+        // Loaded workspace — the tray height lives HERE (not the outer card),
+        // so the card is `header + 50vh` and the gallery scrolls inside its
+        // pane. Switching category tabs must never resize the tool (UI
+        // stability contract). Canon = pdf-watermark.
+        <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
 
           {/* Two-pane workspace. */}
           <div
