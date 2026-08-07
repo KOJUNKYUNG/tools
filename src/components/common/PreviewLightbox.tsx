@@ -1,12 +1,11 @@
-// src/components/tools/ppt-background/PreviewLightbox.tsx
 "use client";
 
 interface PreviewLightboxProps {
   /** Image URL to enlarge. */
   src: string;
   alt: string;
-  /** Aspect ratio value for the box, e.g. "16 / 9" | "4 / 3". */
-  aspect: string;
+  /** Aspect ratio for the box, e.g. "16 / 9". Omit to size the image naturally. */
+  aspect?: string;
   closeLabel: string;
   onClose: () => void;
 }
@@ -21,10 +20,10 @@ export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose }: Previ
     >
       <div
         className="max-h-full max-w-full overflow-hidden border"
-        style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-lg)", aspectRatio: aspect }}
+        style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-lg)", ...(aspect ? { aspectRatio: aspect } : null) }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt} className="size-full object-contain" />
+        <img src={src} alt={alt} className="max-h-full max-w-full object-contain" />
       </div>
       <button
         type="button"
