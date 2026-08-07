@@ -3,19 +3,12 @@
 import { getPdfjsLib, pdfjsDocParams } from "@/lib/pdf/pdfjs";
 
 interface ComparePreviewProps {
-  /** Original PDF page-1 preview URL (always available once the file is loaded). */
   originalUrl: string | null;
-  /** Compressed PDF page-1 preview URL (available in "done" state or as a live preview). */
   compressedUrl: string | null;
-  /** Whether the compressed preview is currently shown (vs original). */
   showCompressed: boolean;
-  /**
-   * When true, a small spinning indicator is shown in the top-right corner
-   * to signal that a new compressed preview is being generated.
-   * If `compressedUrl` is not yet available, the spinner replaces the frame content.
-   * If a previous preview already exists, it stays visible with a subtle badge.
-   */
   loading?: boolean;
+  onZoom?: () => void;
+  zoomAria?: string;
 }
 
 export function ComparePreview({
@@ -23,41 +16,40 @@ export function ComparePreview({
   compressedUrl,
   showCompressed,
   loading,
+  onZoom,
+  zoomAria,
 }: ComparePreviewProps) {
-  const url =
-    showCompressed && compressedUrl ? compressedUrl : originalUrl;
-
-  // Show a corner badge when re-loading a compressed preview that already exists
+  const url = showCompressed && compressedUrl ? compressedUrl : originalUrl;
   const showCornerSpinner = loading && !!compressedUrl && showCompressed;
-  // Show centre spinner only on first-load (no compressed preview yet)
   const showCentreSpinner = !url;
+  const zoomable = !!url && !!onZoom;
 
   return (
     <div
       className="relative min-h-0 flex-1 overflow-hidden rounded-[8px]"
-      style={{
-        background: "var(--surface-2)",
-        border: "1px solid var(--border)",
-      }}
+      style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
     >
       {url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={url}
-          alt=""
-          draggable={false}
-          className="absolute inset-0 m-auto max-h-full max-w-full object-contain"
-        />
+        zoomable ? (
+          <button
+            type="button"
+            onClick={onZoom}
+            aria-label={zoomAria}
+            className="absolute inset-0 cursor-zoom-in"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={url} alt="" draggable={false} className="absolute inset-0 m-auto max-h-full max-w-full object-contain" />
+          </button>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt="" draggable={false} className="absolute inset-0 m-auto max-h-full max-w-full object-contain" />
+        )
       ) : showCentreSpinner ? (
-        <div
-          className="absolute inset-0 grid place-items-center font-body text-[12px]"
-          style={{ color: "var(--ink-soft)" }}
-        >
+        <div className="absolute inset-0 grid place-items-center font-body text-[12px]" style={{ color: "var(--ink-soft)" }}>
           <span className="inline-block size-4 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
         </div>
       ) : null}
 
-      {/* Corner badge: shown when updating an existing compressed preview */}
       {showCornerSpinner && (
         <div className="pointer-events-none absolute right-2 top-2 rounded-full bg-[color:var(--surface)] p-1 shadow-sm opacity-80">
           <span className="block size-3 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
@@ -79,19 +71,20 @@ export function ComparePreview({
 export async function renderPdfFirstPage(
   bytes: Uint8Array,
   targetWidth = 600,
+  maxScale = 2,
 ): Promise<Blob> {
   const pdfjsLib = await getPdfjsLib();
-  const doc = await pdfjsLib.getDocument({ data: bytes, ...pdfjsDocParams })
-    .promise;
+  const doc = await pdfjsLib.getDocument({ data: bytes, ...pdfjsDocParams }).promise;
   try {
     const page = await doc.getPage(1);
     const baseViewport = page.getViewport({ scale: 1 });
-    const scale = Math.min(targetWidth / baseViewport.width, 2);
+    const scale = Math.min(targetWidth / baseViewport.width, maxScale);
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement("canvas");
-    // Clamp to avoid OOM on huge pages (pitfall: pdf-to-image F1).
-    canvas.width = Math.min(Math.ceil(viewport.width), 2400);
-    canvas.height = Math.min(Math.ceil(viewport.height), 2400);
+    // Clamp to avoid OOM on huge pages; the zoom path passes a larger cap.
+    const MAX_CANVAS = 4096;
+    canvas.width = Math.min(Math.ceil(viewport.width), MAX_CANVAS);
+    canvas.height = Math.min(Math.ceil(viewport.height), MAX_CANVAS);
     await page.render({ canvas, viewport }).promise;
     return await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
