@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
-import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { uploadLimitFor } from "@/lib/constants";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolHeader } from "@/components/common/ToolHeader";
+import { PreviewLightbox } from "@/components/common/PreviewLightbox";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
@@ -14,12 +14,12 @@ import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import { analyzePdf } from "@/lib/pdf/analyzePdf";
 import {
   compressPdf,
-  compressPdfLivePreview,
+  compressPdfFromBytes,
   type CompressionPreset,
   type CompressPdfResult,
 } from "@/lib/pdf/compressPdf";
+import { shouldPreviewCompress } from "@/lib/pdf/livePreviewGate";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
-import { extractPageOne } from "@/lib/pdf/extractPageOne";
 import { deriveCompressedName } from "@/lib/pdf/pdfCompressNaming";
 import { ComparePreview, renderPdfFirstPage } from "./ComparePreview";
 import { PdfCompressControls } from "./PdfCompressControls";
@@ -41,12 +41,19 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   const [showCompressed, setShowCompressed] = useState(true);
   const reuploadInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Live preview state — driven by (file, preset) while in idle.
+  // Live preview: faithful whole-doc compress of the current preset (gated by size).
   const [livePreviewUrl, setLivePreviewUrl] = useState<string | null>(null);
   const [livePreviewLoading, setLivePreviewLoading] = useState(false);
-  // imageShare: fraction of file bytes that are images (0..1); null = pending/failed.
+  const [liveResult, setLiveResult] = useState<CompressPdfResult | null>(null);
+  const [pageCount, setPageCount] = useState<number | null>(null);
   const [imageShare, setImageShare] = useState<number | null>(null);
   const livePreviewTokenRef = useRef(0);
+  // Precompute cache: preset -> whole-doc result for the CURRENT file. Cleared on file change.
+  const previewCacheRef = useRef<Map<CompressionPreset, CompressPdfResult>>(new Map());
+
+  // Zoom (hi-res lightbox) state.
+  const [zoomUrl, setZoomUrl] = useState<string | null>(null);
+  const [zooming, setZooming] = useState(false);
 
   // filesRef gives onDownload a stable reference to the current files array
   // without creating a circular type dependency (TS7022/7023).
@@ -63,8 +70,15 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     retry,
     download,
   } = useToolProcessor<CompressPdfResult>({
-    processor: (processorFiles, onProgress) =>
-      compressPdf({ file: processorFiles[0], preset, onProgress }),
+    processor: async (processorFiles, onProgress) => {
+      const cached = previewCacheRef.current.get(preset);
+      if (cached) {
+        // The live preview already compressed the whole doc at this preset.
+        onProgress(100);
+        return cached;
+      }
+      return compressPdf({ file: processorFiles[0], preset, onProgress });
+    },
     onDownload: (res) =>
       downloadBlob(
         res.data,
@@ -149,17 +163,20 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     };
   }, [result]);
 
-  // Clear live preview when the file changes (the live effect will regenerate).
+  // Reset all per-file preview state when the file changes.
   useEffect(() => {
+    previewCacheRef.current = new Map();
+    setLiveResult(null);
+    setPageCount(null);
+    setImageShare(null);
     setLivePreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
-    setImageShare(null);
   }, [file]);
 
-  // Analyze the PDF once per file to determine the image content share.
-  // This drives the smarter estimate in PdfCompressEstimate.
+  // Analyze the PDF once per file to determine page count and image content share.
+  // The image share drives the fallback estimate; page count feeds the file summary.
   useEffect(() => {
     if (!file) {
       setImageShare(null);
@@ -170,6 +187,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       try {
         const analysis = await analyzePdf(file);
         if (cancelled) return;
+        setPageCount(analysis.pages);
         if (analysis.isEncrypted) {
           setImageShare(null);
           return;
@@ -186,12 +204,17 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     };
   }, [file]);
 
-  // Generate a live compressed preview of page 1 while in idle state.
-  // Debounced 400ms; token-guarded against stale async responses.
+  // Faithful live preview: compress the WHOLE document at the current preset
+  // (debounced, token-guarded, size-gated), cache the result, render page 1.
   useEffect(() => {
-    if (!file || status !== "idle") {
+    if (
+      !file ||
+      status !== "idle" ||
+      !shouldPreviewCompress(file.size, uploadLimitFor("pdf-compress"))
+    ) {
       livePreviewTokenRef.current++;
       setLivePreviewLoading(false);
+      if (file && status === "idle") setLiveResult(null); // gated-off: no real size
       return;
     }
     const token = ++livePreviewTokenRef.current;
@@ -200,31 +223,28 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       let createdUrl: string | null = null;
       let committed = false;
       try {
-        const ab = await file.arrayBuffer();
-        const onePage = await extractPageOne(new Uint8Array(ab));
-        // skipIntegrityCheck: live preview operates on a single extracted
-        // page, where the multi-page ratio guard would false-positive.
-        const liveResult = await compressPdfLivePreview({
-          bytes: onePage,
-          preset,
-          skipIntegrityCheck: true,
-        });
-        if (token !== livePreviewTokenRef.current) return;
-        const blob = await renderPdfFirstPage(liveResult.data.slice());
+        let result = previewCacheRef.current.get(preset);
+        if (!result) {
+          const ab = await file.arrayBuffer();
+          result = await compressPdfFromBytes({ bytes: new Uint8Array(ab), preset });
+          if (token !== livePreviewTokenRef.current) return;
+          previewCacheRef.current.set(preset, result);
+        }
+        setLiveResult(result);
+        const blob = await renderPdfFirstPage(result.data.slice());
         if (token !== livePreviewTokenRef.current) return;
         createdUrl = URL.createObjectURL(blob);
-        if (token !== livePreviewTokenRef.current) return; // final check before commit
+        if (token !== livePreviewTokenRef.current) return;
         setLivePreviewUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
           return createdUrl;
         });
         committed = true;
       } catch {
-        // Keep previous livePreviewUrl on failure — better than flicker.
+        // Corrupt/failed compress → keep the original preview, no real size.
+        if (token === livePreviewTokenRef.current) setLiveResult(null);
       } finally {
-        // Revoke if we created a URL but never committed it (stale token race).
         if (createdUrl && !committed) URL.revokeObjectURL(createdUrl);
-        // Always clear loading — fixes stuck spinner on encrypted/failed PDFs.
         setLivePreviewLoading(false);
       }
     }, 400);
@@ -233,12 +253,16 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     };
   }, [file, preset, status]);
 
-  // Revoke livePreviewUrl on unmount only.
+  // Revoke live preview + zoom URLs on unmount only.
   useEffect(() => {
     return () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps
       livePreviewTokenRef.current++;
       setLivePreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setZoomUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
       });
@@ -284,26 +308,64 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   const busy = status === "processing";
   const isDone = status === "done" && !!result;
 
-  // Advisory (never blocks): pdf-compress accepts any size, but warns when a file
-  // is large enough that in-browser compression may be slow or fail.
-  const [oversizeDismissed, setOversizeDismissed] = useState(false);
-  const showOversize =
-    !!file &&
-    status === "idle" &&
-    file.size > uploadLimitFor("pdf-compress") &&
-    !oversizeDismissed;
+  const handleZoom = useCallback(async () => {
+    const showingCompressed =
+      showCompressed && (isDone ? !!compressedUrl : !!livePreviewUrl);
+    setZooming(true);
+    try {
+      let bytes: Uint8Array;
+      if (showingCompressed && isDone && result) {
+        bytes = result.data.slice();
+      } else if (showingCompressed && liveResult) {
+        bytes = liveResult.data.slice();
+      } else if (file) {
+        bytes = new Uint8Array(await file.arrayBuffer());
+      } else {
+        return;
+      }
+      const blob = await renderPdfFirstPage(bytes, 1800, 4);
+      const url = URL.createObjectURL(blob);
+      setZoomUrl(url);
+    } catch {
+      // Zoom render failed — silently ignore; inline preview still works.
+    } finally {
+      setZooming(false);
+    }
+  }, [showCompressed, isDone, compressedUrl, livePreviewUrl, liveResult, file, result]);
 
-  // Unified compressed candidate: authoritative result in done state, live preview otherwise.
-  const compressedCandidate = isDone ? compressedUrl : livePreviewUrl;
-  // Checkbox is now active in idle too — once livePreviewUrl arrives, the user can toggle.
-  const showToggle = !!compressedCandidate;
+  const handleZoomClose = useCallback(() => {
+    setZoomUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }, []);
+
+  const overLimit = !!file && file.size > uploadLimitFor("pdf-compress");
 
   const fileInfo = file
     ? template(labels.fileInfoTemplate, {
         name: file.name,
         size: formatBytes(file.size),
-      })
+      }) +
+      (pageCount != null
+        ? ` · ${template(labels.pageCountTemplate, { count: String(pageCount) })}`
+        : "")
     : "";
+
+  const headerMeta = overLimit ? (
+    <span
+      className="shrink-0 whitespace-nowrap font-body text-[11px]"
+      style={{ color: "var(--emphasis)" }}
+      title={labels.fileUpload.largeFileWarning}
+    >
+      · {labels.oversizeBadge}
+    </span>
+  ) : undefined;
+
+  // Unified compressed candidate: authoritative result in done state, live preview otherwise.
+  const compressedCandidate = isDone ? compressedUrl : livePreviewUrl;
+  // Checkbox is now active in idle too — once livePreviewUrl arrives, the user can toggle.
+  const showToggle = !!compressedCandidate;
 
   const handleCompressClick = useCallback(() => {
     if (!file) {
@@ -319,6 +381,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       description={labels.description}
       hasFile={hasFile}
       fileSummary={fileInfo}
+      meta={headerMeta}
       status={status}
       onReupload={handleReupload}
       reuploadLabel={labels.reupload}
@@ -356,16 +419,10 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           labels={labels.fileUpload}
         />
       ) : (
-        <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
-          {showOversize && file && (
-            <OversizeNotice
-              totalBytes={file.size}
-              warning={labels.fileUpload.largeFileWarning}
-              dismissLabel={labels.fileUpload.dismiss}
-              onDismiss={() => setOversizeDismissed(true)}
-            />
-          )}
-
+        <div
+          className="relative flex flex-col gap-3"
+          style={{ height: "var(--tray-h)" }}
+        >
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2">
             {/* LEFT: preview frame (persists) → compare checkbox */}
             <div className="flex h-full flex-col gap-2">
@@ -374,6 +431,8 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
                 compressedUrl={compressedCandidate}
                 showCompressed={showCompressed && showToggle}
                 loading={livePreviewLoading && status === "idle"}
+                onZoom={handleZoom}
+                zoomAria={labels.zoomAria}
               />
               <div className="flex h-7 items-center justify-end">
                 <label
@@ -397,43 +456,67 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
               </div>
             </div>
 
-            {/* RIGHT: preset row → estimate, or result, or status */}
-            {isDone && result ? (
-              <div className="self-start">
-                <PdfCompressResult
-                  originalSize={result.originalSize}
-                  compressedSize={result.compressedSize}
-                  onDownload={download}
-                  labels={labels}
-                />
-              </div>
-            ) : status === "idle" ? (
-              <div className="flex h-full flex-col gap-3">
-                <PdfCompressControls
-                  preset={preset}
-                  onChange={setPreset}
-                  labels={labels}
-                  disabled={busy}
-                />
-                {file && (
-                  <PdfCompressEstimate
-                    preset={preset}
-                    originalSize={file.size}
+            {/* RIGHT: controls / result / status — 1px panel divider (canon) */}
+            <div
+              className="flex h-full min-h-0 flex-col md:border-l md:pl-5"
+              style={{ borderColor: "var(--border)" }}
+            >
+              {isDone && result ? (
+                <div className="self-start">
+                  <PdfCompressResult
+                    originalSize={result.originalSize}
+                    compressedSize={result.compressedSize}
+                    onDownload={download}
                     labels={labels}
-                    imageShare={imageShare}
                   />
-                )}
-              </div>
-            ) : (
-              <ProcessingStatus
-                status={status}
-                progress={progress}
-                errorMessage={errorMessage}
-                onRetry={retry}
-                labels={{ processing: labels.processing }}
-              />
-            )}
+                </div>
+              ) : status === "idle" ? (
+                <div className="flex h-full flex-col gap-3">
+                  <PdfCompressControls
+                    preset={preset}
+                    onChange={setPreset}
+                    labels={labels}
+                    disabled={busy}
+                  />
+                  {file && (
+                    <PdfCompressEstimate
+                      preset={preset}
+                      originalSize={file.size}
+                      labels={labels}
+                      imageShare={imageShare}
+                      actualCompressedSize={liveResult?.compressedSize ?? null}
+                    />
+                  )}
+                </div>
+              ) : (
+                <ProcessingStatus
+                  status={status}
+                  progress={progress}
+                  errorMessage={errorMessage}
+                  onRetry={retry}
+                  labels={{ processing: labels.processing }}
+                />
+              )}
+            </div>
           </div>
+
+          {zooming && !zoomUrl && (
+            <div
+              className="absolute inset-0 z-10 grid place-items-center"
+              style={{ background: "color-mix(in oklch, var(--surface) 70%, transparent)" }}
+            >
+              <span className="inline-block size-5 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
+            </div>
+          )}
+
+          {zoomUrl && (
+            <PreviewLightbox
+              src={zoomUrl}
+              alt=""
+              closeLabel={labels.lightboxClose}
+              onClose={handleZoomClose}
+            />
+          )}
         </div>
       )}
     </div>
