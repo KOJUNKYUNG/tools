@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { NumberField } from "@/components/common/NumberField";
 import { clampBox, type Box } from "@/lib/pptx/slidePlacement";
 
 interface Props {
@@ -28,13 +28,11 @@ const FIELDS: { key: FieldKey; lab: "posX" | "posY" | "sizeW" | "sizeH" }[] = [
 ];
 
 export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, labels }: Props) {
-  const [draft, setDraft] = useState<Record<FieldKey, string>>({ x: "", y: "", w: "", h: "" });
-  const [editing, setEditing] = useState<FieldKey | null>(null);
-
   // Guard against degenerate refSize (computeSlidePlacement returns {w:0,h:0} for degenerate inputs)
   const validRef = refSize && refSize.w > 0 && refSize.h > 0 ? refSize : null;
 
-  // Display values as percentages
+  // Display values as percentages. NumberField owns the mid-edit text and syncs
+  // from this value when the field is not focused, so no local draft is needed.
   function toDisplay(key: FieldKey): number {
     if (key === "x") return Math.round((box.x / slideW) * 100);
     if (key === "y") return Math.round((box.y / slideH) * 100);
@@ -42,27 +40,13 @@ export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, l
     /* h */ return validRef ? Math.round((box.h / validRef.h) * 100) : Math.round((box.h / slideH) * 100);
   }
 
-  useEffect(() => {
-    if (editing) return;
-    setDraft({
-      x: String(toDisplay("x")),
-      y: String(toDisplay("y")),
-      w: String(toDisplay("w")),
-      h: String(toDisplay("h")),
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [box, editing, slideW, slideH, refSize]);
-
-  const commit = (key: FieldKey, raw: string) => {
-    const pct = Math.max(0, Math.min(100, Number(raw) || 0));
+  const commit = (key: FieldKey, pct: number) => {
     let inches: number;
     if (key === "x") inches = (pct / 100) * slideW;
     else if (key === "y") inches = (pct / 100) * slideH;
     else if (key === "w") inches = validRef ? (pct / 100) * validRef.w : (pct / 100) * slideW;
     else /* h */ inches = validRef ? (pct / 100) * validRef.h : (pct / 100) * slideH;
-    const updated = clampBox({ ...box, [key]: inches }, slideW, slideH);
-    onBoxChange(updated);
-    setEditing(null);
+    onBoxChange(clampBox({ ...box, [key]: inches }, slideW, slideH));
   };
 
   return (
@@ -72,12 +56,15 @@ export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, l
         {FIELDS.map((f) => (
           <label key={f.key} className="flex items-center gap-1.5 text-[12px]">
             <span style={{ color: "var(--ink-soft)" }} className="w-9 shrink-0">{labels[f.lab]}</span>
-            <input type="number" min={0} max={100} value={draft[f.key]}
-              onFocus={() => setEditing(f.key)}
-              onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
-              onBlur={(e) => commit(f.key, e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") commit(f.key, (e.target as HTMLInputElement).value); }}
-              className="nameplate h-8 w-full min-w-0 rounded-[9px] px-1.5 text-right text-[12px] tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            <NumberField
+              value={toDisplay(f.key)}
+              onCommit={(pct) => commit(f.key, pct)}
+              min={0}
+              max={100}
+              fallback={0}
+              ariaLabel={labels[f.lab]}
+              className="nameplate h-8 w-full min-w-0 rounded-[9px] px-1.5 text-right text-[12px] tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
           </label>
         ))}
       </div>

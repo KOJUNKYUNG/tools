@@ -146,7 +146,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
   );
   const [loadingPages, setLoadingPages] = useState(false);
   const [sizeMode, setSizeMode] = useState<PageSizeMode>("fit");
-  const [custom, setCustom] = useState<CustomSize>({ w: "595", h: "842" });
+  const [custom, setCustom] = useState<CustomSize>({ w: 595, h: 842 });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
 
@@ -156,8 +156,8 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       // Clamp to PDF's max page dimension (14400 pt ≈ 200in) so an absurd value
       // can't produce a giant page / OOM.
       const MAX_PT = 14400;
-      const w = Math.min(MAX_PT, Math.max(1, Math.round(Number(custom.w) || 0)));
-      const h = Math.min(MAX_PT, Math.max(1, Math.round(Number(custom.h) || 0)));
+      const w = Math.min(MAX_PT, Math.max(1, Math.round(custom.w || 0)));
+      const h = Math.min(MAX_PT, Math.max(1, Math.round(custom.h || 0)));
       return { mode: "fixed", widthPt: w, heightPt: h };
     }
     return { mode: "native" };
@@ -235,7 +235,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
           // Seed the custom page size with the first image's pixel dimensions, so
           // "사용자 지정" starts from a meaningful basis (the user's own image).
           const size = await readImagePixelSize(accepted[0]);
-          if (size) setCustom({ w: String(size.w), h: String(size.h) });
+          if (size) setCustom({ w: size.w, h: size.h });
         } else {
           setItems((prev) => [...prev, ...built.items]);
           setSourceBytesById((prev) => new Map([...prev, ...built.sourceBytesById]));
@@ -334,7 +334,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
     sizeMode === "a4"
       ? 595 / 842
       : sizeMode === "custom"
-        ? Math.max(1, Number(custom.w) || 0) / Math.max(1, Number(custom.h) || 0)
+        ? Math.max(1, custom.w || 0) / Math.max(1, custom.h || 0)
         : null;
 
   const filesSummary =
