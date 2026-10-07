@@ -108,6 +108,26 @@ is unsound for a faithful preview.
   preview == real output on a real church PDF, zoom, divider, header warning.
 - Then `/review` → `/ship` (push / PR / merge are hard stops, after approval).
 
+## Revisions after visual QA
+
+User screenshots changed three decisions above; the shipped behavior is:
+
+- **Zoom (§2):** no lightbox. The preview frame itself zooms on click, toward
+  the clicked point: 1× → 2× → 3× → 4×, and the next click returns to fit.
+  Previews render at 1500px so the zoom stays sharp. `PreviewLightbox` still
+  moved to `components/common/` but keeps its original behavior and is used by
+  ppt-background only.
+- **Compare:** the checkbox toggle is gone. It could be left unchecked and
+  then showed the original in the done view, which read as "the preview does
+  not match the result". The preview always shows the compressed page, and a
+  hold-to-compare button reveals the original only while pressed (pointer or
+  Space/Enter). Both renders share one zoom transform, so the comparison stays
+  aligned at any zoom level.
+- **Result card:** fills the right column width (no `self-start` hug). This
+  matches ppt-background and pdf-watermark and is now in checklist E.
+- **Oversize note:** `--ink-soft` instead of `--emphasis`. Emphasis is the
+  strongest ink and outweighed the file name.
+
 ## Out of scope (deferred)
 
 - Web Worker for compression (perf) — future.

@@ -52,10 +52,14 @@ export function ComparePreview({
   // Reset zoom when the shown image changes (new preset / file / result).
   // React's adjust-state-during-render pattern — cheaper than an effect and
   // avoids a flash of the previous zoom on the new image.
+  // Also release a hold: if the compare button unmounts mid-press (file swap)
+  // it never sees pointerup, which would otherwise leave the next image stuck
+  // on the original.
   if (url !== prevUrl) {
     setPrevUrl(url);
     setZoomIndex(0);
     setOrigin({ x: 50, y: 50 });
+    setHolding(false);
   }
 
   // Momentary by construction: the original shows only while the button is

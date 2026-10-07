@@ -47,7 +47,12 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   // Live preview: faithful whole-doc compress of the current preset (gated by size).
   const [livePreviewUrl, setLivePreviewUrl] = useState<string | null>(null);
   const [livePreviewLoading, setLivePreviewLoading] = useState(false);
-  const [liveResult, setLiveResult] = useState<CompressPdfResult | null>(null);
+  // Tagged with its preset so a stale result is never shown under another preset
+  // while the new one is still computing.
+  const [liveResult, setLiveResult] = useState<{
+    preset: CompressionPreset;
+    result: CompressPdfResult;
+  } | null>(null);
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [imageShare, setImageShare] = useState<number | null>(null);
   const livePreviewTokenRef = useRef(0);
@@ -217,6 +222,9 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     }
     const token = ++livePreviewTokenRef.current;
     setLivePreviewLoading(true);
+    // Debounce only real compress work; switching back to an already-computed
+    // preset is applied immediately.
+    const delay = previewCacheRef.current.has(preset) ? 0 : 400;
     const timer = setTimeout(async () => {
       let createdUrl: string | null = null;
       let committed = false;
@@ -228,7 +236,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           if (token !== livePreviewTokenRef.current) return;
           previewCacheRef.current.set(preset, result);
         }
-        setLiveResult(result);
+        setLiveResult({ preset, result });
         const blob = await renderPdfFirstPage(result.data.slice(), PREVIEW_WIDTH, PREVIEW_MAX_SCALE);
         if (token !== livePreviewTokenRef.current) return;
         createdUrl = URL.createObjectURL(blob);
@@ -245,7 +253,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
         if (createdUrl && !committed) URL.revokeObjectURL(createdUrl);
         setLivePreviewLoading(false);
       }
-    }, 400);
+    }, delay);
     return () => {
       clearTimeout(timer);
     };
@@ -377,10 +385,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           labels={labels.fileUpload}
         />
       ) : (
-        <div
-          className="relative flex flex-col gap-3"
-          style={{ height: "var(--tray-h)" }}
-        >
+        <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2">
             {/* LEFT: preview frame — always shows the compressed page, click to zoom */}
             <div className="flex h-full flex-col">
@@ -421,7 +426,9 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
                       originalSize={file.size}
                       labels={labels}
                       imageShare={imageShare}
-                      actualCompressedSize={liveResult?.compressedSize ?? null}
+                      actualCompressedSize={
+                        liveResult?.preset === preset ? liveResult.result.compressedSize : null
+                      }
                     />
                   )}
                 </div>

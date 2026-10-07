@@ -4,8 +4,8 @@ interface PreviewLightboxProps {
   /** Image URL to enlarge. */
   src: string;
   alt: string;
-  /** Aspect ratio for the box, e.g. "16 / 9". Omit to size the image naturally. */
-  aspect?: string;
+  /** Aspect ratio value for the box, e.g. "16 / 9" | "4 / 3". */
+  aspect: string;
   closeLabel: string;
   onClose: () => void;
 }
@@ -20,10 +20,10 @@ export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose }: Previ
     >
       <div
         className="max-h-full max-w-full overflow-hidden border"
-        style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-lg)", ...(aspect ? { aspectRatio: aspect } : null) }}
+        style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-lg)", aspectRatio: aspect }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt} className="max-h-full max-w-full object-contain" />
+        <img src={src} alt={alt} className="size-full object-contain" />
       </div>
       <button
         type="button"
