@@ -25,6 +25,9 @@ export interface PdfCompressLabels {
   processing: string;
   // Preview / estimate
   zoomAria: string;
+  compareHoldLabel: string;
+  compareHoldHint: string;
+  originalBadge: string;
   estimateTemplate: string;
   estimateActualTemplate: string;
   estimateNoChange: string;
@@ -64,6 +67,9 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     compress: p.compress,
     processing: p.processing,
     zoomAria: p.zoomAria,
+    compareHoldLabel: p.compareHoldLabel,
+    compareHoldHint: p.compareHoldHint,
+    originalBadge: p.originalBadge,
     estimateTemplate: p.estimateTemplate,
     estimateActualTemplate: p.estimateActualTemplate,
     estimateNoChange: p.estimateNoChange,

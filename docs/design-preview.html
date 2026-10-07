@@ -612,6 +612,7 @@ footer .mono{ font-family:var(--font-mono); font-size:11px; }
           <div style="padding:12px 14px">
             <div style="position:relative;aspect-ratio:3/4;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);overflow:hidden;cursor:zoom-in">
               <div style="position:absolute;inset:8%;background:#fbf7ef;border-radius:2px"></div>
+              <span style="position:absolute;left:6px;bottom:6px;font-size:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:3px 7px;color:var(--ink-strong)">원본 비교</span>
               <span style="position:absolute;right:6px;bottom:6px;font-size:9.5px;color:var(--ink-soft)">클릭=확대(1→2→3→원래)</span>
             </div>
           </div>
@@ -636,7 +637,7 @@ footer .mono{ font-family:var(--font-mono); font-size:11px; }
         <li><b>미리보기 = 실제 압축</b>. 구 방식(pdf-lib <span style="font-family:var(--font-mono)">extractPageOne</span> → WASM)은 페이지1 이미지를 통째로 떨구고(예: 14→0장) 재인코딩도 반영 못 해 <b>결과와 어긋났다</b>. 이제 <b>원본 전체를 현재 프리셋으로 실제 압축</b>(debounce 400ms · 토큰가드)해 그 페이지1을 렌더 → 미리보기가 결과를 보장.</li>
         <li><b>프리컴퓨트 캐시</b>: 프리셋별 전체압축 결과를 <span style="font-family:var(--font-mono)">Map</span>에 보관(파일 바뀌면 클리어). '압축하기'는 캐시 재사용 → <b>즉시 완료</b>. 미리보기가 최종 압축을 대신 계산.</li>
         <li><b>추정 = 실측</b>. 라이브 결과가 있으면 모델 추정 대신 <b>진짜 압축 후 용량</b>을 표시. 모델 추정은 <b>크기 게이트</b>(<span style="font-family:var(--font-mono)">uploadLimitFor</span> 초과=라이브 생략)로 넘어간 대형 파일에만 남는다. 메인스레드 블록을 debounce+게이트로 완화(워커는 이월).</li>
-        <li><b>좌 프리뷰 · 1px <span style="font-family:var(--font-mono)">--border</span> 구분선 · 우 컨트롤</b>(ppt-background·pdf-watermark canon과 동일). <b>비교 토글 없음</b> — 프리뷰는 항상 압축본을 보인다(로딩 중엔 원본을 플레이스홀더로). 완료 카드는 <b>우측 컬럼 폭을 채운다</b>(hug 금지, canon).</li>
+        <li><b>좌 프리뷰 · 1px <span style="font-family:var(--font-mono)">--border</span> 구분선 · 우 컨트롤</b>(ppt-background·pdf-watermark canon과 동일). <b>고정 토글 대신 꾹 눌러 비교</b> — 프리뷰는 항상 압축본을 보이고(로딩 중엔 원본 플레이스홀더), 좌하단 "원본 비교"(<span style="font-family:var(--font-mono)">.subtle-action</span>)를 <b>누르는 동안만</b> 원본 + "원본" 뱃지. 순간 상태라 원본에 고정될 수 없고(구 체크박스가 완료 화면에 원본을 남기던 문제 차단), 두 레이어가 같은 확대 변환을 공유해 확대 상태에서도 같은 지점을 비교. 완료 카드는 <b>우측 컬럼 폭을 채운다</b>(hug 금지, canon).</li>
         <li><b>확대 = 프레임 내부 클릭 줌</b>(라이트박스 아님). 클릭한 지점을 초점으로 <span style="font-family:var(--font-mono)">transform</span> 확대, <b>1→2→3배 후 한 번 더 누르면 원래 크기</b>. 선명도를 위해 프리뷰 렌더 해상도를 1500px로 상향. 압축이 악보/글자를 상하게 했는지 프레임 안에서 확인.</li>
         <li><b>용량 경고는 헤더 인라인</b>: 끌 수 있는 패널 대신 용량 옆 비-소멸 문구(<span style="font-family:var(--font-mono)">ToolHeader</span> <span style="font-family:var(--font-mono)">meta</span> 슬롯, 전체 문구는 hover). 톤은 <span style="font-family:var(--font-mono)">--ink-soft</span>(뮤트 어드바이저리). 파일 메타에 <b>페이지수(Np)</b> 추가.</li>
         <li><b>프리셋 카피 = 동작 설명</b>: 실측을 미리보기가 보여주므로 오도성 %약속 제거(Light=이미지 그대로·최소 / Medium=재인코딩·균형 / Heavy=축소+재인코딩·최대).</li>

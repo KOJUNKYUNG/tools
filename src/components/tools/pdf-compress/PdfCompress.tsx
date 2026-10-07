@@ -389,6 +389,9 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
                 compressedUrl={compressedCandidate}
                 loading={livePreviewLoading && status === "idle"}
                 zoomAria={labels.zoomAria}
+                compareLabel={labels.compareHoldLabel}
+                compareHint={labels.compareHoldHint}
+                originalBadge={labels.originalBadge}
               />
             </div>
 
