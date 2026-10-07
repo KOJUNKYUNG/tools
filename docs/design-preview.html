@@ -593,6 +593,60 @@ footer .mono{ font-family:var(--font-mono); font-size:11px; }
     </div>
   </section>
 
+  <section class="block">
+    <div class="sectlabel">도구 레이아웃 기록</div>
+    <h2 class="secttitle">pdf-compress — 워크스페이스 (폴리싱 2026-08-08)</h2>
+    <p class="note">좌 프리뷰 · 1px 구분선 · 우 프리셋/추정. PR #14로 폴리싱 트랙 이전에 만들어져 드리프트를 정리하고, <b>미리보기의 신뢰성</b>을 근본 수정한다. 헤더는 공통 <span style="font-family:var(--font-mono)">ToolHeader</span>가 소유(실행→처리중→다시하기).</p>
+
+    <div class="stage">
+      <div class="eyebrow" style="margin-bottom:12px">로드 상태 — 좌 프리뷰(클릭=확대) · 1px 구분선 · 우 프리셋 → 실측 용량</div>
+      <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)">
+        <!-- header (ToolHeader) with in-header oversize note -->
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px">
+          <span style="flex:1"><b>찬양기도회.pdf</b> <span style="color:var(--ink-soft)">· 6.06 MB · 13p</span> <span style="color:var(--emphasis)">· 느릴 수 있음</span></span>
+          <span style="background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:4px 9px;font-size:11px;color:var(--ink-strong)">다시 업로드</span>
+          <span style="background:var(--ink-strong);color:var(--surface);border-radius:9px;padding:8px 16px;font-size:12px;font-weight:600">압축하기</span>
+        </div>
+        <!-- two panes -->
+        <div style="display:grid;grid-template-columns:1fr 1px 1fr">
+          <div style="padding:12px 14px">
+            <div style="position:relative;aspect-ratio:3/4;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);overflow:hidden;cursor:zoom-in">
+              <div style="position:absolute;inset:8%;background:#fbf7ef;border-radius:2px"></div>
+              <span style="position:absolute;left:6px;bottom:6px;font-size:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:3px 7px;color:var(--ink-strong)">원본 비교</span>
+              <span style="position:absolute;right:6px;bottom:6px;font-size:9.5px;color:var(--ink-soft)">클릭=확대(1→2→3→원래)</span>
+            </div>
+          </div>
+          <div style="background:var(--border)"></div>
+          <div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px">
+            <div style="font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft)">압축 레벨</div>
+            <div style="display:flex;font-size:11.5px;border-bottom:1px solid var(--hairline)">
+              <span style="flex:1;text-align:center;padding-bottom:6px;color:var(--ink-soft)">Light</span>
+              <span style="flex:1;text-align:center;padding-bottom:6px;border-bottom:2px solid var(--emphasis)"><b>Medium</b></span>
+              <span style="flex:1;text-align:center;padding-bottom:6px;color:var(--ink-soft)">Heavy</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-soft)">
+              <span>이미지 재인코딩 · 균형</span>
+              <span style="color:var(--ink)">압축 시 3.66 MB</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="eyebrow" style="margin:18px 0 8px">설계 의도</div>
+      <ul class="note" style="max-width:66ch;line-height:1.8">
+        <li><b>미리보기 = 실제 압축</b>. 구 방식(pdf-lib <span style="font-family:var(--font-mono)">extractPageOne</span> → WASM)은 페이지1 이미지를 통째로 떨구고(예: 14→0장) 재인코딩도 반영 못 해 <b>결과와 어긋났다</b>. 이제 <b>원본 전체를 현재 프리셋으로 실제 압축</b>(debounce 400ms · 토큰가드)해 그 페이지1을 렌더 → 미리보기가 결과를 보장.</li>
+        <li><b>프리컴퓨트 캐시</b>: 프리셋별 전체압축 결과를 <span style="font-family:var(--font-mono)">Map</span>에 보관(파일 바뀌면 클리어). '압축하기'는 캐시 재사용 → <b>즉시 완료</b>. 미리보기가 최종 압축을 대신 계산.</li>
+        <li><b>숫자는 실측만</b>. 라이브 결과가 있으면 <b>진짜 압축 후 용량</b>, 계산 중엔 "계산 중…", <b>크기 게이트</b>(<span style="font-family:var(--font-mono)">uploadLimitFor</span>=50 MB 초과=라이브 생략)를 넘은 파일은 "압축 후 확인" + 안내 한 줄. 모델 추정은 폐기 — 163 MB 실제 덱에서 57.8 MB(실제 13.2 MB)로 4배 빗나감. 대기 중 프레임은 원본임을 "원본" 뱃지로 표시. 메인스레드 블록은 debounce+게이트로 완화(워커는 이월).</li>
+        <li><b>규격 위반 출력 차단</b>: justpdf(0.1.2/0.1.3)가 Medium/Heavy에서 일부 SMask를 RGB JPEG로 재인코딩 → 뷰어마다 투명 배경이 사라지거나 보임. 결과를 검사해(<span style="font-family:var(--font-mono)">hasInvalidSoftMask</span>) 걸리면 <b>그 파일만</b> 이미지 재압축 없이 다시 압축하고 결과에 한 줄로 알린다. 미리보기·용량·최종 파일이 같은 경로라 셋이 일치.</li>
+        <li><b>암호 PDF는 업로드 단계에서 거절</b>(드롭·다시 업로드·핸드오프 공통, 엔진과 같은 판정) — 'PDF 암호·잠금'으로 안내.</li>
+        <li><b>좌 프리뷰 · 1px <span style="font-family:var(--font-mono)">--border</span> 구분선 · 우 컨트롤</b>(ppt-background·pdf-watermark canon과 동일). <b>고정 토글 대신 꾹 눌러 비교</b> — 프리뷰는 항상 압축본을 보이고(로딩 중엔 원본 플레이스홀더), 좌하단 "원본 비교"(<span style="font-family:var(--font-mono)">.subtle-action</span>)를 <b>누르는 동안만</b> 원본 + "원본" 뱃지. 순간 상태라 원본에 고정될 수 없고(구 체크박스가 완료 화면에 원본을 남기던 문제 차단), 두 레이어가 같은 확대 변환을 공유해 확대 상태에서도 같은 지점을 비교. 완료 카드는 <b>우측 컬럼 폭을 채운다</b>(hug 금지, canon).</li>
+        <li><b>확대 = 프레임 내부 클릭 줌</b>(라이트박스 아님). 클릭한 지점을 초점으로 <span style="font-family:var(--font-mono)">transform</span> 확대, <b>1→2→3배 후 한 번 더 누르면 원래 크기</b>. 선명도를 위해 프리뷰 렌더 해상도를 1500px로 상향. 압축이 악보/글자를 상하게 했는지 프레임 안에서 확인.</li>
+        <li><b>용량 경고는 헤더 인라인</b>: 끌 수 있는 패널 대신 용량 옆 비-소멸 문구(<span style="font-family:var(--font-mono)">ToolHeader</span> <span style="font-family:var(--font-mono)">meta</span> 슬롯, 전체 문구는 hover). 톤은 <span style="font-family:var(--font-mono)">--ink-soft</span>(뮤트 어드바이저리). 파일 메타에 <b>페이지수(Np)</b> 추가.</li>
+        <li><b>프리셋 카피 = 동작 설명</b>: 실측을 미리보기가 보여주므로 오도성 %약속 제거(Light=이미지 그대로·최소 / Medium=재인코딩·균형 / Heavy=축소+재인코딩·최대).</li>
+      </ul>
+    </div>
+  </section>
+
   <footer>
     <div class="wrap" style="padding:0">
       <p class="mono">docs/design-preview.html · 미러(정본 아님) — 토큰=globals.css · 계약=DESIGN.md · 브랜드/로고/모션=brand.html</p>

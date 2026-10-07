@@ -7,10 +7,11 @@ export interface PdfCompressLabels {
   // Upload
   uploadPrompt: string;
   uploadHint: string;
-  uploadMaxSize: string;
   reupload: string;
   // File info
   fileInfoTemplate: string;
+  pageCountTemplate: string;
+  oversizeBadge: string;
   // Preset group
   presetGroupLabel: string;
   presetLightLabel: string;
@@ -22,12 +23,16 @@ export interface PdfCompressLabels {
   // Action
   compress: string;
   processing: string;
-  // Compare / estimate
-  comparePreview: string;
-  compareToggleAria: string;
-  estimateTemplate: string;
+  // Preview / estimate
+  zoomAria: string;
+  compareHoldLabel: string;
+  compareHoldHint: string;
+  originalBadge: string;
   estimateActualTemplate: string;
-  estimateNoChange: string;
+  estimateComputing: string;
+  estimateAfterCompress: string;
+  previewDeferredHint: string;
+  imageReencodeSkippedNote: string;
   // Result
   resultTitle: string;
   originalSizeLabel: string;
@@ -38,6 +43,7 @@ export interface PdfCompressLabels {
   // Errors
   errorMemory: string;
   errorCorrupt: string;
+  errorEncrypted: string;
   // Shared FileUpload labels (toasts + file list i18n)
   fileUpload: Dictionary["common"]["fileUpload"];
 }
@@ -50,9 +56,10 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     description: t.description,
     uploadPrompt: p.uploadPrompt,
     uploadHint: p.uploadHint,
-    uploadMaxSize: p.uploadMaxSize,
     reupload: p.reupload,
     fileInfoTemplate: p.fileInfo,
+    pageCountTemplate: p.pageCount,
+    oversizeBadge: p.oversizeBadge,
     presetGroupLabel: p.presetGroupLabel,
     presetLightLabel: p.presetLightLabel,
     presetLightDesc: p.presetLightDesc,
@@ -62,11 +69,15 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     presetHeavyDesc: p.presetHeavyDesc,
     compress: p.compress,
     processing: p.processing,
-    comparePreview: p.comparePreview,
-    compareToggleAria: p.compareToggleAria,
-    estimateTemplate: p.estimateTemplate,
+    zoomAria: p.zoomAria,
+    compareHoldLabel: p.compareHoldLabel,
+    compareHoldHint: p.compareHoldHint,
+    originalBadge: p.originalBadge,
     estimateActualTemplate: p.estimateActualTemplate,
-    estimateNoChange: p.estimateNoChange,
+    estimateComputing: p.estimateComputing,
+    estimateAfterCompress: p.estimateAfterCompress,
+    previewDeferredHint: p.previewDeferredHint,
+    imageReencodeSkippedNote: p.imageReencodeSkippedNote,
     resultTitle: p.resultTitle,
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,
@@ -75,6 +86,7 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     again: p.again,
     errorMemory: p.errorMemory,
     errorCorrupt: p.errorCorrupt,
+    errorEncrypted: p.errorEncrypted,
     fileUpload: dict.common.fileUpload,
   };
 }

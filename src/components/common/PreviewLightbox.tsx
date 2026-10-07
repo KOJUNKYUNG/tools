@@ -1,4 +1,3 @@
-// src/components/tools/ppt-background/PreviewLightbox.tsx
 "use client";
 
 interface PreviewLightboxProps {
