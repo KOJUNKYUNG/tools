@@ -8,7 +8,7 @@ interface ComparePreviewProps {
   originalUrl: string | null;
   /** Compressed PDF page-1 preview URL (live preview in idle, real result in done). */
   compressedUrl: string | null;
-  /** True while a new compressed preview is being generated. */
+  /** True while a new compressed preview is being generated (corner spinner). */
   loading?: boolean;
   /** Accessible label for the click-to-zoom frame. */
   zoomAria?: string;
@@ -39,7 +39,7 @@ export function ComparePreview({
   // Always prefer the compressed page; fall back to the original as a
   // placeholder while the live compressed preview is still computing.
   const url = compressedUrl ?? originalUrl;
-  const showCornerSpinner = loading && !!compressedUrl;
+  const showCornerSpinner = !!loading && !!url;
   const showCentreSpinner = !url;
   // Comparison only makes sense once both renders exist.
   const canCompare = !!compressedUrl && !!originalUrl;
@@ -65,6 +65,9 @@ export function ComparePreview({
   // Momentary by construction: the original shows only while the button is
   // held, so the frame can never be left "stuck" on the original.
   const showOriginal = holding && canCompare;
+  // Label the original whenever it is what the frame shows — while held, and
+  // while it stands in for a compressed render that is pending or deferred.
+  const showingOriginal = showOriginal || (!compressedUrl && !!originalUrl);
 
   const scale = ZOOM_SCALES[zoomIndex];
   const atMaxZoom = zoomIndex === ZOOM_SCALES.length - 1;
@@ -135,8 +138,8 @@ export function ComparePreview({
         </div>
       ) : null}
 
-      {/* Badge: tells the user which render they are looking at while comparing */}
-      {showOriginal && (
+      {/* Badge: tells the user they are looking at the original, not the result */}
+      {showingOriginal && (
         <span
           className="pointer-events-none absolute left-2 top-2 rounded-[5px] px-2 py-1 font-body text-[11px]"
           style={{ background: "var(--ink-strong)", color: "var(--surface)" }}

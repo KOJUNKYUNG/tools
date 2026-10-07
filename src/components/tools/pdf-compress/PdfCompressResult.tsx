@@ -11,6 +11,8 @@ interface PdfCompressResultProps {
   compressedSize: number;
   onDownload: () => void;
   labels: PdfCompressLabels;
+  /** Optional notice under the figures (e.g. image re-encoding was skipped). */
+  note?: string;
 }
 
 export function PdfCompressResult({
@@ -18,6 +20,7 @@ export function PdfCompressResult({
   compressedSize,
   onDownload,
   labels,
+  note,
 }: PdfCompressResultProps) {
   const { pct } = computeSavings(originalSize, compressedSize);
 
@@ -65,6 +68,11 @@ export function PdfCompressResult({
           </p>
         </div>
       </div>
+      {note && (
+        <p className="mt-3 font-body text-[11px] leading-[1.5]" style={{ color: "var(--ink-soft)" }}>
+          {note}
+        </p>
+      )}
     </ResultCard>
   );
 }

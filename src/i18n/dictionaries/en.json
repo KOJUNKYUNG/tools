@@ -290,9 +290,11 @@
         "compareHoldLabel": "Compare",
         "compareHoldHint": "Hold to show the original",
         "originalBadge": "Original",
-        "estimateTemplate": "Est. ~{from}–{to}",
         "estimateActualTemplate": "Compresses to {size}",
-        "estimateNoChange": "~similar to original",
+        "estimateComputing": "Calculating…",
+        "estimateAfterCompress": "After compressing",
+        "previewDeferredHint": "Files over {size} show the result size and the original comparison after compressing.",
+        "imageReencodeSkippedNote": "Image re-encoding was skipped for this file so transparent images stay intact.",
         "resultTitle": "Compression result",
         "originalSizeLabel": "Original size",
         "compressedSizeLabel": "After",
@@ -300,7 +302,8 @@
         "download": "Download",
         "again": "Start over",
         "errorMemory": "Browser ran out of memory. Try a smaller PDF.",
-        "errorCorrupt": "The compressed file is unusable. Try a different compression level."
+        "errorCorrupt": "The compressed file is unusable. Try a different compression level.",
+        "errorEncrypted": "Password-protected PDFs can't be compressed. Remove the password with 'Lock·unlock PDF' first, then upload again."
       }
     },
     "pdf-watermark": {

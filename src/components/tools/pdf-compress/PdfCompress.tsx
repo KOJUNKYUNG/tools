@@ -11,6 +11,7 @@ import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import { analyzePdf } from "@/lib/pdf/analyzePdf";
+import { selectSizeDisplay } from "@/lib/pdf/compressEstimate";
 import {
   compressPdf,
   compressPdfFromBytes,
@@ -33,6 +34,16 @@ const PDF_ACCEPT = { "application/pdf": [".pdf"] };
 const PREVIEW_WIDTH = 1500;
 const PREVIEW_MAX_SCALE = 3;
 
+const LIVE_PREVIEW_LIMIT = uploadLimitFor("pdf-compress");
+
+/** Outcome of the live whole-doc compress, tagged so it is never shown for another file or preset. */
+interface LiveOutcome {
+  file: File;
+  preset: CompressionPreset;
+  /** null = the live compress failed. */
+  result: CompressPdfResult | null;
+}
+
 interface PdfCompressProps {
   labels: PdfCompressLabels;
   inline?: boolean;
@@ -47,17 +58,14 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   // Live preview: faithful whole-doc compress of the current preset (gated by size).
   const [livePreviewUrl, setLivePreviewUrl] = useState<string | null>(null);
   const [livePreviewLoading, setLivePreviewLoading] = useState(false);
-  // Tagged with its preset so a stale result is never shown under another preset
-  // while the new one is still computing.
-  const [liveResult, setLiveResult] = useState<{
-    preset: CompressionPreset;
-    result: CompressPdfResult;
-  } | null>(null);
-  const [pageCount, setPageCount] = useState<number | null>(null);
-  const [imageShare, setImageShare] = useState<number | null>(null);
+  const [live, setLive] = useState<LiveOutcome | null>(null);
   const livePreviewTokenRef = useRef(0);
   // Precompute cache: preset -> whole-doc result for the CURRENT file. Cleared on file change.
   const previewCacheRef = useRef<Map<CompressionPreset, CompressPdfResult>>(new Map());
+
+  // Page count captured by the upload check, tagged with its file.
+  const [fileMeta, setFileMeta] = useState<{ file: File; pages: number } | null>(null);
+  const acceptTokenRef = useRef(0);
 
   // filesRef gives onDownload a stable reference to the current files array
   // without creating a circular type dependency (TS7022/7023).
@@ -102,10 +110,39 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
 
   const file = files[0];
 
+  // Every entry path (drop, re-upload, cross-tool handoff) goes through here.
+  // The compressor cannot read encrypted PDFs, so they are refused up front —
+  // like an oversize file elsewhere — instead of failing after "Compress".
+  // The same analyze() pass yields the page count for the file summary.
+  const acceptFiles = useCallback(
+    async (newFiles: File[]) => {
+      const picked = newFiles[0];
+      if (!picked) return;
+      const token = ++acceptTokenRef.current;
+      let pages: number | null = null;
+      try {
+        const analysis = await analyzePdf(picked);
+        if (token !== acceptTokenRef.current) return;
+        if (analysis.isEncrypted) {
+          toast.error(labels.errorEncrypted);
+          return;
+        }
+        pages = analysis.pages;
+      } catch {
+        if (token !== acceptTokenRef.current) return;
+        // Unanalyzable: accept anyway; compression reports its own error.
+      }
+      retry();
+      setFiles([picked]);
+      if (pages != null) setFileMeta({ file: picked, pages });
+    },
+    [labels.errorEncrypted, retry, setFiles],
+  );
+
   // Consume cross-tool handoff (e.g. from image-to-pdf). Once on mount.
   useEffect(() => {
     const staged = consumeStagedFiles();
-    if (staged && staged.files.length > 0) setFiles(staged.files);
+    if (staged && staged.files.length > 0) void acceptFiles(staged.files);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -166,58 +203,22 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     };
   }, [result]);
 
-  // Reset all per-file preview state when the file changes.
+  // Drop the previous file's cached compressions and preview when the file changes.
   useEffect(() => {
     previewCacheRef.current = new Map();
-    setLiveResult(null);
-    setPageCount(null);
-    setImageShare(null);
+    setLive(null); // release the previous file's result bytes
     setLivePreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
   }, [file]);
 
-  // Analyze the PDF once per file to determine page count and image content share.
-  // The image share drives the fallback estimate; page count feeds the file summary.
-  useEffect(() => {
-    if (!file) {
-      setImageShare(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const analysis = await analyzePdf(file);
-        if (cancelled) return;
-        setPageCount(analysis.pages);
-        if (analysis.isEncrypted) {
-          setImageShare(null);
-          return;
-        }
-        setImageShare(
-          Math.min(1, analysis.totalImageBytes / Math.max(file.size, 1)),
-        );
-      } catch {
-        if (!cancelled) setImageShare(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [file]);
-
   // Faithful live preview: compress the WHOLE document at the current preset
   // (debounced, token-guarded, size-gated), cache the result, render page 1.
   useEffect(() => {
-    if (
-      !file ||
-      status !== "idle" ||
-      !shouldPreviewCompress(file.size, uploadLimitFor("pdf-compress"))
-    ) {
+    if (!file || status !== "idle" || !shouldPreviewCompress(file.size, LIVE_PREVIEW_LIMIT)) {
       livePreviewTokenRef.current++;
       setLivePreviewLoading(false);
-      if (file && status === "idle") setLiveResult(null); // gated-off: no real size
       return;
     }
     const token = ++livePreviewTokenRef.current;
@@ -236,7 +237,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           if (token !== livePreviewTokenRef.current) return;
           previewCacheRef.current.set(preset, result);
         }
-        setLiveResult({ preset, result });
+        setLive({ file, preset, result });
         const blob = await renderPdfFirstPage(result.data.slice(), PREVIEW_WIDTH, PREVIEW_MAX_SCALE);
         if (token !== livePreviewTokenRef.current) return;
         createdUrl = URL.createObjectURL(blob);
@@ -247,8 +248,8 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
         });
         committed = true;
       } catch {
-        // Corrupt/failed compress → keep the original preview, no real size.
-        if (token === livePreviewTokenRef.current) setLiveResult(null);
+        // Failed compress → keep the original preview; the size slot defers.
+        if (token === livePreviewTokenRef.current) setLive({ file, preset, result: null });
       } finally {
         if (createdUrl && !committed) URL.revokeObjectURL(createdUrl);
         setLivePreviewLoading(false);
@@ -272,14 +273,6 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     // empty deps — runs only on unmount
   }, []);
 
-  const handleFilesChange = useCallback(
-    (newFiles: File[]) => {
-      retry();
-      setFiles(newFiles.slice(0, 1));
-    },
-    [retry, setFiles],
-  );
-
   const handleReupload = useCallback(
     () => reuploadInputRef.current?.click(),
     [],
@@ -294,10 +287,10 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       const picked = e.target.files ? Array.from(e.target.files) : [];
       // No size block: pdf-compress exists to shrink large PDFs, so an oversize
       // file is accepted and the editor shows an advisory instead of rejecting.
-      if (picked.length > 0) handleFilesChange(picked);
+      if (picked.length > 0) void acceptFiles(picked);
       e.target.value = "";
     },
-    [handleFilesChange, status],
+    [acceptFiles, status],
   );
 
   const handleAgain = useCallback(() => {
@@ -308,8 +301,22 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   const busy = status === "processing";
   const isDone = status === "done" && !!result;
 
-  const overLimit = !!file && file.size > uploadLimitFor("pdf-compress");
+  const overLimit = !!file && file.size > LIVE_PREVIEW_LIMIT;
+  const livePreview = !!file && shouldPreviewCompress(file.size, LIVE_PREVIEW_LIMIT);
+  const liveNow = live && live.file === file && live.preset === preset ? live : null;
+  const sizeDisplay = selectSizeDisplay({
+    actualCompressedSize: liveNow?.result?.compressedSize ?? null,
+    livePreview,
+    liveFailed: liveNow !== null && liveNow.result === null,
+  });
+  const estimateNotes = [
+    ...(livePreview
+      ? []
+      : [template(labels.previewDeferredHint, { size: formatBytes(LIVE_PREVIEW_LIMIT) })]),
+    ...(liveNow?.result?.imageReencodeSkipped ? [labels.imageReencodeSkippedNote] : []),
+  ];
 
+  const pageCount = fileMeta && fileMeta.file === file ? fileMeta.pages : null;
   const fileInfo = file
     ? template(labels.fileInfoTemplate, {
         name: file.name,
@@ -379,7 +386,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           hideFileList
           hideAutoHint
           maxSize={Number.POSITIVE_INFINITY}
-          onFiles={handleFilesChange}
+          onFiles={(picked) => void acceptFiles(picked)}
           label={labels.uploadPrompt}
           description={labels.uploadHint}
           labels={labels.fileUpload}
@@ -387,7 +394,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       ) : (
         <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-2">
-            {/* LEFT: preview frame — always shows the compressed page, click to zoom */}
+            {/* LEFT: preview frame — compressed page, click to zoom, hold to compare */}
             <div className="flex h-full flex-col">
               <ComparePreview
                 originalUrl={originalUrl}
@@ -411,6 +418,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
                   compressedSize={result.compressedSize}
                   onDownload={download}
                   labels={labels}
+                  note={result.imageReencodeSkipped ? labels.imageReencodeSkippedNote : undefined}
                 />
               ) : status === "idle" ? (
                 <div className="flex h-full flex-col gap-3">
@@ -423,12 +431,9 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
                   {file && (
                     <PdfCompressEstimate
                       preset={preset}
-                      originalSize={file.size}
+                      display={sizeDisplay}
                       labels={labels}
-                      imageShare={imageShare}
-                      actualCompressedSize={
-                        liveResult?.preset === preset ? liveResult.result.compressedSize : null
-                      }
+                      notes={estimateNotes}
                     />
                   )}
                 </div>

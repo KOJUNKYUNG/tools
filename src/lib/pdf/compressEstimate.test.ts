@@ -1,49 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { estimateCompressedSize, selectSizeEstimate } from "./compressEstimate";
+import { selectSizeDisplay } from "./compressEstimate";
 
-describe("estimateCompressedSize", () => {
-  it("clamps to the static upper bound when the formula would exceed it", () => {
-    expect(estimateCompressedSize(1_000_000, 0.03, "high")).toBe(400_000);
-  });
-  it("clamps the low preset to its static upper bound (~90% of original)", () => {
-    expect(estimateCompressedSize(1_000_000, 0, "low")).toBe(900_000);
-  });
-  it("shrinks medium preset proportional to image share (~50% of image bytes)", () => {
-    expect(estimateCompressedSize(1_000_000, 0.5, "medium")).toBe(700_000);
-  });
-  it("shrinks high preset more aggressively (~35% of image bytes)", () => {
-    expect(estimateCompressedSize(1_000_000, 1, "high")).toBeCloseTo(350_000, -1);
-  });
-  it("never returns more than the preset's static upper bound", () => {
-    expect(estimateCompressedSize(1_000_000, 0, "medium")).toBeLessThanOrEqual(700_000);
-    expect(estimateCompressedSize(1_000_000, 0, "high")).toBeLessThanOrEqual(400_000);
-  });
-});
-
-describe("selectSizeEstimate", () => {
-  it("prefers the real compressed size when a live result is present", () => {
+describe("selectSizeDisplay", () => {
+  it("shows the measured size once the live compress for this preset is done", () => {
     expect(
-      selectSizeEstimate({ originalSize: 1_000_000, actualCompressedSize: 512_000, imageShare: 0.9, preset: "high" }),
+      selectSizeDisplay({ actualCompressedSize: 512_000, livePreview: true, liveFailed: false }),
     ).toEqual({ kind: "actual", size: 512_000 });
   });
 
-  it("uses the model when no real size but image share is known and above cutoff", () => {
-    const r = selectSizeEstimate({ originalSize: 1_000_000, actualCompressedSize: null, imageShare: 0.5, preset: "medium" });
-    expect(r).toEqual({ kind: "model", size: 700_000 });
+  it("reports computing while the live compress for this preset is pending", () => {
+    expect(
+      selectSizeDisplay({ actualCompressedSize: null, livePreview: true, liveFailed: false }),
+    ).toEqual({ kind: "computing" });
   });
 
-  it("returns noChange when image share is below the preset cutoff", () => {
-    const r = selectSizeEstimate({ originalSize: 1_000_000, actualCompressedSize: null, imageShare: 0.01, preset: "medium" });
-    expect(r).toEqual({ kind: "noChange" });
+  it("defers to after compressing when the file is above the live-preview gate", () => {
+    expect(
+      selectSizeDisplay({ actualCompressedSize: null, livePreview: false, liveFailed: false }),
+    ).toEqual({ kind: "afterCompress" });
   });
 
-  it("low preset always reports noChange regardless of image share", () => {
-    const r = selectSizeEstimate({ originalSize: 1_000_000, actualCompressedSize: null, imageShare: 1, preset: "low" });
-    expect(r).toEqual({ kind: "noChange" });
+  it("defers to after compressing when the live compress failed (no endless spinner)", () => {
+    expect(
+      selectSizeDisplay({ actualCompressedSize: null, livePreview: true, liveFailed: true }),
+    ).toEqual({ kind: "afterCompress" });
   });
 
-  it("falls back to the static range when image share is unknown", () => {
-    const r = selectSizeEstimate({ originalSize: 1_000_000, actualCompressedSize: null, imageShare: null, preset: "medium" });
-    expect(r).toEqual({ kind: "range", from: 400_000, to: 700_000 });
+  it("never invents a number: no measured size means no size", () => {
+    for (const livePreview of [true, false]) {
+      for (const liveFailed of [true, false]) {
+        const d = selectSizeDisplay({ actualCompressedSize: null, livePreview, liveFailed });
+        expect(d.kind).not.toBe("actual");
+      }
+    }
   });
 });

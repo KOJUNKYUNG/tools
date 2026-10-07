@@ -128,6 +128,24 @@ User screenshots changed three decisions above; the shipped behavior is:
 - **Oversize note:** `--ink-soft` instead of `--emphasis`. Emphasis is the
   strongest ink and outweighed the file name.
 
+A second QA round on `찬양맞추기.pdf` (163 MB) changed three more:
+
+- **Spec-violating output (new guard):** justpdf 0.1.2/0.1.3 re-encodes some
+  `/SMask` images as RGB JPEGs at Medium/Heavy (upstream #46 class). ISO 32000
+  requires DeviceGray, so viewers disagree: PDFium shows the translucent
+  background, pdf.js (our preview, Firefox) drops it. `hasInvalidSoftMask`
+  scans the output; on a hit the file is re-compressed without image
+  re-encoding (Light's image settings, preset's metadata choice) and the UI
+  says so. Only that file is affected; 4 of 5 fixtures never trigger it. The
+  P0 "retired" note above holds for the blank/unopenable signatures only.
+- **Estimate (§1 superseded):** the modelled estimate is gone. It showed
+  57.8 MB for an actual 13.2 MB on that deck. The size slot shows the measured
+  size, "calculating…", or — above the 50 MB live-preview gate or after a
+  failed live compress — "after compressing" plus a one-line hint. A frame
+  showing the original carries an "Original" badge.
+- **Encrypted PDFs:** refused at upload (drop, re-upload, handoff) with a
+  pointer to the lock/unlock tool, using the engine's own `analyze()` verdict.
+
 ## Out of scope (deferred)
 
 - Web Worker for compression (perf) — future.

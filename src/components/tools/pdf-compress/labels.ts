@@ -28,9 +28,11 @@ export interface PdfCompressLabels {
   compareHoldLabel: string;
   compareHoldHint: string;
   originalBadge: string;
-  estimateTemplate: string;
   estimateActualTemplate: string;
-  estimateNoChange: string;
+  estimateComputing: string;
+  estimateAfterCompress: string;
+  previewDeferredHint: string;
+  imageReencodeSkippedNote: string;
   // Result
   resultTitle: string;
   originalSizeLabel: string;
@@ -41,6 +43,7 @@ export interface PdfCompressLabels {
   // Errors
   errorMemory: string;
   errorCorrupt: string;
+  errorEncrypted: string;
   // Shared FileUpload labels (toasts + file list i18n)
   fileUpload: Dictionary["common"]["fileUpload"];
 }
@@ -70,9 +73,11 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     compareHoldLabel: p.compareHoldLabel,
     compareHoldHint: p.compareHoldHint,
     originalBadge: p.originalBadge,
-    estimateTemplate: p.estimateTemplate,
     estimateActualTemplate: p.estimateActualTemplate,
-    estimateNoChange: p.estimateNoChange,
+    estimateComputing: p.estimateComputing,
+    estimateAfterCompress: p.estimateAfterCompress,
+    previewDeferredHint: p.previewDeferredHint,
+    imageReencodeSkippedNote: p.imageReencodeSkippedNote,
     resultTitle: p.resultTitle,
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,
@@ -81,6 +86,7 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     again: p.again,
     errorMemory: p.errorMemory,
     errorCorrupt: p.errorCorrupt,
+    errorEncrypted: p.errorEncrypted,
     fileUpload: dict.common.fileUpload,
   };
 }

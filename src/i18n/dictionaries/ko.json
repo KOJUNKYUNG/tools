@@ -290,9 +290,11 @@
         "compareHoldLabel": "원본 비교",
         "compareHoldHint": "누르고 있는 동안 원본을 보여줍니다",
         "originalBadge": "원본",
-        "estimateTemplate": "예상 ~{from}–{to}",
         "estimateActualTemplate": "압축 시 {size}",
-        "estimateNoChange": "~원본 크기와 유사",
+        "estimateComputing": "계산 중…",
+        "estimateAfterCompress": "압축 후 확인",
+        "previewDeferredHint": "{size}가 넘는 파일은 압축한 뒤에 결과 용량과 원본 비교를 보여 드립니다.",
+        "imageReencodeSkippedNote": "투명 이미지가 손상되지 않도록 이 파일은 이미지 재압축을 건너뛰었습니다.",
         "resultTitle": "압축 결과",
         "originalSizeLabel": "원본 크기",
         "compressedSizeLabel": "압축 후",
@@ -300,7 +302,8 @@
         "download": "다운로드",
         "again": "다시 하기",
         "errorMemory": "브라우저 메모리가 부족합니다. 더 작은 PDF를 사용해 주세요.",
-        "errorCorrupt": "압축 결과가 손상되어 사용할 수 없습니다. 다른 압축 강도로 시도해 주세요."
+        "errorCorrupt": "압축 결과가 손상되어 사용할 수 없습니다. 다른 압축 강도로 시도해 주세요.",
+        "errorEncrypted": "암호가 걸린 PDF는 압축할 수 없습니다. 'PDF 암호·잠금'에서 암호를 해제한 뒤 다시 올려 주세요."
       }
     },
     "pdf-watermark": {
