@@ -52,6 +52,20 @@ describe("runOutputCheck", () => {
     ).rejects.toThrow(/^CORRUPT_OUTPUT/);
   });
 
+  it("blocks when the recovery itself throws", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(
+      runOutputCheck({
+        tool: "pdf-compress",
+        output: "bad",
+        check: async () => broken,
+        recover: async () => {
+          throw new Error("re-run failed");
+        },
+      }),
+    ).rejects.toThrow(/^CORRUPT_OUTPUT/);
+  });
+
   it("logs the recover and block events in development", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     await runOutputCheck({

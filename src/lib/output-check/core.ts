@@ -68,11 +68,14 @@ export async function runOutputCheck<T>({
   if (violations.length === 0) return output;
 
   if (recover) {
-    const recovered = await recover();
-    const after = await check(recovered).catch(() => [] as Violation[]);
-    if (after.length === 0) {
-      devLog(`${tool}: recovered`, violations);
-      return recovered;
+    // A recovery that throws simply failed: fall through to blocking.
+    const recovered = await recover().catch(() => null);
+    if (recovered !== null) {
+      const after = await check(recovered).catch((): Violation[] => []);
+      if (after.length === 0) {
+        devLog(`${tool}: recovered`, violations);
+        return recovered;
+      }
     }
   }
 

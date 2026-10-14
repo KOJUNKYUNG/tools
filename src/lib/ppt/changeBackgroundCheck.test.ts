@@ -24,6 +24,7 @@ async function syntheticDeck(): Promise<Uint8Array> {
     if (i === 2) slide.background = { data: `image/png;base64,${OLD_BG}` };
     slide.addText(`Slide ${i}`, { x: 1, y: 1, w: 4, h: 1 });
   }
+  // write() returns a union over every outputType; "uint8array" yields this one.
   return (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
 }
 
@@ -47,6 +48,18 @@ async function mutate(
   const zip = await JSZip.loadAsync(bytes);
   await edit(zip);
   return zip.generateAsync({ type: "uint8array" });
+}
+
+/** Append a relationship to a part that points at a missing media part. */
+async function addDanglingRelationship(zip: JSZip, relsPath: string): Promise<void> {
+  const xml = await zip.file(relsPath)!.async("text");
+  zip.file(
+    relsPath,
+    xml.replace(
+      "</Relationships>",
+      '<Relationship Id="rId99" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/missing.png"/></Relationships>',
+    ),
+  );
 }
 
 async function properties(
@@ -118,17 +131,9 @@ describe("checkPptBackground flags broken output", () => {
   it("flags a relationship whose target part is missing", async () => {
     const input = await syntheticDeck();
     const good = await apply(input, allSlides);
-    const broken = await mutate(good, async (zip) => {
-      const path = "ppt/slides/_rels/slide1.xml.rels";
-      const xml = await zip.file(path)!.async("text");
-      zip.file(
-        path,
-        xml.replace(
-          "</Relationships>",
-          '<Relationship Id="rId99" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/missing.png"/></Relationships>',
-        ),
-      );
-    });
+    const broken = await mutate(good, (zip) =>
+      addDanglingRelationship(zip, "ppt/slides/_rels/slide1.xml.rels"),
+    );
     expect(await properties(input, allSlides, broken)).toContain("relationship-target");
   });
 
@@ -157,7 +162,7 @@ describe("checkPptBackground flags broken output", () => {
     expect(await properties(input, allSlides, broken)).toContain("target-background");
   });
 
-  it("flags a slide the user did not target that changed", async () => {
+  it("flags a slide the user did not target that changed, at full depth only", async () => {
     const request: PptBackgroundRequest = {
       bgImage: newBgBytes,
       mode: "specific-slides",
@@ -170,21 +175,8 @@ describe("checkPptBackground flags broken output", () => {
       zip.file("ppt/slides/slide3.xml", xml.replace("Slide 3", "Slide three"));
     });
     expect(await properties(input, request, broken)).toEqual(["non-target-unchanged"]);
-  });
-
-  it("leaves the byte-identity property to the full depth", async () => {
-    const request: PptBackgroundRequest = {
-      bgImage: newBgBytes,
-      mode: "specific-slides",
-      targetSlides: [1],
-    };
-    const input = await syntheticDeck();
-    const good = await apply(input, request);
-    const changed = await mutate(good, async (zip) => {
-      const xml = await zip.file("ppt/slides/slide3.xml")!.async("text");
-      zip.file("ppt/slides/slide3.xml", xml.replace("Slide 3", "Slide three"));
-    });
-    expect(await checkPptBackground(input, request, changed, "quick")).toEqual([]);
+    // Byte identity is a regression-set property, not a run-time one.
+    expect(await checkPptBackground(input, request, broken, "quick")).toEqual([]);
   });
 
   it("flags output that is not a zip at all", async () => {
@@ -212,17 +204,9 @@ describe("checkPptBackground does not blame the tool for the input", () => {
     // A deck PowerPoint opened despite a dangling relationship: the defect is
     // the user's file, not ppt-background's output.
     const clean = await syntheticDeck();
-    const input = await mutate(clean, async (zip) => {
-      const path = "ppt/slides/_rels/slide3.xml.rels";
-      const xml = await zip.file(path)!.async("text");
-      zip.file(
-        path,
-        xml.replace(
-          "</Relationships>",
-          '<Relationship Id="rId99" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/gone.png"/></Relationships>',
-        ),
-      );
-    });
+    const input = await mutate(clean, (zip) =>
+      addDanglingRelationship(zip, "ppt/slides/_rels/slide3.xml.rels"),
+    );
     const output = await apply(input, allSlides);
     expect(await properties(input, allSlides, output)).toEqual([]);
   });

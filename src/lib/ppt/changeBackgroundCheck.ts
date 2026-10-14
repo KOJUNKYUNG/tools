@@ -1,4 +1,4 @@
-import type { CheckDepth, Violation } from "@/lib/output-check/core";
+import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import { openPptxPackage, relsPartOf } from "@/lib/output-check/pptxPackage";
 import type { BgMode } from "./changeBackground";
 
@@ -32,12 +32,11 @@ function sameBytes(a: Uint8Array | null, b: Uint8Array | null): boolean {
  * false positive. Slide N means the N-th slide part by file number, the
  * order the engine and the slide picker use.
  */
-export async function checkPptBackground(
-  input: Uint8Array,
-  request: PptBackgroundRequest,
-  output: Uint8Array,
-  depth: CheckDepth,
-): Promise<Violation[]> {
+export const checkPptBackground: OutputChecker<
+  Uint8Array,
+  PptBackgroundRequest,
+  Uint8Array
+> = async (input, request, output, depth) => {
   const [before, after] = await Promise.all([
     openPptxPackage(input),
     openPptxPackage(output),
@@ -61,6 +60,8 @@ export async function checkPptBackground(
     });
   }
 
+  // Targets are re-derived from the request here, not shared with the engine:
+  // a checker that reused the engine's selection would agree with its bugs.
   const targets =
     request.mode === "master"
       ? before.masterParts
@@ -95,4 +96,4 @@ export async function checkPptBackground(
   }
 
   return violations;
-}
+};

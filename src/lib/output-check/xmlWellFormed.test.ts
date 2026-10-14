@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { xmlWellFormedError } from "./xmlWellFormed";
 
-// A false positive here blocks a user's good deck, so valid-but-unusual XML
-// gets as much coverage as broken XML.
+// Deliberately below the checker seam (spec #51 tests at seams only): a false
+// positive here blocks a user's good deck, and the checker seam cannot feed
+// it valid-but-unusual XML cheaply. So valid-but-unusual XML gets as much
+// coverage as broken XML.
 const wellFormed: [string, string][] = [
   ["declaration, namespaces, self-closing", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<p:sld xmlns:p="urn:p"><p:cSld/></p:sld>'],
   ["byte-order mark", "﻿<a/>"],
