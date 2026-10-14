@@ -2,6 +2,9 @@
   "name": "tools",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -13,6 +16,7 @@
     "design:lint": "designmd lint --format json DESIGN.md",
     "design:drift": "node scripts/check-design-drift.mjs",
     "design:check": "pnpm design:lint && pnpm design:drift",
+    "verify": "tsc --noEmit && pnpm lint && pnpm test && pnpm design:check && pnpm build",
     "postinstall": "node scripts/copy-pdfjs.mjs && node scripts/copy-qpdf.mjs"
   },
   "dependencies": {
