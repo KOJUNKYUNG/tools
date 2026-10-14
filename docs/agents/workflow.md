@@ -24,7 +24,7 @@ Within an approved spec, run ticket to ticket with a one-line progress note. Sto
 
 ## Verify gate
 
-`pnpm verify` runs typecheck, lint, tests, `design:check`, and build. It is green before any visual check and before any PR.
+`pnpm verify` runs typecheck, lint, tests, `design:check`, and build. It is green before any visual check and before any PR. CI (`.github/workflows/ci.yml`) runs the same gate on every PR to `master` and every push to `master`.
 
 ## UI verification
 
