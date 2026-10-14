@@ -71,3 +71,13 @@ Chosen: ESLint trimmed to `core-web-vitals`, no Biome, no formatter.
   divergence is intentional, not drift.
 - `react-hooks/exhaustive-deps` (warning) and `@next/next/no-img-element`
   (warning) remain as warnings — informational, non-blocking.
+
+## Addendum — 2026-10-15: global default is now Prettier
+
+The global toolchain default changed to ESLint (scaffolder config) + Prettier.
+The lint half already matches. **This project still adopts no formatter.**
+Adopting Prettier now would reformat the whole codebase in one diff, burying
+real changes in blame and review, for a cosmetic win nobody has felt the lack
+of. Revisit if formatting drift becomes a felt need; Prettier is then the
+candidate (pure JS, none of Biome's native-binary memory risk), landed as its
+own format-only commit.

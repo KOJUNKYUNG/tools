@@ -4,7 +4,7 @@
 
 정본 참조: 루트 `DESIGN.md`(토큰 계약) · `docs/brand.html`(로고·아이콘·모션) · `src/app/globals.css` @theme · `docs/design-preview.html`(결정된 요소 렌더 + 도구별 설계 기록). 관련 메모리: `common-component-unification`, `result-pop-card-only`, `ontab_conventions`, `ontab_copy_conventions`, `design-brand-sync`, `ontab_tools_extensibility`, `user_context`.
 
-기준선: 첫 적용 사례는 `docs/superpowers/specs/2026-07-04-ppt-background-polish-design.md`.
+기준선: 첫 적용 사례는 `docs/superpowers/specs/2026-07-04-ppt-background-polish-design.md`(동결 기록).
 
 ---
 
@@ -37,7 +37,7 @@
 - [ ] 표준 라벨: 실행=도구별 동사(예 `변경하기`) · 리셋=`도구 초기화` · 재업로드=`다시 업로드`/`Re-upload` · 완료 후 재실행=`다시 하기`.
 
 ### E. 공통 규격 준수
-- [ ] **실행 버튼**은 상단 스트립(`ToolTopStrip`) 오른쪽 고정. 위치·규격 전 도구 통일, 예외 없음.
+- [ ] **실행 버튼**은 공통 `ToolHeader` 오른쪽 고정. 위치·규격 전 도구 통일, 예외 없음.
 - [ ] **파일 메타** 순서 = `파일명 · 크기 · 카운트`. 단일 파일이면 크기 표시(PPT=슬라이드수·PDF=페이지수), 다중이면 파일 개수.
 - [ ] **완료 상태**는 공통 `ResultCard` + `ResultActions`(다운로드→핸드오프→다시 하기 순). 자체 결과 마크업 금지. 2컬럼 레이아웃에서 결과 카드는 **우측 컬럼 가로 폭을 채운다**(`self-start` 등으로 hug 금지 — ppt-background·pdf-watermark·pdf-compress canon).
 - [ ] **단일 파일 도구**는 헤더 오른쪽 되돌리기(reset) 버튼을 두지 않는다(다시 업로드로 대체).
@@ -58,6 +58,6 @@
 
 ## 프로세스 (요약)
 
-brainstorming(스코프+기준) → spec → writing-plans → subagent-driven TDD → `tsc`+`build`+`lint`+`design:check` → 사용자 시각 검증(dev는 사용자 기동, `/browse` 금지, 스크린샷 요청) → `/review` → `/ship`.
+Direct track(도구 1개 = 1 브랜치 = 1 PR): 채팅으로 스코프+기준 확정(모호하면 `grilling`) → `tdd` → `pnpm verify` → 내장 브라우저 자체 점검 → 사용자 시각 QA → 리뷰 2종 → push/PR(승인 후). 단계별 상세는 [`workflow.md`](workflow.md).
 
 hard-stop(승인 후): `push`/`merge`/`rebase` · 의존성 추가·제거 · 파일 삭제 · `.env`/시크릿/배포 설정.

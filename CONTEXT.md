@@ -31,8 +31,9 @@ wins.
 | The design spec — tokens, typography, components, Do's & Don'ts | **`DESIGN.md`** (root) | The design system changes (ADR-0003 / ADR-0004; populated 2026-06) |
 | The brand identity expression — logo, iconography, motion (rendered) | **`docs/brand.html`** (open in a browser) | The brand identity changes — logo, icon system, or motion. Mirrors runtime (`globals.css` + brand components); not a second source of truth |
 | The silver-era implementation contract (historical) | **`docs/_archive/design.md`** | Superseded by root `DESIGN.md` (ADR-0004) — archived, do not extend |
-| The design of one tool/feature | **`docs/superpowers/specs/{date}-{slug}-design.md`** | Before building it, once brainstorming settles the design |
-| The task breakdown to build one tool/feature | **`docs/superpowers/plans/{date}-{slug}.md`** | After the spec, just before implementation |
+| The spec and tickets for multi-PR work | **GitHub issues** (`/to-spec`, `/to-tickets`) | Issue track only, once scope settles — see `docs/agents/workflow.md` |
+| Pre-2026-10 specs and plans (historical) | **`docs/superpowers/`** | Frozen archive — read for history and prior art, add nothing |
+| How work moves from idea to merged PR | **`docs/agents/workflow.md`** | The workflow changes |
 | How agents consume these docs + the detailed authoring rules | **`docs/agents/domain.md`** | Doc conventions change |
 | Issue-tracker mapping (= GitHub Issues) | **`docs/agents/issue-tracker.md`** | The tracker changes |
 | Triage role → label mapping | **`docs/agents/triage-labels.md`** | The label scheme changes |
@@ -217,8 +218,7 @@ landing-inline execution model). **One tool = one branch = one PR**, branch name
 
 ### Phase 2 — New tools
 Utilities beyond the Phase 1 set (PPT / PDF / image). The live roster is the
-`TOOLS` registry; specific candidates and their priority live in planning docs
-(`docs/superpowers/`) and memory.
+`TOOLS` registry; specific candidates and their priority live in GitHub issues and memory.
 
 ### Phase 3 — SEO & monetization
 Per-tool metadata, JSON-LD, sitemap, AdSense placement.
@@ -230,20 +230,17 @@ README polish, contribution docs, open-source publication.
 
 ## Working conventions
 
+### Workflow
+Work runs on one of two tracks — the **issue track** for multi-PR work
+(`/grill-with-docs` → `/to-spec` → `/to-tickets` → `/implement`) or the
+**direct track** for single-PR work — then the `pnpm verify` gate, UI
+verification (built-in browser self-check, then the user's visual QA), review,
+and ship. Full detail: [`docs/agents/workflow.md`](docs/agents/workflow.md).
+
 ### Task boundary
-One feature / bugfix / migrated tool. The user must approve before the next
-one starts. Each task ends with a Done / Why / Next recap. No automatic
-chaining.
-
-### Subagent-driven development
-Large work is scoped via `superpowers:brainstorming`, captured in a plan
-file under `docs/superpowers/plans/`, and dispatched task-by-task via
-`superpowers:subagent-driven-development`. The main session reviews and
-coordinates; subagents do the writing.
-
-### Static verification only
-Subagents must not run `pnpm dev` (no interactive Ctrl+C). Verification is
-`pnpm exec tsc --noEmit` + `pnpm build`. The user runs the dev server.
+One spec, or one feature / bugfix / polished tool. The user approves before the
+next one starts, and each ends with a Done / Why / Next recap. Inside an
+approved spec, tickets run back to back with a one-line progress note.
 
 ### Design & brand sync
 Any change that touches design or brand — `globals.css` tokens, brand components

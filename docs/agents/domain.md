@@ -8,7 +8,7 @@ How the engineering skills should consume this repo's domain documentation when 
 - **`CONTEXT-MAP.md`** at the repo root if it exists — it points at one `CONTEXT.md` per context. Read each one relevant to the topic.
 - **`docs/adr/`** — read ADRs that touch the area you're about to work in. In multi-context repos, also check `src/<context>/docs/adr/` for context-scoped decisions.
 
-If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The producer skill (`/grill-with-docs`) creates them lazily when terms or decisions actually get resolved.
+If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
 
 ## File structure
 
@@ -27,7 +27,7 @@ Single-context repo (most repos):
 
 When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `CONTEXT.md`. Don't drift to synonyms the glossary explicitly avoids.
 
-If the concept you need isn't in the glossary yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/grill-with-docs`).
+If the concept you need isn't in the glossary yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/domain-modeling`).
 
 ## Flag ADR conflicts
 
@@ -48,25 +48,26 @@ holds product content and routing; this file holds the meta rules.**
 
 | Doc | Producer | Timing |
 | --- | -------- | ------ |
-| `CONTEXT.md` | `/grill-with-docs` | **Lazily** — only when a term or concept actually resolves. Never pre-fill. |
-| `docs/adr/` | `/grill-with-docs` | Only when a decision passes all three gates below. |
+| `CONTEXT.md` | `/domain-modeling` (via `/grill-with-docs`) | **Lazily** — only when a term or concept actually resolves. Never pre-fill. |
+| `docs/adr/` | `/domain-modeling` (via `/grill-with-docs`) | Only when a decision passes all three gates below. |
 | `DESIGN.md` (root) | the design system changes | Google-standard design spec (ADR-0003). **Populated and authoritative** since the monochrome redesign (ADR-0004) — tokens, typography, components, Do's & Don'ts. |
 | `docs/_archive/design.md` | — | The silver-era implementation contract, **archived** (superseded by root `DESIGN.md`, ADR-0004). Historical only; do not extend. |
-| `docs/brand.html` | superpowers `brainstorming` (brand foundation) | The brand identity expression changes — logo, iconography, motion. A rendered, browser-openable reference that mirrors runtime (`globals.css` + `src/components/brand/`); kept separate from `DESIGN.md` because `designmd` has no motion/iconography schema. |
-| `docs/superpowers/specs/{date}-{slug}-design.md` | superpowers `brainstorming` | Before building, once the design settles. One tool/feature = one spec. |
-| `docs/superpowers/plans/{date}-{slug}.md` | superpowers `writing-plans` | After the spec, just before implementation. Paired with its spec. |
-| `docs/agents/*` (this file, issue-tracker, triage-labels) | Human / config | Static. Only when operating conventions change. |
+| `docs/brand.html` | the brand changes | The brand identity expression changes — logo, iconography, motion. A rendered, browser-openable reference that mirrors runtime (`globals.css` + `src/components/brand/`); kept separate from `DESIGN.md` because `designmd` has no motion/iconography schema. |
+| Spec (GitHub issue) | `/to-spec` | Issue track only, once `/grill-with-docs` settles scope. See `workflow.md`. |
+| Tickets (GitHub issues) | `/to-tickets` | After the spec; one tracer-bullet slice each, with blocking edges. |
+| `docs/superpowers/specs/`, `plans/` | — | **Frozen archive** of pre-2026-10 specs and plans. Read for history and prior art; add nothing. |
+| `docs/agents/*` (this file, issue-tracker, triage-labels, workflow, tool-polishing-checklist) | Human / config | Static. Only when operating conventions change. |
 
 ### Three patterns that govern all of the above
 
 1. **Lazy creation.** `CONTEXT.md` and ADRs are never written ahead of need.
    They capture decisions *as they crystallise*. Their absence is not a gap to
    flag.
-2. **spec → plan → code pipeline.** A tool flows `specs/{slug}-design.md`
-   (what to build) → `plans/{slug}.md` (how to slice it) → implementation. The
-   spec and plan are a pair; don't write a plan without a settled spec.
+2. **spec → tickets → code pipeline** (issue track). A spec issue (what to
+   build) → ticket issues (how to slice it) → implementation. Tickets come only
+   from a settled spec. Single-PR work skips the pipeline (`workflow.md`).
 3. **`docs/agents/*` is operating config, not product content.** domain /
-   issue-tracker / triage-labels describe *how agents work*, not *what Ontab
+   issue-tracker / triage-labels / workflow describe *how agents work*, not *what Ontab
    is*. They rarely change.
 
 ### Adding a term to CONTEXT.md
