@@ -19,8 +19,8 @@ function sameBytes(a: Uint8Array | null, b: Uint8Array | null): boolean {
 /**
  * ppt-background output properties (spec #51). ⚡ = also at `quick` depth.
  *
- * - ⚡ package structurally valid: well-formed XML, `[Content_Types]`
- *   coverage, relationship targets resolve (plus a readable zip)
+ * - ⚡ package structurally valid: readable zip and XML parts, well-formed
+ *   XML, `[Content_Types]` coverage, relationship targets resolve
  * - ⚡ `slide-count`: same number of slides as the input
  * - ⚡ `target-background`: each target slide (or the master) declares the
  *   new image as its background

@@ -8,6 +8,8 @@ import { xmlWellFormedError } from "./xmlWellFormed";
  * the browser and in Node.
  *
  * Structural defects use these property ids:
+ * - `part-readable`: an XML or .rels part whose zip data cannot be read
+ *   (corrupt compressed data); a damaged file, not a checker failure
  * - `xml-well-formed`: an XML or .rels part a reader would reject
  * - `content-type`: a part `[Content_Types].xml` does not cover
  * - `relationship-target`: an internal relationship whose target part is missing
@@ -22,7 +24,7 @@ export interface PptxPackage {
   slideParts: string[];
   /** `ppt/slideMasters/*.xml`, same ordering. */
   masterParts: string[];
-  /** Raw bytes of a part (null when absent). */
+  /** Raw bytes of a part (null when absent or unreadable). */
   read(part: string): Promise<Uint8Array | null>;
   structuralDefects(): Promise<Violation[]>;
   /**
@@ -108,11 +110,12 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
   const byLowerName = new Map(parts.map((p) => [p.toLowerCase(), p]));
   const textCache = new Map<string, Promise<string | null>>();
 
+  /** A part's text; null when absent or its zip data is corrupt. */
   const text = (part: string): Promise<string | null> => {
     let cached = textCache.get(part);
     if (!cached) {
       const file = zip.file(part);
-      cached = file ? file.async("text") : Promise.resolve(null);
+      cached = file ? file.async("text").catch(() => null) : Promise.resolve(null);
       textCache.set(part, cached);
     }
     return cached;
@@ -143,14 +146,19 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
 
     async read(part) {
       const file = zip.file(part);
-      return file ? file.async("uint8array") : null;
+      return file ? file.async("uint8array").catch(() => null) : null;
     },
 
     async structuralDefects() {
       const defects: Violation[] = [];
 
       for (const part of parts.filter((p) => XML_PART.test(p))) {
-        const reason = xmlWellFormedError((await text(part)) ?? "");
+        const xml = await text(part);
+        if (xml === null) {
+          defects.push({ property: "part-readable", detail: part });
+          continue;
+        }
+        const reason = xmlWellFormedError(xml);
         if (reason) defects.push({ property: "xml-well-formed", detail: `${part}: ${reason}` });
       }
 

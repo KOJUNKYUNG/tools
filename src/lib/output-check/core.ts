@@ -50,7 +50,10 @@ function devLog(message: string, violations: Violation[] | unknown): void {
  * warns and then allows.
  *
  * A checker that crashes has not proven the file wrong, so the result is
- * handed back: only certain defects may block a user.
+ * handed back: only certain defects may block a user. Damage the file itself
+ * causes (a part that cannot be read) is not a crash: inspectors report it
+ * as a violation, so it blocks. The regression set calls checkers directly,
+ * so a checker bug fails the tests instead of passing silently.
  */
 export async function runOutputCheck<T>({
   tool,

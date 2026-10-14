@@ -179,6 +179,28 @@ describe("checkPptBackground flags broken output", () => {
     expect(await checkPptBackground(input, request, broken, "quick")).toEqual([]);
   });
 
+  it("flags a compressed part whose data is corrupt (reading it throws)", async () => {
+    const input = await syntheticDeck();
+    const good = await apply(input, allSlides);
+    const zip = await JSZip.loadAsync(good);
+    const broken = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+    // Overwrite the middle of slide2.xml's compressed data in its local entry.
+    const name = new TextEncoder().encode("ppt/slides/slide2.xml");
+    const at = broken.findIndex(
+      (_, i) =>
+        broken[i - 30] === 0x50 &&
+        broken[i - 29] === 0x4b &&
+        broken[i - 28] === 0x03 &&
+        broken[i - 27] === 0x04 &&
+        name.every((b, j) => broken[i + j] === b),
+    );
+    const extraLength = broken[at - 4] | (broken[at - 3] << 8);
+    const dataStart = at + name.length + extraLength;
+    for (let i = dataStart + 10; i < dataStart + 40; i++) broken[i] ^= 0xff;
+
+    expect(await properties(input, allSlides, broken)).toContain("part-readable");
+  });
+
   it("flags output that is not a zip at all", async () => {
     const input = await syntheticDeck();
     const garbage = new TextEncoder().encode("not a pptx");
