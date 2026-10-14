@@ -161,6 +161,7 @@
           "download": "Download",
           "error": "Error",
           "errorBody": "Something went wrong. Please try again.",
+          "errorCorrupt": "The result file is unusable. Try a different image or file.",
           "retry": "Retry",
           "tryAnother": "Start over"
         },

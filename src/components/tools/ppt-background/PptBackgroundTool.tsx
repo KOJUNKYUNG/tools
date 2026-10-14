@@ -125,6 +125,8 @@ export interface PptBackgroundToolLabels {
     download: string;
     error: string;
     errorBody: string;
+    /** Shown when the output check blocks a broken deck. */
+    errorCorrupt: string;
     retry: string;
     tryAnother: string;
   };
@@ -218,6 +220,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       );
     },
+    errorOptions: { corruptOutputHint: labels.processing.errorCorrupt },
   });
 
   const pptxFile = pptxFiles[0] ?? null;

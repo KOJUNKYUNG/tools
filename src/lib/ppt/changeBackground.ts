@@ -1,4 +1,6 @@
 import JSZip from "jszip";
+import { runOutputCheck } from "@/lib/output-check/core";
+import { checkPptBackground } from "./changeBackgroundCheck";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
 
@@ -369,5 +371,21 @@ export async function changeBackground({
     );
   }
 
-  return zip.generateAsync({ type: "uint8array" });
+  const output = await zip.generateAsync({ type: "uint8array" });
+
+  // Output check: the deck must be structurally sound and actually carry the
+  // new background before it is offered. No recovery exists, so a violation
+  // blocks with the corrupt-output error.
+  const input = new Uint8Array(arrayBuffer);
+  return runOutputCheck({
+    tool: "ppt-background",
+    output,
+    check: (out) =>
+      checkPptBackground(
+        input,
+        { bgImage: bgImageData, mode, targetSlides },
+        out,
+        "quick",
+      ),
+  });
 }

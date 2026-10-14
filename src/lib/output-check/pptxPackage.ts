@@ -1,0 +1,210 @@
+import JSZip from "jszip";
+import type { Violation } from "./core";
+import { xmlWellFormedError } from "./xmlWellFormed";
+
+/**
+ * PPTX package inspector: opens a .pptx as an OPC package and answers the
+ * structural questions tool checkers ask. Shared by every PPTX tool; works in
+ * the browser and in Node.
+ *
+ * Structural defects use these property ids:
+ * - `xml-well-formed`: an XML or .rels part a reader would reject
+ * - `content-type`: a part `[Content_Types].xml` does not cover
+ * - `relationship-target`: an internal relationship whose target part is missing
+ *
+ * A defect's `detail` names the part (and target), so the same defect in two
+ * packages compares equal by `property` + `detail`.
+ */
+export interface PptxPackage {
+  /** Every file part, as named in the zip. */
+  parts: string[];
+  /** `ppt/slides/*.xml`, in slide order (trailing number of the file name). */
+  slideParts: string[];
+  /** `ppt/slideMasters/*.xml`, same ordering. */
+  masterParts: string[];
+  /** Raw bytes of a part (null when absent). */
+  read(part: string): Promise<Uint8Array | null>;
+  structuralDefects(): Promise<Violation[]>;
+  /**
+   * For each given slide/master part, the media part its declared background
+   * (`<p:bg>` picture fill) points at, or null when it declares none.
+   */
+  backgroundMedia(parts: readonly string[]): Promise<Map<string, string | null>>;
+}
+
+const XML_PART = /\.(xml|rels)$/i;
+const RELS_PART = /^(?:(.*)\/)?_rels\/([^/]*)\.rels$/;
+const TAG_ATTRS = /([\w:]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+
+function ordinal(path: string): number {
+  const m = path.match(/(\d+)\.xml$/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+function partsIn(parts: string[], dir: string): string[] {
+  const pattern = new RegExp(`^${dir}/[^/]+\\.xml$`);
+  return parts.filter((p) => pattern.test(p)).sort((a, b) => ordinal(a) - ordinal(b));
+}
+
+function attrs(tag: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of tag.matchAll(TAG_ATTRS)) out[m[1]] = m[2] ?? m[3];
+  return out;
+}
+
+function decodePartName(name: string): string {
+  try {
+    return decodeURIComponent(name);
+  } catch {
+    return name;
+  }
+}
+
+/** Resolve a relationship target against its source directory. Null if it escapes the package. */
+function resolveTarget(sourceDir: string, target: string): string | null {
+  const bare = decodePartName(target.split("#")[0]);
+  const segments = bare.startsWith("/")
+    ? []
+    : sourceDir === ""
+      ? []
+      : sourceDir.split("/");
+  for (const seg of bare.replace(/^\/+/, "").split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") {
+      if (segments.length === 0) return null;
+      segments.pop();
+    } else {
+      segments.push(seg);
+    }
+  }
+  return segments.join("/");
+}
+
+/** The `.rels` part that holds a part's relationships. */
+export function relsPartOf(part: string): string {
+  const slash = part.lastIndexOf("/");
+  return `${part.slice(0, slash + 1)}_rels/${part.slice(slash + 1)}.rels`;
+}
+
+interface Relationship {
+  id: string;
+  /** Resolved part name, or null for an external or unresolvable target. */
+  part: string | null;
+  external: boolean;
+}
+
+/** Opens the bytes as a zip; null when they are not one. */
+export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | null> {
+  let zip: JSZip;
+  try {
+    zip = await JSZip.loadAsync(bytes);
+  } catch {
+    return null;
+  }
+  const parts = Object.values(zip.files)
+    .filter((f) => !f.dir)
+    .map((f) => f.name);
+  // OPC part names compare case-insensitively.
+  const byLowerName = new Map(parts.map((p) => [p.toLowerCase(), p]));
+  const textCache = new Map<string, Promise<string | null>>();
+
+  const text = (part: string): Promise<string | null> => {
+    let cached = textCache.get(part);
+    if (!cached) {
+      const file = zip.file(part);
+      cached = file ? file.async("text") : Promise.resolve(null);
+      textCache.set(part, cached);
+    }
+    return cached;
+  };
+
+  const relationshipsOf = async (relsPart: string): Promise<Relationship[]> => {
+    const xml = await text(relsPart);
+    if (xml === null) return [];
+    const sourceDir = relsPart.match(RELS_PART)?.[1] ?? "";
+    const rels: Relationship[] = [];
+    for (const m of xml.matchAll(/<Relationship\b[^>]*>/g)) {
+      const a = attrs(m[0]);
+      const external = a.TargetMode === "External";
+      const resolved = external || !a.Target ? null : resolveTarget(sourceDir, a.Target);
+      rels.push({
+        id: a.Id ?? "",
+        external,
+        part: resolved === null ? null : (byLowerName.get(resolved.toLowerCase()) ?? resolved),
+      });
+    }
+    return rels;
+  };
+
+  return {
+    parts,
+    slideParts: partsIn(parts, "ppt/slides"),
+    masterParts: partsIn(parts, "ppt/slideMasters"),
+
+    async read(part) {
+      const file = zip.file(part);
+      return file ? file.async("uint8array") : null;
+    },
+
+    async structuralDefects() {
+      const defects: Violation[] = [];
+
+      for (const part of parts.filter((p) => XML_PART.test(p))) {
+        const reason = xmlWellFormedError((await text(part)) ?? "");
+        if (reason) defects.push({ property: "xml-well-formed", detail: `${part}: ${reason}` });
+      }
+
+      const ctXml = await text("[Content_Types].xml");
+      if (ctXml === null) {
+        defects.push({ property: "content-type", detail: "[Content_Types].xml missing" });
+      } else {
+        const defaults = new Set<string>();
+        const overrides = new Set<string>();
+        for (const m of ctXml.matchAll(/<(Default|Override)\b[^>]*>/g)) {
+          const a = attrs(m[0]);
+          if (m[1] === "Default" && a.Extension) defaults.add(a.Extension.toLowerCase());
+          if (m[1] === "Override" && a.PartName) {
+            overrides.add(decodePartName(a.PartName).replace(/^\//, "").toLowerCase());
+          }
+        }
+        for (const part of parts) {
+          if (part === "[Content_Types].xml") continue;
+          const lower = part.toLowerCase();
+          const ext = lower.includes(".") ? lower.slice(lower.lastIndexOf(".") + 1) : "";
+          if (!overrides.has(lower) && !defaults.has(ext)) {
+            defects.push({ property: "content-type", detail: part });
+          }
+        }
+      }
+
+      for (const relsPart of parts.filter((p) => RELS_PART.test(p))) {
+        for (const rel of await relationshipsOf(relsPart)) {
+          if (rel.external) continue;
+          if (rel.part === null || !byLowerName.has(rel.part.toLowerCase())) {
+            defects.push({
+              property: "relationship-target",
+              detail: `${relsPart} ${rel.id} → ${rel.part ?? "outside the package"}`,
+            });
+          }
+        }
+      }
+      return defects;
+    },
+
+    async backgroundMedia(targets) {
+      const result = new Map<string, string | null>();
+      for (const part of targets) {
+        const xml = await text(part);
+        const bg = xml?.match(/<p:bg[\s>][\s\S]*?<\/p:bg>/)?.[0];
+        const embed = bg?.match(/<a:blip\b[^>]*\br:embed="([^"]+)"/)?.[1];
+        if (!embed) {
+          result.set(part, null);
+          continue;
+        }
+        const rel = (await relationshipsOf(relsPartOf(part))).find((r) => r.id === embed);
+        result.set(part, rel?.part ?? null);
+      }
+      return result;
+    },
+  };
+}
