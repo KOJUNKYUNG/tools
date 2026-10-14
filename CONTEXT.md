@@ -245,6 +245,16 @@ real files (local-only, never committed — the repo is public), run whenever an
 engine version changes. A test that passes because an engine failed to load is
 a bug, not a pass.
 
+### Pinned engine
+A file-processing engine declared at an **exact** version in `package.json`
+(no `^`/`~`), so a routine dependency update can never swap it unverified:
+justpdf (`@kihyun1998/justpdf-compress-wasm`), pdf-lib, pdfjs-dist, qpdf
+(`@neslinesli93/qpdf-wasm`), pptxgenjs, jszip, heic-to,
+browser-image-compression, cfb. Bumping one is deliberate: the real-file
+regression set must pass on the new version before the bump lands. General
+libraries (UI, i18n, utilities) keep their ranges. A new engine is pinned when
+it is added.
+
 ### Output check constraints
 Output correctness must not break the product's premise. Every output check:
 
