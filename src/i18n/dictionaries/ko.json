@@ -263,7 +263,8 @@
         "pageCountTemplate": "{n}페이지",
         "downloadPdf": "PDF 다운로드",
         "downloadZipTemplate": "ZIP 다운로드 ({n}개)",
-        "downloadOneAria": "{name} 다운로드"
+        "downloadOneAria": "{name} 다운로드",
+        "errorCorrupt": "결과 PDF가 손상되어 사용할 수 없습니다. 페이지 구성을 바꾸거나 다른 파일로 다시 시도해 주세요."
       }
     },
     "pdf-merge": { "title": "PDF 합치기", "description": "여러 PDF 파일을 하나로 정밀하게 병합합니다." },

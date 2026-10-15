@@ -10,6 +10,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.real.ts"],
+    setupFiles: base.test?.setupFiles,
     // Real decks run several requests each; one file can take a while.
     testTimeout: 300_000,
   },

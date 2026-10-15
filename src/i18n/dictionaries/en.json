@@ -263,7 +263,8 @@
         "pageCountTemplate": "{n} pages",
         "downloadPdf": "Download PDF",
         "downloadZipTemplate": "Download ZIP ({n})",
-        "downloadOneAria": "Download {name}"
+        "downloadOneAria": "Download {name}",
+        "errorCorrupt": "The output PDF is unusable. Try a different arrangement or other files."
       }
     },
     "pdf-merge": { "title": "Merge PDFs", "description": "Combine multiple PDFs into one precise document." },

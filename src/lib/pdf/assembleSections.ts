@@ -1,12 +1,16 @@
 // Section assembler for the unified PDF page editor (pdf-arrange).
-// pdf-lib ONLY — never imports pdfjs. This keeps output generation working even
-// if thumbnail rendering (pdfjs) fails (offline, missing assets). Takes the
-// sections produced by splitIntoSections and turns each into a PDF byte array.
+// Assembly is pdf-lib ONLY. pdfjs is loaded lazily, and only by the output
+// check in `arrangePdf`; if it fails to load (offline, missing assets), the
+// check hands the output back unchecked, so output generation keeps working.
+// Takes the sections produced by splitIntoSections and turns each into a PDF
+// byte array.
 
 import JSZip from "jszip";
-import { PDFDocument, degrees, rgb } from "pdf-lib";
+import { PDFDocument, type PDFPage, degrees, rgb } from "pdf-lib";
+import { runOutputCheck } from "@/lib/output-check/core";
 import { type PageItem, buildOutputNames } from "./pageItem";
 import { computeImageFit } from "./imageFit";
+import { checkPdfArrange } from "./pdfArrangeCheck";
 
 export type ImageLayout =
   | { mode: "native" }
@@ -66,10 +70,25 @@ export async function assembleSections(
   for (const section of sections) {
     const out = await PDFDocument.create();
 
+    // One copyPages call per source: pdf-lib copies the objects pages share
+    // (fonts, images) once per call, so copying page by page embedded a copy
+    // of them for every page (a 6.8 MB deck came out at 28 MB).
+    const indicesBySource = new Map<string, number[]>();
+    for (const item of section) {
+      if (item.kind !== "pdf") continue;
+      const indices = indicesBySource.get(item.sourceFileId) ?? [];
+      indices.push(item.sourcePageIndex);
+      indicesBySource.set(item.sourceFileId, indices);
+    }
+    const copiedBySource = new Map<string, PDFPage[]>();
+    for (const [id, indices] of indicesBySource) {
+      copiedBySource.set(id, await out.copyPages(await getSourceDoc(id), indices));
+    }
+
     for (const item of section) {
       if (item.kind === "pdf") {
-        const src = await getSourceDoc(item.sourceFileId);
-        const [page] = await out.copyPages(src, [item.sourcePageIndex]);
+        // Pages come back in the order requested, which is section order.
+        const page = copiedBySource.get(item.sourceFileId)!.shift()!;
         if (item.rotation !== 0) {
           const current = page.getRotation().angle;
           page.setRotation(degrees(current + item.rotation));
@@ -117,6 +136,25 @@ export async function assembleSections(
   }
 
   return outputs;
+}
+
+/**
+ * pdf-arrange's engine entry: assemble the sections, then run the tool's
+ * output check (see `pdfArrangeCheck.ts`) before handing the files back. A
+ * failing check has no safer mode to fall back to, so it blocks with the
+ * corrupt-output error.
+ */
+export async function arrangePdf(
+  input: Omit<AssembleInput, "imageLayout">,
+  onProgress?: (pct: number) => void,
+): Promise<Uint8Array[]> {
+  const outputs = await assembleSections(input, onProgress);
+  return runOutputCheck({
+    tool: "pdf-arrange",
+    output: outputs,
+    check: (out) =>
+      checkPdfArrange(input.sourceBytesById, { sections: input.sections }, out, "quick"),
+  });
 }
 
 export type PackagedOutput = {

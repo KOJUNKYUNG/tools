@@ -26,6 +26,8 @@ export interface PdfArrangeLabels {
   downloadPdf: string;
   downloadZipTemplate: string;
   downloadOneAria: string;
+  /** Shown when the output check blocks a broken PDF. */
+  errorCorrupt: string;
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
@@ -57,6 +59,7 @@ export function getPdfArrangeLabels(dict: Dictionary): PdfArrangeLabels {
     downloadPdf: page.downloadPdf,
     downloadZipTemplate: page.downloadZipTemplate,
     downloadOneAria: page.downloadOneAria,
+    errorCorrupt: page.errorCorrupt,
     fileUpload: dict.common.fileUpload,
   };
 }
