@@ -25,6 +25,8 @@ export interface ImageToPdfLabels {
   download: string;
   compressHandoff: string;
   again: string;
+  /** Shown when the output check blocks a broken PDF. */
+  errorCorrupt: string;
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
@@ -56,6 +58,7 @@ export function getImageToPdfLabels(dict: Dictionary): ImageToPdfLabels {
     download: p.download,
     compressHandoff: p.compressHandoff,
     again: p.again,
+    errorCorrupt: p.errorCorrupt,
     fileUpload: dict.common.fileUpload,
   };
 }

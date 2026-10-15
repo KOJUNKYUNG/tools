@@ -34,7 +34,7 @@ import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { normalizeImageFiles } from "@/lib/image/heic";
 import {
-  assembleSections,
+  convertImagesToPdf,
   type ImageLayout,
 } from "@/lib/pdf/assembleSections";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
@@ -177,14 +177,15 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
     processor: async (_files, onProgress) => {
       const live = items.filter((p) => !p.deleted);
       if (live.length === 0) throw new Error("변환할 이미지가 없습니다.");
-      const [bytes] = await assembleSections(
-        { sections: [live], sourceBytesById, imageLayout },
+      const bytes = await convertImagesToPdf(
+        { pages: live, sourceBytesById, imageLayout },
         onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pdf`;
       return { bytes, name, pageCount: live.length };
     },
     onDownload: (res) => downloadBlob(res.bytes, res.name, "application/pdf"),
+    errorOptions: { corruptOutputHint: labels.errorCorrupt },
   });
 
   useEffect(() => () => clearThumbnailCache(), []);

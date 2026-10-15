@@ -23,6 +23,12 @@ export const WRONG_PASSWORD_PREFIX = "WRONG_PASSWORD";
  */
 export const INVALID_INPUT_PREFIX = "INVALID_INPUT";
 
+/**
+ * Sentinel prefix for a result an output check (or a tool's own integrity
+ * guard) found unusable. Maps to the tool's `corruptOutputHint`.
+ */
+export const CORRUPT_OUTPUT_PREFIX = "CORRUPT_OUTPUT";
+
 export interface GetErrorMessageOptions {
   fallbackMessage?: string;
   memoryHint?: string;
@@ -66,7 +72,7 @@ export function getErrorMessage(
     };
   }
 
-  if (rawMessage.startsWith("CORRUPT_OUTPUT")) {
+  if (rawMessage.startsWith(CORRUPT_OUTPUT_PREFIX)) {
     return {
       code: ToolErrorCode.INVALID_FILE,
       message:

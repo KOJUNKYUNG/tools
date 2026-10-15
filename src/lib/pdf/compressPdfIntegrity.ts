@@ -1,7 +1,9 @@
+import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
+
 // Sentinel error message that the React layer's error mapper detects to swap
 // in a user-facing "compressed file is unusable" toast. Throwing keeps the
-// existing useToolProcessor error flow intact.
-export const CORRUPT_OUTPUT_MARKER = "CORRUPT_OUTPUT";
+// existing useToolProcessor error flow intact. Single source: errors.ts.
+export const CORRUPT_OUTPUT_MARKER = CORRUPT_OUTPUT_PREFIX;
 
 /**
  * Ratio below which we run a defensive page-count check. The reported

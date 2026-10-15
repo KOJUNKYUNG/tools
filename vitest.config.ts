@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.{test,spec}.ts", "src/**/*.{test,spec}.tsx"],
+    setupFiles: ["src/lib/output-check/pdfjsNode.setup.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],

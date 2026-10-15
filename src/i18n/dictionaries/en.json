@@ -161,6 +161,7 @@
           "download": "Download",
           "error": "Error",
           "errorBody": "Something went wrong. Please try again.",
+          "errorCorrupt": "The result file is unusable. Try a different image or file.",
           "retry": "Retry",
           "tryAnother": "Start over"
         },
@@ -262,7 +263,8 @@
         "pageCountTemplate": "{n} pages",
         "downloadPdf": "Download PDF",
         "downloadZipTemplate": "Download ZIP ({n})",
-        "downloadOneAria": "Download {name}"
+        "downloadOneAria": "Download {name}",
+        "errorCorrupt": "The output PDF is unusable. Try a different arrangement or other files."
       }
     },
     "pdf-merge": { "title": "Merge PDFs", "description": "Combine multiple PDFs into one precise document." },
@@ -475,7 +477,8 @@
         "pageCount": "{n} pages",
         "download": "Download",
         "compressHandoff": "Compress PDF",
-        "again": "Start over"
+        "again": "Start over",
+        "errorCorrupt": "The output PDF is unusable. Try a different page size or other images."
       }
     },
     "pdf-to-image": {

@@ -28,7 +28,7 @@ import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
-import { assembleSections, packageOutputs } from "@/lib/pdf/assembleSections";
+import { arrangePdf, packageOutputs } from "@/lib/pdf/assembleSections";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import {
   type PageItem,
@@ -164,7 +164,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     processor: async (_files, onProgress) => {
       const sections = splitIntoSections(items);
       if (sections.length === 0) throw new Error("출력할 페이지가 없습니다.");
-      const outBytes = await assembleSections(
+      const outBytes = await arrangePdf(
         { sections, sourceBytesById },
         onProgress,
       );
@@ -189,6 +189,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
         packaged.type === "zip" ? "application/zip" : "application/pdf",
       );
     },
+    errorOptions: { corruptOutputHint: labels.errorCorrupt },
   });
 
   const handleDownloadOne = useCallback((entry: OutputEntry) => {

@@ -245,6 +245,12 @@ real files (local-only, never committed — the repo is public), run whenever an
 engine version changes. A test that passes because an engine failed to load is
 a bug, not a pass.
 
+### Pinned engine
+A library that reads or writes the user's file (PDF, PPTX, image), declared at
+an exact version so a routine dependency update can never swap it unverified.
+Bumping one is deliberate: the real-file regression set must pass on the new
+version first. Other libraries keep their existing specifiers.
+
 ### Output check constraints
 Output correctness must not break the product's premise. Every output check:
 
