@@ -38,22 +38,28 @@ export interface RealFileTool<TRequest, TOutput> {
   /** The default request first, then representative ones. May read the input. */
   requests: (input: Uint8Array) => Promise<RealFileRequest<TRequest>[]>;
   /** The tool's engine entry, which runs its own `quick` output check. */
-  run: (input: Uint8Array, request: TRequest, fileName: string) => Promise<TOutput>;
+  run: (
+    input: Uint8Array,
+    request: TRequest,
+    fileName: string,
+  ) => Promise<TOutput>;
   check: OutputChecker<Uint8Array, TRequest, TOutput>;
 }
 
-function message(err: unknown): string {
+function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
 const ms = (n: number) => `${Math.round(n)} ms`;
 
-export function realFileSuite<TRequest, TOutput>(tool: RealFileTool<TRequest, TOutput>): void {
-  describe(tool.tool, () => {
+export function realFileSuite<TRequest, TOutput>(
+  suite: RealFileTool<TRequest, TOutput>,
+): void {
+  describe(suite.tool, () => {
     const dir = realFixtureDir();
     let files: string[];
     try {
-      files = findRealFixtures(dir, tool.extensions);
+      files = findRealFixtures(dir, suite.extensions);
     } catch (err) {
       it("finds applicable fixtures", () => {
         throw err;
@@ -62,7 +68,8 @@ export function realFileSuite<TRequest, TOutput>(tool: RealFileTool<TRequest, TO
     }
 
     // The entry runs the quick check itself, so processing time is estimated
-    // as entry time minus a separate, identical quick-check run.
+    // as entry time minus a separate, identical quick-check run. That run is
+    // warm, so the reported share is an estimate that may run slightly low.
     const timing = { entry: 0, quick: 0, runs: 0 };
 
     for (const file of files) {
@@ -71,22 +78,22 @@ export function realFileSuite<TRequest, TOutput>(tool: RealFileTool<TRequest, TO
         const input = new Uint8Array(readFileSync(file));
         const failures: string[] = [];
 
-        for (const { label, request } of await tool.requests(input)) {
+        for (const { label, request } of await suite.requests(input)) {
           const started = performance.now();
           let output: TOutput;
           try {
-            output = await tool.run(input, request, path.basename(file));
+            output = await suite.run(input, request, path.basename(file));
           } catch (err) {
-            failures.push(`${label}: entry threw: ${message(err)}`);
+            failures.push(`${label}: entry threw: ${errorMessage(err)}`);
             continue;
           }
           const ran = performance.now();
-          await tool.check(input, request, output, "quick");
+          await suite.check(input, request, output, "quick");
           timing.quick += performance.now() - ran;
           timing.entry += ran - started;
           timing.runs++;
 
-          for (const v of await tool.check(input, request, output, "full")) {
+          for (const v of await suite.check(input, request, output, "full")) {
             failures.push(`${label}: ${v.property}: ${v.detail}`);
           }
         }
@@ -101,8 +108,9 @@ export function realFileSuite<TRequest, TOutput>(tool: RealFileTool<TRequest, TO
       const share = timing.quick / processing;
       const verdict = share <= QUICK_BUDGET ? "within" : "OVER";
       console.log(
-        `[test:real] ${tool.tool}: ${timing.runs} runs, processing ${ms(processing)}, ` +
-          `quick check ${ms(timing.quick)} (+${(share * 100).toFixed(1)}%, ` +
+        `[test:real] ${suite.tool}: ${timing.runs} runs, ` +
+          `processing ≈ ${ms(processing)}, quick check ${ms(timing.quick)} ` +
+          `(≈ +${(share * 100).toFixed(1)}%, ` +
           `${verdict} the ${QUICK_BUDGET * 100}% budget)`,
       );
     });

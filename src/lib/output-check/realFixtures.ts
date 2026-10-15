@@ -9,7 +9,10 @@
 import { readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
-/** `tests/fixtures` at the repo root; `REAL_FIXTURES_DIR` overrides it. */
+/**
+ * `tests/fixtures`, resolved against the working directory (the repo root
+ * under `pnpm test:real`); `REAL_FIXTURES_DIR` overrides it.
+ */
 export function realFixtureDir(): string {
   return path.resolve(process.env.REAL_FIXTURES_DIR ?? "tests/fixtures");
 }
@@ -26,7 +29,10 @@ function walk(dir: string): string[] {
  * `extensions` (case-insensitive), in a stable order. Throws when the folder
  * is missing or holds no applicable file.
  */
-export function findRealFixtures(dir: string, extensions: readonly string[]): string[] {
+export function findRealFixtures(
+  dir: string,
+  extensions: readonly string[],
+): string[] {
   if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) {
     throw new Error(`fixture folder not found: ${dir}`);
   }

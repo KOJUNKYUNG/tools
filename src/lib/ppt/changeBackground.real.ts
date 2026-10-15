@@ -2,9 +2,15 @@
 import { resolveObjectURL } from "node:buffer";
 import { afterAll, beforeAll, vi } from "vitest";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
-import { realFileSuite, type RealFileRequest } from "@/lib/output-check/realFileSuite";
+import {
+  realFileSuite,
+  type RealFileRequest,
+} from "@/lib/output-check/realFileSuite";
 import { changeBackground } from "./changeBackground";
-import { checkPptBackground, type PptBackgroundRequest } from "./changeBackgroundCheck";
+import {
+  checkPptBackground,
+  type PptBackgroundRequest,
+} from "./changeBackgroundCheck";
 
 // A 2×2 PNG stands in for the user's background image.
 const BG_PNG = Uint8Array.from(
@@ -27,7 +33,9 @@ beforeAll(() => {
       onerror: (() => void) | null = null;
       set src(url: string) {
         void (async () => {
-          const bytes = new DataView((await resolveObjectURL(url)!.arrayBuffer()));
+          const blob = resolveObjectURL(url);
+          if (!blob) throw new Error(`no blob behind ${url}`);
+          const bytes = new DataView(await blob.arrayBuffer());
           this.naturalWidth = bytes.getUint32(16);
           this.naturalHeight = bytes.getUint32(20);
           this.onload?.();
@@ -40,15 +48,24 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-async function requests(input: Uint8Array): Promise<RealFileRequest<PptBackgroundRequest>[]> {
+async function requests(
+  input: Uint8Array,
+): Promise<RealFileRequest<PptBackgroundRequest>[]> {
   const slideCount = (await openPptxPackage(input))?.slideParts.length ?? 1;
   const firstAndLast = [...new Set([1, slideCount])];
   return [
-    { label: "all-slides (default)", request: { bgImage: BG_PNG, mode: "all-slides" } },
+    {
+      label: "all-slides (default)",
+      request: { bgImage: BG_PNG, mode: "all-slides" },
+    },
     { label: "master", request: { bgImage: BG_PNG, mode: "master" } },
     {
       label: `specific-slides ${firstAndLast.join(",")}`,
-      request: { bgImage: BG_PNG, mode: "specific-slides", targetSlides: firstAndLast },
+      request: {
+        bgImage: BG_PNG,
+        mode: "specific-slides",
+        targetSlides: firstAndLast,
+      },
     },
   ];
 }
