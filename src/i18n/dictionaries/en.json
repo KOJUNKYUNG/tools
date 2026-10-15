@@ -477,7 +477,8 @@
         "pageCount": "{n} pages",
         "download": "Download",
         "compressHandoff": "Compress PDF",
-        "again": "Start over"
+        "again": "Start over",
+        "errorCorrupt": "The output PDF is unusable. Try a different page size or other images."
       }
     },
     "pdf-to-image": {

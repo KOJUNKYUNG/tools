@@ -477,7 +477,8 @@
         "pageCount": "{n}페이지",
         "download": "다운로드",
         "compressHandoff": "PDF 압축하기",
-        "again": "다시 하기"
+        "again": "다시 하기",
+        "errorCorrupt": "결과 PDF가 손상되어 사용할 수 없습니다. 페이지 크기를 바꾸거나 다른 이미지로 다시 시도해 주세요."
       }
     },
     "pdf-to-image": {

@@ -10,6 +10,7 @@ import { PDFDocument, type PDFPage, degrees, rgb } from "pdf-lib";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { type PageItem, buildOutputNames } from "./pageItem";
 import { computeImageFit } from "./imageFit";
+import { checkImageToPdf } from "./imageToPdfCheck";
 import { checkPdfArrange } from "./pdfArrangeCheck";
 
 export type ImageLayout =
@@ -155,6 +156,37 @@ export async function arrangePdf(
     output: outputs,
     check: (out) =>
       checkPdfArrange(input.sourceBytesById, { sections: input.sections }, out, "quick"),
+  });
+}
+
+/**
+ * image-to-pdf's engine entry: one PDF with a page per image, laid out as
+ * chosen, then the tool's output check (see `imageToPdfCheck.ts`). A failing
+ * check has no safer mode to fall back to, so it blocks with the
+ * corrupt-output error.
+ */
+export async function convertImagesToPdf(
+  {
+    pages,
+    sourceBytesById,
+    imageLayout,
+  }: {
+    /** The images the user kept, in order. */
+    pages: PageItem[];
+    sourceBytesById: Map<string, Uint8Array>;
+    imageLayout: ImageLayout;
+  },
+  onProgress?: (pct: number) => void,
+): Promise<Uint8Array> {
+  const [output] = await assembleSections(
+    { sections: [pages], sourceBytesById, imageLayout },
+    onProgress,
+  );
+  return runOutputCheck({
+    tool: "image-to-pdf",
+    output,
+    check: (out) =>
+      checkImageToPdf(sourceBytesById, { pages, layout: imageLayout }, out, "quick"),
   });
 }
 
