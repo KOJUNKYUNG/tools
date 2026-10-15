@@ -34,9 +34,10 @@ function headerOf(sources: ImageToPdfSources, id: string): ImageHeader {
 }
 
 /**
- * The page box and turn the layout calls for. Native: the image's pixel size
- * in points, turned by /Rotate. Fixed: the chosen size, upright, because the
- * engine draws the turn into the page.
+ * The page box and turn the layout calls for. Native: the image's size in
+ * points as the user sees it (EXIF orientations 5–8 swap the stored sides),
+ * turned by /Rotate. Fixed: the chosen size, upright, because the engine
+ * draws the turn into the page.
  */
 function expectedPage(
   layout: ImageLayout,
@@ -46,8 +47,13 @@ function expectedPage(
   if (layout.mode === "fixed") {
     return { width: layout.widthPt, height: layout.heightPt, rotation: 0 };
   }
-  const { width, height } = headerOf(sources, item.sourceFileId);
-  return { width, height, rotation: item.rotation };
+  const { width, height, orientation } = headerOf(sources, item.sourceFileId);
+  const quarterTurned = orientation >= 5;
+  return {
+    width: quarterTurned ? height : width,
+    height: quarterTurned ? width : height,
+    rotation: item.rotation,
+  };
 }
 
 async function checkPages(
@@ -119,7 +125,8 @@ function sizeBound(sources: ImageToPdfSources, pages: PageItem[]): number {
  * - ⚡ `page-count`: one page per image the user kept
  * - `page-image`: every page shows an image
  * - `page-size` / `page-rotation`: each page follows the layout. Native: the
- *   image's pixel size, turned as requested. Fixed: the chosen size, upright
+ *   image's size as displayed (EXIF orientation applied), turned as
+ *   requested. Fixed: the chosen size, upright
  * - `size-bound`: the PDF ≤ its images + a margin
  */
 export const checkImageToPdf: OutputChecker<

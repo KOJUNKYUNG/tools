@@ -20,7 +20,8 @@ async function pdfOf(pages: PageSpec[]): Promise<Uint8Array> {
     const page = doc.addPage(size);
     if (source !== null) {
       const bytes = src.get(source)!; // test data: every named source exists
-      const img = source === "photo" ? await doc.embedJpg(bytes) : await doc.embedPng(bytes);
+      const isJpeg = source === "photo" || source === "phone";
+      const img = isJpeg ? await doc.embedJpg(bytes) : await doc.embedPng(bytes);
       page.drawImage(img, { x: 0, y: 0, width: size[0], height: size[1] });
     }
     if (rotation) page.setRotation(degrees(rotation));
@@ -41,6 +42,14 @@ describe("checkImageToPdf: good outputs", () => {
       { source: "photo", size: [3, 2] },
     ]);
     expect(await checkImageToPdf(sources(), { pages, imageLayout: NATIVE }, out, "full")).toEqual([]);
+  });
+
+  it("native layout: a photo with EXIF orientation gets its displayed size", async () => {
+    // Stored 3×2, shown 2×3: the PDF page must match what the user sees.
+    const out = await pdfOf([{ source: "phone", size: [2, 3] }]);
+    expect(
+      await checkImageToPdf(sources(), { pages: [image("phone")], imageLayout: NATIVE }, out, "full"),
+    ).toEqual([]);
   });
 
   it("fixed layout: every page has the chosen size, unturned", async () => {
@@ -93,6 +102,17 @@ describe("checkImageToPdf: broken outputs", () => {
     expect(props(await checkImageToPdf(src, { pages, imageLayout: NATIVE }, out, "full"))).toEqual([
       "page-size",
     ]);
+  });
+
+  it("flags a native page that ignores the photo's EXIF orientation", async () => {
+    const out = await pdfOf([{ source: "phone", size: [3, 2] }]);
+    const vs = await checkImageToPdf(
+      sources(),
+      { pages: [image("phone")], imageLayout: NATIVE },
+      out,
+      "full",
+    );
+    expect(props(vs)).toEqual(["page-size"]);
   });
 
   it("flags a native page whose turn was not applied", async () => {

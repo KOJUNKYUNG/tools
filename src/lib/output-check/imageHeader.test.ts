@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { solidPng as png } from "@/lib/pdf/testImages";
+import { JPEG_3x2, solidPng as png, withExifOrientation } from "@/lib/pdf/testImages";
 import { readImageHeader } from "./imageHeader";
 
 /** A JPEG whose frame header follows an APP0 segment, as camera files do. */
@@ -15,11 +15,16 @@ function jpeg(width: number, height: number, sof = 0xc0): Uint8Array {
 
 describe("readImageHeader", () => {
   it("reads a PNG's format and pixel size", () => {
-    expect(readImageHeader(png(2, 3))).toEqual({ format: "png", width: 2, height: 3 });
+    expect(readImageHeader(png(2, 3))).toEqual({ format: "png", width: 2, height: 3, orientation: 1 });
   });
 
   it("reads a baseline JPEG's size from its frame header", () => {
-    expect(readImageHeader(jpeg(640, 480))).toEqual({ format: "jpeg", width: 640, height: 480 });
+    expect(readImageHeader(jpeg(640, 480))).toEqual({
+      format: "jpeg",
+      width: 640,
+      height: 480,
+      orientation: 1,
+    });
   });
 
   it("reads a progressive JPEG", () => {
@@ -27,6 +32,20 @@ describe("readImageHeader", () => {
       format: "jpeg",
       width: 300,
       height: 200,
+      orientation: 1,
+    });
+  });
+
+  it.each([
+    [6, "MM"],
+    [8, "II"],
+    [3, "MM"],
+  ] as const)("reads EXIF orientation %i (%s byte order)", (orientation, order) => {
+    expect(readImageHeader(withExifOrientation(JPEG_3x2, orientation, order))).toEqual({
+      format: "jpeg",
+      width: 3,
+      height: 2,
+      orientation,
     });
   });
 

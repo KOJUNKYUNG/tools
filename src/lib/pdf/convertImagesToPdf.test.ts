@@ -15,7 +15,65 @@ vi.mock("./imageToPdfCheck", async (importOriginal) => {
 });
 const { checkImageToPdf } = await vi.importActual<typeof check>("./imageToPdfCheck");
 
-const pages = [image("wide"), image("tall", 90), image("photo", 180), image("wide", 270)];
+type Matrix = [number, number, number, number, number, number];
+const multiply = (m: Matrix, n: Matrix): Matrix => [
+  m[0] * n[0] + m[2] * n[1],
+  m[1] * n[0] + m[3] * n[1],
+  m[0] * n[2] + m[2] * n[3],
+  m[1] * n[2] + m[3] * n[3],
+  m[0] * n[4] + m[2] * n[5] + m[4],
+  m[1] * n[4] + m[3] * n[5] + m[5],
+];
+
+/**
+ * Which side of the drawn image the stored top row lands on, as pdfjs (not
+ * the engine that wrote it) reads page 1: the transform in force when the
+ * image is painted maps image space, whose top row is v = 1.
+ */
+async function storedTopRowSide(pdf: Uint8Array): Promise<string> {
+  const lib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const doc = await lib.getDocument({ data: pdf.slice(), verbosity: 0 }).promise;
+  try {
+    const page = await doc.getPage(1);
+    const { fnArray, argsArray } = await page.getOperatorList();
+    let ctm: Matrix = [1, 0, 0, 1, 0, 0];
+    const stack: Matrix[] = [];
+    for (let i = 0; i < fnArray.length; i++) {
+      const op = fnArray[i];
+      if (op === lib.OPS.save) stack.push(ctm);
+      else if (op === lib.OPS.restore) ctm = stack.pop() ?? ctm;
+      // pdfjs passes transform operands as a 6-number array.
+      else if (op === lib.OPS.transform) ctm = multiply(ctm, argsArray[i] as Matrix);
+      else if (op === lib.OPS.paintImageXObject) break;
+    }
+    const at = (u: number, v: number) => [
+      ctm[0] * u + ctm[2] * v + ctm[4],
+      ctm[1] * u + ctm[3] * v + ctm[5],
+    ];
+    // The drawn image's box on the page, from its four corners.
+    const corners = [at(0, 0), at(1, 0), at(0, 1), at(1, 1)];
+    const xs = corners.map(([x]) => x);
+    const ys = corners.map(([, y]) => y);
+    const [x, y] = at(0.5, 1); // midpoint of the stored top row
+    const near = (a: number, b: number) => Math.abs(a - b) < 0.5;
+    if (near(y, Math.max(...ys))) return "top";
+    if (near(y, Math.min(...ys))) return "bottom";
+    if (near(x, Math.min(...xs))) return "left";
+    if (near(x, Math.max(...xs))) return "right";
+    return `inside (${x.toFixed(1)}, ${y.toFixed(1)})`;
+  } finally {
+    await doc.destroy();
+  }
+}
+
+const pages = [
+  image("wide"),
+  image("tall", 90),
+  image("photo", 180),
+  image("wide", 270),
+  image("phone"),
+  image("phone", 90),
+];
 
 describe("convertImagesToPdf", () => {
   it.each<[string, ImageLayout]>([
@@ -27,6 +85,24 @@ describe("convertImagesToPdf", () => {
     const output = await convertImagesToPdf({ pages, sourceBytesById: src, imageLayout });
     expect(await checkImageToPdf(src, { pages, imageLayout }, output, "full")).toEqual([]);
   });
+
+  it.each<[string, ImageLayout, string]>([
+    ["native layout", { mode: "native" }, "right"],
+    ["A4", { mode: "fixed", widthPt: 595, heightPt: 842 }, "right"],
+    ["custom landscape size", { mode: "fixed", widthPt: 300, heightPt: 120 }, "right"],
+  ])(
+    "%s: draws a photo with EXIF orientation 6 as the browser shows it",
+    async (_, imageLayout, expectedSide) => {
+      // Orientation 6 is shown turned 90° clockwise: the stored top row
+      // appears along the right-hand side.
+      const output = await convertImagesToPdf({
+        pages: [image("phone")],
+        sourceBytesById: sources(),
+        imageLayout,
+      });
+      expect(await storedTopRowSide(output)).toBe(expectedSide);
+    },
+  );
 
   it("blocks a failing quick check with the corrupt-output error and image-to-pdf's hint", async () => {
     vi.mocked(check.checkImageToPdf).mockResolvedValueOnce([

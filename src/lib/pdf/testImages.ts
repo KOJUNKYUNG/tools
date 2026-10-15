@@ -37,12 +37,45 @@ export const JPEG_3x2 = Uint8Array.from(
   ),
 );
 
-/** Three source images by id: a wide and a tall PNG, and a small JPEG. */
+/**
+ * `jpeg` with an EXIF APP1 segment right after SOI whose IFD0 holds only the
+ * Orientation tag, in big-endian ("MM") or little-endian ("II") byte order.
+ */
+export function withExifOrientation(
+  jpeg: Uint8Array,
+  orientation: number,
+  byteOrder: "MM" | "II" = "MM",
+): Uint8Array {
+  const tiff = Buffer.alloc(26);
+  const le = byteOrder === "II";
+  const u16 = (v: number, at: number) => (le ? tiff.writeUInt16LE(v, at) : tiff.writeUInt16BE(v, at));
+  const u32 = (v: number, at: number) => (le ? tiff.writeUInt32LE(v, at) : tiff.writeUInt32BE(v, at));
+  tiff.write(byteOrder, 0, "ascii");
+  u16(42, 2);
+  u32(8, 4); // IFD0 offset
+  u16(1, 8); // one entry
+  u16(0x0112, 10); // Orientation
+  u16(3, 12); // SHORT
+  u32(1, 14); // count
+  u16(orientation, 18); // value, left-justified in the 4-byte field
+  u32(0, 22); // no next IFD
+  const exif = Buffer.concat([Buffer.from("Exif\0\0", "ascii"), tiff]);
+  const app1 = Buffer.alloc(4);
+  app1.writeUInt16BE(0xffe1, 0);
+  app1.writeUInt16BE(exif.length + 2, 2);
+  return Uint8Array.from(Buffer.concat([jpeg.subarray(0, 2), app1, exif, jpeg.subarray(2)]));
+}
+
+/**
+ * Source images by id: a wide and a tall PNG, a small JPEG, and the same
+ * JPEG tagged EXIF orientation 6 ("phone": stored 3×2, shown 2×3).
+ */
 export const imageSources = () =>
   new Map([
     ["wide", solidPng(40, 20)],
     ["tall", solidPng(10, 30)],
     ["photo", JPEG_3x2],
+    ["phone", withExifOrientation(JPEG_3x2, 6)],
   ]);
 
 /** An editor page showing the image `sourceFileId`, turned by `rotation`. */

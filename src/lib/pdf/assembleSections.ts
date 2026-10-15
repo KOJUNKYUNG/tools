@@ -6,10 +6,28 @@
 // byte array.
 
 import JSZip from "jszip";
-import { PDFDocument, type PDFPage, degrees, rgb } from "pdf-lib";
+import {
+  type PDFImage,
+  PDFDocument,
+  type PDFPage,
+  concatTransformationMatrix,
+  degrees,
+  drawObject,
+  popGraphicsState,
+  pushGraphicsState,
+  rgb,
+  rotateDegrees,
+  translate,
+} from "pdf-lib";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { type PageItem, buildOutputNames } from "./pageItem";
 import { computeImageFit } from "./imageFit";
+import {
+  type ExifOrientation,
+  orientationMatrix,
+  orientedSize,
+  readJpegOrientation,
+} from "./jpegOrientation";
 import { checkImageToPdf } from "./imageToPdfCheck";
 import { checkPdfArrange } from "./pdfArrangeCheck";
 
@@ -40,6 +58,35 @@ export function detectImageFormat(bytes: Uint8Array): "png" | "jpg" {
     return "jpg";
   }
   throw new Error("지원하지 않는 이미지 형식입니다 (PNG/JPG만 가능).");
+}
+
+/**
+ * Draw `image` as it is meant to be seen: upright per its EXIF `orientation`,
+ * filling a `width`×`height` box (its displayed size) anchored at (x, y) and
+ * turned `rotate` degrees counterclockwise about that anchor, as pdf-lib's
+ * drawImage does for an upright image.
+ */
+function drawOrientedImage(
+  page: PDFPage,
+  image: PDFImage,
+  orientation: ExifOrientation,
+  { x, y, width, height, rotate = 0 }: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rotate?: number;
+  },
+): void {
+  const name = page.node.newXObject("Image", image.ref);
+  page.pushOperators(
+    pushGraphicsState(),
+    translate(x, y),
+    rotateDegrees(rotate),
+    concatTransformationMatrix(...orientationMatrix(orientation, width, height)),
+    drawObject(name),
+    popGraphicsState(),
+  );
 }
 
 /**
@@ -99,15 +146,17 @@ export async function assembleSections(
       } else {
         const bytes = sourceBytesById.get(item.sourceFileId);
         if (!bytes) throw new Error(`원본 파일을 찾을 수 없습니다: ${item.sourceFileId}`);
-        const image =
-          detectImageFormat(bytes) === "png"
-            ? await out.embedPng(bytes)
-            : await out.embedJpg(bytes);
-        const { width: imgW, height: imgH } = image.scale(1);
+        const isPng = detectImageFormat(bytes) === "png";
+        const image = isPng ? await out.embedPng(bytes) : await out.embedJpg(bytes);
+        // The JPEG stays as stored; its EXIF orientation is applied when drawn,
+        // so the page shows what the editor's thumbnail shows.
+        const orientation = isPng ? 1 : readJpegOrientation(bytes);
+        const stored = image.scale(1);
+        const [imgW, imgH] = orientedSize(stored.width, stored.height, orientation);
 
         if (imageLayout.mode === "native") {
           const page = out.addPage([imgW, imgH]);
-          page.drawImage(image, { x: 0, y: 0, width: imgW, height: imgH });
+          drawOrientedImage(page, image, orientation, { x: 0, y: 0, width: imgW, height: imgH });
           if (item.rotation !== 0) page.setRotation(degrees(item.rotation));
         } else {
           const { widthPt, heightPt } = imageLayout;
@@ -120,12 +169,12 @@ export async function assembleSections(
             color: rgb(1, 1, 1),
           });
           const fit = computeImageFit(imgW, imgH, widthPt, heightPt, item.rotation);
-          page.drawImage(image, {
+          drawOrientedImage(page, image, orientation, {
             x: fit.x,
             y: fit.y,
             width: fit.drawW,
             height: fit.drawH,
-            rotate: degrees(fit.rotateDeg),
+            rotate: fit.rotateDeg,
           });
         }
       }
