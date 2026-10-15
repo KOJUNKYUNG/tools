@@ -13,6 +13,14 @@ function jpeg(width: number, height: number, sof = 0xc0): Uint8Array {
   return Uint8Array.from([0xff, 0xd8, ...app0, ...frame, 0xff, 0xd9]);
 }
 
+/** Offset of the first `ff <marker>` in `bytes` (the JPEG minus its SOI). */
+function findMarker(bytes: Uint8Array, marker: number): number {
+  for (let i = 0; i + 1 < bytes.length; i++) {
+    if (bytes[i] === 0xff && bytes[i + 1] === marker) return i;
+  }
+  throw new Error(`marker ${marker.toString(16)} not found`);
+}
+
 describe("readImageHeader", () => {
   it("reads a PNG's format and pixel size", () => {
     expect(readImageHeader(png(2, 3))).toEqual({ format: "png", width: 2, height: 3, orientation: 1 });
@@ -47,6 +55,28 @@ describe("readImageHeader", () => {
       height: 2,
       orientation,
     });
+  });
+
+  it("follows the first EXIF segment, as browsers do", () => {
+    const upright = withExifOrientation(withExifOrientation(JPEG_3x2, 6), 1);
+    expect(readImageHeader(upright)?.orientation).toBe(1);
+  });
+
+  it("reads an EXIF segment placed after the frame header", () => {
+    // Browsers read every metadata segment up to the image data.
+    const tagged = withExifOrientation(JPEG_3x2, 6);
+    const app1Length = 4 + 6 + 26; // marker + length, "Exif\0\0", TIFF
+    const app1 = tagged.subarray(2, 2 + app1Length);
+    const plain = tagged.subarray(2 + app1Length);
+    const sof = findMarker(plain, 0xc0);
+    const moved = Uint8Array.from([
+      0xff, 0xd8,
+      ...plain.subarray(0, sof),
+      ...plain.subarray(sof, sof + 2 + ((plain[sof + 2] << 8) | plain[sof + 3])),
+      ...app1,
+      ...plain.subarray(sof + 2 + ((plain[sof + 2] << 8) | plain[sof + 3])),
+    ]);
+    expect(readImageHeader(moved)).toEqual({ format: "jpeg", width: 3, height: 2, orientation: 6 });
   });
 
   it.each([

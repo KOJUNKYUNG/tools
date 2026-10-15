@@ -5,8 +5,15 @@ import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
 import { getErrorMessage } from "@/lib/errors";
 import { convertImagesToPdf, type ImageLayout } from "./assembleSections";
+import type { Rotation } from "./pageItem";
 import * as check from "./imageToPdfCheck";
-import { imagePage as image, imageSources as sources } from "./testImages";
+import type { Matrix } from "./jpegOrientation";
+import {
+  JPEG_3x2,
+  imagePage as image,
+  imageSources as sources,
+  withExifOrientation,
+} from "./testImages";
 
 // The real checker by default; one test makes it report a violation.
 vi.mock("./imageToPdfCheck", async (importOriginal) => {
@@ -15,7 +22,6 @@ vi.mock("./imageToPdfCheck", async (importOriginal) => {
 });
 const { checkImageToPdf } = await vi.importActual<typeof check>("./imageToPdfCheck");
 
-type Matrix = [number, number, number, number, number, number];
 const multiply = (m: Matrix, n: Matrix): Matrix => [
   m[0] * n[0] + m[2] * n[1],
   m[1] * n[0] + m[3] * n[1],
@@ -98,6 +104,26 @@ describe("convertImagesToPdf", () => {
       const output = await convertImagesToPdf({
         pages: [image("phone")],
         sourceBytesById: sources(),
+        imageLayout,
+      });
+      expect(await storedTopRowSide(output)).toBe(expectedSide);
+    },
+  );
+
+  it.each<[number, ImageLayout, Rotation, string]>([
+    [1, { mode: "native" }, 0, "top"],
+    [3, { mode: "native" }, 0, "bottom"],
+    [8, { mode: "native" }, 0, "left"],
+    [2, { mode: "fixed", widthPt: 595, heightPt: 842 }, 0, "top"],
+    // Shown with its right side up (6), then turned 90° clockwise by the
+    // user on a fixed page, where the turn is drawn: the top row lands below.
+    [6, { mode: "fixed", widthPt: 595, heightPt: 842 }, 90, "bottom"],
+  ])(
+    "orientation %i, %o, turned %i°: the stored top row lands at the %s",
+    async (orientation, imageLayout, rotation, expectedSide) => {
+      const output = await convertImagesToPdf({
+        pages: [image("tagged", rotation)],
+        sourceBytesById: new Map([["tagged", withExifOrientation(JPEG_3x2, orientation)]]),
         imageLayout,
       });
       expect(await storedTopRowSide(output)).toBe(expectedSide);

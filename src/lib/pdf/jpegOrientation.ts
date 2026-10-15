@@ -2,23 +2,43 @@
 // Orientation tag says (the editor's thumbnails do), but a PDF shows the
 // stored pixels as they are. pdf-lib embeds the JPEG unchanged, so the engine
 // applies the orientation itself when drawing, keeping the original bytes.
+// PNG is treated as upright: its rare eXIf chunk is not read.
 
 /** EXIF Orientation: 1 = upright; 2–8 = mirrored and/or turned (TIFF 6.0). */
 export type ExifOrientation = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+/** A PDF transformation matrix [a b c d e f]. */
+export type Matrix = [number, number, number, number, number, number];
+
+const isExifOrientation = (value: number): value is ExifOrientation =>
+  Number.isInteger(value) && value >= 1 && value <= 8;
 
 const APP1 = 0xe1;
 const SOS = 0xda;
 const ORIENTATION_TAG = 0x0112;
 
-/** The Orientation in a JPEG's EXIF segment; 1 when absent or unreadable. */
+/**
+ * The Orientation in a JPEG's first EXIF segment (the one browsers follow),
+ * searched up to the image data; 1 when absent or unreadable.
+ */
 export function readJpegOrientation(bytes: Uint8Array): ExifOrientation {
   if (bytes[0] !== 0xff || bytes[1] !== 0xd8) return 1;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let at = 2;
-  // Metadata segments precede the image data; stop at start-of-scan.
-  while (at + 4 <= bytes.length && bytes[at] === 0xff && bytes[at + 1] !== SOS) {
+  while (at + 1 < bytes.length && bytes[at] === 0xff) {
+    const marker = bytes[at + 1];
+    if (marker === SOS) return 1; // image data follows: no EXIF found
+    if (marker === 0xff) {
+      at++; // fill byte
+      continue;
+    }
+    if ((marker >= 0xd0 && marker <= 0xd8) || marker === 0x01) {
+      at += 2; // stand-alone marker, no length field
+      continue;
+    }
+    if (at + 4 > bytes.length) return 1;
     const length = view.getUint16(at + 2);
-    if (bytes[at + 1] === APP1 && isExifHeader(bytes, at + 4)) {
+    if (marker === APP1 && isExifHeader(bytes, at + 4)) {
       return orientationInTiff(view, at + 10, at + 2 + length);
     }
     at += 2 + length;
@@ -45,7 +65,7 @@ function orientationInTiff(view: DataView, tiff: number, end: number): ExifOrien
     if (entry + 12 > end) return 1;
     if (view.getUint16(entry, le) !== ORIENTATION_TAG) continue;
     const value = view.getUint16(entry + 8, le);
-    return value >= 1 && value <= 8 ? (value as ExifOrientation) : 1;
+    return isExifOrientation(value) ? value : 1;
   }
   return 1;
 }
@@ -70,7 +90,7 @@ export function orientationMatrix(
   orientation: ExifOrientation,
   width: number,
   height: number,
-): [number, number, number, number, number, number] {
+): Matrix {
   const w = width;
   const h = height;
   switch (orientation) {

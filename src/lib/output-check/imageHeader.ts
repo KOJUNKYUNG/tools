@@ -33,11 +33,14 @@ const isStandalone = (m: number) => (m >= 0xd0 && m <= 0xd9) || m === 0x01;
 
 /**
  * IFD0's Orientation in the EXIF payload of an APP1 segment whose data starts
- * at `start` ("Exif" and two zero bytes, then a TIFF header) and ends at `end`; 1 otherwise.
+ * at `start` ("Exif" and two zero bytes, then a TIFF header) and ends at
+ * `end`: null when the segment is not EXIF (XMP also uses APP1), 1 when it
+ * is but holds no valid Orientation.
  */
-function exifOrientation(view: DataView, start: number, end: number): number {
-  if (end > view.byteLength || end - start < 14) return 1;
-  if (view.getUint32(start) !== 0x45786966 || view.getUint16(start + 4) !== 0) return 1;
+function exifOrientation(view: DataView, start: number, end: number): number | null {
+  if (end > view.byteLength || end - start < 6) return null;
+  if (view.getUint32(start) !== 0x45786966 || view.getUint16(start + 4) !== 0) return null;
+  if (end - start < 14) return 1;
   const tiff = start + 6;
   const byteOrder = view.getUint16(tiff);
   if (byteOrder !== 0x4949 && byteOrder !== 0x4d4d) return 1;
@@ -55,9 +58,15 @@ function exifOrientation(view: DataView, start: number, end: number): number {
   return 1;
 }
 
+/**
+ * Size from the frame header; orientation from the first EXIF segment before
+ * the image data, wherever it sits (browsers read every metadata segment up
+ * to start-of-scan, and follow the first EXIF one).
+ */
 function readJpeg(bytes: Uint8Array): ImageHeader | null {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  let orientation = 1;
+  let size: { width: number; height: number } | null = null;
+  let orientation: number | null = null;
   let at = 2;
   while (at + 1 < bytes.length) {
     if (bytes[at] !== 0xff) return null;
@@ -70,20 +79,20 @@ function readJpeg(bytes: Uint8Array): ImageHeader | null {
       at += 2;
       continue;
     }
-    if (at + 4 > bytes.length) return null;
+    if (marker === 0xda) break; // start of scan: metadata is over
+    if (at + 4 > bytes.length) break;
     if (isFrameMarker(marker)) {
       // Length (2), precision (1), height (2), width (2).
       if (at + 9 > bytes.length) return null;
-      const height = view.getUint16(at + 5);
-      return { format: "jpeg", width: view.getUint16(at + 7), height, orientation };
+      size ??= { height: view.getUint16(at + 5), width: view.getUint16(at + 7) };
     }
     const length = view.getUint16(at + 2);
-    if (marker === 0xe1 && orientation === 1) {
+    if (marker === 0xe1 && orientation === null) {
       orientation = exifOrientation(view, at + 4, at + 2 + length);
     }
     at += 2 + length;
   }
-  return null;
+  return size && { format: "jpeg", ...size, orientation: orientation ?? 1 };
 }
 
 /** The image's format and pixel size, or null for bytes it cannot read. */

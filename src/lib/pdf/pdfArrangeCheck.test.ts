@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, degrees } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import type { PageItem, Rotation } from "./pageItem";
 import { checkPdfArrange } from "./pdfArrangeCheck";
+import { JPEG_3x2, withExifOrientation } from "./testImages";
 
 // Outputs here are drawn from scratch, never copied with pdf-lib's copyPages
 // as the engine does: a page "is" a source page when it has the same size
@@ -204,6 +205,22 @@ describe("checkPdfArrange: broken outputs", () => {
       "page-identity",
       "page-identity",
     ]);
+  });
+
+  it("flags an image page that ignores the photo's EXIF orientation", async () => {
+    // Stored 3×2, shown 2×3: a 3×2 page is the sideways photo.
+    const phone = withExifOrientation(JPEG_3x2, 6);
+    const pageOf = async (size: [number, number]) => {
+      const doc = await PDFDocument.create();
+      const jpg = await doc.embedJpg(phone);
+      doc.addPage(size).drawImage(jpg, { x: 0, y: 0, width: size[0], height: size[1] });
+      return doc.save();
+    };
+    const src = new Map([["img", phone]]);
+    const sections = [[imagePage()]];
+    expect(await checkPdfArrange(src, { sections }, [await pageOf([2, 3])], "full")).toEqual([]);
+    const vs = await checkPdfArrange(src, { sections }, [await pageOf([3, 2])], "full");
+    expect(props(vs)).toEqual(["page-size"]);
   });
 
   it("flags an image page that shows no image", async () => {

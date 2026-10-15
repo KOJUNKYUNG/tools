@@ -1,4 +1,5 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
+import { readImageHeader } from "@/lib/output-check/imageHeader";
 import { inspectPdf, type PdfReport } from "@/lib/output-check/pdfInspector";
 import type { PageItem } from "./pageItem";
 
@@ -80,11 +81,27 @@ async function sourceFailsToo(sources: PdfArrangeSources, item: PageItem): Promi
   });
 }
 
+/**
+ * The size an image page must have: the image as browsers show it (EXIF
+ * orientations 5–8 swap the stored sides). Throws when the image is missing
+ * or unreadable: the engine embedded it, so that is a checker gap, and
+ * skipping would pass the page unchecked.
+ */
+function displayedImageSize(sources: PdfArrangeSources, id: string): [number, number] {
+  const bytes = sources.get(id);
+  if (!bytes) throw new Error(`no source bytes for ${id}`);
+  const header = readImageHeader(bytes);
+  if (!header) throw new Error(`cannot read the image header of ${id}`);
+  const { width, height, orientation } = header;
+  return orientation >= 5 ? [height, width] : [width, height];
+}
+
 async function checkPages(
   pdf: PdfReport,
   section: PageItem[],
   file: number,
   sourcePages: Map<string, SourcePage | null>,
+  sources: PdfArrangeSources,
 ): Promise<Violation[]> {
   const violations: Violation[] = [];
   const pages = Math.min(section.length, pdf.pageCount);
@@ -104,6 +121,13 @@ async function checkPages(
       expectedRotation = item.rotation;
       if (!(await pdf.drawsImage(j + 1))) {
         violations.push({ property: "page-identity", detail: `${at}: shows no image` });
+      }
+      const [width, height] = displayedImageSize(sources, item.sourceFileId);
+      if (Math.abs(out.width - width) >= 0.01 || Math.abs(out.height - height) >= 0.01) {
+        violations.push({
+          property: "page-size",
+          detail: `${at}: ${out.width}×${out.height} pt, expected ${width}×${height}`,
+        });
       }
     } else {
       const src = sourcePages.get(pageKey(item.sourceFileId, item.sourcePageIndex));
@@ -164,6 +188,7 @@ function sizeBound(sources: PdfArrangeSources, section: PageItem[]): number | nu
  * - `page-identity`: page N of a file is the N-th page of its section, i.e.
  *   order and identity follow the arrangement. A pdf page matches its source
  *   page's box and text; an image page must show an image
+ * - `page-size`: an image page is the image's size as browsers show it
  * - `size-bound`: each file ≤ the sources it draws from + a margin
  *
  * Defects the source already had are not the tool's doing: a first page that
@@ -226,7 +251,7 @@ export const checkPdfArrange: OutputChecker<
       if (firstPageError !== null && !(await sourceFailsToo(sources, section[0]))) {
         vs.push({ property: "first-page-renders", detail: `file ${file}: ${firstPageError}` });
       }
-      if (depth === "full") vs.push(...(await checkPages(pdf, section, file, sourcePages)));
+      if (depth === "full") vs.push(...(await checkPages(pdf, section, file, sourcePages, sources)));
       return vs;
     });
     violations.push(...fileViolations);
