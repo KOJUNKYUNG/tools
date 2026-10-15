@@ -68,6 +68,23 @@ async function addDanglingRelationship(zip: JSZip, relsPath: string): Promise<vo
   );
 }
 
+/** Append an image relationship the part itself never names. */
+async function addImageRelationship(
+  zip: JSZip,
+  relsPath: string,
+  id: string,
+  target: string,
+): Promise<void> {
+  const xml = await zip.file(relsPath)!.async("text");
+  zip.file(
+    relsPath,
+    xml.replace(
+      "</Relationships>",
+      `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${target}"/></Relationships>`,
+    ),
+  );
+}
+
 /** Slide 2's own background in `syntheticDeck`, as pptxgenjs writes it. */
 const OLD_BG_REL = "rId1";
 const OLD_BG_MEDIA = "ppt/media/Slide-2-image-1.png";
@@ -366,6 +383,36 @@ describe("ppt-background removes the replaced background", () => {
     expect(await properties(input, allSlides, output)).toEqual([]);
   });
 
+  it("clears image relationships a target slide never uses, such as leftovers of earlier runs", async () => {
+    // Older versions left the replaced background's relationship behind.
+    // Slide 1 (targeted) and slide 3 (not) both carry such a leftover.
+    const leftover = "ppt/media/leftover.png";
+    const clean = await syntheticDeck();
+    const input = await mutate(clean, async (zip) => {
+      zip.file(leftover, Buffer.from(OLD_BG, "base64"));
+      for (const n of [1, 3]) await addImageRelationship(zip, `ppt/slides/_rels/slide${n}.xml.rels`, "rId97", "../media/leftover.png");
+    });
+    const firstOnly: PptBackgroundRequest = {
+      bgImage: newBgBytes,
+      mode: "specific-slides",
+      targetSlides: [1],
+    };
+    const partly = await apply(input, firstOnly);
+    const unused = await (await openPptxPackage(partly))!.unusedRelationships();
+    // Slide 3 was not targeted, so its leftover stays and keeps the image.
+    expect(unused.map((v) => v.detail)).toEqual([
+      "ppt/slides/_rels/slide3.xml.rels rId97 → ppt/media/leftover.png",
+    ]);
+    expect(await mediaParts(partly)).toContain(leftover);
+    expect(await properties(input, firstOnly, partly)).toEqual([]);
+
+    // Targeting every slide clears both, and the image goes with them.
+    const all = await apply(input, allSlides);
+    expect(await (await openPptxPackage(all))!.unusedRelationships()).toEqual([]);
+    expect(await mediaParts(all)).not.toContain(leftover);
+    expect(await properties(input, allSlides, all)).toEqual([]);
+  });
+
   it("drops a content-type override that named the deleted image", async () => {
     const clean = await syntheticDeck();
     const input = await mutate(clean, async (zip) => {
@@ -450,15 +497,12 @@ describe("checkPptBackground does not blame the tool for the input", () => {
     const clean = await syntheticDeck();
     const input = await mutate(clean, async (zip) => {
       zip.file("ppt/media/orphan.png", Buffer.from(OLD_BG, "base64"));
-      // Slide 1 is a target: its inherited unused relationship survives the rewrite.
-      const relsPath = "ppt/slides/_rels/slide1.xml.rels";
-      const xml = await zip.file(relsPath)!.async("text");
-      zip.file(
-        relsPath,
-        xml.replace(
-          "</Relationships>",
-          `<Relationship Id="rId97" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/Slide-2-image-1.png"/></Relationships>`,
-        ),
+      // The layout is never a target, so its unused relationship survives.
+      await addImageRelationship(
+        zip,
+        "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+        "rId97",
+        "../media/Slide-2-image-1.png",
       );
     });
     const output = await apply(input, allSlides);

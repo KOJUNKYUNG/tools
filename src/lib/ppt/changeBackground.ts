@@ -84,6 +84,14 @@ function relAttr(rel: string, name: string): string | undefined {
   return m ? (m[1] ?? m[2]) : undefined;
 }
 
+/** Ids of the image relationships in a `.rels` part. */
+function imageRelIds(relsXml: string): string[] {
+  return (relsXml.match(RELATIONSHIP) ?? [])
+    .filter((rel) => /\/relationships\/image$/.test(relAttr(rel, "Type") ?? ""))
+    .map((rel) => relAttr(rel, "Id"))
+    .filter((id): id is string => id !== undefined);
+}
+
 /**
  * Resolve an internal relationship target against the directory of its
  * source part, as a zip part name. Null for an external target, or one that
@@ -325,9 +333,10 @@ async function processSlideGroup(
 
     // Drop the replaced background's relationships (its picture, plus any
     // SVG or linked variant), or their images stay embedded and the deck
-    // grows on every re-application. A part that still names an id elsewhere
-    // (the same image as a picture) keeps it.
-    for (const oldId of oldIds) {
+    // grows on every re-application. Image relationships the part names
+    // nowhere go too: earlier versions of this tool left them behind. A part
+    // that still names an id elsewhere (the same image as a picture) keeps it.
+    for (const oldId of new Set([...oldIds, ...imageRelIds(relsXml)])) {
       if (oldId === relId || namesRelId(slideXml, oldId)) continue;
       const removed = removeRelationship(relsXml, oldId, dir);
       relsXml = removed.xml;
