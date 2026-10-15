@@ -160,6 +160,49 @@ export function indexZip(bytes: Uint8Array): Map<string, Entry> | null {
   return entries;
 }
 
+/**
+ * Each file entry's compression method, under the name JSZip gives it, or
+ * null when the archive needs JSZip's own handling. A tool that rewrites a
+ * zip with JSZip uses this to keep untouched entries' compressed bytes as
+ * they are: JSZip has no public way to ask how a loaded entry was stored.
+ */
+export function zipCompressionMethods(
+  bytes: Uint8Array,
+): Map<string, "STORE" | "DEFLATE"> | null {
+  const entries = indexZip(bytes);
+  if (!entries) return null;
+  return new Map(
+    [...entries].map(([name, e]) => [name, e.method === DEFLATE ? "DEFLATE" : "STORE"]),
+  );
+}
+
+/** The fast-path readers' archives, for comparing stored bytes. */
+const archives = new WeakMap<ZipReader, { bytes: Uint8Array; entries: Map<string, Entry> }>();
+
+/**
+ * True when both archives store `name` with the same method, size and
+ * compressed bytes, so it reads identically from either (inflating is
+ * deterministic). False when either cannot tell (a JSZip-handled archive).
+ */
+export function storedIdentically(a: ZipReader, b: ZipReader, name: string): boolean {
+  const x = archives.get(a);
+  const y = archives.get(b);
+  const ex = x?.entries.get(name);
+  const ey = y?.entries.get(name);
+  if (!x || !y || !ex || !ey) return false;
+  if (
+    ex.method !== ey.method ||
+    ex.uncompressedSize !== ey.uncompressedSize ||
+    ex.compressedSize !== ey.compressedSize
+  ) {
+    return false;
+  }
+  for (let i = 0; i < ex.compressedSize; i++) {
+    if (x.bytes[ex.dataStart + i] !== y.bytes[ey.dataStart + i]) return false;
+  }
+  return true;
+}
+
 async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
   // Blob copies the view's bytes; `as` because BlobPart wants an ArrayBuffer-backed view.
   const stream = new Blob([data as Uint8Array<ArrayBuffer>])
@@ -210,7 +253,7 @@ export async function openZip(bytes: Uint8Array): Promise<ZipReader | null> {
   };
   const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
-  return {
+  const reader: ZipReader = {
     names: [...entries.keys()],
     async bytes(name) {
       const entry = entries.get(name);
@@ -231,4 +274,6 @@ export async function openZip(bytes: Uint8Array): Promise<ZipReader | null> {
       return (await viaJsZip()).text(name);
     },
   };
+  archives.set(reader, { bytes, entries });
+  return reader;
 }

@@ -1,6 +1,6 @@
 import type { Violation } from "./core";
 import { xmlWellFormedError } from "./xmlWellFormed";
-import { openZip } from "./zipReader";
+import { openZip, storedIdentically, type ZipReader } from "./zipReader";
 
 /**
  * PPTX package inspector: opens a .pptx as an OPC package and answers the
@@ -26,7 +26,14 @@ export interface PptxPackage {
   masterParts: string[];
   /** Raw bytes of a part (null when absent or unreadable). */
   read(part: string): Promise<Uint8Array | null>;
-  structuralDefects(): Promise<Violation[]>;
+  /**
+   * With `baseline` (the package this one was made from), a part stored
+   * byte-identically in both is not re-read: its own defects (readable,
+   * well-formed) would be the baseline's too, inherited by definition.
+   * Package-wide checks (content types, relationship targets) still cover
+   * every part.
+   */
+  structuralDefects(baseline?: PptxPackage): Promise<Violation[]>;
   /**
    * For each given slide/master part, the media part its declared background
    * (`<p:bg>` picture fill) points at, or null when it declares none.
@@ -95,6 +102,8 @@ interface Relationship {
   external: boolean;
 }
 
+const zipOf = new WeakMap<PptxPackage, ZipReader>();
+
 /** Opens the bytes as a zip; null when they are not one. */
 export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | null> {
   const zip = await openZip(bytes);
@@ -132,7 +141,7 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
     return rels;
   };
 
-  return {
+  const pkg: PptxPackage = {
     parts,
     slideParts: partsIn(parts, "ppt/slides"),
     masterParts: partsIn(parts, "ppt/slideMasters"),
@@ -141,10 +150,17 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
       return zip.bytes(part);
     },
 
-    async structuralDefects() {
+    async structuralDefects(baseline) {
       const defects: Violation[] = [];
+      const base = baseline && zipOf.get(baseline);
+      const relsParts = parts.filter((p) => RELS_PART.test(p));
+      const toCheck = parts.filter(
+        (p) => XML_PART.test(p) && !(base && storedIdentically(zip, base, p)),
+      );
+      // Inflate in parallel: one await per part serialises the stream round trips.
+      await Promise.all([...toCheck, ...relsParts, "[Content_Types].xml"].map(text));
 
-      for (const part of parts.filter((p) => XML_PART.test(p))) {
+      for (const part of toCheck) {
         const xml = await text(part);
         if (xml === null) {
           defects.push({ property: "part-readable", detail: part });
@@ -177,7 +193,7 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
         }
       }
 
-      for (const relsPart of parts.filter((p) => RELS_PART.test(p))) {
+      for (const relsPart of relsParts) {
         for (const rel of await relationshipsOf(relsPart)) {
           if (rel.external) continue;
           if (rel.part === null || !byLowerName.has(rel.part.toLowerCase())) {
@@ -207,4 +223,6 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
       return result;
     },
   };
+  zipOf.set(pkg, zip);
+  return pkg;
 }

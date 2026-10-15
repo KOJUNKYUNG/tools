@@ -2,7 +2,7 @@ import { crc32, deflateRawSync } from "node:zlib";
 import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
 import { describe, expect, it } from "vitest";
-import { indexZip, openZip } from "./zipReader";
+import { indexZip, openZip, storedIdentically } from "./zipReader";
 
 interface RawEntry {
   name: string | Uint8Array;
@@ -208,5 +208,37 @@ describe("openZip rejects what JSZip rejects", () => {
     expect(indexZip(bytes)).toBeNull();
     await expect(JSZip.loadAsync(bytes)).rejects.toThrow();
     expect(await openZip(bytes)).toBeNull();
+  });
+});
+
+describe("storedIdentically", () => {
+  async function pair() {
+    const zip = new JSZip();
+    zip.file("same.xml", XML);
+    zip.file("edited.xml", XML);
+    const a = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+    const copy = await JSZip.loadAsync(a);
+    copy.file("edited.xml", XML.replace("1", "2"));
+    const b = await copy.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+    return [(await openZip(a))!, (await openZip(b))!, b] as const;
+  }
+
+  it("is true for a part whose compressed bytes were copied, false for an edited one", async () => {
+    const [a, b] = await pair();
+    expect(storedIdentically(a, b, "same.xml")).toBe(true);
+    expect(storedIdentically(a, b, "edited.xml")).toBe(false);
+    expect(storedIdentically(a, b, "missing.xml")).toBe(false);
+  });
+
+  it("is false for the same text stored another way", async () => {
+    const [a, , b] = await pair();
+    const stored = await JSZip.loadAsync(b).then((zip) => zip.generateAsync({ type: "uint8array" }));
+    expect(storedIdentically(a, (await openZip(stored))!, "same.xml")).toBe(false);
+  });
+
+  it("is false when either archive is read by JSZip", async () => {
+    const [a] = await pair();
+    const prefixed = buildZip([{ name: "same.xml", data: utf8(XML) }], utf8("PREFIX"));
+    expect(storedIdentically(a, (await openZip(prefixed))!, "same.xml")).toBe(false);
   });
 });

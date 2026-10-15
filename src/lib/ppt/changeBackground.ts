@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { runOutputCheck } from "@/lib/output-check/core";
+import { zipCompressionMethods } from "@/lib/output-check/zipReader";
 import { checkPptBackground } from "./changeBackgroundCheck";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
@@ -324,7 +325,8 @@ export async function changeBackground({
   const mediaName = uniqueMediaName(zip, ext);
   const mediaPath = `ppt/media/${mediaName}`;
   const bgImageData = new Uint8Array(await bgImage.arrayBuffer());
-  zip.file(mediaPath, bgImageData);
+  // PNG and JPEG are already compressed; deflating them again buys little.
+  zip.file(mediaPath, bgImageData, { compression: "STORE" });
 
   await ensureContentType(zip, ext);
 
@@ -371,12 +373,23 @@ export async function changeBackground({
     );
   }
 
-  const output = await zip.generateAsync({ type: "uint8array" });
+  // Keep each part stored the way the input stored it. JSZip's default
+  // (STORE) inflated every deflated part of a PowerPoint deck, growing it by
+  // up to ~46%; a global DEFLATE would instead recompress stored media,
+  // ~100x slower. Matching the input lets JSZip copy untouched parts' bytes.
+  const input = new Uint8Array(arrayBuffer);
+  const methods = zipCompressionMethods(input);
+  if (methods) {
+    zip.forEach((path, file) => {
+      const method = methods.get(path);
+      if (method) file.options.compression = method;
+    });
+  }
+  const output = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 
   // Output check: the deck must be structurally sound and actually carry the
   // new background before it is offered. No recovery exists, so a violation
   // blocks with the corrupt-output error.
-  const input = new Uint8Array(arrayBuffer);
   return runOutputCheck({
     tool: "ppt-background",
     output,

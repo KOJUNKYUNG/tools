@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
+import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { changeBackground } from "./changeBackground";
 import {
   checkPptBackground,
@@ -40,14 +41,19 @@ async function apply(
   });
 }
 
-/** Rewrite one output part, keeping everything else byte-for-byte. */
+/**
+ * Rewrite one output part, keeping everything else byte-for-byte: the deck
+ * is deflated, so DEFLATE copies the untouched parts' compressed bytes, as
+ * the engine does. The checker then skips those parts, so each test also
+ * proves the edited part is still read.
+ */
 async function mutate(
   bytes: Uint8Array,
   edit: (zip: JSZip) => Promise<void> | void,
 ): Promise<Uint8Array> {
   const zip = await JSZip.loadAsync(bytes);
   await edit(zip);
-  return zip.generateAsync({ type: "uint8array" });
+  return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 }
 
 /** Append a relationship to a part that points at a missing media part. */
@@ -231,5 +237,26 @@ describe("checkPptBackground does not blame the tool for the input", () => {
     );
     const output = await apply(input, allSlides);
     expect(await properties(input, allSlides, output)).toEqual([]);
+  });
+
+  it("ignores a malformed part the input already had, whether copied or rewritten", async () => {
+    // Unclose the self-closing root element: a reader rejects the part.
+    const malformed = (xml: string) => xml.replace(/\/>\s*$/, ">");
+    const clean = await syntheticDeck();
+    const input = await mutate(clean, async (zip) => {
+      const xml = await zip.file("ppt/presProps.xml")!.async("text");
+      zip.file("ppt/presProps.xml", malformed(xml));
+    });
+    const inputDefects = await (await openPptxPackage(input))!.structuralDefects();
+    expect(inputDefects.map((d) => d.property)).toEqual(["xml-well-formed"]);
+
+    const copied = await apply(input, allSlides);
+    expect(await properties(input, allSlides, copied)).toEqual([]);
+
+    // Stored afresh (other bytes), the same text still carries the same defect.
+    const rewritten = await JSZip.loadAsync(copied).then((zip) =>
+      zip.generateAsync({ type: "uint8array" }),
+    );
+    expect(await properties(input, allSlides, rewritten)).toEqual([]);
   });
 });

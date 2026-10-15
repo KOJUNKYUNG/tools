@@ -46,7 +46,7 @@ export const checkPptBackground: OutputChecker<
 
   const violations: Violation[] = [];
 
-  const defects = await after.structuralDefects();
+  const defects = await after.structuralDefects(before);
   if (defects.length > 0) {
     const key = (v: Violation) => `${v.property}|${v.detail}`;
     const inherited = new Set((await before.structuralDefects()).map(key));
