@@ -26,6 +26,12 @@ Within an approved spec, run ticket to ticket with a one-line progress note. Sto
 
 `pnpm verify` runs typecheck, lint, tests, `design:check`, and build. It is green before any visual check and before any PR.
 
+## Real-file regression set
+
+`pnpm test:real` runs each registered tool's engine entry over the maintainer's real files in `tests/fixtures/` (gitignored, never committed; `REAL_FIXTURES_DIR` overrides the path) and checks every result at `full` depth. It is local-only: not part of `pnpm test`, `pnpm verify`, or CI. Run it before bumping a pinned engine (it must pass on the new version) and after changing a tool's engine or checker. It fails when the folder is missing or holds nothing a tool accepts, and prints the time each tool's `quick` check adds against the ~20% budget.
+
+New fixtures need no bookkeeping: drop the file in the folder. To register a tool, add `<engine>.real.ts` next to its engine calling `realFileSuite(...)` (see `src/lib/output-check/realFileSuite.ts`; `src/lib/ppt/changeBackground.real.ts` is the example).
+
 ## UI verification
 
 Every UI change passes two checks, in order:
