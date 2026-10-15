@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+# A new push to a PR cancels its stale run; every push to master runs to completion.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: pnpm verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # No version input: the action reads "packageManager" from package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # postinstall copies the pdfjs and qpdf runtime assets into public/.
+      - run: pnpm install --frozen-lockfile
+
+      # Typecheck, lint, test, design:check, build. No env vars needed:
+      # src/lib/seo/site.ts falls back to localhost when NEXT_PUBLIC_SITE_URL is unset.
+      - run: pnpm verify
