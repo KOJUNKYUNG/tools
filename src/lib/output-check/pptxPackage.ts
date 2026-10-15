@@ -1,6 +1,6 @@
-import JSZip from "jszip";
 import type { Violation } from "./core";
 import { xmlWellFormedError } from "./xmlWellFormed";
+import { openZip } from "./zipReader";
 
 /**
  * PPTX package inspector: opens a .pptx as an OPC package and answers the
@@ -97,15 +97,9 @@ interface Relationship {
 
 /** Opens the bytes as a zip; null when they are not one. */
 export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | null> {
-  let zip: JSZip;
-  try {
-    zip = await JSZip.loadAsync(bytes);
-  } catch {
-    return null;
-  }
-  const parts = Object.values(zip.files)
-    .filter((f) => !f.dir)
-    .map((f) => f.name);
+  const zip = await openZip(bytes);
+  if (!zip) return null;
+  const parts = zip.names;
   // OPC part names compare case-insensitively.
   const byLowerName = new Map(parts.map((p) => [p.toLowerCase(), p]));
   const textCache = new Map<string, Promise<string | null>>();
@@ -114,8 +108,7 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
   const text = (part: string): Promise<string | null> => {
     let cached = textCache.get(part);
     if (!cached) {
-      const file = zip.file(part);
-      cached = file ? file.async("text").catch(() => null) : Promise.resolve(null);
+      cached = zip.text(part);
       textCache.set(part, cached);
     }
     return cached;
@@ -144,9 +137,8 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
     slideParts: partsIn(parts, "ppt/slides"),
     masterParts: partsIn(parts, "ppt/slideMasters"),
 
-    async read(part) {
-      const file = zip.file(part);
-      return file ? file.async("uint8array").catch(() => null) : null;
+    read(part) {
+      return zip.bytes(part);
     },
 
     async structuralDefects() {
