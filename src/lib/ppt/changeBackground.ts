@@ -57,6 +57,78 @@ function nextRelId(relsXml: string): string {
   return `rId${max + 1}`;
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Every attribute value in the part's declared `<p:bg>`: the candidates for
+ * the relationship ids it uses (`r:embed`, `r:link`, an SVG blip's id), under
+ * whatever prefix the part binds. Values that are not relationship ids match
+ * no relationship and are ignored.
+ */
+function backgroundValues(partXml: string): Set<string> {
+  const bg = partXml.match(/<p:bg[\s>][\s\S]*?<\/p:bg>/)?.[0] ?? "";
+  return new Set([...bg.matchAll(/=\s*(?:"([^"]*)"|'([^']*)')/g)].map((m) => m[1] ?? m[2]));
+}
+
+/** Whether any attribute in the part names this relationship id. */
+function namesRelId(partXml: string, id: string): boolean {
+  return new RegExp(`=\\s*["']${escapeRegExp(id)}["']`).test(partXml);
+}
+
+const RELATIONSHIP = /<Relationship\b[^>]*?(?:\/>|>[\s\S]*?<\/Relationship>)/g;
+
+function relAttr(rel: string, name: string): string | undefined {
+  const m = rel.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`));
+  return m ? (m[1] ?? m[2]) : undefined;
+}
+
+/**
+ * Resolve an internal relationship target against the directory of its
+ * source part, as a zip part name. Null for an external target, or one that
+ * escapes the package.
+ */
+function relTargetPart(rel: string, sourceDir: string): string | null {
+  const target = relAttr(rel, "Target");
+  if (!target || relAttr(rel, "TargetMode") === "External") return null;
+  let bare = target.split("#")[0];
+  try {
+    bare = decodeURIComponent(bare);
+  } catch {
+    // Keep the raw name: a part may legitimately contain a stray "%".
+  }
+  const segments = bare.startsWith("/") || sourceDir === "" ? [] : sourceDir.split("/");
+  for (const seg of bare.replace(/^\/+/, "").split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") {
+      if (segments.length === 0) return null;
+      segments.pop();
+    } else {
+      segments.push(seg);
+    }
+  }
+  return segments.join("/");
+}
+
+/**
+ * Remove the relationship with this id; returns the new XML and the part it
+ * pointed at (null when internal resolution fails or the id is absent).
+ */
+function removeRelationship(
+  relsXml: string,
+  id: string,
+  sourceDir: string,
+): { xml: string; target: string | null } {
+  let target: string | null = null;
+  const xml = relsXml.replace(RELATIONSHIP, (rel) => {
+    if (relAttr(rel, "Id") !== id) return rel;
+    target = relTargetPart(rel, sourceDir);
+    return "";
+  });
+  return { xml, target };
+}
+
 function addRelationship(
   relsXml: string,
   id: string,
@@ -210,7 +282,9 @@ async function processSlideGroup(
   /** 1-based whitelist over the slide order (sorted by trailing integer in the
    *  filename — matches extractCurrentBackgrounds). Undefined = all. */
   targetIndices1Based?: ReadonlySet<number>,
-): Promise<void> {
+): Promise<Set<string>> {
+  /** Parts the replaced backgrounds pointed at, to delete once unreferenced. */
+  const replaced = new Set<string>();
   const pattern = new RegExp(`^${dir}/[^/]+\\.xml$`);
   const slideFiles: string[] = [];
 
@@ -242,15 +316,79 @@ async function processSlideGroup(
     let relsXml =
       emptyRels || (await zip.file(relsPath)!.async("text"));
 
+    // Taken before the old relationship is removed, so an id is never reused.
     const relId = nextRelId(relsXml);
     relsXml = addRelationship(relsXml, relId, mediaTarget);
-    zip.file(relsPath, relsXml);
 
+    const oldIds = backgroundValues(slideXml);
     slideXml = setBackground(slideXml, relId, fillOffsets);
+
+    // Drop the replaced background's relationships (its picture, plus any
+    // SVG or linked variant), or their images stay embedded and the deck
+    // grows on every re-application. A part that still names an id elsewhere
+    // (the same image as a picture) keeps it.
+    for (const oldId of oldIds) {
+      if (oldId === relId || namesRelId(slideXml, oldId)) continue;
+      const removed = removeRelationship(relsXml, oldId, dir);
+      relsXml = removed.xml;
+      if (removed.target) replaced.add(removed.target);
+    }
+
+    zip.file(relsPath, relsXml);
     zip.file(slidePath, slideXml);
 
     onEach?.(i + 1, filtered.length);
   }
+  return replaced;
+}
+
+/**
+ * Delete each replaced background part that no relationship anywhere in the
+ * package still targets (untargeted slides, layouts or the master may share
+ * it), along with any `[Content_Types]` override naming it.
+ */
+async function removeUnreferencedParts(
+  zip: JSZip,
+  candidates: ReadonlySet<string>,
+): Promise<void> {
+  if (candidates.size === 0) return;
+  const relsPattern = /^(?:(.*)\/)?_rels\/[^/]*\.rels$/;
+  const relsFiles = zip.file(relsPattern);
+  const referenced = new Set<string>();
+  const texts = await Promise.all(relsFiles.map((f) => f.async("text")));
+  relsFiles.forEach((file, i) => {
+    const sourceDir = file.name.match(relsPattern)?.[1] ?? "";
+    for (const rel of texts[i].match(RELATIONSHIP) ?? []) {
+      const target = relTargetPart(rel, sourceDir);
+      if (target) referenced.add(target.toLowerCase());
+    }
+  });
+
+  // OPC part names compare case-insensitively.
+  const byLowerName = new Map<string, string>();
+  zip.forEach((path, file) => {
+    if (!file.dir) byLowerName.set(path.toLowerCase(), path);
+  });
+  const deleted: string[] = [];
+  for (const candidate of candidates) {
+    const lower = candidate.toLowerCase();
+    const name = byLowerName.get(lower);
+    if (!name || referenced.has(lower)) continue;
+    zip.remove(name);
+    deleted.push(lower);
+  }
+  if (deleted.length === 0) return;
+
+  const ctFile = zip.file("[Content_Types].xml");
+  if (!ctFile) return;
+  const ctXml = await ctFile.async("text");
+  const updated = ctXml.replace(/<Override\b[^>]*\/>/g, (override) => {
+    const partName = relAttr(override, "PartName");
+    return partName && deleted.includes(partName.replace(/^\/+/, "").toLowerCase())
+      ? ""
+      : override;
+  });
+  if (updated !== ctXml) zip.file("[Content_Types].xml", updated);
 }
 
 /**
@@ -341,9 +479,10 @@ export async function changeBackground({
     slideSize.h,
   );
 
+  let replaced: Set<string>;
   if (mode === "master") {
     const mediaTarget = `../media/${mediaName}`;
-    await processSlideGroup(
+    replaced = await processSlideGroup(
       zip,
       "ppt/slideMasters",
       mediaTarget,
@@ -361,7 +500,7 @@ export async function changeBackground({
       }
       whitelist = new Set(targetSlides);
     }
-    await processSlideGroup(
+    replaced = await processSlideGroup(
       zip,
       "ppt/slides",
       mediaTarget,
@@ -372,6 +511,8 @@ export async function changeBackground({
       whitelist,
     );
   }
+
+  await removeUnreferencedParts(zip, replaced);
 
   // Keep each part stored the way the input stored it. JSZip's default
   // (STORE) inflated every deflated part of a PowerPoint deck, growing it by

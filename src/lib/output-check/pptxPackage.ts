@@ -1,6 +1,6 @@
 import type { Violation } from "./core";
 import { xmlWellFormedError } from "./xmlWellFormed";
-import { openZip, storedIdentically, type ZipReader } from "./zipReader";
+import { indexZip, openZip, storedIdentically, type ZipReader } from "./zipReader";
 
 /**
  * PPTX package inspector: opens a .pptx as an OPC package and answers the
@@ -14,6 +14,12 @@ import { openZip, storedIdentically, type ZipReader } from "./zipReader";
  * - `content-type`: a part `[Content_Types].xml` does not cover
  * - `relationship-target`: an internal relationship whose target part is missing
  *
+ * Package-wide reference checks, separate from `structuralDefects` because
+ * they never skip a part (a part copied unchanged can still lose its last
+ * reference elsewhere):
+ * - `relationship-unused`: an image relationship its own part never names
+ * - `media-unreferenced`: a `ppt/media/` part no relationship points at
+ *
  * A defect's `detail` names the part (and target), so the same defect in two
  * packages compares equal by `property` + `detail`.
  */
@@ -26,6 +32,8 @@ export interface PptxPackage {
   masterParts: string[];
   /** Raw bytes of a part (null when absent or unreadable). */
   read(part: string): Promise<Uint8Array | null>;
+  /** A part's size as stored in the zip (null when absent or not indexable). */
+  storedSize(part: string): number | null;
   /**
    * With `baseline` (the package this one was made from), a part stored
    * byte-identically in both is not re-read: its own defects (readable,
@@ -39,11 +47,22 @@ export interface PptxPackage {
    * (`<p:bg>` picture fill) points at, or null when it declares none.
    */
   backgroundMedia(parts: readonly string[]): Promise<Map<string, string | null>>;
+  /**
+   * Image relationships whose source part never names their id. Only image
+   * relationships are checked: a part must name them (`r:embed`, `r:link`,
+   * `r:id`) to use them, while layout, theme or notes relationships are used
+   * implicitly by type. Covers every part, or only the given source parts.
+   */
+  unusedRelationships(parts?: readonly string[]): Promise<Violation[]>;
+  /** `ppt/media/` parts that no relationship anywhere in the package targets. */
+  unreferencedMedia(): Promise<Violation[]>;
 }
 
 const XML_PART = /\.(xml|rels)$/i;
 const RELS_PART = /^(?:(.*)\/)?_rels\/([^/]*)\.rels$/;
 const TAG_ATTRS = /([\w:]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+const ATTR_VALUES = /=\s*(?:"([^"]*)"|'([^']*)')/g;
+const IMAGE_REL_TYPE = /\/relationships\/image$/;
 
 function ordinal(path: string): number {
   const m = path.match(/(\d+)\.xml$/);
@@ -97,6 +116,7 @@ export function relsPartOf(part: string): string {
 
 interface Relationship {
   id: string;
+  type: string;
   /** Resolved part name, or null for an external or unresolvable target. */
   part: string | null;
   external: boolean;
@@ -134,11 +154,22 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
       const resolved = external || !a.Target ? null : resolveTarget(sourceDir, a.Target);
       rels.push({
         id: a.Id ?? "",
+        type: a.Type ?? "",
         external,
         part: resolved === null ? null : (byLowerName.get(resolved.toLowerCase()) ?? resolved),
       });
     }
     return rels;
+  };
+
+  const relsParts = parts.filter((p) => RELS_PART.test(p));
+  let index: ReturnType<typeof indexZip> | undefined;
+
+  /** The part a `.rels` part describes; null for the package's own `_rels/.rels`. */
+  const sourceOf = (relsPart: string): string | null => {
+    const m = relsPart.match(RELS_PART);
+    if (!m || m[2] === "") return null;
+    return m[1] ? `${m[1]}/${m[2]}` : m[2];
   };
 
   const pkg: PptxPackage = {
@@ -150,10 +181,14 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
       return zip.bytes(part);
     },
 
+    storedSize(part) {
+      index ??= indexZip(bytes);
+      return index?.get(part)?.compressedSize ?? null;
+    },
+
     async structuralDefects(baseline) {
       const defects: Violation[] = [];
       const base = baseline && zipOf.get(baseline);
-      const relsParts = parts.filter((p) => RELS_PART.test(p));
       const toCheck = parts.filter(
         (p) => XML_PART.test(p) && !(base && storedIdentically(zip, base, p)),
       );
@@ -221,6 +256,55 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
         result.set(part, rel?.part ?? null);
       }
       return result;
+    },
+
+    async unusedRelationships(sources) {
+      const wanted = sources && new Set(sources);
+      const pairs: { relsPart: string; source: string }[] = [];
+      for (const relsPart of relsParts) {
+        const named = sourceOf(relsPart);
+        // The zip's own spelling of the part: OPC names compare case-insensitively.
+        const source = named === null ? undefined : byLowerName.get(named.toLowerCase());
+        if (source && XML_PART.test(source) && (!wanted || wanted.has(source))) {
+          pairs.push({ relsPart, source });
+        }
+      }
+      await Promise.all(pairs.flatMap((x) => [text(x.relsPart), text(x.source)]));
+
+      const unused: Violation[] = [];
+      for (const { relsPart, source } of pairs) {
+        const images = (await relationshipsOf(relsPart)).filter((r) =>
+          IMAGE_REL_TYPE.test(r.type),
+        );
+        if (images.length === 0) continue;
+        const xml = await text(source);
+        // Unreadable parts are reported by structuralDefects, not here.
+        if (xml === null) continue;
+        const named = new Set<string>();
+        for (const m of xml.matchAll(ATTR_VALUES)) named.add(m[1] ?? m[2]);
+        for (const rel of images) {
+          if (!named.has(rel.id)) {
+            unused.push({
+              property: "relationship-unused",
+              detail: `${relsPart} ${rel.id} → ${rel.part ?? "external"}`,
+            });
+          }
+        }
+      }
+      return unused;
+    },
+
+    async unreferencedMedia() {
+      await Promise.all(relsParts.map(text));
+      const referenced = new Set<string>();
+      for (const relsPart of relsParts) {
+        for (const rel of await relationshipsOf(relsPart)) {
+          if (rel.part !== null) referenced.add(rel.part.toLowerCase());
+        }
+      }
+      return parts
+        .filter((p) => /^ppt\/media\/[^/]+$/i.test(p) && !referenced.has(p.toLowerCase()))
+        .map((p) => ({ property: "media-unreferenced", detail: p }));
     },
   };
   zipOf.set(pkg, zip);

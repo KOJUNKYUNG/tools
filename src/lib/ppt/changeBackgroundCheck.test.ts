@@ -68,6 +68,28 @@ async function addDanglingRelationship(zip: JSZip, relsPath: string): Promise<vo
   );
 }
 
+/** Slide 2's own background in `syntheticDeck`, as pptxgenjs writes it. */
+const OLD_BG_REL = "rId1";
+const OLD_BG_MEDIA = "ppt/media/Slide-2-image-1.png";
+const SLIDE2_RELS = "ppt/slides/_rels/slide2.xml.rels";
+
+/** Put slide 2's replaced background relationship (and its media) back. */
+async function restoreOldBackground(zip: JSZip, input: Uint8Array): Promise<void> {
+  const original = await JSZip.loadAsync(input);
+  const oldRels = await original.file(SLIDE2_RELS)!.async("text");
+  const rel = oldRels.match(new RegExp(`<Relationship\\b[^>]*Id="${OLD_BG_REL}"[^>]*/>`))![0];
+  const xml = await zip.file(SLIDE2_RELS)!.async("text");
+  // The engine never reuses an id, so the old one is free in the output.
+  zip.file(SLIDE2_RELS, xml.replace("</Relationships>", `${rel}</Relationships>`));
+  zip.file(OLD_BG_MEDIA, await original.file(OLD_BG_MEDIA)!.async("uint8array"));
+}
+
+/** `ppt/media/` parts of a deck. */
+async function mediaParts(deck: Uint8Array): Promise<string[]> {
+  const pkg = await openPptxPackage(deck);
+  return pkg!.parts.filter((p) => /^ppt\/media\/[^/]+$/.test(p)).sort();
+}
+
 async function properties(
   input: Uint8Array,
   request: PptBackgroundRequest,
@@ -149,7 +171,7 @@ describe("checkPptBackground flags broken output", () => {
     const original = await JSZip.loadAsync(input);
     const broken = await mutate(good, async (zip) => {
       // Slide 2 keeps its old background, as if the engine skipped it.
-      for (const p of ["ppt/slides/slide2.xml", "ppt/slides/_rels/slide2.xml.rels"]) {
+      for (const p of ["ppt/slides/slide2.xml", SLIDE2_RELS, OLD_BG_MEDIA]) {
         zip.file(p, await original.file(p)!.async("uint8array"));
       }
     });
@@ -207,6 +229,69 @@ describe("checkPptBackground flags broken output", () => {
     expect(await properties(input, allSlides, broken)).toContain("part-readable");
   });
 
+  it("flags a target slide that keeps its replaced background's relationship", async () => {
+    const input = await syntheticDeck();
+    const good = await apply(input, allSlides);
+    const broken = await mutate(good, (zip) => restoreOldBackground(zip, input));
+    // Run time: the old image would stay embedded and grow the deck.
+    expect(await checkPptBackground(input, allSlides, broken, "quick")).toEqual([
+      {
+        property: "replaced-background-kept",
+        detail: `${SLIDE2_RELS} ${OLD_BG_REL} → ${OLD_BG_MEDIA}`,
+      },
+    ]);
+  });
+
+  it("flags a background image nothing references, at full depth only", async () => {
+    const input = await syntheticDeck();
+    const good = await apply(input, allSlides);
+    const broken = await mutate(good, (zip) => {
+      zip.file(OLD_BG_MEDIA, Buffer.from(OLD_BG, "base64"));
+    });
+    expect(await properties(input, allSlides, broken)).toEqual(["media-unreferenced"]);
+    expect(await checkPptBackground(input, allSlides, broken, "quick")).toEqual([]);
+  });
+
+  it("flags an unused image relationship in any part, at full depth only", async () => {
+    const request: PptBackgroundRequest = {
+      bgImage: newBgBytes,
+      mode: "specific-slides",
+      targetSlides: [1],
+    };
+    const input = await syntheticDeck();
+    const good = await apply(input, request);
+    // The layout is untargeted and its bytes are copied: the check still reads it.
+    const broken = await mutate(good, async (zip) => {
+      const relsPath = "ppt/slideLayouts/_rels/slideLayout1.xml.rels";
+      const xml = await zip.file(relsPath)!.async("text");
+      zip.file(
+        relsPath,
+        xml.replace(
+          "</Relationships>",
+          '<Relationship Id="rId98" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/Slide-2-image-1.png"/></Relationships>',
+        ),
+      );
+    });
+    expect(await properties(input, request, broken)).toEqual(["relationship-unused"]);
+    expect(await checkPptBackground(input, request, broken, "quick")).toEqual([]);
+  });
+
+  it("flags output larger than input + new image − removed media, at full depth only", async () => {
+    const input = await syntheticDeck();
+    const good = await apply(input, allSlides);
+    const broken = await mutate(good, async (zip) => {
+      // Bloat a part the deck uses: random bytes do not compress.
+      const filler = crypto.getRandomValues(new Uint8Array(60_000));
+      const xml = await zip.file("docProps/core.xml")!.async("text");
+      zip.file(
+        "docProps/core.xml",
+        xml.replace(/<\/cp:coreProperties>\s*$/, `<!--${Buffer.from(filler).toString("base64")}--></cp:coreProperties>`),
+      );
+    });
+    expect(await properties(input, allSlides, broken)).toEqual(["size-bound"]);
+    expect(await checkPptBackground(input, allSlides, broken, "quick")).toEqual([]);
+  });
+
   it("flags output that is not a zip at all", async () => {
     const input = await syntheticDeck();
     const garbage = new TextEncoder().encode("not a pptx");
@@ -227,6 +312,128 @@ describe("checkPptBackground passes good output", () => {
   });
 });
 
+describe("ppt-background removes the replaced background", () => {
+  const oldBgBytes = Uint8Array.from(Buffer.from(OLD_BG, "base64"));
+
+  /** The media part each slide's background points at. */
+  async function slideBackgrounds(deck: Uint8Array): Promise<(string | null)[]> {
+    const pkg = (await openPptxPackage(deck))!;
+    const media = await pkg.backgroundMedia(pkg.slideParts);
+    return pkg.slideParts.map((p) => media.get(p) ?? null);
+  }
+
+  it("deletes the replaced image when nothing else uses it", async () => {
+    const input = await syntheticDeck();
+    const output = await apply(input, allSlides);
+    expect(await mediaParts(output)).not.toContain(OLD_BG_MEDIA);
+    expect(await properties(input, allSlides, output)).toEqual([]);
+  });
+
+  it("removes every relationship the old background used (SVG variant, either quote)", async () => {
+    // PowerPoint stores an SVG background as a PNG blip plus an SVG blip with
+    // its own relationship. Leaving the second behind would block a good deck.
+    const svg = "ppt/media/bg.svg";
+    const clean = await syntheticDeck();
+    const input = await mutate(clean, async (zip) => {
+      const slide = await zip.file("ppt/slides/slide2.xml")!.async("text");
+      zip.file(
+        "ppt/slides/slide2.xml",
+        slide.replace(
+          `<a:blip r:embed="${OLD_BG_REL}"><a:lum/></a:blip>`,
+          `<a:blip r:embed='${OLD_BG_REL}'><a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">` +
+            `<asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="rId9"/>` +
+            `</a:ext></a:extLst></a:blip>`,
+        ),
+      );
+      const rels = await zip.file(SLIDE2_RELS)!.async("text");
+      zip.file(
+        SLIDE2_RELS,
+        rels.replace(
+          "</Relationships>",
+          '<Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/bg.svg"/></Relationships>',
+        ),
+      );
+      zip.file(svg, '<svg xmlns="http://www.w3.org/2000/svg"/>');
+      const types = await zip.file("[Content_Types].xml")!.async("text");
+      zip.file(
+        "[Content_Types].xml",
+        types.replace("</Types>", '<Default Extension="svg" ContentType="image/svg+xml"/></Types>'),
+      );
+    });
+    const output = await apply(input, allSlides);
+    expect(await mediaParts(output)).not.toContain(svg);
+    expect(await mediaParts(output)).not.toContain(OLD_BG_MEDIA);
+    expect(await properties(input, allSlides, output)).toEqual([]);
+  });
+
+  it("drops a content-type override that named the deleted image", async () => {
+    const clean = await syntheticDeck();
+    const input = await mutate(clean, async (zip) => {
+      const xml = await zip.file("[Content_Types].xml")!.async("text");
+      zip.file(
+        "[Content_Types].xml",
+        xml.replace("</Types>", `<Override PartName="/${OLD_BG_MEDIA}" ContentType="image/png"/></Types>`),
+      );
+    });
+    const output = await apply(input, allSlides);
+    const types = await (await JSZip.loadAsync(output)).file("[Content_Types].xml")!.async("text");
+    expect(types).not.toContain(OLD_BG_MEDIA);
+    expect(await properties(input, allSlides, output)).toEqual([]);
+  });
+
+  it("leaves one background media per distinct background after re-applying", async () => {
+    const input = await syntheticDeck();
+    const once = await apply(input, allSlides);
+    const again: PptBackgroundRequest = { bgImage: oldBgBytes, mode: "all-slides" };
+    const twice = await apply(once, again);
+
+    const inUse = [...new Set(await slideBackgrounds(twice))];
+    expect(inUse).toHaveLength(1);
+    expect(await mediaParts(twice)).toEqual(inUse);
+    expect(await properties(once, again, twice)).toEqual([]);
+  });
+
+  it("keeps a background that untargeted slides still use (specific slides)", async () => {
+    const input = await syntheticDeck();
+    const shared = await apply(input, allSlides);
+    const [sharedMedia] = await slideBackgrounds(shared);
+
+    const first: PptBackgroundRequest = {
+      bgImage: oldBgBytes,
+      mode: "specific-slides",
+      targetSlides: [1],
+    };
+    const partly = await apply(shared, first);
+    const backgrounds = await slideBackgrounds(partly);
+    expect(backgrounds[0]).not.toBe(sharedMedia);
+    expect(backgrounds.slice(1)).toEqual([sharedMedia, sharedMedia]);
+    expect(await mediaParts(partly)).toContain(sharedMedia);
+    expect(await properties(shared, first, partly)).toEqual([]);
+
+    // Once the last slide using it is changed, the shared image goes too.
+    const rest: PptBackgroundRequest = { ...first, targetSlides: [2, 3] };
+    const done = await apply(partly, rest);
+    expect(await mediaParts(done)).not.toContain(sharedMedia);
+    expect(await properties(partly, rest, done)).toEqual([]);
+  });
+
+  it("keeps the old image when the target slide still shows it elsewhere", async () => {
+    const clean = await syntheticDeck();
+    // Slide 2 also shows its background image as a picture, through the same id.
+    const pic =
+      `<p:pic><p:nvPicPr><p:cNvPr id="9" name="Picture"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>` +
+      `<p:blipFill><a:blip r:embed="${OLD_BG_REL}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` +
+      `<p:spPr/></p:pic>`;
+    const input = await mutate(clean, async (zip) => {
+      const xml = await zip.file("ppt/slides/slide2.xml")!.async("text");
+      zip.file("ppt/slides/slide2.xml", xml.replace("</p:spTree>", `${pic}</p:spTree>`));
+    });
+    const output = await apply(input, allSlides);
+    expect(await mediaParts(output)).toContain(OLD_BG_MEDIA);
+    expect(await properties(input, allSlides, output)).toEqual([]);
+  });
+});
+
 describe("checkPptBackground does not blame the tool for the input", () => {
   it("ignores a defect the input deck already had", async () => {
     // A deck PowerPoint opened despite a dangling relationship: the defect is
@@ -237,6 +444,26 @@ describe("checkPptBackground does not blame the tool for the input", () => {
     );
     const output = await apply(input, allSlides);
     expect(await properties(input, allSlides, output)).toEqual([]);
+  });
+
+  it("ignores an orphaned image and an unused relationship the input already had", async () => {
+    const clean = await syntheticDeck();
+    const input = await mutate(clean, async (zip) => {
+      zip.file("ppt/media/orphan.png", Buffer.from(OLD_BG, "base64"));
+      // Slide 1 is a target: its inherited unused relationship survives the rewrite.
+      const relsPath = "ppt/slides/_rels/slide1.xml.rels";
+      const xml = await zip.file(relsPath)!.async("text");
+      zip.file(
+        relsPath,
+        xml.replace(
+          "</Relationships>",
+          `<Relationship Id="rId97" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/Slide-2-image-1.png"/></Relationships>`,
+        ),
+      );
+    });
+    const output = await apply(input, allSlides);
+    expect(await properties(input, allSlides, output)).toEqual([]);
+    expect(await checkPptBackground(input, allSlides, output, "quick")).toEqual([]);
   });
 
   it("ignores a malformed part the input already had, whether copied or rewritten", async () => {
@@ -254,9 +481,10 @@ describe("checkPptBackground does not blame the tool for the input", () => {
     expect(await properties(input, allSlides, copied)).toEqual([]);
 
     // Stored afresh (other bytes), the same text still carries the same defect.
+    // Stored uncompressed, the deck rightly outgrows the size bound.
     const rewritten = await JSZip.loadAsync(copied).then((zip) =>
       zip.generateAsync({ type: "uint8array" }),
     );
-    expect(await properties(input, allSlides, rewritten)).toEqual([]);
+    expect(await properties(input, allSlides, rewritten)).toEqual(["size-bound"]);
   });
 });
