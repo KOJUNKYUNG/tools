@@ -186,7 +186,7 @@ export async function convertImagesToPdf(
     tool: "image-to-pdf",
     output,
     check: (out) =>
-      checkImageToPdf(sourceBytesById, { pages, layout: imageLayout }, out, "quick"),
+      checkImageToPdf(sourceBytesById, { pages, imageLayout }, out, "quick"),
   });
 }
 

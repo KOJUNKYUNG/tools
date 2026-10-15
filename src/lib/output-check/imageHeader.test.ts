@@ -1,17 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { solidPng as png } from "@/lib/pdf/testImages";
 import { readImageHeader } from "./imageHeader";
-
-// 2×3 PNG (IHDR width 2, height 3).
-function png(width: number, height: number): Uint8Array {
-  const bytes = new Uint8Array(33);
-  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  const view = new DataView(bytes.buffer);
-  view.setUint32(8, 13);
-  bytes.set([0x49, 0x48, 0x44, 0x52], 12); // "IHDR"
-  view.setUint32(16, width);
-  view.setUint32(20, height);
-  return bytes;
-}
 
 /** A JPEG whose frame header follows an APP0 segment, as camera files do. */
 function jpeg(width: number, height: number, sof = 0xc0): Uint8Array {

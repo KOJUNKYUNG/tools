@@ -6,8 +6,7 @@ import ko from "@/i18n/dictionaries/ko.json";
 import { getErrorMessage } from "@/lib/errors";
 import { convertImagesToPdf, type ImageLayout } from "./assembleSections";
 import * as check from "./imageToPdfCheck";
-import type { PageItem, Rotation } from "./pageItem";
-import { JPEG_3x2, solidPng } from "./testImages";
+import { imagePage as image, imageSources as sources } from "./testImages";
 
 // The real checker by default; one test makes it report a violation.
 vi.mock("./imageToPdfCheck", async (importOriginal) => {
@@ -15,26 +14,6 @@ vi.mock("./imageToPdfCheck", async (importOriginal) => {
   return { ...real, checkImageToPdf: vi.fn(real.checkImageToPdf) };
 });
 const { checkImageToPdf } = await vi.importActual<typeof check>("./imageToPdfCheck");
-
-const sources = () =>
-  new Map([
-    ["wide", solidPng(40, 20)],
-    ["tall", solidPng(10, 30)],
-    ["photo", JPEG_3x2],
-  ]);
-
-function image(sourceFileId: string, rotation: Rotation = 0): PageItem {
-  return {
-    id: `${sourceFileId}-${rotation}`,
-    sourceFileId,
-    sourceFileName: `${sourceFileId}.png`,
-    kind: "image",
-    sourcePageIndex: 0,
-    rotation,
-    splitAfter: false,
-    deleted: false,
-  };
-}
 
 const pages = [image("wide"), image("tall", 90), image("photo", 180), image("wide", 270)];
 
@@ -46,7 +25,7 @@ describe("convertImagesToPdf", () => {
   ])("%s: the output passes the full check", async (_, imageLayout) => {
     const src = sources();
     const output = await convertImagesToPdf({ pages, sourceBytesById: src, imageLayout });
-    expect(await checkImageToPdf(src, { pages, layout: imageLayout }, output, "full")).toEqual([]);
+    expect(await checkImageToPdf(src, { pages, imageLayout }, output, "full")).toEqual([]);
   });
 
   it("blocks a failing quick check with the corrupt-output error and image-to-pdf's hint", async () => {

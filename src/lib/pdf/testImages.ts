@@ -1,5 +1,6 @@
 // Test-only image fixtures, generated in Node (never imported by the app).
 import { crc32, deflateSync } from "node:zlib";
+import type { PageItem, Rotation } from "./pageItem";
 
 /** A solid grey 8-bit RGB PNG of the given size. */
 export function solidPng(width: number, height: number): Uint8Array {
@@ -35,3 +36,25 @@ export const JPEG_3x2 = Uint8Array.from(
     "base64",
   ),
 );
+
+/** Three source images by id: a wide and a tall PNG, and a small JPEG. */
+export const imageSources = () =>
+  new Map([
+    ["wide", solidPng(40, 20)],
+    ["tall", solidPng(10, 30)],
+    ["photo", JPEG_3x2],
+  ]);
+
+/** An editor page showing the image `sourceFileId`, turned by `rotation`. */
+export function imagePage(sourceFileId: string, rotation: Rotation = 0): PageItem {
+  return {
+    id: `${sourceFileId}-${rotation}`,
+    sourceFileId,
+    sourceFileName: `${sourceFileId}.img`,
+    kind: "image",
+    sourcePageIndex: 0,
+    rotation,
+    splitAfter: false,
+    deleted: false,
+  };
+}

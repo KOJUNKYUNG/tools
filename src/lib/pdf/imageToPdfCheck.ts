@@ -1,5 +1,5 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
-import { readImageHeader } from "@/lib/output-check/imageHeader";
+import { type ImageHeader, readImageHeader } from "@/lib/output-check/imageHeader";
 import { inspectPdf, type PdfReport } from "@/lib/output-check/pdfInspector";
 import type { ImageLayout } from "./assembleSections";
 import type { PageItem } from "./pageItem";
@@ -10,40 +10,50 @@ export type ImageToPdfSources = Map<string, Uint8Array>;
 export interface ImageToPdfRequest {
   /** The images the user kept, in order: one page each. */
   pages: PageItem[];
-  layout: ImageLayout;
+  imageLayout: ImageLayout;
 }
 
 const normalise = (deg: number) => ((deg % 360) + 360) % 360;
 
-function sourceOf(sources: ImageToPdfSources, item: PageItem): Uint8Array {
-  const bytes = sources.get(item.sourceFileId);
-  // Not the output's fault: the request names an image it was not given.
-  if (!bytes) throw new Error(`no source bytes for ${item.sourceFileId}`);
-  return bytes;
+// Image sizes come from the shared header inspector, not the engine's own
+// format sniffing, on purpose: a checker that shared the engine's code would
+// agree with its bugs.
+
+/**
+ * A source image's header. Throws when the image is missing or unreadable:
+ * the engine embedded it, so either the request names an image it was not
+ * given or the header reader has a gap. Neither is the output's fault, and
+ * skipping would let the size checks pass without checking anything.
+ */
+function headerOf(sources: ImageToPdfSources, id: string): ImageHeader {
+  const bytes = sources.get(id);
+  if (!bytes) throw new Error(`no source bytes for ${id}`);
+  const header = readImageHeader(bytes);
+  if (!header) throw new Error(`cannot read the image header of ${id}`);
+  return header;
 }
 
 /**
  * The page box and turn the layout calls for. Native: the image's pixel size
  * in points, turned by /Rotate. Fixed: the chosen size, upright, because the
- * engine draws the turn into the page. Sizes come from the image's own header,
- * not from the engine. Null when the header cannot be read.
+ * engine draws the turn into the page.
  */
 function expectedPage(
   layout: ImageLayout,
   item: PageItem,
-  bytes: Uint8Array,
-): { width: number; height: number; rotation: number } | null {
+  sources: ImageToPdfSources,
+): { width: number; height: number; rotation: number } {
   if (layout.mode === "fixed") {
     return { width: layout.widthPt, height: layout.heightPt, rotation: 0 };
   }
-  const header = readImageHeader(bytes);
-  return header && { width: header.width, height: header.height, rotation: item.rotation };
+  const { width, height } = headerOf(sources, item.sourceFileId);
+  return { width, height, rotation: item.rotation };
 }
 
 async function checkPages(
   pdf: PdfReport,
   sources: ImageToPdfSources,
-  { pages, layout }: ImageToPdfRequest,
+  { pages, imageLayout }: ImageToPdfRequest,
 ): Promise<Violation[]> {
   const violations: Violation[] = [];
   const count = Math.min(pages.length, pdf.pageCount);
@@ -58,8 +68,7 @@ async function checkPages(
       violations.push({ property: "page-image", detail: `page ${n}: shows no image` });
     }
 
-    const expected = expectedPage(layout, pages[j], sourceOf(sources, pages[j]));
-    if (!expected) continue;
+    const expected = expectedPage(imageLayout, pages[j], sources);
     const out = await pdf.page(n);
     if (Math.abs(out.width - expected.width) >= 0.01 || Math.abs(out.height - expected.height) >= 0.01) {
       violations.push({
@@ -82,17 +91,17 @@ async function checkPages(
  * A JPEG is embedded as-is. A PNG is decoded and its pixels re-deflated
  * without PNG's filters, which can come out larger than the file, so it is
  * allowed its raw size (8-bit RGB plus alpha): deflate never exceeds that
- * by more than the margin. Null when a PNG's header cannot be read.
+ * by more than the margin.
  */
-function sizeBound(sources: ImageToPdfSources, pages: PageItem[]): number | null {
+function sizeBound(sources: ImageToPdfSources, pages: PageItem[]): number {
   let images = 0;
   for (const id of new Set(pages.map((p) => p.sourceFileId))) {
-    const bytes = sources.get(id);
-    if (!bytes) return null;
-    const header = readImageHeader(bytes);
-    if (header?.format === "png") images += header.width * header.height * 4;
-    else if (header?.format === "jpeg") images += bytes.byteLength;
-    else return null;
+    const header = headerOf(sources, id);
+    images +=
+      header.format === "png"
+        ? header.width * header.height * 4
+        : // Non-null: headerOf found the bytes.
+          sources.get(id)!.byteLength;
   }
   return images + images / 50 + 4096 + 1024 * pages.length;
 }
@@ -122,7 +131,7 @@ export const checkImageToPdf: OutputChecker<
 
   if (depth === "full") {
     const bound = sizeBound(sources, request.pages);
-    if (bound !== null && output.byteLength > bound) {
+    if (output.byteLength > bound) {
       violations.push({
         property: "size-bound",
         detail: `${output.byteLength} > ${Math.round(bound)} bytes`,

@@ -3,28 +3,7 @@ import { PDFDocument, degrees } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import type { ImageLayout } from "./assembleSections";
 import { checkImageToPdf } from "./imageToPdfCheck";
-import type { PageItem, Rotation } from "./pageItem";
-import { JPEG_3x2, solidPng as png } from "./testImages";
-
-const sources = () =>
-  new Map([
-    ["wide", png(40, 20)],
-    ["tall", png(10, 30)],
-    ["photo", JPEG_3x2],
-  ]);
-
-function image(sourceFileId: string, rotation: Rotation = 0): PageItem {
-  return {
-    id: sourceFileId,
-    sourceFileId,
-    sourceFileName: `${sourceFileId}.png`,
-    kind: "image",
-    sourcePageIndex: 0,
-    rotation,
-    splitAfter: false,
-    deleted: false,
-  };
-}
+import { imagePage as image, imageSources as sources } from "./testImages";
 
 interface PageSpec {
   /** Which source image the page shows; null for a page without one. */
@@ -61,7 +40,7 @@ describe("checkImageToPdf: good outputs", () => {
       { source: "tall", size: [10, 30], rotation: 90 },
       { source: "photo", size: [3, 2] },
     ]);
-    expect(await checkImageToPdf(sources(), { pages, layout: NATIVE }, out, "full")).toEqual([]);
+    expect(await checkImageToPdf(sources(), { pages, imageLayout: NATIVE }, out, "full")).toEqual([]);
   });
 
   it("fixed layout: every page has the chosen size, unturned", async () => {
@@ -71,7 +50,7 @@ describe("checkImageToPdf: good outputs", () => {
       { source: "wide", size: [595, 842] },
       { source: "tall", size: [595, 842] },
     ]);
-    expect(await checkImageToPdf(sources(), { pages, layout: A4 }, out, "full")).toEqual([]);
+    expect(await checkImageToPdf(sources(), { pages, imageLayout: A4 }, out, "full")).toEqual([]);
   });
 });
 
@@ -80,14 +59,14 @@ describe("checkImageToPdf: broken outputs", () => {
 
   it("flags a missing page at quick depth", async () => {
     const out = await pdfOf([{ source: "wide", size: [40, 20] }]);
-    expect(props(await checkImageToPdf(sources(), { pages, layout: NATIVE }, out, "quick"))).toEqual([
+    expect(props(await checkImageToPdf(sources(), { pages, imageLayout: NATIVE }, out, "quick"))).toEqual([
       "page-count",
     ]);
   });
 
   it("flags unopenable bytes at quick depth", async () => {
     const out = new TextEncoder().encode("%PDF-1.7 truncated");
-    expect(props(await checkImageToPdf(sources(), { pages, layout: NATIVE }, out, "quick"))).toEqual([
+    expect(props(await checkImageToPdf(sources(), { pages, imageLayout: NATIVE }, out, "quick"))).toEqual([
       "pdf-opens",
     ]);
   });
@@ -100,7 +79,7 @@ describe("checkImageToPdf: broken outputs", () => {
       ]),
     );
     doc.catalog.Pages().Kids().set(0, doc.context.nextRef());
-    const vs = await checkImageToPdf(sources(), { pages, layout: NATIVE }, await doc.save(), "quick");
+    const vs = await checkImageToPdf(sources(), { pages, imageLayout: NATIVE }, await doc.save(), "quick");
     expect(props(vs)).toContain("first-page-renders");
   });
 
@@ -110,9 +89,9 @@ describe("checkImageToPdf: broken outputs", () => {
       { source: "tall", size: [30, 10] },
     ]);
     const src = sources();
-    expect(await checkImageToPdf(src, { pages, layout: NATIVE }, out, "quick")).toEqual([]);
-    expect(await checkImageToPdf(src, { pages, layout: NATIVE }, out, "full")).toEqual([
-      { property: "page-size", detail: "page 2: 30×10 pt, expected 10×30" },
+    expect(await checkImageToPdf(src, { pages, imageLayout: NATIVE }, out, "quick")).toEqual([]);
+    expect(props(await checkImageToPdf(src, { pages, imageLayout: NATIVE }, out, "full"))).toEqual([
+      "page-size",
     ]);
   });
 
@@ -122,7 +101,7 @@ describe("checkImageToPdf: broken outputs", () => {
       { source: "tall", size: [10, 30] },
     ]);
     const turned = [image("wide"), image("tall", 90)];
-    expect(props(await checkImageToPdf(sources(), { pages: turned, layout: NATIVE }, out, "full"))).toEqual([
+    expect(props(await checkImageToPdf(sources(), { pages: turned, imageLayout: NATIVE }, out, "full"))).toEqual([
       "page-rotation",
     ]);
   });
@@ -132,7 +111,7 @@ describe("checkImageToPdf: broken outputs", () => {
       { source: "wide", size: [595, 842] },
       { source: "tall", size: [40, 20] },
     ]);
-    expect(props(await checkImageToPdf(sources(), { pages, layout: A4 }, out, "full"))).toEqual([
+    expect(props(await checkImageToPdf(sources(), { pages, imageLayout: A4 }, out, "full"))).toEqual([
       "page-size",
     ]);
   });
@@ -142,7 +121,7 @@ describe("checkImageToPdf: broken outputs", () => {
       { source: "wide", size: [595, 842] },
       { source: "tall", size: [595, 842], rotation: 90 },
     ]);
-    expect(props(await checkImageToPdf(sources(), { pages, layout: A4 }, out, "full"))).toEqual([
+    expect(props(await checkImageToPdf(sources(), { pages, imageLayout: A4 }, out, "full"))).toEqual([
       "page-rotation",
     ]);
   });
@@ -152,7 +131,7 @@ describe("checkImageToPdf: broken outputs", () => {
       { source: "wide", size: [40, 20] },
       { source: null, size: [10, 30] },
     ]);
-    expect(props(await checkImageToPdf(sources(), { pages, layout: NATIVE }, out, "full"))).toEqual([
+    expect(props(await checkImageToPdf(sources(), { pages, imageLayout: NATIVE }, out, "full"))).toEqual([
       "page-image",
     ]);
   });
@@ -163,7 +142,7 @@ describe("checkImageToPdf: broken outputs", () => {
     await doc.attach(randomBytes(200_000), "padding.bin");
     const vs = await checkImageToPdf(
       sources(),
-      { pages: [image("photo")], layout: NATIVE },
+      { pages: [image("photo")], imageLayout: NATIVE },
       await doc.save(),
       "full",
     );
@@ -173,7 +152,7 @@ describe("checkImageToPdf: broken outputs", () => {
   it("keeps the caller's output bytes intact", async () => {
     const out = await pdfOf([{ source: "photo", size: [3, 2] }]);
     const copy = out.slice();
-    await checkImageToPdf(sources(), { pages: [image("photo")], layout: NATIVE }, out, "full");
+    await checkImageToPdf(sources(), { pages: [image("photo")], imageLayout: NATIVE }, out, "full");
     expect(out).toEqual(copy);
   });
 });
