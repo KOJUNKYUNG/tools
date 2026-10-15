@@ -67,7 +67,7 @@ function imagePage(rotation: Rotation = 0): PageItem {
 }
 
 /** A page of source `spec` as it should appear after `extra` rotation. */
-const as = (spec: PageSpec, extra = 0): PageSpec => ({
+const turned = (spec: PageSpec, extra = 0): PageSpec => ({
   ...spec,
   rotation: ((spec.rotation ?? 0) + extra) % 360,
 });
@@ -108,7 +108,7 @@ describe("checkPdfArrange: good outputs", () => {
     [
       "rotate (adds to a page's own rotation)",
       [[pdfPage("a", 0, 90), pdfPage("a", 2, 270)]],
-      async () => [await pdfOf([as(A[0], 90), as(A[2], 270)])],
+      async () => [await pdfOf([turned(A[0], 90), turned(A[2], 270)])],
     ],
   ])("%s: no violations at full depth", async (_, sections, outputs) => {
     expect(

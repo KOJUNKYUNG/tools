@@ -75,13 +75,12 @@ export type PdfInspection =
   /** pdfjs rejects the file's structure: no viewer built on it opens it. */
   | { status: "unopenable"; detail: string };
 
-/** pdfjs exceptions that mean "this file is broken", not "pdfjs failed". */
-const UNOPENABLE = new Set([
-  "InvalidPDFException",
-  "FormatError",
-  "MissingPDFException",
-  "UnknownErrorException",
-]);
+/**
+ * pdfjs exceptions that mean "this file is broken", not "pdfjs failed".
+ * UnknownErrorException is left out on purpose: it is pdfjs's catch-all for
+ * any worker fault, so it proves nothing about the file.
+ */
+const UNOPENABLE = new Set(["InvalidPDFException", "FormatError"]);
 
 function errorText(err: unknown): string {
   return err instanceof Error ? `${err.name}: ${err.message}` : String(err);

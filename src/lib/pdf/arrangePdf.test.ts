@@ -101,7 +101,9 @@ describe("arrangePdf", () => {
     }).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(Error);
+    // Narrowed by the assertion above.
     expect((err as Error).message).toMatch(/^CORRUPT_OUTPUT: pdf-arrange: page-count/);
+    // JSON imports are typed by their literal shape; the app reads them as Dictionary.
     for (const dict of [ko, en] as Dictionary[]) {
       const hint = getPdfArrangeLabels(dict).errorCorrupt;
       expect(hint).toBeTruthy();

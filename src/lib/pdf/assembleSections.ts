@@ -88,6 +88,7 @@ export async function assembleSections(
     for (const item of section) {
       if (item.kind === "pdf") {
         // Pages come back in the order requested, which is section order.
+        // Non-null: every pdf item's source was copied above, one page each.
         const page = copiedBySource.get(item.sourceFileId)!.shift()!;
         if (item.rotation !== 0) {
           const current = page.getRotation().angle;

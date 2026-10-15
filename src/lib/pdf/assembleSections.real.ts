@@ -31,8 +31,8 @@ function page(sourceFileId: string, index: number, rotation: Rotation = 0): Page
 async function requests(input: Uint8Array): Promise<RealFileRequest<PdfArrangeRequest>[]> {
   // The editor skips files it cannot open (encrypted ones), as pdf-lib would
   // refuse them: such a fixture has nothing to arrange.
-  const pageCount = await inspectPdf(input, async (i) =>
-    i.status === "open" ? i.pdf.pageCount : 0,
+  const pageCount = await inspectPdf(input, async (inspection) =>
+    inspection.status === "open" ? inspection.pdf.pageCount : 0,
   );
   if (pageCount === 0) return [];
 

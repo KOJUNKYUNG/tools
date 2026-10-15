@@ -10,7 +10,7 @@ export interface PdfArrangeRequest {
   sections: PageItem[][];
 }
 
-/** What a source page looks like to pdfjs; null when pdfjs cannot load it. */
+/** What a source page looks like to pdfjs. */
 interface SourcePage {
   rotation: number;
   width: number;
@@ -20,10 +20,18 @@ interface SourcePage {
 
 const normalise = (deg: number) => ((deg % 360) + 360) % 360;
 
+// The grouping and format sniffing below repeat what the engine does on
+// purpose: a checker that shared the engine's code would agree with its bugs.
 const isPng = (b: Uint8Array) =>
   b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
 
-/** Read every pdf page the sections use, one pdfjs open per source file. */
+/** Key of a source page in the map `readSourcePages` returns. */
+const pageKey = (sourceFileId: string, index: number) => `${sourceFileId}#${index}`;
+
+/**
+ * Read every pdf page the sections use, one pdfjs open per source file. A
+ * page maps to null when pdfjs cannot load or render it from its source.
+ */
 async function readSourcePages(
   sources: PdfArrangeSources,
   sections: PageItem[][],
@@ -39,19 +47,21 @@ async function readSourcePages(
   const facts = new Map<string, SourcePage | null>();
   for (const [id, pages] of wanted) {
     const bytes = sources.get(id);
-    await inspectPdf(bytes ?? new Uint8Array(0), async (i) => {
+    // Not the output's fault: the request names a file it was not given.
+    if (!bytes) throw new Error(`no source bytes for ${id}`);
+    await inspectPdf(bytes, async (source) => {
       for (const index of pages) {
-        const key = `${id}#${index}`;
-        if (i.status !== "open" || index >= i.pdf.pageCount) {
+        const key = pageKey(id, index);
+        if (source.status !== "open" || index >= source.pdf.pageCount) {
           facts.set(key, null);
           continue;
         }
         const n = index + 1;
-        if ((await i.pdf.renderError(n)) !== null) {
+        if ((await source.pdf.renderError(n)) !== null) {
           facts.set(key, null);
           continue;
         }
-        facts.set(key, { ...(await i.pdf.page(n)), text: await i.pdf.text(n) });
+        facts.set(key, { ...(await source.pdf.page(n)), text: await source.pdf.text(n) });
       }
     });
   }
@@ -63,10 +73,10 @@ async function sourceFailsToo(sources: PdfArrangeSources, item: PageItem): Promi
   if (item.kind !== "pdf") return false;
   const bytes = sources.get(item.sourceFileId);
   if (!bytes) return false;
-  return inspectPdf(bytes, async (i) => {
-    if (i.status !== "open") return true;
-    if (item.sourcePageIndex >= i.pdf.pageCount) return true;
-    return (await i.pdf.renderError(item.sourcePageIndex + 1)) !== null;
+  return inspectPdf(bytes, async (source) => {
+    if (source.status !== "open") return true;
+    if (item.sourcePageIndex >= source.pdf.pageCount) return true;
+    return (await source.pdf.renderError(item.sourcePageIndex + 1)) !== null;
   });
 }
 
@@ -96,7 +106,7 @@ async function checkPages(
         violations.push({ property: "page-identity", detail: `${at}: shows no image` });
       }
     } else {
-      const src = sourcePages.get(`${item.sourceFileId}#${item.sourcePageIndex}`);
+      const src = sourcePages.get(pageKey(item.sourceFileId, item.sourcePageIndex));
       // A source page pdfjs cannot load has nothing to compare against.
       if (!src) continue;
       expectedRotation = src.rotation + item.rotation;
@@ -179,8 +189,20 @@ export const checkPdfArrange: OutputChecker<
   const files = Math.min(outputs.length, sections.length);
   for (let i = 0; i < files; i++) {
     const section = sections[i];
+    const output = outputs[i];
     const file = i + 1;
-    const found = await inspectPdf(outputs[i], async (inspection): Promise<Violation[]> => {
+
+    if (depth === "full") {
+      const bound = sizeBound(sources, section);
+      if (bound !== null && output.byteLength > bound) {
+        violations.push({
+          property: "size-bound",
+          detail: `file ${file}: ${output.byteLength} > ${Math.round(bound)} bytes`,
+        });
+      }
+    }
+
+    const fileViolations = await inspectPdf(output, async (inspection): Promise<Violation[]> => {
       if (inspection.status === "password-required") {
         return [{ property: "pdf-opens", detail: `file ${file}: asks for a password` }];
       }
@@ -207,17 +229,7 @@ export const checkPdfArrange: OutputChecker<
       if (depth === "full") vs.push(...(await checkPages(pdf, section, file, sourcePages)));
       return vs;
     });
-    violations.push(...found);
-
-    if (depth === "full") {
-      const bound = sizeBound(sources, section);
-      if (bound !== null && outputs[i].byteLength > bound) {
-        violations.push({
-          property: "size-bound",
-          detail: `file ${file}: ${outputs[i].byteLength} > ${Math.round(bound)} bytes`,
-        });
-      }
-    }
+    violations.push(...fileViolations);
   }
 
   return violations;
