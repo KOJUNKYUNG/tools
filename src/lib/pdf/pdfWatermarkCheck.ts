@@ -2,6 +2,22 @@ import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import { inspectPdf, type PdfReport } from "@/lib/output-check/pdfInspector";
 import type { OverlayOptions } from "./applyPdfOverlay";
 
+const PDF_HEADER = new TextEncoder().encode("%PDF");
+const EOF_MARKER = new TextEncoder().encode("%%EOF");
+
+/**
+ * Whether `bytes` look like a whole file as pdf-lib writes it: `%PDF` first
+ * and `%%EOF` last. Empty or cut-off bytes fail, whatever the input is.
+ */
+function isWholePdf(bytes: Uint8Array): boolean {
+  const tail = bytes.subarray(bytes.byteLength - EOF_MARKER.byteLength);
+  return (
+    bytes.byteLength > PDF_HEADER.byteLength + EOF_MARKER.byteLength &&
+    PDF_HEADER.every((byte, i) => bytes[i] === byte) &&
+    EOF_MARKER.every((byte, i) => tail[i] === byte)
+  );
+}
+
 /**
  * An image's worst-case size once embedded: raw RGB plus an alpha mask, or
  * the logo file itself, which pdf-lib embeds byte for byte when it is a JPEG
@@ -93,7 +109,8 @@ async function comparePages(
  * modes (watermark and page numbers). pdf-lib wrote the output; pdfjs reads
  * it, so the checks are cross-engine. ⚡ = also at `quick`.
  *
- * - ⚡ `pdf-opens`: the output opens in pdfjs without a password
+ * - ⚡ `pdf-opens`: the output is whole (`%PDF` … `%%EOF`, checked even when
+ *   pdfjs cannot open the input) and opens in pdfjs without a password
  * - ⚡ `page-count`: it has the input's page count
  * - ⚡ `first-page-renders`: its page 1 renders at `full`; `quick` only loads
  *   it. Measured on the real-file set, rendering page 1 (often a full-page
@@ -111,8 +128,11 @@ export const checkPdfWatermark: OutputChecker<Uint8Array, OverlayOptions, Uint8A
   request,
   output,
   depth,
-) =>
-  inspectPdf(input, async (inputInspection) => {
+) => {
+  if (!isWholePdf(output)) {
+    return [{ property: "pdf-opens", detail: `not a whole PDF (${output.byteLength} bytes)` }];
+  }
+  return inspectPdf(input, async (inputInspection) => {
     const source = inputInspection.status === "open" ? inputInspection.pdf : null;
     return inspectPdf(output, async (inspection): Promise<Violation[]> => {
       if (inspection.status !== "open") {
@@ -155,3 +175,4 @@ export const checkPdfWatermark: OutputChecker<Uint8Array, OverlayOptions, Uint8A
       return violations;
     });
   });
+};

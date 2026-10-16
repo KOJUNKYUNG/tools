@@ -95,6 +95,17 @@ describe("checkPdfWatermark", () => {
     ]);
   });
 
+  it("flags empty or cut-off bytes even when pdfjs cannot open the input", async () => {
+    const unreadable = new TextEncoder().encode("%PDF-1.7\nnot really a pdf");
+    const output = await (await PDFDocument.create()).save();
+    expect(await checkPdfWatermark(unreadable, watermark([1]), output, "quick")).toEqual([]);
+    for (const broken of [new Uint8Array(0), output.slice(0, output.byteLength - 40)]) {
+      expect(props(await checkPdfWatermark(unreadable, watermark([1]), broken, "quick"))).toEqual([
+        "pdf-opens",
+      ]);
+    }
+  });
+
   it("flags a first page that does not load (quick) or render (full)", async () => {
     const bytes = await input();
     const doc = await marked(bytes, [1]);
