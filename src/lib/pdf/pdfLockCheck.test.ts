@@ -5,7 +5,12 @@ import type { Violation } from "@/lib/output-check/core";
 import { withQpdf } from "./qpdf";
 import { buildDecryptArgs, buildEncryptArgs, type LockPermissions } from "./qpdfArgs";
 import { initQpdfForNode } from "./qpdfNode";
-import { checkPdfLock, type PdfLockRequest, type PdfUnlockRequest } from "./pdfLockCheck";
+import {
+  checkPdfLock,
+  hasEncryptKey,
+  type PdfLockRequest,
+  type PdfUnlockRequest,
+} from "./pdfLockCheck";
 
 beforeAll(initQpdfForNode);
 
@@ -146,5 +151,13 @@ describe("checkPdfLock: size", () => {
     const output = await lock(await doc.save(), "secret");
     expect(await checkPdfLock(input, lockRequest(), output, "quick")).toEqual([]);
     expect(props(await checkPdfLock(input, lockRequest(), output, "full"))).toEqual(["size-bound"]);
+  });
+});
+
+describe("hasEncryptKey", () => {
+  it("finds the key in a locked file and not in a plain one", async () => {
+    const plain = await pdfOf(2);
+    expect(hasEncryptKey(plain)).toBe(false);
+    expect(hasEncryptKey(await lock(plain, "secret"))).toBe(true);
   });
 });

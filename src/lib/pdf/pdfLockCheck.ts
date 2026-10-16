@@ -17,6 +17,21 @@ export interface PdfUnlockRequest {
   password: string;
 }
 
+const ENCRYPT_KEY = new TextEncoder().encode("/Encrypt");
+
+/**
+ * Whether `bytes` carry an `/Encrypt` key anywhere. A PDF without one is
+ * certainly not encrypted; one with it proves nothing (the key can sit in
+ * other content). The trailer or cross-reference stream dictionary that holds
+ * it is never compressed, so a byte search finds it.
+ */
+export function hasEncryptKey(bytes: Uint8Array): boolean {
+  for (let i = bytes.indexOf(ENCRYPT_KEY[0]); i !== -1; i = bytes.indexOf(ENCRYPT_KEY[0], i + 1)) {
+    if (ENCRYPT_KEY.every((byte, j) => bytes[i + j] === byte)) return true;
+  }
+  return false;
+}
+
 /**
  * The size bound: qpdf rewrites the file's structure and AES adds a few
  * bytes per stream and string, so either way the output stays near the input.

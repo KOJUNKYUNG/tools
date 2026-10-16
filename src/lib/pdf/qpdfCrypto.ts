@@ -19,10 +19,15 @@ import {
   DEFAULT_INPUT_PATH,
   DEFAULT_OUTPUT_PATH,
 } from "./qpdfArgs";
-import { checkPdfLock, type PdfLockRequest, type PdfUnlockRequest } from "./pdfLockCheck";
+import {
+  checkPdfLock,
+  hasEncryptKey,
+  type PdfLockRequest,
+  type PdfUnlockRequest,
+} from "./pdfLockCheck";
 import { classifyQpdfResult } from "./qpdfResultClass";
 import { generateOwnerPassword } from "./ownerPassword";
-import { WRONG_PASSWORD_PREFIX } from "../errors";
+import { CORRUPT_OUTPUT_PREFIX, WRONG_PASSWORD_PREFIX } from "../errors";
 
 export interface EncryptPdfOptions {
   /** Raw PDF bytes (read once by the caller and shared across operations). */
@@ -133,6 +138,11 @@ export async function encryptPdf({
   const outcome = classifyQpdfResult(exit, stderr, !!out);
   if (outcome !== "ok" || !out) {
     throw new Error(`CORRUPT_OUTPUT: qpdf encrypt failed (exit ${exit}) ${stderr.trim()}`);
+  }
+  // Backstop: a crashed check hands the result back unchecked, and a lock that
+  // did nothing must never reach the user. No /Encrypt key = certainly plain.
+  if (!hasEncryptKey(out)) {
+    throw new Error(`${CORRUPT_OUTPUT_PREFIX}: pdf-lock: output has no /Encrypt key`);
   }
   const data = await checkOutput(input, { mode: "lock", userPassword, permissions }, out);
   onProgress?.(100);
