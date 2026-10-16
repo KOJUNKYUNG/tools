@@ -297,7 +297,7 @@
         "estimateAfterCompress": "After compressing",
         "estimateNotSmaller": "No reduction",
         "previewDeferredHint": "Files over {size} show the result size and the original comparison after compressing.",
-        "imageReencodeSkippedNote": "Image re-encoding was skipped for this file so transparent images stay intact.",
+        "imageReencodeSkippedNote": "Image re-encoding was skipped for this file to keep the result from being damaged.",
         "resultTitle": "Compression result",
         "notSmallerTitle": "Can't shrink further",
         "notSmallerTryStronger": "{preset} compression doesn't make this PDF any smaller. Try the stronger {next}.",

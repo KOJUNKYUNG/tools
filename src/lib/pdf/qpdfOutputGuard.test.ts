@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { assertEncryptedPdf, assertDecryptedPdf } from "./qpdfOutputGuard";
-import { CORRUPT_OUTPUT_MARKER } from "./compressPdfIntegrity";
+import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
 
 function pdfBytes(body: string): Uint8Array {
   return new TextEncoder().encode(`%PDF-1.7\n${body}\n%%EOF`);
@@ -13,17 +13,17 @@ describe("assertEncryptedPdf", () => {
   });
 
   it("throws CORRUPT_OUTPUT for empty output", () => {
-    expect(() => assertEncryptedPdf(new Uint8Array())).toThrow(CORRUPT_OUTPUT_MARKER);
+    expect(() => assertEncryptedPdf(new Uint8Array())).toThrow(CORRUPT_OUTPUT_PREFIX);
   });
 
   it("throws CORRUPT_OUTPUT when the %PDF header is missing", () => {
     const noHeader = new TextEncoder().encode("not a pdf /Encrypt");
-    expect(() => assertEncryptedPdf(noHeader)).toThrow(CORRUPT_OUTPUT_MARKER);
+    expect(() => assertEncryptedPdf(noHeader)).toThrow(CORRUPT_OUTPUT_PREFIX);
   });
 
   it("throws CORRUPT_OUTPUT when /Encrypt is absent (encryption silently no-op)", () => {
     const plain = pdfBytes("trailer << /Root 1 0 R >>");
-    expect(() => assertEncryptedPdf(plain)).toThrow(CORRUPT_OUTPUT_MARKER);
+    expect(() => assertEncryptedPdf(plain)).toThrow(CORRUPT_OUTPUT_PREFIX);
   });
 });
 
@@ -39,11 +39,11 @@ describe("assertDecryptedPdf", () => {
   });
 
   it("throws CORRUPT_OUTPUT for empty output", () => {
-    expect(() => assertDecryptedPdf(new Uint8Array())).toThrow(CORRUPT_OUTPUT_MARKER);
+    expect(() => assertDecryptedPdf(new Uint8Array())).toThrow(CORRUPT_OUTPUT_PREFIX);
   });
 
   it("throws CORRUPT_OUTPUT when the %PDF header is missing", () => {
     const noHeader = new TextEncoder().encode("garbage");
-    expect(() => assertDecryptedPdf(noHeader)).toThrow(CORRUPT_OUTPUT_MARKER);
+    expect(() => assertDecryptedPdf(noHeader)).toThrow(CORRUPT_OUTPUT_PREFIX);
   });
 });

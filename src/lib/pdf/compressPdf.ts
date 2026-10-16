@@ -29,7 +29,7 @@ export type CompressPdfResult =
       compressedSize: number;
       /**
        * True when the chosen preset's output was damaged and the file was
-       * re-compressed without image re-encoding instead (see softMaskCheck.ts).
+       * re-compressed without image re-encoding instead (see pdfCompressCheck.ts).
        */
       imageReencodeSkipped: boolean;
     }

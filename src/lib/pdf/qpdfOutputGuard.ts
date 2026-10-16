@@ -2,7 +2,7 @@
 // runner (qpdfCrypto.ts) so the header / %PDF / /Encrypt checks are unit-
 // testable without loading the engine. Reuses the CORRUPT_OUTPUT sentinel so
 // the React error mapper swaps in the same localized "file is unusable" toast.
-import { CORRUPT_OUTPUT_MARKER } from "./compressPdfIntegrity";
+import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
 
 function hasPdfHeader(data: Uint8Array): boolean {
   return (
@@ -29,10 +29,10 @@ function includesAscii(data: Uint8Array, needle: string): boolean {
 
 function assertWellFormed(data: Uint8Array): void {
   if (data.length <= 4) {
-    throw new Error(`${CORRUPT_OUTPUT_MARKER}: empty output (${data.length} bytes)`);
+    throw new Error(`${CORRUPT_OUTPUT_PREFIX}: empty output (${data.length} bytes)`);
   }
   if (!hasPdfHeader(data)) {
-    throw new Error(`${CORRUPT_OUTPUT_MARKER}: missing %PDF header`);
+    throw new Error(`${CORRUPT_OUTPUT_PREFIX}: missing %PDF header`);
   }
 }
 
@@ -44,7 +44,7 @@ function assertWellFormed(data: Uint8Array): void {
 export function assertEncryptedPdf(data: Uint8Array): void {
   assertWellFormed(data);
   if (!includesAscii(data, "/Encrypt")) {
-    throw new Error(`${CORRUPT_OUTPUT_MARKER}: output is not encrypted (no /Encrypt)`);
+    throw new Error(`${CORRUPT_OUTPUT_PREFIX}: output is not encrypted (no /Encrypt)`);
   }
 }
 
