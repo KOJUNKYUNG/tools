@@ -58,6 +58,26 @@ export interface PdfPermissions {
   modify: boolean;
 }
 
+/** One raster image a page paints. */
+export interface PdfImagePaint {
+  /** pdfjs's id for the image; repeats of one image share it. */
+  id: string;
+  /** Pixel size. */
+  width: number;
+  height: number;
+}
+
+/** What a page's content stream draws. */
+export interface PdfPageContent {
+  /** Operators pdfjs builds from the page: drawing added to a page raises it. */
+  operatorCount: number;
+  /**
+   * Images painted as XObjects, in paint order. Runs pdfjs folds into one
+   * repeat operator are left out.
+   */
+  images: PdfImagePaint[];
+}
+
 export interface PdfReport {
   pageCount: number;
   /** Whether the file carries an encryption dictionary. */
@@ -75,6 +95,8 @@ export interface PdfReport {
   renderError(n: number): Promise<string | null>;
   /** Page `n`'s text, in content order. */
   text(n: number): Promise<string>;
+  /** What page `n` draws. Throws when the page does not render. */
+  content(n: number): Promise<PdfPageContent>;
   /** Whether page `n` paints at least one raster image. */
   drawsImage(n: number): Promise<boolean>;
 }
@@ -146,6 +168,17 @@ function report(doc: PDFDocumentProxy, lib: PdfjsLib): PdfReport {
     async text(n) {
       const { items } = await (await doc.getPage(n)).getTextContent();
       return items.map((item) => ("str" in item ? item.str : "")).join("");
+    },
+    async content(n) {
+      const { fnArray, argsArray } = await (await doc.getPage(n)).getOperatorList();
+      const images: PdfImagePaint[] = [];
+      fnArray.forEach((op, i) => {
+        if (op !== lib.OPS.paintImageXObject) return;
+        // pdfjs's paintImageXObject arguments are [objId, width, height].
+        const [id, width, height] = argsArray[i] as [string, number, number];
+        images.push({ id, width, height });
+      });
+      return { operatorCount: fnArray.length, images };
     },
     async drawsImage(n) {
       const { fnArray } = await (await doc.getPage(n)).getOperatorList();

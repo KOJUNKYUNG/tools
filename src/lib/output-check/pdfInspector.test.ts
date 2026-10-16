@@ -3,6 +3,7 @@ import path from "node:path";
 import { PDFDocument, StandardFonts, degrees } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import type { QpdfInstance } from "@/lib/pdf/qpdf";
+import { solidPng } from "@/lib/pdf/testImages";
 import { inspectPdf, type PdfInspection } from "./pdfInspector";
 
 type CreateModule = (opts: {
@@ -141,5 +142,27 @@ describe("inspectPdf", () => {
       copy: false,
       modify: true,
     });
+  });
+
+  it("counts a page's operators and lists the images it paints, in order", async () => {
+    const sample = await samplePdf();
+    const before = await inspectPdf(sample, async (i) =>
+      i.status === "open" ? (await i.pdf.content(1)).operatorCount : -1,
+    );
+    const doc = await PDFDocument.load(sample);
+    const image = await doc.embedPng(solidPng(8, 4));
+    doc.getPage(0).drawImage(image, { x: 0, y: 0, width: 8, height: 4 });
+    doc.getPage(0).drawImage(image, { x: 9, y: 0, width: 8, height: 4 });
+    const read = await inspectPdf(await doc.save(), async (i) => {
+      if (i.status !== "open") throw new Error(i.status);
+      return [await i.pdf.content(1), await i.pdf.content(2)];
+    });
+    const [marked, plain] = read;
+    expect(marked.images).toEqual([
+      { id: expect.any(String), width: 8, height: 4 },
+      { id: marked.images[0].id, width: 8, height: 4 },
+    ]);
+    expect(plain.images).toEqual([]);
+    expect(marked.operatorCount).toBeGreaterThan(before);
   });
 });

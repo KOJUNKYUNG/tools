@@ -1,4 +1,5 @@
 import { PDFDocument, PDFImage, PDFPage, degrees } from "pdf-lib";
+import { runOutputCheck } from "@/lib/output-check/core";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 import { formatPageNumber, type PageNumberFormat } from "./pageNumberFormat";
 import {
@@ -14,6 +15,7 @@ import {
   type GridPosition,
   type Point,
 } from "./overlayLayout";
+import { checkPdfWatermark } from "./pdfWatermarkCheck";
 import { renderTextToPng } from "./renderTextToPng";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -188,11 +190,12 @@ function visualPageSize(page: PDFPage): { vw: number; vh: number } {
 /**
  * Draw page numbers or a watermark onto a PDF and return new bytes.
  *
- *   load → build overlay PNG(s) → draw per page in range → save → integrity.
+ *   load → build overlay PNG(s) → draw per page in range → save → check.
  *
  * Korean text is rasterized via renderTextToPng (canvas + loaded Pretendard),
- * so there is no font embedding and no glyph-subsetting corruption risk. A
- * post-save reopen guards against a silently broken output.
+ * so there is no font embedding and no glyph-subsetting corruption risk. The
+ * output check (pdfWatermarkCheck.ts) reopens the result in pdfjs before it
+ * is offered.
  */
 export async function applyOverlay({
   file,
@@ -337,14 +340,12 @@ export async function applyOverlay({
   }
 
   onProgress?.(92);
-  const out = await pdf.save();
-
-  // Integrity: reopen and confirm the page count survived and bytes exist.
-  if (out.length === 0) throw new Error("CORRUPT_OUTPUT: 빈 출력");
-  const check = await PDFDocument.load(out);
-  if (check.getPageCount() !== total) {
-    throw new Error("CORRUPT_OUTPUT: 페이지 수가 변경되었습니다.");
-  }
+  // No safer mode exists: a failing output is blocked.
+  const out = await runOutputCheck({
+    tool: "pdf-watermark",
+    output: await pdf.save(),
+    check: (output) => checkPdfWatermark(bytes, options, output, "quick"),
+  });
 
   onProgress?.(100);
   return { data: out, pageCount: total, appliedPages: applied };
