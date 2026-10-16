@@ -42,6 +42,8 @@ export interface PdfCompressLabels {
   notSmallerTryStronger: string;
   /** `{preset}`: the strongest preset's name. */
   notSmallerOptimized: string;
+  /** Images were left as they are to avoid damage, so no preset can help. */
+  notSmallerImagesKept: string;
   originalSizeLabel: string;
   compressedSizeLabel: string;
   savingsLabel: string;
@@ -97,6 +99,7 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     notSmallerTitle: p.notSmallerTitle,
     notSmallerTryStronger: p.notSmallerTryStronger,
     notSmallerOptimized: p.notSmallerOptimized,
+    notSmallerImagesKept: p.notSmallerImagesKept,
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,
     savingsLabel: p.savingsLabel,

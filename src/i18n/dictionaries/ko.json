@@ -302,6 +302,7 @@
         "notSmallerTitle": "더 줄일 수 없음",
         "notSmallerTryStronger": "{preset} 압축으로는 이 PDF가 더 작아지지 않습니다. 더 강한 {next} 단계로 다시 시도해 보세요.",
         "notSmallerOptimized": "가장 강한 {preset} 압축으로도 더 작아지지 않습니다. 이미 최적화된 파일입니다.",
+        "notSmallerImagesKept": "이미지가 손상되지 않도록 이미지는 그대로 두고 압축했지만, 이 PDF는 더 작아지지 않습니다. 더 강한 단계도 결과가 같습니다.",
         "originalSizeLabel": "원본 크기",
         "compressedSizeLabel": "압축 후",
         "savingsLabel": "절감률",

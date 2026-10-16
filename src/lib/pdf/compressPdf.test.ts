@@ -51,6 +51,7 @@ describe("compressPdfFromBytes", () => {
       kind: "not-smaller",
       originalSize: bytes.byteLength,
       compressedSize: expect.any(Number),
+      imageReencodeSkipped: false,
     });
     if (result.kind !== "not-smaller") throw new Error(result.kind);
     expect(result.compressedSize).toBeGreaterThanOrEqual(bytes.byteLength);
@@ -61,6 +62,12 @@ describe("compressPdfFromBytes", () => {
     const result = await compressPdfFromBytes({ bytes: await compressible(), preset: "high" });
     expect(result).toMatchObject({ kind: "compressed", imageReencodeSkipped: true });
     expect(mockedCheck).toHaveBeenCalledTimes(2);
+  });
+
+  it("says when a recovered file could not shrink: a stronger preset would recover the same way", async () => {
+    mockedCheck.mockResolvedValueOnce(damaged);
+    const result = await compressPdfFromBytes({ bytes: await incompressible(), preset: "medium" });
+    expect(result).toMatchObject({ kind: "not-smaller", imageReencodeSkipped: true });
   });
 
   it("blocks when the re-compression is damaged too", async () => {

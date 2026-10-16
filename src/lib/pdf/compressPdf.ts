@@ -33,7 +33,16 @@ export type CompressPdfResult =
        */
       imageReencodeSkipped: boolean;
     }
-  | { kind: "not-smaller"; originalSize: number; compressedSize: number };
+  | {
+      kind: "not-smaller";
+      originalSize: number;
+      compressedSize: number;
+      /**
+       * As above. A stronger preset would recover the same way, so it cannot
+       * help: the tool must not suggest one.
+       */
+      imageReencodeSkipped: boolean;
+    };
 
 interface PresetParams {
   jpegQuality: number;
@@ -124,18 +133,12 @@ export async function compressPdfFromBytes({
   });
   onProgress?.(100);
 
-  if (notSmaller(bytes, output)) {
-    return {
-      kind: "not-smaller",
-      originalSize: bytes.byteLength,
-      compressedSize: output.byteLength,
-    };
-  }
-  return {
-    kind: "compressed",
-    data: output,
+  const sizes = {
     originalSize: bytes.byteLength,
     compressedSize: output.byteLength,
     imageReencodeSkipped: output !== first,
   };
+  return notSmaller(bytes, output)
+    ? { kind: "not-smaller", ...sizes }
+    : { kind: "compressed", data: output, ...sizes };
 }

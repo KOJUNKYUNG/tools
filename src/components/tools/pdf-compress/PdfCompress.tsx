@@ -264,7 +264,8 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
         if (token === livePreviewTokenRef.current) setLive({ file, preset, result: null });
       } finally {
         if (createdUrl && !committed) URL.revokeObjectURL(createdUrl);
-        setLivePreviewLoading(false);
+        // A stale run must not end the loading state of the run that replaced it.
+        if (token === livePreviewTokenRef.current) setLivePreviewLoading(false);
       }
     }, delay);
     return () => {
@@ -317,7 +318,8 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   const livePreview = !!file && shouldPreviewCompress(file.size, LIVE_PREVIEW_LIMIT);
   const liveNow = live && live.file === file && live.preset === preset ? live : null;
   const liveCompressed = liveNow?.result?.kind === "compressed" ? liveNow.result : null;
-  const liveNotSmaller = liveNow?.result?.kind === "not-smaller";
+  const liveNotSmallerResult = liveNow?.result?.kind === "not-smaller" ? liveNow.result : null;
+  const liveNotSmaller = liveNotSmallerResult !== null;
   const sizeDisplay = selectSizeDisplay({
     actualCompressedSize: liveCompressed?.compressedSize ?? null,
     livePreview,
@@ -329,7 +331,9 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       ? []
       : [template(labels.previewDeferredHint, { size: formatBytes(LIVE_PREVIEW_LIMIT) })]),
     ...(liveCompressed?.imageReencodeSkipped ? [labels.imageReencodeSkippedNote] : []),
-    ...(liveNotSmaller ? [notSmallerMessage(preset, labels)] : []),
+    ...(liveNotSmallerResult
+      ? [notSmallerMessage(preset, liveNotSmallerResult.imageReencodeSkipped, labels)]
+      : []),
   ];
 
   const pageCount = fileMeta && fileMeta.file === file ? fileMeta.pages : null;
@@ -429,7 +433,11 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
               style={{ borderColor: "var(--border)" }}
             >
               {isDone && result?.kind === "not-smaller" ? (
-                <PdfCompressNotSmaller preset={preset} labels={labels} />
+                <PdfCompressNotSmaller
+                  preset={preset}
+                  imageReencodeSkipped={result.imageReencodeSkipped}
+                  labels={labels}
+                />
               ) : isDone && result?.kind === "compressed" ? (
                 <PdfCompressResult
                   originalSize={result.originalSize}

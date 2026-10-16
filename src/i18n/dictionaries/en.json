@@ -302,6 +302,7 @@
         "notSmallerTitle": "Can't shrink further",
         "notSmallerTryStronger": "{preset} compression doesn't make this PDF any smaller. Try the stronger {next}.",
         "notSmallerOptimized": "Even {preset}, the strongest setting, doesn't make this PDF any smaller. It's already optimized.",
+        "notSmallerImagesKept": "To keep its images from being damaged, they were left as they are, and this PDF doesn't get any smaller. Stronger settings give the same result.",
         "originalSizeLabel": "Original size",
         "compressedSizeLabel": "After",
         "savingsLabel": "Savings",
