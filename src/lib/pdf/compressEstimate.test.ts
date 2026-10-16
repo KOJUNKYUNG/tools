@@ -26,6 +26,17 @@ describe("selectSizeDisplay", () => {
     ).toEqual({ kind: "afterCompress" });
   });
 
+  it("says the preset cannot shrink the file when its live compress came out no smaller", () => {
+    expect(
+      selectSizeDisplay({
+        actualCompressedSize: null,
+        livePreview: true,
+        liveFailed: false,
+        liveNotSmaller: true,
+      }),
+    ).toEqual({ kind: "notSmaller" });
+  });
+
   it("never invents a number: no measured size means no size", () => {
     for (const livePreview of [true, false]) {
       for (const liveFailed of [true, false]) {

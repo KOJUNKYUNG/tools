@@ -31,10 +31,16 @@ export interface PdfCompressLabels {
   estimateActualTemplate: string;
   estimateComputing: string;
   estimateAfterCompress: string;
+  estimateNotSmaller: string;
   previewDeferredHint: string;
   imageReencodeSkippedNote: string;
   // Result
   resultTitle: string;
+  notSmallerTitle: string;
+  /** `{preset}` and `{next}`: the chosen and the next stronger preset's name. */
+  notSmallerTryStronger: string;
+  /** `{preset}`: the strongest preset's name. */
+  notSmallerOptimized: string;
   originalSizeLabel: string;
   compressedSizeLabel: string;
   savingsLabel: string;
@@ -76,9 +82,13 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     estimateActualTemplate: p.estimateActualTemplate,
     estimateComputing: p.estimateComputing,
     estimateAfterCompress: p.estimateAfterCompress,
+    estimateNotSmaller: p.estimateNotSmaller,
     previewDeferredHint: p.previewDeferredHint,
     imageReencodeSkippedNote: p.imageReencodeSkippedNote,
     resultTitle: p.resultTitle,
+    notSmallerTitle: p.notSmallerTitle,
+    notSmallerTryStronger: p.notSmallerTryStronger,
+    notSmallerOptimized: p.notSmallerOptimized,
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,
     savingsLabel: p.savingsLabel,

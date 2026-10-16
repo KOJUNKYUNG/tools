@@ -1,7 +1,14 @@
-import { assertCompressedPdfIntegrity, CORRUPT_OUTPUT_MARKER } from "./compressPdfIntegrity";
-import { hasInvalidSoftMask } from "./softMaskCheck";
+import { runOutputCheck } from "@/lib/output-check/core";
+import { checkPdfCompress, notSmaller, SIZE_BOUND } from "./pdfCompressCheck";
 
 export type CompressionPreset = "low" | "medium" | "high";
+
+/** The next stronger preset, or null for the strongest. */
+export const STRONGER_PRESET: Record<CompressionPreset, CompressionPreset | null> = {
+  low: "medium",
+  medium: "high",
+  high: null,
+};
 
 export interface CompressPdfOptions {
   file: File;
@@ -9,17 +16,24 @@ export interface CompressPdfOptions {
   onProgress?: (pct: number) => void;
 }
 
-export interface CompressPdfResult {
-  data: Uint8Array;
-  originalSize: number;
-  compressedSize: number;
-  ratio: number;
-  /**
-   * True when the chosen preset produced an invalid soft mask and the file was
-   * re-compressed without image re-encoding instead (see softMaskCheck.ts).
-   */
-  imageReencodeSkipped: boolean;
-}
+/**
+ * What a compression run hands back. "not-smaller" is not an error: the
+ * output came out no smaller than the input, so there is nothing to offer and
+ * the original is not passed off as compressed (spec #51, decided in #60).
+ */
+export type CompressPdfResult =
+  | {
+      kind: "compressed";
+      data: Uint8Array;
+      originalSize: number;
+      compressedSize: number;
+      /**
+       * True when the chosen preset's output was damaged and the file was
+       * re-compressed without image re-encoding instead (see softMaskCheck.ts).
+       */
+      imageReencodeSkipped: boolean;
+    }
+  | { kind: "not-smaller"; originalSize: number; compressedSize: number };
 
 interface PresetParams {
   jpegQuality: number;
@@ -58,14 +72,14 @@ export async function compressPdfFromBytes({
 }: CompressPdfFromBytesOptions): Promise<CompressPdfResult> {
   const mod = await import("@kihyun1998/justpdf-compress-wasm");
   const init = mod.default;
-  const { compress_advanced, analyze } = mod;
+  const { compress_advanced } = mod;
   await init();
   // Emit 30% only after the slow WASM init resolves — otherwise the bar
   // jumps to 30 instantly and stalls during init on first run.
   onProgress?.(30);
   onProgress?.(50);
 
-  const run = (params: PresetParams) => {
+  const run = (params: PresetParams): Uint8Array => {
     // font_subsetting=false: the upstream WASM's subsetter corrupts glyph maps on
     // several Korean fonts (full doc AND pdf-lib-extracted subsets). Skipping it
     // gives reliable output across all PDFs at a modest compression-ratio cost.
@@ -80,74 +94,48 @@ export async function compressPdfFromBytes({
       /* grayscale */ false,
     );
     try {
-      return {
-        data: result.data(),
-        originalSize: result.original_size,
-        compressedSize: result.compressed_size,
-        ratio: result.ratio,
-      };
+      return result.data();
     } finally {
       result.free();
     }
   };
 
   const params = ADVANCED_PARAMS[preset];
-  let output = run(params);
-  let imageReencodeSkipped = false;
-  if (hasInvalidSoftMask(output.data)) {
-    // Image re-encoding rewrote a soft mask as an RGB JPEG, which some viewers
-    // drop. Redo this file without image re-encoding (Light's image settings),
-    // keeping the preset's metadata choice. Light never re-encodes masks, so a
-    // repeat means something else is wrong — refuse rather than ship it.
-    if (params.jpegQuality === 0) {
-      throw new Error(`${CORRUPT_OUTPUT_MARKER}: invalid soft mask`);
-    }
-    output = run({ ...ADVANCED_PARAMS.low, stripMetadata: params.stripMetadata });
-    imageReencodeSkipped = true;
-    if (hasInvalidSoftMask(output.data)) {
-      throw new Error(`${CORRUPT_OUTPUT_MARKER}: invalid soft mask`);
-    }
-  }
+  const first = run(params);
   onProgress?.(90);
 
-  const data = output.data;
-  const summary: CompressPdfResult = { ...output, imageReencodeSkipped };
-
-  // Run analyze() on source + output and verify page count survived.
-  // Defense against upstream WASM silent corruption (3.2MB → 24KB pattern).
-  let sourcePageCount = 0;
-  let outputPageCount = 0;
-  let outputAnalyzed = false;
-  let srcResult: ReturnType<typeof analyze> | null = null;
-  try {
-    srcResult = analyze(bytes);
-    sourcePageCount = srcResult.pages;
-  } catch {
-    // Source unanalyzable — fall back to header + ratio checks.
-  } finally {
-    srcResult?.free();
-  }
-  let outResult: ReturnType<typeof analyze> | null = null;
-  try {
-    outResult = analyze(data);
-    outputPageCount = outResult.pages;
-    outputAnalyzed = true;
-  } catch {
-    // Output unanalyzable — ratio + header branches still run; the
-    // page-drop branch is gated on outputAnalyzed to avoid false-
-    // positiving a healthy output whose structure trips the analyzer.
-  } finally {
-    outResult?.free();
-  }
-  assertCompressedPdfIntegrity({
-    data,
-    originalSize: summary.originalSize,
-    compressedSize: summary.compressedSize,
-    sourcePageCount,
-    outputPageCount,
-    outputAnalyzed,
+  // Damage is checked first: a damaged output is recovered or blocked whatever
+  // its size. Not shrinking is an outcome, handled after.
+  const output = await runOutputCheck({
+    tool: "pdf-compress",
+    output: first,
+    check: async (out) =>
+      (await checkPdfCompress(bytes, { preset }, out, "quick")).filter(
+        (v) => v.property !== SIZE_BOUND,
+      ),
+    // Image re-encoding is where the compressor goes wrong (it rewrote soft
+    // masks as RGB JPEGs, which some viewers drop): redo the file with Light's
+    // image settings, keeping the preset's metadata choice. Light never
+    // re-encodes, so it has no safer setting to fall back to.
+    recover:
+      params.jpegQuality === 0
+        ? undefined
+        : async () => run({ ...ADVANCED_PARAMS.low, stripMetadata: params.stripMetadata }),
   });
-
   onProgress?.(100);
-  return summary;
+
+  if (notSmaller(bytes, output)) {
+    return {
+      kind: "not-smaller",
+      originalSize: bytes.byteLength,
+      compressedSize: output.byteLength,
+    };
+  }
+  return {
+    kind: "compressed",
+    data: output,
+    originalSize: bytes.byteLength,
+    compressedSize: output.byteLength,
+    imageReencodeSkipped: output !== first,
+  };
 }
