@@ -4,7 +4,7 @@ import { inspectPdf } from "@/lib/output-check/pdfInspector";
 import { realFileSuite, type RealFileRequest } from "@/lib/output-check/realFileSuite";
 import { compressPdfFromBytes, type CompressPdfResult } from "./compressPdf";
 import { initJustpdfForNode } from "./justpdfNode";
-import { checkPdfCompress, type PdfCompressRequest } from "./pdfCompressCheck";
+import { checkPdfCompress, SIZE_BOUND, type PdfCompressRequest } from "./pdfCompressCheck";
 
 beforeAll(initJustpdfForNode);
 
@@ -33,6 +33,6 @@ realFileSuite<PdfCompressRequest, CompressPdfResult>({
     // Nothing is offered, so the only claim to hold is that it did not shrink.
     return result.compressedSize >= result.originalSize
       ? []
-      : [{ property: "size-bound", detail: "reported not-smaller, yet smaller" }];
+      : [{ property: SIZE_BOUND, detail: "reported not-smaller, yet smaller" }];
   },
 });

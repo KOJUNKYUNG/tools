@@ -316,21 +316,20 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   const overLimit = !!file && file.size > LIVE_PREVIEW_LIMIT;
   const livePreview = !!file && shouldPreviewCompress(file.size, LIVE_PREVIEW_LIMIT);
   const liveNow = live && live.file === file && live.preset === preset ? live : null;
+  const liveCompressed = liveNow?.result?.kind === "compressed" ? liveNow.result : null;
+  const liveNotSmaller = liveNow?.result?.kind === "not-smaller";
   const sizeDisplay = selectSizeDisplay({
-    actualCompressedSize:
-      liveNow?.result?.kind === "compressed" ? liveNow.result.compressedSize : null,
+    actualCompressedSize: liveCompressed?.compressedSize ?? null,
     livePreview,
     liveFailed: liveNow !== null && liveNow.result === null,
-    liveNotSmaller: liveNow?.result?.kind === "not-smaller",
+    liveNotSmaller,
   });
   const estimateNotes = [
     ...(livePreview
       ? []
       : [template(labels.previewDeferredHint, { size: formatBytes(LIVE_PREVIEW_LIMIT) })]),
-    ...(liveNow?.result?.kind === "compressed" && liveNow.result.imageReencodeSkipped
-      ? [labels.imageReencodeSkippedNote]
-      : []),
-    ...(liveNow?.result?.kind === "not-smaller" ? [notSmallerMessage(preset, labels)] : []),
+    ...(liveCompressed?.imageReencodeSkipped ? [labels.imageReencodeSkippedNote] : []),
+    ...(liveNotSmaller ? [notSmallerMessage(preset, labels)] : []),
   ];
 
   const pageCount = fileMeta && fileMeta.file === file ? fileMeta.pages : null;

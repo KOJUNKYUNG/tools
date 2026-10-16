@@ -1,4 +1,5 @@
 import type { Dictionary } from "@/i18n/config";
+import type { CompressionPreset } from "@/lib/pdf/compressPdf";
 
 export interface PdfCompressLabels {
   // Header (used by page chrome variant)
@@ -52,6 +53,13 @@ export interface PdfCompressLabels {
   errorEncrypted: string;
   // Shared FileUpload labels (toasts + file list i18n)
   fileUpload: Dictionary["common"]["fileUpload"];
+}
+
+/** A preset's display name (Light / Medium / Heavy). */
+export function presetLabel(preset: CompressionPreset, labels: PdfCompressLabels): string {
+  return { low: labels.presetLightLabel, medium: labels.presetMediumLabel, high: labels.presetHeavyLabel }[
+    preset
+  ];
 }
 
 export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {

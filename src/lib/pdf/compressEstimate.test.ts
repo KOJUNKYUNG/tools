@@ -4,25 +4,25 @@ import { selectSizeDisplay } from "./compressEstimate";
 describe("selectSizeDisplay", () => {
   it("shows the measured size once the live compress for this preset is done", () => {
     expect(
-      selectSizeDisplay({ actualCompressedSize: 512_000, livePreview: true, liveFailed: false }),
+      selectSizeDisplay({ actualCompressedSize: 512_000, livePreview: true, liveFailed: false, liveNotSmaller: false }),
     ).toEqual({ kind: "actual", size: 512_000 });
   });
 
   it("reports computing while the live compress for this preset is pending", () => {
     expect(
-      selectSizeDisplay({ actualCompressedSize: null, livePreview: true, liveFailed: false }),
+      selectSizeDisplay({ actualCompressedSize: null, livePreview: true, liveFailed: false, liveNotSmaller: false }),
     ).toEqual({ kind: "computing" });
   });
 
   it("defers to after compressing when the file is above the live-preview gate", () => {
     expect(
-      selectSizeDisplay({ actualCompressedSize: null, livePreview: false, liveFailed: false }),
+      selectSizeDisplay({ actualCompressedSize: null, livePreview: false, liveFailed: false, liveNotSmaller: false }),
     ).toEqual({ kind: "afterCompress" });
   });
 
   it("defers to after compressing when the live compress failed (no endless spinner)", () => {
     expect(
-      selectSizeDisplay({ actualCompressedSize: null, livePreview: true, liveFailed: true }),
+      selectSizeDisplay({ actualCompressedSize: null, livePreview: true, liveFailed: true, liveNotSmaller: false }),
     ).toEqual({ kind: "afterCompress" });
   });
 
@@ -40,7 +40,7 @@ describe("selectSizeDisplay", () => {
   it("never invents a number: no measured size means no size", () => {
     for (const livePreview of [true, false]) {
       for (const liveFailed of [true, false]) {
-        const d = selectSizeDisplay({ actualCompressedSize: null, livePreview, liveFailed });
+        const d = selectSizeDisplay({ actualCompressedSize: null, livePreview, liveFailed, liveNotSmaller: false });
         expect(d.kind).not.toBe("actual");
       }
     }

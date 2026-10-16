@@ -1,7 +1,7 @@
 "use client";
 
 import type { CompressionPreset } from "@/lib/pdf/compressPdf";
-import type { PdfCompressLabels } from "./labels";
+import { presetLabel, type PdfCompressLabels } from "./labels";
 
 interface PdfCompressControlsProps {
   preset: CompressionPreset;
@@ -21,11 +21,10 @@ export function PdfCompressControls({
   labels,
   disabled = false,
 }: PdfCompressControlsProps) {
-  const options: { value: CompressionPreset; label: string }[] = [
-    { value: "low", label: labels.presetLightLabel },
-    { value: "medium", label: labels.presetMediumLabel },
-    { value: "high", label: labels.presetHeavyLabel },
-  ];
+  const options = (["low", "medium", "high"] as const).map((value) => ({
+    value,
+    label: presetLabel(value, labels),
+  }));
 
   return (
     <div className="space-y-2">

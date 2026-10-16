@@ -221,15 +221,17 @@ to the input or the user's request** (e.g. "pdf-arrange: page count equals the
 pages the user kept"). Each tool declares its own, and every tool declares a
 **size bound**. Both layers check output properties: the output check checks
 the cheap ones on every run; the regression set checks all of them on sample
-files. A size bound acts at run time only where a recovery exists (e.g. a
-compressor returning the original) — a merely large file is still usable, so
-it is never blocked.
+files. A size bound acts at run time only for compressors, whose job is to
+shrink: an output no smaller than the input becomes a distinct **could not
+shrink** result with no download (never the original passed off as
+compressed). Elsewhere a merely large file is still usable, so it is never
+blocked.
 
 ### Output check
 Re-examining a tool's result in the browser before the download is offered.
 Cheap by design — structure, counts, first-page render — not an exhaustive
-audit. On failure it first **recovers silently** (re-run in a safer mode, or
-return the original); if no recovery exists, it **blocks the download** with a
+audit. On failure it first **recovers silently** (re-run in a safer mode,
+e.g. a compressor without image re-encoding); if no recovery exists, it **blocks the download** with a
 plain-language message. It never warns-and-allows. It flags only what is
 certainly wrong: a false positive blocks a user with a good file.
 

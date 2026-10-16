@@ -21,14 +21,14 @@ export interface SelectSizeDisplayInput {
   /** The live compress for the current file + preset ended without a result. */
   liveFailed: boolean;
   /** The live compress for the current file + preset came out no smaller. */
-  liveNotSmaller?: boolean;
+  liveNotSmaller: boolean;
 }
 
 export function selectSizeDisplay({
   actualCompressedSize,
   livePreview,
   liveFailed,
-  liveNotSmaller = false,
+  liveNotSmaller,
 }: SelectSizeDisplayInput): SizeDisplay {
   if (liveNotSmaller) return { kind: "notSmaller" };
   if (actualCompressedSize != null) return { kind: "actual", size: actualCompressedSize };

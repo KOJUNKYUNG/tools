@@ -3,12 +3,7 @@
 import { ResultCard } from "@/components/common/ResultCard";
 import { template } from "@/lib/common/template";
 import { STRONGER_PRESET, type CompressionPreset } from "@/lib/pdf/compressPdf";
-import type { PdfCompressLabels } from "./labels";
-
-const presetName = (preset: CompressionPreset, labels: PdfCompressLabels) =>
-  ({ low: labels.presetLightLabel, medium: labels.presetMediumLabel, high: labels.presetHeavyLabel })[
-    preset
-  ];
+import { presetLabel, type PdfCompressLabels } from "./labels";
 
 /**
  * What to tell the user when `preset` could not shrink the file: try the next
@@ -18,10 +13,10 @@ export function notSmallerMessage(preset: CompressionPreset, labels: PdfCompress
   const next = STRONGER_PRESET[preset];
   return next
     ? template(labels.notSmallerTryStronger, {
-        preset: presetName(preset, labels),
-        next: presetName(next, labels),
+        preset: presetLabel(preset, labels),
+        next: presetLabel(next, labels),
       })
-    : template(labels.notSmallerOptimized, { preset: presetName(preset, labels) });
+    : template(labels.notSmallerOptimized, { preset: presetLabel(preset, labels) });
 }
 
 interface PdfCompressNotSmallerProps {
