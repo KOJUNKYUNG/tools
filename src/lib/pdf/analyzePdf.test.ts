@@ -1,9 +1,7 @@
-import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { beforeAll, describe, expect, it } from "vitest";
 import { PDFDocument } from "pdf-lib";
-import initJustpdf from "@kihyun1998/justpdf-compress-wasm";
 import { analyzePdf } from "./analyzePdf";
+import { initJustpdfForNode } from "./justpdfNode";
 
 async function buildPdf(pageCount: number): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -14,15 +12,7 @@ async function buildPdf(pageCount: number): Promise<Uint8Array> {
   return doc.save();
 }
 
-// justpdf is browser-targeted: its default init() fetches the wasm by URL,
-// which Node can't do. Initialise it here with the wasm bytes; analyzePdf's
-// own init() then finds the module ready. If this fails, the suite must fail.
-beforeAll(async () => {
-  const wasmPath = createRequire(import.meta.url).resolve(
-    "@kihyun1998/justpdf-compress-wasm/justpdf_compress_wasm_bg.wasm",
-  );
-  await initJustpdf({ module_or_path: await readFile(wasmPath) });
-});
+beforeAll(initJustpdfForNode);
 
 describe("analyzePdf", () => {
   it("reports the page count and zero images for a text-only PDF", async () => {

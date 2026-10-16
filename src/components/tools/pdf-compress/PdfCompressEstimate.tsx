@@ -26,7 +26,9 @@ export function PdfCompressEstimate({ preset, display, labels, notes = [] }: Pdf
       ? template(labels.estimateActualTemplate, { size: formatBytes(display.size) })
       : display.kind === "computing"
         ? labels.estimateComputing
-        : labels.estimateAfterCompress;
+        : display.kind === "notSmaller"
+          ? labels.estimateNotSmaller
+          : labels.estimateAfterCompress;
 
   return (
     <div className="space-y-1.5 font-body text-[12px]">

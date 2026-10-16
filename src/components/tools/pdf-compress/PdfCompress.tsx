@@ -24,6 +24,7 @@ import { deriveCompressedName } from "@/lib/pdf/pdfCompressNaming";
 import { ComparePreview, renderPdfFirstPage } from "./ComparePreview";
 import { PdfCompressControls } from "./PdfCompressControls";
 import { PdfCompressEstimate } from "./PdfCompressEstimate";
+import { notSmallerMessage, PdfCompressNotSmaller } from "./PdfCompressNotSmaller";
 import { PdfCompressResult } from "./PdfCompressResult";
 import type { PdfCompressLabels } from "./labels";
 
@@ -91,12 +92,15 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       }
       return compressPdf({ file: processorFiles[0], preset, onProgress });
     },
-    onDownload: (res) =>
+    onDownload: (res) => {
+      // A file that could not shrink has nothing to download.
+      if (res.kind !== "compressed") return;
       downloadBlob(
         res.data,
         deriveCompressedName(filesRef.current[0]?.name ?? ""),
         "application/pdf",
-      ),
+      );
+    },
     errorOptions: {
       memoryHint: labels.errorMemory,
       corruptOutputHint: labels.errorCorrupt,
@@ -181,7 +185,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   // result.data is reused by downloadBlob → MUST slice() to keep it intact
   // (pitfall i).
   useEffect(() => {
-    if (!result) {
+    if (result?.kind !== "compressed") {
       setCompressedUrl(null);
       return;
     }
@@ -238,6 +242,14 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
           previewCacheRef.current.set(preset, result);
         }
         setLive({ file, preset, result });
+        if (result.kind !== "compressed") {
+          // Nothing smaller to show: the frame falls back to the original.
+          setLivePreviewUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+          });
+          return;
+        }
         const blob = await renderPdfFirstPage(result.data.slice(), PREVIEW_WIDTH, PREVIEW_MAX_SCALE);
         if (token !== livePreviewTokenRef.current) return;
         createdUrl = URL.createObjectURL(blob);
@@ -252,7 +264,8 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
         if (token === livePreviewTokenRef.current) setLive({ file, preset, result: null });
       } finally {
         if (createdUrl && !committed) URL.revokeObjectURL(createdUrl);
-        setLivePreviewLoading(false);
+        // A stale run must not end the loading state of the run that replaced it.
+        if (token === livePreviewTokenRef.current) setLivePreviewLoading(false);
       }
     }, delay);
     return () => {
@@ -304,16 +317,23 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
   const overLimit = !!file && file.size > LIVE_PREVIEW_LIMIT;
   const livePreview = !!file && shouldPreviewCompress(file.size, LIVE_PREVIEW_LIMIT);
   const liveNow = live && live.file === file && live.preset === preset ? live : null;
+  const liveCompressed = liveNow?.result?.kind === "compressed" ? liveNow.result : null;
+  const liveNotSmallerResult = liveNow?.result?.kind === "not-smaller" ? liveNow.result : null;
+  const liveNotSmaller = liveNotSmallerResult !== null;
   const sizeDisplay = selectSizeDisplay({
-    actualCompressedSize: liveNow?.result?.compressedSize ?? null,
+    actualCompressedSize: liveCompressed?.compressedSize ?? null,
     livePreview,
     liveFailed: liveNow !== null && liveNow.result === null,
+    liveNotSmaller,
   });
   const estimateNotes = [
     ...(livePreview
       ? []
       : [template(labels.previewDeferredHint, { size: formatBytes(LIVE_PREVIEW_LIMIT) })]),
-    ...(liveNow?.result?.imageReencodeSkipped ? [labels.imageReencodeSkippedNote] : []),
+    ...(liveCompressed?.imageReencodeSkipped ? [labels.imageReencodeSkippedNote] : []),
+    ...(liveNotSmallerResult
+      ? [notSmallerMessage(preset, liveNotSmallerResult.imageReencodeSkipped, labels)]
+      : []),
   ];
 
   const pageCount = fileMeta && fileMeta.file === file ? fileMeta.pages : null;
@@ -412,7 +432,13 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
               className="flex h-full min-h-0 flex-col md:border-l md:pl-5"
               style={{ borderColor: "var(--border)" }}
             >
-              {isDone && result ? (
+              {isDone && result?.kind === "not-smaller" ? (
+                <PdfCompressNotSmaller
+                  preset={preset}
+                  imageReencodeSkipped={result.imageReencodeSkipped}
+                  labels={labels}
+                />
+              ) : isDone && result?.kind === "compressed" ? (
                 <PdfCompressResult
                   originalSize={result.originalSize}
                   compressedSize={result.compressedSize}

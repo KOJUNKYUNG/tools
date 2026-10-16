@@ -10,15 +10,17 @@ describe("buildEncryptArgs", () => {
     ownerPassword: "owner456",
   };
 
-  it("starts with --encrypt user owner 256 and ends with -- in out", () => {
+  it("starts with --encrypt and named passwords and 256 bits, and ends with -- in out", () => {
     const args = buildEncryptArgs({
       ...base,
       permissions: { allowPrint: false, allowCopy: false },
     });
-    expect(args[0]).toBe("--encrypt");
-    expect(args[1]).toBe("open123");
-    expect(args[2]).toBe("owner456");
-    expect(args[3]).toBe("256");
+    expect(args.slice(0, 4)).toEqual([
+      "--encrypt",
+      "--user-password=open123",
+      "--owner-password=owner456",
+      "--bits=256",
+    ]);
     // positional input/output come after the `--` separator, in order.
     const sep = args.indexOf("--");
     expect(sep).toBeGreaterThan(3);

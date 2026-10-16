@@ -1,4 +1,5 @@
 import type { Dictionary } from "@/i18n/config";
+import type { CompressionPreset } from "@/lib/pdf/compressPdf";
 
 export interface PdfCompressLabels {
   // Header (used by page chrome variant)
@@ -31,10 +32,18 @@ export interface PdfCompressLabels {
   estimateActualTemplate: string;
   estimateComputing: string;
   estimateAfterCompress: string;
+  estimateNotSmaller: string;
   previewDeferredHint: string;
   imageReencodeSkippedNote: string;
   // Result
   resultTitle: string;
+  notSmallerTitle: string;
+  /** `{preset}` and `{next}`: the chosen and the next stronger preset's name. */
+  notSmallerTryStronger: string;
+  /** `{preset}`: the strongest preset's name. */
+  notSmallerOptimized: string;
+  /** Images were left as they are to avoid damage, so no preset can help. */
+  notSmallerImagesKept: string;
   originalSizeLabel: string;
   compressedSizeLabel: string;
   savingsLabel: string;
@@ -46,6 +55,13 @@ export interface PdfCompressLabels {
   errorEncrypted: string;
   // Shared FileUpload labels (toasts + file list i18n)
   fileUpload: Dictionary["common"]["fileUpload"];
+}
+
+/** A preset's display name (Light / Medium / Heavy). */
+export function presetLabel(preset: CompressionPreset, labels: PdfCompressLabels): string {
+  return { low: labels.presetLightLabel, medium: labels.presetMediumLabel, high: labels.presetHeavyLabel }[
+    preset
+  ];
 }
 
 export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
@@ -76,9 +92,14 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     estimateActualTemplate: p.estimateActualTemplate,
     estimateComputing: p.estimateComputing,
     estimateAfterCompress: p.estimateAfterCompress,
+    estimateNotSmaller: p.estimateNotSmaller,
     previewDeferredHint: p.previewDeferredHint,
     imageReencodeSkippedNote: p.imageReencodeSkippedNote,
     resultTitle: p.resultTitle,
+    notSmallerTitle: p.notSmallerTitle,
+    notSmallerTryStronger: p.notSmallerTryStronger,
+    notSmallerOptimized: p.notSmallerOptimized,
+    notSmallerImagesKept: p.notSmallerImagesKept,
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,
     savingsLabel: p.savingsLabel,

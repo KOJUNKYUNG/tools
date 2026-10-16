@@ -9,7 +9,9 @@
 export type SizeDisplay =
   | { kind: "actual"; size: number }
   | { kind: "computing" }
-  | { kind: "afterCompress" };
+  | { kind: "afterCompress" }
+  /** The live compress for this preset came out no smaller than the file. */
+  | { kind: "notSmaller" };
 
 export interface SelectSizeDisplayInput {
   /** Real size from the finished whole-doc live compress for the current file + preset. */
@@ -18,13 +20,17 @@ export interface SelectSizeDisplayInput {
   livePreview: boolean;
   /** The live compress for the current file + preset ended without a result. */
   liveFailed: boolean;
+  /** The live compress for the current file + preset came out no smaller. */
+  liveNotSmaller: boolean;
 }
 
 export function selectSizeDisplay({
   actualCompressedSize,
   livePreview,
   liveFailed,
+  liveNotSmaller,
 }: SelectSizeDisplayInput): SizeDisplay {
+  if (liveNotSmaller) return { kind: "notSmaller" };
   if (actualCompressedSize != null) return { kind: "actual", size: actualCompressedSize };
   if (livePreview && !liveFailed) return { kind: "computing" };
   return { kind: "afterCompress" };

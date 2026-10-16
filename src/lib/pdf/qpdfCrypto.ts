@@ -3,13 +3,14 @@
 //   1. spins up a FRESH qpdf instance (no caching — see qpdf.ts for why)
 //   2. writes the input into the Emscripten MEMFS
 //   3. runs the prebuilt argv (from qpdfArgs.ts)
-//   4. reads the output, runs a pure output guard
+//   4. reads the output, runs the output check (pdfLockCheck.ts)
 //   5. ALWAYS unlinks both MEMFS files so the PDF bytes don't linger in the
 //      wasm filesystem (the password strings themselves still live in JS state
 //      and wasm linear memory until GC — this is a local-only, 0-server tool).
 //
-// Pure logic (argv build, output guards, naming, validation) lives in sibling
-// modules and is unit-tested; this file is exercised via user-facing /qa.
+// Pure logic (argv build, naming, validation) lives in sibling modules; the
+// output check and this file run in Node tests via qpdfNode.ts.
+import { runOutputCheck } from "@/lib/output-check/core";
 import { withQpdf } from "./qpdf";
 import {
   buildEncryptArgs,
@@ -18,10 +19,15 @@ import {
   DEFAULT_INPUT_PATH,
   DEFAULT_OUTPUT_PATH,
 } from "./qpdfArgs";
-import { assertEncryptedPdf, assertDecryptedPdf } from "./qpdfOutputGuard";
+import {
+  checkPdfLock,
+  hasEncryptKey,
+  type PdfLockRequest,
+  type PdfUnlockRequest,
+} from "./pdfLockCheck";
 import { classifyQpdfResult } from "./qpdfResultClass";
 import { generateOwnerPassword } from "./ownerPassword";
-import { WRONG_PASSWORD_PREFIX } from "../errors";
+import { CORRUPT_OUTPUT_PREFIX, WRONG_PASSWORD_PREFIX } from "../errors";
 
 export interface EncryptPdfOptions {
   /** Raw PDF bytes (read once by the caller and shared across operations). */
@@ -87,6 +93,18 @@ async function runQpdf(
   return { exit: result.exit, stderr, out: result.out };
 }
 
+/** Hand back `out` once pdfjs confirms it; otherwise block (no safer mode). */
+const checkOutput = (
+  input: Uint8Array,
+  request: PdfLockRequest | PdfUnlockRequest,
+  out: Uint8Array,
+) =>
+  runOutputCheck({
+    tool: "pdf-lock",
+    output: out,
+    check: (output) => checkPdfLock(input, request, output, "quick"),
+  });
+
 /** Lock a PDF with AES-256, applying the permission toggles. */
 export async function encryptPdf({
   bytes,
@@ -115,15 +133,20 @@ export async function encryptPdf({
 
   // qpdf may return exit 3 (warnings) on a structurally-imperfect but valid
   // source while still producing a correct encrypted output, so classify on the
-  // produced output rather than `exit === 0`. The output guard then proves the
-  // bytes are a real encrypted PDF.
+  // produced output rather than `exit === 0`. The output check then proves the
+  // file is really locked, opens with the password and keeps its pages.
   const outcome = classifyQpdfResult(exit, stderr, !!out);
   if (outcome !== "ok" || !out) {
     throw new Error(`CORRUPT_OUTPUT: qpdf encrypt failed (exit ${exit}) ${stderr.trim()}`);
   }
-  assertEncryptedPdf(out);
+  // Backstop: a crashed check hands the result back unchecked, and a lock that
+  // did nothing must never reach the user. No /Encrypt key = certainly plain.
+  if (!hasEncryptKey(out)) {
+    throw new Error(`${CORRUPT_OUTPUT_PREFIX}: pdf-lock: output has no /Encrypt key`);
+  }
+  const data = await checkOutput(input, { mode: "lock", userPassword, permissions }, out);
   onProgress?.(100);
-  return { data: out };
+  return { data };
 }
 
 /** Unlock a password-protected PDF. Wrong password → WRONG_PASSWORD sentinel. */
@@ -147,7 +170,7 @@ export async function decryptPdf({
   if (outcome !== "ok" || !out) {
     throw new Error(`CORRUPT_OUTPUT: qpdf decrypt failed (exit ${exit}) ${stderr.trim()}`);
   }
-  assertDecryptedPdf(out);
+  const data = await checkOutput(input, { mode: "unlock", password }, out);
   onProgress?.(100);
-  return { data: out };
+  return { data };
 }

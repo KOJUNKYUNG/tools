@@ -49,10 +49,41 @@ export interface PdfPageInfo {
   height: number;
 }
 
+/** What a viewer may do with the file, as its encryption dictionary sets. */
+export interface PdfPermissions {
+  print: boolean;
+  /** Copying text and graphics out (not the accessibility-only extraction). */
+  copy: boolean;
+  /** Changing the page contents. */
+  modify: boolean;
+}
+
+/** One raster image a page paints. */
+export interface PdfImagePaint {
+  /** pdfjs's id for the image; repeats of one image share it. */
+  id: string;
+  /** Pixel size. */
+  width: number;
+  height: number;
+}
+
+/** What a page's content stream draws. */
+export interface PdfPageContent {
+  /** Operators pdfjs builds from the page: drawing added to a page raises it. */
+  operatorCount: number;
+  /**
+   * Images painted as XObjects, in paint order. Runs pdfjs folds into one
+   * repeat operator are left out.
+   */
+  images: PdfImagePaint[];
+}
+
 export interface PdfReport {
   pageCount: number;
   /** Whether the file carries an encryption dictionary. */
   encrypted(): Promise<boolean>;
+  /** What the file permits; null when it restricts nothing. */
+  permissions(): Promise<PdfPermissions | null>;
   /** 1-based page number. Throws when the page does not load. */
   page(n: number): Promise<PdfPageInfo>;
   /**
@@ -64,6 +95,8 @@ export interface PdfReport {
   renderError(n: number): Promise<string | null>;
   /** Page `n`'s text, in content order. */
   text(n: number): Promise<string>;
+  /** What page `n` draws. Throws when the page does not render. */
+  content(n: number): Promise<PdfPageContent>;
   /** Whether page `n` paints at least one raster image. */
   drawsImage(n: number): Promise<boolean>;
 }
@@ -101,6 +134,16 @@ function report(doc: PDFDocumentProxy, lib: PdfjsLib): PdfReport {
       // `info` is typed `object`; EncryptFilterName is set for any /Encrypt.
       return (info as { EncryptFilterName?: string | null }).EncryptFilterName != null;
     },
+    async permissions() {
+      const flags = await doc.getPermissions();
+      if (flags === null) return null;
+      const { PRINT, COPY, MODIFY_CONTENTS } = lib.PermissionFlag;
+      return {
+        print: flags.includes(PRINT),
+        copy: flags.includes(COPY),
+        modify: flags.includes(MODIFY_CONTENTS),
+      };
+    },
     async page(n) {
       const page = await doc.getPage(n);
       const [x0, y0, x1, y1] = page.view;
@@ -125,6 +168,17 @@ function report(doc: PDFDocumentProxy, lib: PdfjsLib): PdfReport {
     async text(n) {
       const { items } = await (await doc.getPage(n)).getTextContent();
       return items.map((item) => ("str" in item ? item.str : "")).join("");
+    },
+    async content(n) {
+      const { fnArray, argsArray } = await (await doc.getPage(n)).getOperatorList();
+      const images: PdfImagePaint[] = [];
+      fnArray.forEach((op, i) => {
+        if (op !== lib.OPS.paintImageXObject) return;
+        // pdfjs's paintImageXObject arguments are [objId, width, height].
+        const [id, width, height] = argsArray[i] as [string, number, number];
+        images.push({ id, width, height });
+      });
+      return { operatorCount: fnArray.length, images };
     },
     async drawsImage(n) {
       const { fnArray } = await (await doc.getPage(n)).getOperatorList();
@@ -174,3 +228,7 @@ export async function inspectPdf<T>(
     await doc.destroy();
   }
 }
+
+/** The page count pdfjs reads from `bytes`, or null when it does not open them. */
+export const pdfPageCount = (bytes: Uint8Array, password?: string): Promise<number | null> =>
+  inspectPdf(bytes, async (i) => (i.status === "open" ? i.pdf.pageCount : null), { password });

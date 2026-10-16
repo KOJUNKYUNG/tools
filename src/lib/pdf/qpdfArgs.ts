@@ -5,7 +5,12 @@
 //
 // qpdf encryption argv shape (verified against the engine's own --help):
 //
-//   --encrypt <user-pw> <owner-pw> <keylen> [restriction flags] -- <in> <out>
+//   --encrypt --user-password=<pw> --owner-password=<pw> --bits=<keylen>
+//     [restriction flags] -- <in> <out>
+//
+// The named forms (qpdf 11+) keep a password that starts with "-" from being
+// read as an option, as the positional `--encrypt <user> <owner> <bits>` form
+// does: the generated owner password's alphabet includes "-".
 //
 // Notes learned from smoke-testing @neslinesli93/qpdf-wasm@0.3.0:
 //   - The input path must appear ONCE, after the `--` separator. Passing it
@@ -43,9 +48,9 @@ export function buildEncryptArgs({
 }: BuildEncryptArgsInput): string[] {
   return [
     "--encrypt",
-    userPassword,
-    ownerPassword,
-    KEY_LENGTH,
+    `--user-password=${userPassword}`,
+    `--owner-password=${ownerPassword}`,
+    `--bits=${KEY_LENGTH}`,
     `--print=${permissions.allowPrint ? "full" : "none"}`,
     `--extract=${permissions.allowCopy ? "y" : "n"}`,
     // Editing-class permissions stay locked regardless of the two toggles we

@@ -4,6 +4,15 @@ import type { PageItem, Rotation } from "./pageItem";
 
 /** A solid grey 8-bit RGB PNG of the given size. */
 export function solidPng(width: number, height: number): Uint8Array {
+  return rgbPng(width, height, () => 0x80);
+}
+
+/** An 8-bit RGB PNG of random pixels: it barely compresses. */
+export function noisePng(width: number, height: number): Uint8Array {
+  return rgbPng(width, height, () => Math.floor(Math.random() * 256));
+}
+
+function rgbPng(width: number, height: number, sample: () => number): Uint8Array {
   const chunk = (type: string, data: Uint8Array) => {
     const out = Buffer.alloc(12 + data.length);
     out.writeUInt32BE(data.length, 0);
@@ -16,9 +25,12 @@ export function solidPng(width: number, height: number): Uint8Array {
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
   ihdr.set([8, 2, 0, 0, 0], 8); // 8-bit RGB, no interlace
-  const row = Buffer.alloc(1 + width * 3, 0x80);
-  row[0] = 0; // filter: none
-  const pixels = Buffer.concat(Array.from({ length: height }, () => row));
+  const rows = Array.from({ length: height }, () => {
+    const row = Buffer.alloc(1 + width * 3);
+    for (let i = 1; i < row.length; i++) row[i] = sample();
+    return row; // row[0] = 0: filter none
+  });
+  const pixels = Buffer.concat(rows);
   return Uint8Array.from(
     Buffer.concat([
       Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),

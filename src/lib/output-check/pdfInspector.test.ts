@@ -3,6 +3,7 @@ import path from "node:path";
 import { PDFDocument, StandardFonts, degrees } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import type { QpdfInstance } from "@/lib/pdf/qpdf";
+import { solidPng } from "@/lib/pdf/testImages";
 import { inspectPdf, type PdfInspection } from "./pdfInspector";
 
 type CreateModule = (opts: {
@@ -21,7 +22,11 @@ async function samplePdf(): Promise<Uint8Array> {
 }
 
 /** Encrypt with qpdf (a third engine) so pdfjs sees a real /Encrypt. */
-async function encrypt(bytes: Uint8Array, userPassword: string): Promise<Uint8Array> {
+async function encrypt(
+  bytes: Uint8Array,
+  userPassword: string,
+  restrictions: string[] = [],
+): Promise<Uint8Array> {
   const dir = path.dirname(
     createRequire(import.meta.url).resolve("@neslinesli93/qpdf-wasm"),
   );
@@ -33,7 +38,16 @@ async function encrypt(bytes: Uint8Array, userPassword: string): Promise<Uint8Ar
     noInitialRun: true,
   });
   qpdf.FS.writeFile("/in.pdf", bytes);
-  qpdf.callMain(["--encrypt", userPassword, "owner", "256", "--", "/in.pdf", "/out.pdf"]);
+  qpdf.callMain([
+    "--encrypt",
+    userPassword,
+    "owner",
+    "256",
+    ...restrictions,
+    "--",
+    "/in.pdf",
+    "/out.pdf",
+  ]);
   return qpdf.FS.readFile("/out.pdf");
 }
 
@@ -109,5 +123,46 @@ describe("inspectPdf", () => {
       { password: "secret" },
     );
     expect(opened).toEqual([3, true]);
+  });
+
+  it("reads what an encrypted file permits, and nothing restricted on a plain one", async () => {
+    const permissions = (bytes: Uint8Array) =>
+      inspectPdf(
+        bytes,
+        async (i) => (i.status === "open" ? i.pdf.permissions() : i.status),
+        { password: "secret" },
+      );
+    const plain = await samplePdf();
+    expect(await permissions(plain)).toBeNull();
+    expect(
+      await permissions(await encrypt(plain, "secret", ["--print=none", "--modify=none"])),
+    ).toEqual({ print: false, copy: true, modify: false });
+    expect(await permissions(await encrypt(plain, "secret", ["--extract=n"]))).toEqual({
+      print: true,
+      copy: false,
+      modify: true,
+    });
+  });
+
+  it("counts a page's operators and lists the images it paints, in order", async () => {
+    const sample = await samplePdf();
+    const before = await inspectPdf(sample, async (i) =>
+      i.status === "open" ? (await i.pdf.content(1)).operatorCount : -1,
+    );
+    const doc = await PDFDocument.load(sample);
+    const image = await doc.embedPng(solidPng(8, 4));
+    doc.getPage(0).drawImage(image, { x: 0, y: 0, width: 8, height: 4 });
+    doc.getPage(0).drawImage(image, { x: 9, y: 0, width: 8, height: 4 });
+    const read = await inspectPdf(await doc.save(), async (i) => {
+      if (i.status !== "open") throw new Error(i.status);
+      return [await i.pdf.content(1), await i.pdf.content(2)];
+    });
+    const [marked, plain] = read;
+    expect(marked.images).toEqual([
+      { id: expect.any(String), width: 8, height: 4 },
+      { id: marked.images[0].id, width: 8, height: 4 },
+    ]);
+    expect(plain.images).toEqual([]);
+    expect(marked.operatorCount).toBeGreaterThan(before);
   });
 });
