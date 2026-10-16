@@ -1,5 +1,5 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
-import { inspectPdf } from "@/lib/output-check/pdfInspector";
+import { inspectPdf, pdfPageCount } from "@/lib/output-check/pdfInspector";
 import type { CompressionPreset } from "./compressPdf";
 import { hasInvalidSoftMask } from "./softMaskCheck";
 
@@ -17,12 +17,8 @@ export const notSmaller = (input: Uint8Array, output: Uint8Array) =>
 const hasPdfHeader = (b: Uint8Array) =>
   b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46; // %PDF
 
-/** The input's page count in pdfjs, or null when pdfjs cannot open it. */
-const inputPageCount = (input: Uint8Array) =>
-  inspectPdf(input, async (i) => (i.status === "open" ? i.pdf.pageCount : null));
-
 const inputOpens = async (input: Uint8Array) =>
-  hasPdfHeader(input) && (await inputPageCount(input)) !== null;
+  hasPdfHeader(input) && (await pdfPageCount(input)) !== null;
 
 const inputFirstPageFails = (input: Uint8Array) =>
   inspectPdf(input, async (i) =>
@@ -78,7 +74,7 @@ export const checkPdfCompress: OutputChecker<Uint8Array, PdfCompressRequest, Uin
       }
       const { pdf } = inspection;
       const vs: Violation[] = [];
-      const pages = await inputPageCount(input);
+      const pages = await pdfPageCount(input);
       if (pages !== null && pdf.pageCount !== pages) {
         vs.push({ property: "page-count", detail: `${pages} pages → ${pdf.pageCount}` });
       }

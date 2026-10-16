@@ -49,10 +49,21 @@ export interface PdfPageInfo {
   height: number;
 }
 
+/** What a viewer may do with the file, as its encryption dictionary sets. */
+export interface PdfPermissions {
+  print: boolean;
+  /** Copying text and graphics out (not the accessibility-only extraction). */
+  copy: boolean;
+  /** Changing the page contents. */
+  modify: boolean;
+}
+
 export interface PdfReport {
   pageCount: number;
   /** Whether the file carries an encryption dictionary. */
   encrypted(): Promise<boolean>;
+  /** What the file permits; null when it restricts nothing. */
+  permissions(): Promise<PdfPermissions | null>;
   /** 1-based page number. Throws when the page does not load. */
   page(n: number): Promise<PdfPageInfo>;
   /**
@@ -100,6 +111,16 @@ function report(doc: PDFDocumentProxy, lib: PdfjsLib): PdfReport {
       const { info } = await doc.getMetadata();
       // `info` is typed `object`; EncryptFilterName is set for any /Encrypt.
       return (info as { EncryptFilterName?: string | null }).EncryptFilterName != null;
+    },
+    async permissions() {
+      const flags = await doc.getPermissions();
+      if (flags === null) return null;
+      const { PRINT, COPY, MODIFY_CONTENTS } = lib.PermissionFlag;
+      return {
+        print: flags.includes(PRINT),
+        copy: flags.includes(COPY),
+        modify: flags.includes(MODIFY_CONTENTS),
+      };
     },
     async page(n) {
       const page = await doc.getPage(n);
@@ -174,3 +195,7 @@ export async function inspectPdf<T>(
     await doc.destroy();
   }
 }
+
+/** The page count pdfjs reads from `bytes`, or null when it does not open them. */
+export const pdfPageCount = (bytes: Uint8Array, password?: string): Promise<number | null> =>
+  inspectPdf(bytes, async (i) => (i.status === "open" ? i.pdf.pageCount : null), { password });

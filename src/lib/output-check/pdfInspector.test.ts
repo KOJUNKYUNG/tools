@@ -21,7 +21,11 @@ async function samplePdf(): Promise<Uint8Array> {
 }
 
 /** Encrypt with qpdf (a third engine) so pdfjs sees a real /Encrypt. */
-async function encrypt(bytes: Uint8Array, userPassword: string): Promise<Uint8Array> {
+async function encrypt(
+  bytes: Uint8Array,
+  userPassword: string,
+  restrictions: string[] = [],
+): Promise<Uint8Array> {
   const dir = path.dirname(
     createRequire(import.meta.url).resolve("@neslinesli93/qpdf-wasm"),
   );
@@ -33,7 +37,16 @@ async function encrypt(bytes: Uint8Array, userPassword: string): Promise<Uint8Ar
     noInitialRun: true,
   });
   qpdf.FS.writeFile("/in.pdf", bytes);
-  qpdf.callMain(["--encrypt", userPassword, "owner", "256", "--", "/in.pdf", "/out.pdf"]);
+  qpdf.callMain([
+    "--encrypt",
+    userPassword,
+    "owner",
+    "256",
+    ...restrictions,
+    "--",
+    "/in.pdf",
+    "/out.pdf",
+  ]);
   return qpdf.FS.readFile("/out.pdf");
 }
 
@@ -109,5 +122,24 @@ describe("inspectPdf", () => {
       { password: "secret" },
     );
     expect(opened).toEqual([3, true]);
+  });
+
+  it("reads what an encrypted file permits, and nothing restricted on a plain one", async () => {
+    const permissions = (bytes: Uint8Array) =>
+      inspectPdf(
+        bytes,
+        async (i) => (i.status === "open" ? i.pdf.permissions() : i.status),
+        { password: "secret" },
+      );
+    const plain = await samplePdf();
+    expect(await permissions(plain)).toBeNull();
+    expect(
+      await permissions(await encrypt(plain, "secret", ["--print=none", "--modify=none"])),
+    ).toEqual({ print: false, copy: true, modify: false });
+    expect(await permissions(await encrypt(plain, "secret", ["--extract=n"]))).toEqual({
+      print: true,
+      copy: false,
+      modify: true,
+    });
   });
 });

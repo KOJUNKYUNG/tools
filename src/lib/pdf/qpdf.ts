@@ -13,6 +13,16 @@
 /** Self-hosted qpdf wasm URL (same-origin, served from public/qpdf/). */
 export const QPDF_WASM_URL = "/qpdf/qpdf.wasm";
 
+let wasmLocation = QPDF_WASM_URL;
+
+/**
+ * Point qpdf at another wasm location. Node tests pass the package's file
+ * path (see qpdfNode.ts): Emscripten reads it from disk there.
+ */
+export function setQpdfWasmLocation(location: string): void {
+  wasmLocation = location;
+}
+
 /**
  * Minimal shape of the Emscripten MEMFS we use. The bundled qpdf.d.ts omits
  * `writeFile` and `unlink` (both exist at runtime — verified against
@@ -88,7 +98,7 @@ export async function withQpdf<T>(
       const mod = await import("@neslinesli93/qpdf-wasm");
       const createModule = (mod.default ?? mod) as unknown as CreateModule;
       const qpdf = await createModule({
-        locateFile: () => QPDF_WASM_URL,
+        locateFile: () => wasmLocation,
         noInitialRun: true,
       });
       const result = runWith(qpdf);
