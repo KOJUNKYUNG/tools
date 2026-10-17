@@ -7,7 +7,7 @@ import { presetLabel, type PptCompressLabels } from "./labels";
 
 /**
  * What to tell the user when `preset` could not shrink the deck: try the next
- * stronger preset, or, at the strongest, that the deck is already optimised.
+ * stronger preset, or, at the strongest, that even it does not shrink the deck.
  * When no image could be re-encoded, every preset gives the same result, so
  * none is suggested.
  */

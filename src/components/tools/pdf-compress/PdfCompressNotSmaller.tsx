@@ -7,7 +7,7 @@ import { presetLabel, type PdfCompressLabels } from "./labels";
 
 /**
  * What to tell the user when `preset` could not shrink the file: try the next
- * stronger preset, or, at the strongest, that the file is already optimised.
+ * stronger preset, or, at the strongest, that even it does not shrink the file.
  * When images were left as they are to avoid damage, a stronger preset would
  * do the same, so none is suggested.
  */
