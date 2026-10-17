@@ -17,17 +17,20 @@ export interface ImageHeader {
 }
 
 /** The header format a canvas writes for each MIME type it is asked to encode. */
-export const HEADER_FORMAT_OF_MIME: Readonly<Record<string, ImageHeader["format"]>> = {
+export const HEADER_FORMAT_OF_MIME: Readonly<Partial<Record<string, ImageHeader["format"]>>> = {
   "image/png": "png",
   "image/jpeg": "jpeg",
   "image/webp": "webp",
 };
 
+const ascii = (bytes: Uint8Array, at: number, text: string) =>
+  [...text].every((c, i) => bytes[at + i] === c.charCodeAt(0));
+
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 function readPng(bytes: Uint8Array): ImageHeader | null {
   // Signature, then the IHDR chunk: length (4), type (4), width, height.
-  if (bytes.length < 24) return null;
+  if (bytes.length < 24 || !ascii(bytes, 12, "IHDR")) return null;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   return { format: "png", width: view.getUint32(16), height: view.getUint32(20), orientation: 1 };
 }
@@ -102,9 +105,6 @@ function readJpeg(bytes: Uint8Array): ImageHeader | null {
   }
   return size && { format: "jpeg", ...size, orientation: orientation ?? 1 };
 }
-
-const ascii = (bytes: Uint8Array, at: number, text: string) =>
-  [...text].every((c, i) => bytes[at + i] === c.charCodeAt(0));
 
 /**
  * Size from the first chunk after the RIFF header ("RIFF", size, "WEBP"),

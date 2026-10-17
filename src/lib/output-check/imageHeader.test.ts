@@ -149,6 +149,7 @@ describe("readImageHeader", () => {
     ["garbage", new TextEncoder().encode("not an image at all")],
     ["empty", new Uint8Array(0)],
     ["a truncated PNG", png(2, 3).slice(0, 20)],
+    ["a PNG signature without an IHDR chunk", corrupt(png(2, 3), 12)],
     ["a JPEG cut before its frame header", jpeg(640, 480).slice(0, 12)],
     ["a RIFF file that is not WebP", riffWave()],
     ["a lossy WebP cut before its size", WEBP_1x1_LOSSY.slice(0, 28)],
