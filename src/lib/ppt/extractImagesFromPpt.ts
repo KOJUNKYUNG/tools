@@ -3,7 +3,8 @@ import type { ExtractedImage } from "./extractImages";
 import { getMime } from "./pptImageFormats";
 
 export interface ExtractPptOptions {
-  file: File;
+  /** The .ppt file's bytes. */
+  bytes: Uint8Array;
   onProgress?: (pct: number) => void;
 }
 
@@ -117,11 +118,10 @@ export function parseBlipRecords(
 }
 
 export async function extractImagesFromPpt({
-  file,
+  bytes,
   onProgress,
 }: ExtractPptOptions): Promise<ExtractedImage[]> {
-  const arrayBuffer = await file.arrayBuffer();
-  const cfb = CFB.read(new Uint8Array(arrayBuffer), { type: "array" });
+  const cfb = CFB.read(bytes, { type: "array" });
 
   let picturesData: Uint8Array | null = null;
   for (const entry of cfb.FileIndex) {

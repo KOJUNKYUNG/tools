@@ -62,6 +62,7 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
     onDownload: () => {
       // Result component drives downloads; this is unused.
     },
+    errorOptions: { corruptOutputHint: labels.errorCorrupt },
   });
 
   useEffect(() => {

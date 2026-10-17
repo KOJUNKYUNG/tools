@@ -134,6 +134,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
         res.blob.type,
       );
     },
+    errorOptions: { corruptOutputHint: labels.errorCorrupt },
   });
 
   const handleFilesChange = useCallback(

@@ -199,6 +199,7 @@
         "imagesLabel": "Images",
         "noImagesHint": "No images",
         "errorNoImages": "No images found in this presentation.",
+        "errorCorrupt": "Couldn't extract the images intact. If this is a .ppt file, save it as .pptx in PowerPoint and try again.",
         "toPptx": "Send to Image → PPT"
       }
     },
@@ -519,7 +520,9 @@
         "again": "Start over",
         "streamedTitle": "Saved",
         "streamedSummary": "Saved {n} images across {m} zip files.",
-        "batchSavedToast": "Part {n} saved"
+        "batchSavedToast": "Part {n} saved",
+        "errorCorrupt": "Page {page} could not be turned into an image, so conversion stopped. Remove that page or lower the DPI and try again.",
+        "errorCorruptAfterBatches": "Page {page} could not be turned into an image, so conversion stopped. The {n} part(s) already saved hold only the pages before it. Remove that page or lower the DPI and try again."
       }
     },
     "image-compress": {
@@ -592,6 +595,7 @@
         "uploadPrompt": "Drag and drop an image, or click to upload",
         "uploadHint": "JPG, PNG, WebP supported.",
         "tryAgain": "Start over",
+        "errorCorrupt": "The resized image came out damaged and can't be used. Try again, or try another browser.",
         "cropSelectionLabel": "Selection (drag to move, corners to resize)",
         "stretchModeLabel": "The image is stretched to fit the given size.",
         "cropFooterTemplate": "Crop to {w}×{h} ratio · selection: {cw}×{ch}px"

@@ -149,10 +149,12 @@ export function ProcessingStatus({
             >
               {L.error}
             </div>
+            {/* Wraps rather than truncates: the second sentence of an error
+                says what to do, and phones have no hover tooltip. Korean
+                breaks between words; an unbroken run (a file name) still wraps. */}
             <div
-              className="truncate font-body text-[11px]"
+              className="break-keep font-body text-[11px] leading-snug [overflow-wrap:anywhere]"
               style={{ color: "var(--ink)" }}
-              title={errorMessage}
             >
               {errorMessage ?? L.errorBody}
             </div>

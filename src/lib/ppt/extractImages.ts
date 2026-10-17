@@ -1,6 +1,8 @@
 import JSZip from "jszip";
+import { runOutputCheck } from "@/lib/output-check/core";
+import { checkPptExtract } from "./extractImagesCheck";
 import { extractImagesFromPpt } from "./extractImagesFromPpt";
-import { getExt, getMime, isRenderable } from "./pptImageFormats";
+import { getExt, getMime, isImageMediaPath, isRenderable } from "./pptImageFormats";
 
 export interface ExtractedImage {
   name: string;
@@ -14,29 +16,19 @@ export interface ExtractImagesOptions {
   onProgress?: (pct: number) => void;
 }
 
-const SUPPORTED_EXTENSIONS = new Set([
-  "png", "jpg", "jpeg", "gif", "bmp",
-  "tiff", "tif", "svg", "emf", "wmf",
-]);
-
-function isImageFile(name: string): boolean {
-  return SUPPORTED_EXTENSIONS.has(getExt(name));
-}
-
 function isPptFile(file: File): boolean {
   return file.name.toLowerCase().endsWith(".ppt");
 }
 
 async function extractFromPptx(
-  file: File,
+  bytes: Uint8Array,
   onProgress?: (pct: number) => void,
 ): Promise<ExtractedImage[]> {
-  const arrayBuffer = await file.arrayBuffer();
-  const zip = await JSZip.loadAsync(arrayBuffer);
+  const zip = await JSZip.loadAsync(bytes);
 
   const mediaEntries: { name: string; entry: JSZip.JSZipObject }[] = [];
   zip.forEach((path, entry) => {
-    if (path.startsWith("ppt/media/") && !entry.dir && isImageFile(path)) {
+    if (!entry.dir && isImageMediaPath(path)) {
       mediaEntries.push({ name: path.split("/").pop()!, entry });
     }
   });
@@ -79,14 +71,24 @@ async function extractFromPptx(
   return images;
 }
 
+/**
+ * Extract every image in the deck, checked before it is handed over (see
+ * `checkPptExtract`). No recovery exists: a file that fails the check
+ * blocks the result rather than being dropped from it.
+ */
 export async function extractPptImages({
   file,
   onProgress,
 }: ExtractImagesOptions): Promise<ExtractedImage[]> {
-  if (isPptFile(file)) {
-    return extractImagesFromPpt({ file, onProgress });
-  }
-  return extractFromPptx(file, onProgress);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const images = isPptFile(file)
+    ? await extractImagesFromPpt({ bytes, onProgress })
+    : await extractFromPptx(bytes, onProgress);
+  return runOutputCheck({
+    tool: "ppt-extract",
+    output: images,
+    check: (out) => checkPptExtract(bytes, undefined, out, "quick"),
+  });
 }
 
 // Re-export for downstream convenience.

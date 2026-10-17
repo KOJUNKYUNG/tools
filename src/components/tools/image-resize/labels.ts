@@ -25,6 +25,7 @@ export interface ImageResizeLabels {
   uploadHint: string;
   uploadMaxSize: string;
   tryAgain: string;
+  errorCorrupt: string;
   cropSelectionLabel: string;
   stretchModeLabel: string;
   cropFooterTemplate: string;
@@ -59,6 +60,7 @@ export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
     uploadHint: page.uploadHint,
     uploadMaxSize: dict.common.fileUpload.maxSize,
     tryAgain: page.tryAgain,
+    errorCorrupt: page.errorCorrupt,
     cropSelectionLabel: page.cropSelectionLabel,
     stretchModeLabel: page.stretchModeLabel,
     cropFooterTemplate: page.cropFooterTemplate,
