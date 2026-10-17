@@ -1,14 +1,15 @@
 /**
  * Image header inspector: reads an image's format and pixel size straight
  * from its bytes, without decoding it, so image checks run in Node as in the
- * browser. Covers PNG and JPEG; WebP joins with pdf-to-image's check (#64).
+ * browser. Covers PNG, JPEG and WebP (lossy, lossless and extended).
  *
  * Sizes are the stored pixel grid. A JPEG's EXIF orientation, which browsers
  * apply when showing it, is reported separately (written independently of the
- * PDF engine's reader, so the two cannot share a bug).
+ * PDF engine's reader, so the two cannot share a bug). A WebP's EXIF chunk is
+ * not read: its orientation is always reported as 1.
  */
 export interface ImageHeader {
-  format: "png" | "jpeg";
+  format: "png" | "jpeg" | "webp";
   width: number;
   height: number;
   /** EXIF Orientation, 1–8; 1 (upright) when absent. 5–8 show it turned a quarter. */
@@ -95,9 +96,48 @@ function readJpeg(bytes: Uint8Array): ImageHeader | null {
   return size && { format: "jpeg", ...size, orientation: orientation ?? 1 };
 }
 
+const ascii = (bytes: Uint8Array, at: number, text: string) =>
+  [...text].every((c, i) => bytes[at + i] === c.charCodeAt(0));
+
+/**
+ * Size from the first chunk after the RIFF header ("RIFF", size, "WEBP"),
+ * which the container spec fixes as one of three: `VP8 ` (lossy) carries a
+ * key-frame header, `VP8L` (lossless) a bit-packed header, `VP8X` (extended)
+ * the canvas size.
+ */
+function readWebp(bytes: Uint8Array): ImageHeader | null {
+  if (!ascii(bytes, 8, "WEBP")) return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const data = 20; // chunk type (4) and size (4) at 12
+  let size: { width: number; height: number } | null = null;
+  if (ascii(bytes, 12, "VP8 ")) {
+    // Frame tag (3), start code 9d 01 2a, then 14-bit width and height.
+    if (bytes.length < data + 10) return null;
+    if (bytes[data + 3] !== 0x9d || bytes[data + 4] !== 0x01 || bytes[data + 5] !== 0x2a) {
+      return null;
+    }
+    size = {
+      width: view.getUint16(data + 6, true) & 0x3fff,
+      height: view.getUint16(data + 8, true) & 0x3fff,
+    };
+  } else if (ascii(bytes, 12, "VP8L")) {
+    // Signature 0x2f, then width − 1 and height − 1 in 14 bits each.
+    if (bytes.length < data + 5 || bytes[data] !== 0x2f) return null;
+    const bits = view.getUint32(data + 1, true);
+    size = { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
+  } else if (ascii(bytes, 12, "VP8X")) {
+    // Flags (1), reserved (3), then canvas width − 1 and height − 1 in 24 bits.
+    if (bytes.length < data + 10) return null;
+    const uint24 = (at: number) => bytes[at] | (bytes[at + 1] << 8) | (bytes[at + 2] << 16);
+    size = { width: uint24(data + 4) + 1, height: uint24(data + 7) + 1 };
+  }
+  return size && { format: "webp", ...size, orientation: 1 };
+}
+
 /** The image's format and pixel size, or null for bytes it cannot read. */
 export function readImageHeader(bytes: Uint8Array): ImageHeader | null {
   if (PNG_SIGNATURE.every((b, i) => bytes[i] === b)) return readPng(bytes);
   if (bytes[0] === 0xff && bytes[1] === 0xd8) return readJpeg(bytes);
+  if (ascii(bytes, 0, "RIFF")) return readWebp(bytes);
   return null;
 }
