@@ -199,6 +199,7 @@
         "imagesLabel": "Images",
         "noImagesHint": "No images",
         "errorNoImages": "No images found in this presentation.",
+        "errorCorrupt": "Couldn't extract the images intact. If this is a .ppt file, save it as .pptx in PowerPoint and try again.",
         "toPptx": "Send to Image → PPT"
       }
     },

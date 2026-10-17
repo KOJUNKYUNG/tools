@@ -199,6 +199,7 @@
         "imagesLabel": "이미지",
         "noImagesHint": "이미지 없음",
         "errorNoImages": "PPT 파일에서 이미지를 찾을 수 없습니다.",
+        "errorCorrupt": "이미지를 온전히 꺼내지 못했습니다. .ppt 파일이라면 PowerPoint에서 .pptx로 저장한 뒤 다시 시도해 주세요.",
         "toPptx": "이미지 → PPT로 보내기"
       }
     },

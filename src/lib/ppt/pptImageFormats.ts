@@ -17,6 +17,16 @@ export function getExt(name: string): string {
   return name.slice(dot + 1).toLowerCase();
 }
 
+const EXTRACTABLE_EXTENSIONS = new Set([
+  "png", "jpg", "jpeg", "gif", "bmp",
+  "tiff", "tif", "svg", "emf", "wmf",
+]);
+
+/** A .pptx part ppt-extract extracts: an image file under `ppt/media/`. */
+export function isImageMediaPath(path: string): boolean {
+  return path.startsWith("ppt/media/") && EXTRACTABLE_EXTENSIONS.has(getExt(path));
+}
+
 export function getMime(ext: string): string {
   return MIME_BY_EXT[ext.toLowerCase()] ?? "application/octet-stream";
 }
