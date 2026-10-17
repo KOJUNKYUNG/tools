@@ -8,8 +8,9 @@ export type Resolution = "requested" | "reduced";
 
 /**
  * A page that could not be turned into a usable image, even at a reduced
- * resolution. The run stops here: a page is never skipped. The message keeps
- * the corrupt-output prefix, so the tool's corrupt-output hint applies.
+ * resolution. The run stops here: a page is never skipped. pdf-to-image
+ * catches it to name the page (and the parts already saved) in its message;
+ * the corrupt-output prefix covers any other caller.
  */
 export class PageConversionError extends Error {
   constructor(
@@ -35,7 +36,9 @@ export async function renderCheckedPage(
   // A render that throws produced no image, which the check reports.
   const attempt = (resolution: Resolution) =>
     render(resolution).catch((err: unknown): RenderedPage => {
-      console.warn(`pdf-to-image: page ${pageNumber} (${resolution}) 변환 실패`, err);
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(`[output-check] pdf-to-image: page ${pageNumber} (${resolution}) failed to render`, err);
+      }
       return { blob: null, width: 0, height: 0 };
     });
 

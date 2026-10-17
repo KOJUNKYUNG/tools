@@ -1,18 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { readImageHeader } from "@/lib/output-check/imageHeader";
 import { checkPageImage, type RenderedPage } from "./pdfToImageCheck";
-import { JPEG_3x2, solidPng } from "./testImages";
+import { JPEG_3x2, solidPng, stubBrowserDecoder } from "./testImages";
 
 const blob = (bytes: Uint8Array) => new Blob([bytes.slice()]);
-
-/** The browser decoder, played by the header reader: it decodes what it can read. */
-function decodeLikeABrowser() {
-  vi.stubGlobal("createImageBitmap", async (b: Blob) => {
-    const header = readImageHeader(new Uint8Array(await b.arrayBuffer()));
-    if (!header) throw new DOMException("The source image could not be decoded.", "InvalidStateError");
-    return { width: header.width, height: header.height, close: () => {} };
-  });
-}
 
 const page = (bytes: Uint8Array | null, width: number, height: number): RenderedPage => ({
   blob: bytes && blob(bytes),
@@ -24,7 +14,7 @@ const properties = async (output: RenderedPage, format: "image/png" | "image/jpe
   (await checkPageImage(3, { format }, output, "quick")).map((v) => v.property);
 
 describe("checkPageImage", () => {
-  beforeEach(decodeLikeABrowser);
+  beforeEach(stubBrowserDecoder);
   afterEach(() => vi.unstubAllGlobals());
 
   it("passes an image of the requested format at the planned size", async () => {

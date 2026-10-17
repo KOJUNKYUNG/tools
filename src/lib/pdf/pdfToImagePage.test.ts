@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
-import { readImageHeader } from "@/lib/output-check/imageHeader";
 import type { RenderedPage } from "./pdfToImageCheck";
 import { PageConversionError, renderCheckedPage, type Resolution } from "./pdfToImagePage";
-import { solidPng } from "./testImages";
+import { solidPng, stubBrowserDecoder } from "./testImages";
 
 const good = (width: number, height: number): RenderedPage => ({
   blob: new Blob([solidPng(width, height).slice()]),
@@ -22,11 +21,7 @@ function renders(...results: (RenderedPage | Error)[]) {
 
 describe("renderCheckedPage", () => {
   beforeEach(() => {
-    vi.stubGlobal("createImageBitmap", async (b: Blob) => {
-      const header = readImageHeader(new Uint8Array(await b.arrayBuffer()));
-      if (!header) throw new DOMException("undecodable", "InvalidStateError");
-      return { width: header.width, height: header.height, close: () => {} };
-    });
+    stubBrowserDecoder();
     vi.spyOn(console, "warn").mockImplementation(() => {});
   });
   afterEach(() => {
@@ -57,9 +52,9 @@ describe("renderCheckedPage", () => {
   it("stops with the page number when the retry fails too, never skipping it", async () => {
     const render = renders(new Error("first"), { blob: null, width: 20, height: 15 });
     const error = await renderCheckedPage(3, "image/png", render).catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(PageConversionError);
-    expect((error as PageConversionError).pageNumber).toBe(3);
-    // Unhandled callers still get the corrupt-output message.
-    expect((error as Error).message.startsWith(CORRUPT_OUTPUT_PREFIX)).toBe(true);
+    if (!(error instanceof PageConversionError)) throw new Error(`expected PageConversionError, got ${error}`);
+    expect(error.pageNumber).toBe(3);
+    // Any other caller still gets the corrupt-output message.
+    expect(error.message.startsWith(CORRUPT_OUTPUT_PREFIX)).toBe(true);
   });
 });

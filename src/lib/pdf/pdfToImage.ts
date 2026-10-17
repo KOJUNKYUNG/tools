@@ -3,7 +3,7 @@ import { shouldFlush } from "./batchPlan";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 import { assignImageNames } from "./pdfToImageNaming";
 import type { RenderedPage } from "./pdfToImageCheck";
-import { renderCheckedPage } from "./pdfToImagePage";
+import { renderCheckedPage, type Resolution } from "./pdfToImagePage";
 import type { ConversionJob } from "./buildConversionJobs";
 
 export type OutputFormat = "image/jpeg" | "image/png";
@@ -48,21 +48,22 @@ const MAX_CANVAS_AREA = 24_000_000;
 
 /**
  * Render one page to an encoded image at `scale`, downscaled to the canvas
- * caps; `reduced` halves the resulting size (the retry). The returned size is the planned canvas size, which the output check
- * compares against the image's header. Rotation is the page's intrinsic
+ * caps; the `reduced` retry halves that size. The returned size is the
+ * planned canvas size, which the output check compares against the image's
+ * header. Rotation is the page's intrinsic
  * rotation plus the user's edit.
  */
 async function renderPage(
   page: PDFPageProxy,
   {
     scale,
-    reduced,
+    resolution,
     rotation: userRotation,
     format,
     quality,
   }: {
     scale: number;
-    reduced: boolean;
+    resolution: Resolution;
     rotation: number;
     format: OutputFormat;
     quality: number | undefined;
@@ -80,7 +81,10 @@ async function renderPage(
     Math.sqrt((requested.width * requested.height) / MAX_CANVAS_AREA),
   );
   const fitted = over > 1 ? scale / over : scale;
-  const viewport = page.getViewport({ scale: reduced ? fitted / 2 : fitted, rotation });
+  const viewport = page.getViewport({
+    scale: resolution === "reduced" ? fitted / 2 : fitted,
+    rotation,
+  });
 
   const canvas = document.createElement("canvas");
   const width = Math.floor(viewport.width);
@@ -172,7 +176,7 @@ export async function pdfToImages({
         const page = await doc.getPage(job.sourcePageIndex + 1);
         return renderPage(page, {
           scale,
-          reduced: resolution === "reduced",
+          resolution,
           rotation: job.rotation,
           format,
           quality,

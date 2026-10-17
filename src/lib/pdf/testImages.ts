@@ -1,5 +1,7 @@
 // Test-only image fixtures, generated in Node (never imported by the app).
 import { crc32, deflateSync } from "node:zlib";
+import { vi } from "vitest";
+import { readImageHeader } from "@/lib/output-check/imageHeader";
 import type { PageItem, Rotation } from "./pageItem";
 
 /** A solid grey 8-bit RGB PNG of the given size. */
@@ -102,4 +104,16 @@ export function imagePage(sourceFileId: string, rotation: Rotation = 0): PageIte
     splitAfter: false,
     deleted: false,
   };
+}
+
+/**
+ * Stands in for the browser's `createImageBitmap` in Node: it decodes what
+ * the header inspector can read and rejects the rest, as a browser would.
+ */
+export function stubBrowserDecoder(): void {
+  vi.stubGlobal("createImageBitmap", async (b: Blob) => {
+    const header = readImageHeader(new Uint8Array(await b.arrayBuffer()));
+    if (!header) throw new DOMException("The source image could not be decoded.", "InvalidStateError");
+    return { width: header.width, height: header.height, close: () => {} };
+  });
 }

@@ -46,7 +46,9 @@ async function decodes(blob: Blob): Promise<boolean> {
  * - `image-decodes`: the browser decodes it
  *
  * The run's image count equals the selected page count because the engine
- * checks every page this way and stops at the first that fails.
+ * checks every page this way and stops at the first that fails. No size
+ * bound: the confirmed properties (#60) declare none, as the size follows
+ * the DPI and the page content, not the input file.
  */
 export const checkPageImage: OutputChecker<number, PageImageRequest, RenderedPage> = async (
   pageNumber,
