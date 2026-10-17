@@ -32,6 +32,7 @@ import {
   type OutputFormat,
   type PdfToImageOutcome,
 } from "@/lib/pdf/pdfToImage";
+import { PageConversionError } from "@/lib/pdf/pdfToImagePage";
 import { type PageItem, type Rotation } from "@/lib/pdf/pageItem";
 import { PdfToImageControls } from "./PdfToImageControls";
 import { PdfToImageResult } from "./PdfToImageResult";
@@ -83,6 +84,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
       const jobs = buildConversionJobs(items);
       if (jobs.length === 0) throw new Error("변환할 페이지가 없습니다.");
       const base = deriveBaseName(items[0]?.sourceFileName);
+      let batchesSaved = 0;
       return pdfToImages({
         jobs,
         sourceBytesById,
@@ -97,11 +99,21 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
             compression: "STORE",
           });
           downloadBlobObject(zipBlob, deriveBatchZipName(base, batchIndex));
+          batchesSaved = batchIndex;
           toast.success(template(labels.batchSavedToast, { n: batchIndex }));
           // Space sequential downloads so the browser does not block them.
           await new Promise((resolve) => setTimeout(resolve, 300));
         },
         onProgress,
+      }).catch((err: unknown) => {
+        // Name the page the run stopped at, and the parts already saved
+        // (a delivered download cannot be withdrawn).
+        if (!(err instanceof PageConversionError)) throw err;
+        throw new Error(
+          batchesSaved > 0
+            ? template(labels.errorCorruptAfterBatches, { page: err.pageNumber, n: batchesSaved })
+            : template(labels.errorCorrupt, { page: err.pageNumber }),
+        );
       });
     },
     onDownload: async (outcome) => {

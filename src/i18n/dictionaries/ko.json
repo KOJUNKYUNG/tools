@@ -519,7 +519,9 @@
         "again": "다시 하기",
         "streamedTitle": "저장 완료",
         "streamedSummary": "이미지 {n}장을 zip 파일 {m}개로 나눠 저장했습니다.",
-        "batchSavedToast": "파트 {n} 저장됨"
+        "batchSavedToast": "파트 {n} 저장됨",
+        "errorCorrupt": "{page}번째 페이지를 이미지로 바꾸지 못해 변환을 멈췄습니다. 그 페이지를 빼거나 DPI를 낮춰 다시 시도해 주세요.",
+        "errorCorruptAfterBatches": "{page}번째 페이지를 이미지로 바꾸지 못해 변환을 멈췄습니다. 이미 저장된 파트 {n}개에는 그 앞 페이지까지만 들어 있습니다. 그 페이지를 빼거나 DPI를 낮춰 다시 시도해 주세요."
       }
     },
     "image-compress": {

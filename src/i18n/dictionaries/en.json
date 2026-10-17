@@ -519,7 +519,9 @@
         "again": "Start over",
         "streamedTitle": "Saved",
         "streamedSummary": "Saved {n} images across {m} zip files.",
-        "batchSavedToast": "Part {n} saved"
+        "batchSavedToast": "Part {n} saved",
+        "errorCorrupt": "Page {page} could not be turned into an image, so conversion stopped. Remove that page or lower the DPI and try again.",
+        "errorCorruptAfterBatches": "Page {page} could not be turned into an image, so conversion stopped. The {n} part(s) already saved hold only the pages before it. Remove that page or lower the DPI and try again."
       }
     },
     "image-compress": {

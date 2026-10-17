@@ -33,6 +33,10 @@ export interface PdfToImageLabels {
   streamedTitle: string;
   streamedSummary: string;
   batchSavedToast: string;
+  /** `{page}`: the page the run stopped at. */
+  errorCorrupt: string;
+  /** `{page}`, and `{n}`: the parts already saved before the stop. */
+  errorCorruptAfterBatches: string;
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
@@ -72,6 +76,8 @@ export function getPdfToImageLabels(dict: Dictionary): PdfToImageLabels {
     streamedTitle: p.streamedTitle,
     streamedSummary: p.streamedSummary,
     batchSavedToast: p.batchSavedToast,
+    errorCorrupt: p.errorCorrupt,
+    errorCorruptAfterBatches: p.errorCorruptAfterBatches,
     fileUpload: dict.common.fileUpload,
   };
 }

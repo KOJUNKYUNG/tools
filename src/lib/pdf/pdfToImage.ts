@@ -1,7 +1,9 @@
-import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import { shouldFlush } from "./batchPlan";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 import { assignImageNames } from "./pdfToImageNaming";
+import type { RenderedPage } from "./pdfToImageCheck";
+import { renderCheckedPage } from "./pdfToImagePage";
 import type { ConversionJob } from "./buildConversionJobs";
 
 export type OutputFormat = "image/jpeg" | "image/png";
@@ -45,9 +47,71 @@ const MAX_CANVAS_DIM = 8192;
 const MAX_CANVAS_AREA = 24_000_000;
 
 /**
+ * Render one page to an encoded image at `scale`, downscaled to the canvas
+ * caps; `reduced` halves the resulting size (the retry). The returned size is the planned canvas size, which the output check
+ * compares against the image's header. Rotation is the page's intrinsic
+ * rotation plus the user's edit.
+ */
+async function renderPage(
+  page: PDFPageProxy,
+  {
+    scale,
+    reduced,
+    rotation: userRotation,
+    format,
+    quality,
+  }: {
+    scale: number;
+    reduced: boolean;
+    rotation: number;
+    format: OutputFormat;
+    quality: number | undefined;
+  },
+): Promise<RenderedPage> {
+  // Match the thumbnail (rendered at page.rotate) + the card's CSS rotate.
+  const rotation = (page.rotate + userRotation) % 360;
+
+  // Downscale oversized pages to fit the browser canvas limits, so a huge
+  // page never produces a blank image instead of a smaller, valid one.
+  const requested = page.getViewport({ scale, rotation });
+  const over = Math.max(
+    requested.width / MAX_CANVAS_DIM,
+    requested.height / MAX_CANVAS_DIM,
+    Math.sqrt((requested.width * requested.height) / MAX_CANVAS_AREA),
+  );
+  const fitted = over > 1 ? scale / over : scale;
+  const viewport = page.getViewport({ scale: reduced ? fitted / 2 : fitted, rotation });
+
+  const canvas = document.createElement("canvas");
+  const width = Math.floor(viewport.width);
+  const height = Math.floor(viewport.height);
+  canvas.width = width;
+  canvas.height = height;
+  try {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas 2D 컨텍스트를 만들 수 없습니다.");
+
+    await page.render({ canvas, viewport }).promise;
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("Canvas → Blob 변환 실패"))),
+        format,
+        quality,
+      );
+    });
+    return { blob, width, height };
+  } finally {
+    // Release the canvas backing store immediately (OOM guard for big PDFs).
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+}
+
+/**
  * Render each job (one source page) to an image. Pages are rendered in job order
  * across possibly several source PDFs; each pdfjs document is opened once and
- * reused. Rotation is the page's intrinsic rotation plus the user's edit.
+ * reused.
  */
 export async function pdfToImages({
   jobs,
@@ -90,7 +154,6 @@ export async function pdfToImages({
   let currentBytes = 0;
   let streaming = false;
   let batchIndex = 0;
-  let totalProduced = 0;
 
   const flush = async (isLast: boolean) => {
     batchIndex++;
@@ -102,55 +165,22 @@ export async function pdfToImages({
   try {
     for (let i = 0; i < jobs.length; i++) {
       const job = jobs[i];
-      try {
+      // Checked right after rendering; a failed page is retried at half the
+      // resolution, then stops the run (PageConversionError), never skipped.
+      const blob = await renderCheckedPage(i + 1, format, async (resolution) => {
         const doc = await getDoc(job.sourceFileId);
         const page = await doc.getPage(job.sourcePageIndex + 1);
-        // Match the thumbnail (rendered at page.rotate) + the card's CSS rotate.
-        const rotation = (page.rotate + job.rotation) % 360;
-
-        // Downscale oversized pages to fit the browser canvas limits, so a huge
-        // page never produces a blank image instead of a smaller, valid one.
-        let viewport = page.getViewport({ scale, rotation });
-        const over = Math.max(
-          viewport.width / MAX_CANVAS_DIM,
-          viewport.height / MAX_CANVAS_DIM,
-          Math.sqrt((viewport.width * viewport.height) / MAX_CANVAS_AREA),
-        );
-        if (over > 1) {
-          viewport = page.getViewport({ scale: scale / over, rotation });
-        }
-
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.floor(viewport.width);
-        canvas.height = Math.floor(viewport.height);
-        const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("Canvas 2D 컨텍스트를 만들 수 없습니다.");
-
-        await page.render({ canvas, viewport }).promise;
-
-        const blob = await new Promise<Blob>((resolve, reject) => {
-          canvas.toBlob(
-            (b) => (b ? resolve(b) : reject(new Error("Canvas → Blob 변환 실패"))),
-            format,
-            quality,
-          );
+        return renderPage(page, {
+          scale,
+          reduced: resolution === "reduced",
+          rotation: job.rotation,
+          format,
+          quality,
         });
-
-        current.push({ name: names[i], blob });
-        currentBytes += blob.size;
-        totalProduced++;
-
-        // Release the canvas backing store immediately (OOM guard for big PDFs).
-        canvas.width = 0;
-        canvas.height = 0;
-      } catch (err) {
-        // Isolate per-page failures so one bad page never discards the whole
-        // batch (mirrors buildPageItems' per-file isolation). The slot's name is
-        // skipped, leaving a numbering gap that signals the dropped page.
-        console.warn(`pdf-to-image: page ${i + 1} 변환 실패`, err);
-      } finally {
-        onProgress?.(Math.round(((i + 1) / total) * 100));
-      }
+      });
+      current.push({ name: names[i], blob });
+      currentBytes += blob.size;
+      onProgress?.(Math.round(((i + 1) / total) * 100));
 
       // Mirror planBatches(): flush once the running output reaches the target
       // and pages still remain (so the final partial batch is never split early).
@@ -164,13 +194,9 @@ export async function pdfToImages({
     for (const doc of docCache.values()) doc.destroy();
   }
 
-  if (totalProduced === 0) {
-    throw new Error("변환된 페이지가 없습니다.");
-  }
-
   if (streaming) {
     if (current.length > 0) await flush(true);
-    return { mode: "streamed", imageCount: totalProduced, batchCount: batchIndex };
+    return { mode: "streamed", imageCount: jobs.length, batchCount: batchIndex };
   }
 
   return { mode: "preview", images: current };
