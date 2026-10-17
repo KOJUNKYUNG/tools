@@ -558,7 +558,15 @@
         "removeAria": "Remove {name}",
         "prevAria": "Previous image",
         "nextAria": "Next image",
-        "comparePreview": "Compressed preview"
+        "comparePreview": "Compressed preview",
+        "estimateNotSmaller": "No reduction",
+        "notSmallerTitle": "Can't shrink further",
+        "notSmallerLowerQuality": "At {quality}% quality the images don't get any smaller. Try a lower quality.",
+        "notSmallerLowestQuality": "Even the lowest quality, {quality}%, doesn't make the images any smaller.",
+        "notSmallerPng": "PNG has no quality setting, so the images can't get any smaller. Converting to JPG or WebP may shrink them.",
+        "keptOriginalTemplate": "{size} · couldn't shrink, original kept",
+        "errorCorrupt": "Something went wrong in the tool and the image couldn't be made. Try again, or try another browser.",
+        "errorFormatUnsupported": "This browser can't save images as {format}. Pick another format."
       }
     },
     "heic-convert": { "title": "HEIC Converter", "description": "Convert iPhone HEIC photos to JPG or PNG." },

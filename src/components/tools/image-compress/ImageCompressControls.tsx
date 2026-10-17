@@ -11,6 +11,9 @@ const FORMAT_OPTIONS: { value: OutputFormat; label: string }[] = [
   { value: "image/webp", label: "WebP" },
 ];
 
+/** The lowest value of the quality slider. */
+export const MIN_QUALITY = 10;
+
 function pctText(pct: number): string {
   if (pct > 0) return `-${pct}%`;
   if (pct < 0) return `+${-pct}%`;
@@ -24,9 +27,11 @@ interface ImageCompressControlsProps {
   onSelectFormat: (format: OutputFormat) => void;
   quality: number;
   onQualityChange: (quality: number) => void;
-  estimate: { size: number; pct: number } | null;
+  /** The current image's estimate; "not-smaller" when it would not shrink. */
+  estimate: { size: number; pct: number } | "not-smaller" | null;
   estimating: boolean;
   estimateTemplate: string;
+  estimateNotSmallerLabel: string;
   estimatingLabel: string;
   pngLosslessLabel: string;
 }
@@ -41,6 +46,7 @@ export function ImageCompressControls({
   estimate,
   estimating,
   estimateTemplate,
+  estimateNotSmallerLabel,
   estimatingLabel,
   pngLosslessLabel,
 }: ImageCompressControlsProps) {
@@ -91,7 +97,7 @@ export function ImageCompressControls({
         </div>
         <input
           type="range"
-          min={10}
+          min={MIN_QUALITY}
           max={100}
           step={1}
           value={quality}
@@ -112,6 +118,8 @@ export function ImageCompressControls({
               <Loader2Icon className="size-3 shrink-0 animate-spin" />
               {estimatingLabel}
             </>
+          ) : estimate === "not-smaller" ? (
+            estimateNotSmallerLabel
           ) : estimate ? (
             template(estimateTemplate, {
               size: formatBytes(estimate.size),

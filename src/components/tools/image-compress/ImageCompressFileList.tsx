@@ -13,6 +13,8 @@ interface DoneEntry {
   name: string;
   originalSize: number;
   compressedSize: number;
+  /** Could not shrink: the zip holds the original. */
+  keptOriginal: boolean;
 }
 
 interface ImageCompressFileListProps {
@@ -22,6 +24,7 @@ interface ImageCompressFileListProps {
   onRemove: (index: number) => void;
   removeAriaTemplate: string;
   sizeChangeTemplate: string;
+  keptOriginalTemplate: string;
   disabled?: boolean;
 }
 
@@ -32,6 +35,7 @@ export function ImageCompressFileList({
   onRemove,
   removeAriaTemplate,
   sizeChangeTemplate,
+  keptOriginalTemplate,
   disabled = false,
 }: ImageCompressFileListProps) {
   return (
@@ -88,10 +92,12 @@ export function ImageCompressFileList({
                 {r.name}
               </span>
               <span className="shrink-0" style={{ color: "var(--ink-soft)" }}>
-                {template(sizeChangeTemplate, {
-                  from: formatBytes(r.originalSize),
-                  to: formatBytes(r.compressedSize),
-                })}
+                {r.keptOriginal
+                  ? template(keptOriginalTemplate, { size: formatBytes(r.originalSize) })
+                  : template(sizeChangeTemplate, {
+                      from: formatBytes(r.originalSize),
+                      to: formatBytes(r.compressedSize),
+                    })}
               </span>
             </div>
           ))}

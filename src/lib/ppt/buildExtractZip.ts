@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { uniqueNames } from "@/lib/common/uniqueNames";
 import type { ExtractedImage } from "./extractImages";
 
 export async function buildExtractZip(images: ExtractedImage[]): Promise<Uint8Array> {
@@ -6,19 +7,7 @@ export async function buildExtractZip(images: ExtractedImage[]): Promise<Uint8Ar
     throw new Error("No images to package.");
   }
   const zip = new JSZip();
-  const used = new Set<string>();
-  for (const img of images) {
-    let name = img.name;
-    if (used.has(name)) {
-      const dot = name.lastIndexOf(".");
-      const stem = dot === -1 ? name : name.slice(0, dot);
-      const ext = dot === -1 ? "" : name.slice(dot);
-      let n = 2;
-      while (used.has(`${stem} (${n})${ext}`)) n++;
-      name = `${stem} (${n})${ext}`;
-    }
-    used.add(name);
-    zip.file(name, img.data);
-  }
+  const names = uniqueNames(images.map((img) => img.name));
+  images.forEach((img, i) => zip.file(names[i], img.data));
   return zip.generateAsync({ type: "uint8array" });
 }

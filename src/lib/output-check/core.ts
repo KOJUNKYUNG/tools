@@ -94,7 +94,20 @@ export async function runOutputCheck<T>({
   }
 
   devLog(`${tool}: blocked`, violations);
-  throw new Error(
-    `${CORRUPT_OUTPUT_PREFIX}: ${tool}: ${violations.map((v) => v.property).join(", ")}`,
-  );
+  throw new OutputCheckError(tool, violations);
+}
+
+/**
+ * The corrupt-output error a blocked check throws. Its message carries the
+ * prefix the shared error mapping reads; `violations` lets a tool word a
+ * cause the user can act on (e.g. a format the browser cannot write).
+ */
+export class OutputCheckError extends Error {
+  constructor(
+    readonly tool: string,
+    readonly violations: Violation[],
+  ) {
+    super(`${CORRUPT_OUTPUT_PREFIX}: ${tool}: ${violations.map((v) => v.property).join(", ")}`);
+    this.name = "OutputCheckError";
+  }
 }
