@@ -1,3 +1,6 @@
+import { runOutputCheck } from "@/lib/output-check/core";
+import { checkImageResize } from "./resizeImageCheck";
+
 /** Practical cross-browser canvas dimension safe limit. */
 export const MAX_DIMENSION = 8192;
 
@@ -81,10 +84,21 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
-export async function resizeImage(opts: ResizeImageOptions): Promise<ResizeResult> {
-  const img = await loadImage(opts.file);
-  const origW = img.naturalWidth;
-  const origH = img.naturalHeight;
+type TargetOptions = Pick<
+  ResizeImageOptions,
+  "mode" | "width" | "height" | "percent" | "lockAspectRatio"
+>;
+
+/**
+ * The output canvas size for an image of `original` size (as displayed):
+ * percent and aspect lock resolved, rounded to whole pixels, at least 1.
+ */
+export function resizeTarget(
+  original: { width: number; height: number },
+  opts: TargetOptions,
+): { width: number; height: number } {
+  const origW = original.width;
+  const origH = original.height;
 
   let targetW: number;
   let targetH: number;
@@ -110,8 +124,17 @@ export async function resizeImage(opts: ResizeImageOptions): Promise<ResizeResul
     targetH = origH;
   }
 
-  targetW = Math.max(1, targetW);
-  targetH = Math.max(1, targetH);
+  return { width: Math.max(1, targetW), height: Math.max(1, targetH) };
+}
+
+export async function resizeImage(opts: ResizeImageOptions): Promise<ResizeResult> {
+  const img = await loadImage(opts.file);
+  const origW = img.naturalWidth;
+  const origH = img.naturalHeight;
+  const { width: targetW, height: targetH } = resizeTarget(
+    { width: origW, height: origH },
+    opts,
+  );
 
   const sx = opts.crop?.x ?? 0;
   const sy = opts.crop?.y ?? 0;
@@ -140,8 +163,16 @@ export async function resizeImage(opts: ResizeImageOptions): Promise<ResizeResul
   canvas.width = 0;
   canvas.height = 0;
 
+  // No recovery: there is no safer encode of the same request.
+  const checked = await runOutputCheck({
+    tool: "image-resize",
+    output: blob,
+    check: (out) =>
+      checkImageResize(opts.file, { width: targetW, height: targetH, format }, out, "quick"),
+  });
+
   return {
-    blob,
+    blob: checked,
     width: targetW,
     height: targetH,
     originalWidth: origW,

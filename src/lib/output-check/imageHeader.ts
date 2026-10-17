@@ -16,6 +16,13 @@ export interface ImageHeader {
   orientation: number;
 }
 
+/** The header format a canvas writes for each MIME type it is asked to encode. */
+export const HEADER_FORMAT_OF_MIME: Readonly<Record<string, ImageHeader["format"]>> = {
+  "image/png": "png",
+  "image/jpeg": "jpeg",
+  "image/webp": "webp",
+};
+
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 function readPng(bytes: Uint8Array): ImageHeader | null {

@@ -1,5 +1,6 @@
+import { browserDecodes } from "@/lib/output-check/browserDecode";
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
-import { readImageHeader } from "@/lib/output-check/imageHeader";
+import { HEADER_FORMAT_OF_MIME, readImageHeader } from "@/lib/output-check/imageHeader";
 import type { OutputFormat } from "./pdfToImage";
 
 /** One page's render: the encoded image (null when rendering failed) and its planned size. */
@@ -15,25 +16,6 @@ export interface RenderedPage {
 
 export interface PageImageRequest {
   format: OutputFormat;
-}
-
-const HEADER_FORMAT = { "image/png": "png", "image/jpeg": "jpeg" } as const;
-
-/**
- * The browser's own decoder, as a second reader of the image. Run time only:
- * Node has no `createImageBitmap`, so a Node caller would crash the check
- * (tests stand one in).
- */
-async function decodes(blob: Blob): Promise<boolean> {
-  try {
-    const bitmap = await createImageBitmap(blob);
-    bitmap.close();
-    return true;
-  } catch (err) {
-    // A missing decoder is a checker gap, not a broken image.
-    if (err instanceof ReferenceError) throw err;
-    return false;
-  }
 }
 
 /**
@@ -62,10 +44,10 @@ export const checkPageImage: OutputChecker<number, PageImageRequest, RenderedPag
 
   const violations: Violation[] = [];
   const header = readImageHeader(new Uint8Array(await blob.arrayBuffer()));
-  if (!header || header.format !== HEADER_FORMAT[format]) {
+  if (!header || header.format !== HEADER_FORMAT_OF_MIME[format]) {
     violations.push({
       property: "image-format",
-      detail: `${at}: expected ${HEADER_FORMAT[format]}, got ${header?.format ?? "unreadable bytes"}`,
+      detail: `${at}: expected ${HEADER_FORMAT_OF_MIME[format]}, got ${header?.format ?? "unreadable bytes"}`,
     });
   }
   if (header && (header.width !== width || header.height !== height)) {
@@ -74,7 +56,7 @@ export const checkPageImage: OutputChecker<number, PageImageRequest, RenderedPag
       detail: `${at}: ${header.width}×${header.height}, planned ${width}×${height}`,
     });
   }
-  if (!(await decodes(blob))) {
+  if (!(await browserDecodes(blob))) {
     violations.push({ property: "image-decodes", detail: `${at}: the browser cannot decode it` });
   }
   return violations;

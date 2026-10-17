@@ -595,6 +595,7 @@
         "uploadPrompt": "Drag and drop an image, or click to upload",
         "uploadHint": "JPG, PNG, WebP supported.",
         "tryAgain": "Start over",
+        "errorCorrupt": "The resized image came out damaged and can't be used. Try again, or try another browser.",
         "cropSelectionLabel": "Selection (drag to move, corners to resize)",
         "stretchModeLabel": "The image is stretched to fit the given size.",
         "cropFooterTemplate": "Crop to {w}×{h} ratio · selection: {cw}×{ch}px"
