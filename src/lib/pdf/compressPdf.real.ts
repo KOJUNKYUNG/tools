@@ -2,9 +2,10 @@
 import { beforeAll } from "vitest";
 import { inspectPdf } from "@/lib/output-check/pdfInspector";
 import { realFileSuite, type RealFileRequest } from "@/lib/output-check/realFileSuite";
+import { SIZE_BOUND } from "@/lib/output-check/sizeBound";
 import { compressPdfFromBytes, type CompressPdfResult } from "./compressPdf";
 import { initJustpdfForNode } from "./justpdfNode";
-import { checkPdfCompress, SIZE_BOUND, type PdfCompressRequest } from "./pdfCompressCheck";
+import { checkPdfCompress, type PdfCompressRequest } from "./pdfCompressCheck";
 
 beforeAll(initJustpdfForNode);
 

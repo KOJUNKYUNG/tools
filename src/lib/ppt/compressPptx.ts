@@ -1,5 +1,7 @@
 import JSZip from "jszip";
 import imageCompression from "browser-image-compression";
+import { runOutputCheck } from "@/lib/output-check/core";
+import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
 import { getExt, getMime } from "./pptImageFormats";
 import { aggregateFormats } from "./analyzePresentation";
 import {
@@ -9,7 +11,7 @@ import {
   type CompressionPreset,
   type MediaAction,
 } from "./pptCompressPlan";
-import { assertPptxIntegrity } from "./pptCompressIntegrity";
+import { checkPptCompress, recompressedMediaViolations } from "./pptCompressCheck";
 
 const MEDIA_PREFIX = "ppt/media/";
 const SLIDE_RE = /^ppt\/slides\/slide\d+\.xml$/;
@@ -52,12 +54,20 @@ export interface CompressPptxOptions {
   onProgress?: (pct: number) => void;
 }
 
-export interface CompressPptxResult {
-  data: Uint8Array;
-  originalSize: number;
-  compressedSize: number;
-  ratio: number;
-}
+/**
+ * What a compression run hands back. "not-smaller" is not an error: the
+ * output came out no smaller than the input, so there is nothing to offer and
+ * the original is not passed off as compressed (spec #51, decided in #60).
+ */
+export type CompressPptxResult =
+  | { kind: "compressed"; data: Uint8Array; originalSize: number; compressedSize: number }
+  | { kind: "not-smaller"; originalSize: number; compressedSize: number };
+
+/** Re-encodes one image in its own format; the browser canvas at run time. */
+export type RecompressMedia = (
+  bytes: Uint8Array,
+  action: Extract<MediaAction, { kind: "jpeg" | "png" }>,
+) => Promise<Uint8Array>;
 
 /**
  * Idle-time analysis: pull the embedded thumbnail, count images, and sum the
@@ -144,8 +154,7 @@ async function recompressMedia(
 /**
  * Unpack -> re-encode each jpg/jpeg/png in ppt/media/* in place (same format,
  * same path) -> repackage. Entries are never added, removed, or renamed, so the
- * slide rels and [Content_Types].xml stay valid. A post-repackage integrity
- * check re-opens the output and verifies the entry set + slide count survived.
+ * slide rels and [Content_Types].xml stay valid.
  */
 export async function compressPptx({
   file,
@@ -153,18 +162,37 @@ export async function compressPptx({
   onProgress,
 }: CompressPptxOptions): Promise<CompressPptxResult> {
   onProgress?.(5);
-  const originalSize = file.size;
-  const ab = await file.arrayBuffer();
-  const zip = await JSZip.loadAsync(ab);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  return compressPptxFromBytes({ bytes, preset, onProgress });
+}
 
-  const originalEntryNames: string[] = [];
+export interface CompressPptxFromBytesOptions {
+  bytes: Uint8Array;
+  preset: CompressionPreset;
+  onProgress?: (pct: number) => void;
+  /** The image re-encoder; tests and Node stand one in for the canvas. */
+  recompress?: RecompressMedia;
+}
+
+/**
+ * The engine entry, runnable in Node with `recompress` stood in. Each
+ * re-encoded image is kept only when it is smaller and passes the image
+ * properties (format, displayed size); otherwise that image keeps its
+ * original bytes. The repackaged deck then goes through the output check
+ * (see pptCompressCheck.ts): damage blocks, and a deck no smaller than the
+ * input comes back as "not-smaller".
+ */
+export async function compressPptxFromBytes({
+  bytes,
+  preset,
+  onProgress,
+  recompress = recompressMedia,
+}: CompressPptxFromBytesOptions): Promise<CompressPptxResult> {
+  const zip = await JSZip.loadAsync(bytes);
+
   const mediaPaths: string[] = [];
-  let originalSlideCount = 0;
-
   zip.forEach((path, entry) => {
     if (entry.dir) return;
-    originalEntryNames.push(path);
-    if (SLIDE_RE.test(path)) originalSlideCount++;
     if (path.startsWith(MEDIA_PREFIX) && RECOMPRESSIBLE_EXTS.has(getExt(path))) {
       mediaPaths.push(path);
     }
@@ -181,9 +209,14 @@ export async function compressPptx({
       if (action.kind !== "passthrough") {
         let candidate: Uint8Array | null = null;
         try {
-          candidate = await recompressMedia(original, action);
+          candidate = await recompress(original, action);
         } catch {
           // Re-encode failure (corrupt/odd image) -> keep the original bytes.
+          candidate = null;
+        }
+        // A candidate in the wrong format or shape would distort its fixed
+        // slide frame: keep the original bytes instead (spec #51, #65).
+        if (candidate && recompressedMediaViolations(path, original, candidate).length > 0) {
           candidate = null;
         }
         const chosen = pickSmaller(original, candidate);
@@ -198,50 +231,27 @@ export async function compressPptx({
   }
 
   onProgress?.(88);
-  const data = await zip.generateAsync({
+  const generated = await zip.generateAsync({
     type: "uint8array",
     compression: "DEFLATE",
     compressionOptions: { level: 6 },
   });
 
-  // Whole-file floor: if repackaging didn't actually shrink the file (a deck
-  // whose images are already optimal, where re-deflating the XML can offset
-  // tiny image gains), hand back the untouched original. Never return a file
-  // larger than the input or a negative savings number. The original is a
-  // known-valid PPTX, so the integrity check below is unnecessary here.
-  if (data.length >= originalSize) {
-    onProgress?.(100);
-    return {
-      data: new Uint8Array(ab),
-      originalSize,
-      compressedSize: originalSize,
-      ratio: 1,
-    };
-  }
-
-  // Integrity: re-open the output and confirm nothing was dropped/renamed.
-  const outZip = await JSZip.loadAsync(data);
-  const outputEntryNames: string[] = [];
-  let outputSlideCount = 0;
-  outZip.forEach((path, entry) => {
-    if (entry.dir) return;
-    outputEntryNames.push(path);
-    if (SLIDE_RE.test(path)) outputSlideCount++;
+  // Damage is checked first: a damaged output blocks whatever its size. Bad
+  // images were already swapped back above, so no safer re-run remains.
+  // Not shrinking is an outcome, handled after.
+  const data = await runOutputCheck({
+    tool: "ppt-compress",
+    output: generated,
+    check: async (out) =>
+      (await checkPptCompress(bytes, { preset }, out, "quick")).filter(
+        (v) => v.property !== SIZE_BOUND,
+      ),
   });
-  assertPptxIntegrity({
-    originalEntryNames,
-    outputEntryNames,
-    originalSlideCount,
-    outputSlideCount,
-    originalSize,
-    compressedSize: data.length,
-  });
-
   onProgress?.(100);
-  return {
-    data,
-    originalSize,
-    compressedSize: data.length,
-    ratio: originalSize > 0 ? data.length / originalSize : 1,
-  };
+
+  const sizes = { originalSize: bytes.byteLength, compressedSize: data.byteLength };
+  return notSmaller(bytes, data)
+    ? { kind: "not-smaller", ...sizes }
+    : { kind: "compressed", data, ...sizes };
 }

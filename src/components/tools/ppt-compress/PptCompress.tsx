@@ -23,6 +23,7 @@ import {
 } from "@/lib/ppt/pptCompressPlan";
 import { PptCompressControls } from "./PptCompressControls";
 import { PptCompressEstimate } from "./PptCompressEstimate";
+import { PptCompressNotSmaller } from "./PptCompressNotSmaller";
 import { PptCompressPreview } from "./PptCompressPreview";
 import { PptCompressResult } from "./PptCompressResult";
 import type { PptCompressLabels } from "./labels";
@@ -63,12 +64,15 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
   } = useToolProcessor<CompressPptxResult>({
     processor: (processorFiles, onProgress) =>
       compressPptx({ file: processorFiles[0], preset, onProgress }),
-    onDownload: (res) =>
+    onDownload: (res) => {
+      // A deck that could not shrink has nothing to download.
+      if (res.kind !== "compressed") return;
       downloadBlob(
         res.data,
         deriveCompressedName(filesRef.current[0]?.name ?? ""),
         PPTX_MIME,
-      ),
+      );
+    },
     errorOptions: {
       memoryHint: labels.errorMemory,
       corruptOutputHint: labels.errorCorrupt,
@@ -249,7 +253,11 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
             </div>
 
             {/* RIGHT: preset → estimate, or result, or status */}
-            {isDone && result ? (
+            {isDone && result?.kind === "not-smaller" ? (
+              <div className="self-start">
+                <PptCompressNotSmaller preset={preset} labels={labels} />
+              </div>
+            ) : isDone && result?.kind === "compressed" ? (
               <div className="self-start">
                 <PptCompressResult
                   originalSize={result.originalSize}

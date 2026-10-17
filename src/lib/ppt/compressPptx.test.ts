@@ -1,0 +1,95 @@
+import { describe, it, expect } from "vitest";
+import JSZip from "jszip";
+import PptxGenJS from "pptxgenjs";
+import { JPEG_3x2, noisePng, solidPng, withExifOrientation } from "@/lib/pdf/testImages";
+import { compressPptxFromBytes, type RecompressMedia } from "./compressPptx";
+import { checkPptCompress } from "./pptCompressCheck";
+
+const b64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
+
+// Stored 3×2, shown 2×3, as a phone photo.
+const PHOTO = withExifOrientation(JPEG_3x2, 6);
+
+/** A 2-slide deck: a noisy 40×20 PNG, then a phone photo. */
+async function syntheticDeck(): Promise<Uint8Array> {
+  const pptx = new PptxGenJS();
+  pptx
+    .addSlide()
+    .addImage({ data: `image/png;base64,${b64(noisePng(40, 20))}`, x: 1, y: 1, w: 4, h: 2 });
+  pptx
+    .addSlide()
+    .addImage({ data: `image/jpeg;base64,${b64(PHOTO)}`, x: 1, y: 1, w: 2, h: 3 });
+  // write() returns a union over every outputType; "uint8array" yields this one.
+  return (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
+}
+
+async function media(deck: Uint8Array, pattern: RegExp): Promise<Uint8Array> {
+  const zip = await JSZip.loadAsync(deck);
+  const entry = zip.file(pattern)[0];
+  if (!entry) throw new Error(`no media matching ${pattern}`);
+  return entry.async("uint8array");
+}
+
+const PNG_MEDIA = /^ppt\/media\/.*\.png$/;
+const JPEG_MEDIA = /^ppt\/media\/.*\.jpe?g$/;
+
+/** Stands in for the canvas: a flat PNG of the same size, the JPEG as given. */
+const shrinkPng =
+  (jpeg: (bytes: Uint8Array) => Uint8Array): RecompressMedia =>
+  async (bytes, action) =>
+    action.kind === "png" ? solidPng(40, 20) : jpeg(bytes);
+
+describe("compressPptxFromBytes", () => {
+  it("returns a compressed deck that passes the full check", async () => {
+    const deck = await syntheticDeck();
+    const result = await compressPptxFromBytes({
+      bytes: deck,
+      preset: "medium",
+      recompress: shrinkPng((b) => b),
+    });
+    if (result.kind !== "compressed") throw new Error(`got ${result.kind}`);
+    expect(result.compressedSize).toBe(result.data.byteLength);
+    expect(result.compressedSize).toBeLessThan(result.originalSize);
+    expect(await media(result.data, PNG_MEDIA)).toEqual(solidPng(40, 20));
+    expect(await checkPptCompress(deck, { preset: "medium" }, result.data, "full")).toEqual([]);
+  });
+
+  it.each([
+    ["changes its displayed size", () => JPEG_3x2],
+    ["changes its format", () => solidPng(2, 3)],
+    ["fails", (): Uint8Array => {
+      throw new Error("canvas failed");
+    }],
+  ])("keeps an image's original bytes when recompressing it %s", async (_, jpeg) => {
+    const deck = await syntheticDeck();
+    const result = await compressPptxFromBytes({
+      bytes: deck,
+      preset: "medium",
+      recompress: shrinkPng(jpeg),
+    });
+    if (result.kind !== "compressed") throw new Error(`got ${result.kind}`);
+    expect(await media(result.data, JPEG_MEDIA)).toEqual(PHOTO);
+    expect(await checkPptCompress(deck, { preset: "medium" }, result.data, "full")).toEqual([]);
+  });
+
+  it("reports a deck it could not shrink, without handing back a file", async () => {
+    // Packed as tightly as the engine packs, so repackaging alone cannot shrink it.
+    const deck = await (await JSZip.loadAsync(await syntheticDeck())).generateAsync({
+      type: "uint8array",
+      compression: "DEFLATE",
+      compressionOptions: { level: 9 },
+    });
+    const result = await compressPptxFromBytes({
+      bytes: deck,
+      preset: "high",
+      recompress: async (bytes) => bytes,
+    });
+    expect(result).toEqual({
+      kind: "not-smaller",
+      originalSize: deck.byteLength,
+      compressedSize: expect.any(Number),
+    });
+    if (result.kind !== "not-smaller") throw new Error("unreachable");
+    expect(result.compressedSize).toBeGreaterThanOrEqual(result.originalSize);
+  });
+});

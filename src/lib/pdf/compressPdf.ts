@@ -1,5 +1,6 @@
 import { runOutputCheck } from "@/lib/output-check/core";
-import { checkPdfCompress, notSmaller, SIZE_BOUND } from "./pdfCompressCheck";
+import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
+import { checkPdfCompress } from "./pdfCompressCheck";
 
 export type CompressionPreset = "low" | "medium" | "high";
 

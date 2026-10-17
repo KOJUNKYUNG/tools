@@ -35,6 +35,13 @@ export interface PptxPackage {
   /** A part's size as stored in the zip (null when absent or not indexable). */
   storedSize(part: string): number | null;
   /**
+   * True when `part` is stored byte-identically here and in `baseline`, so it
+   * reads the same from both without inflating either. False when it cannot
+   * tell cheaply (an archive read through JSZip); the caller then compares
+   * the bytes.
+   */
+  storedAsIn(baseline: PptxPackage, part: string): boolean;
+  /**
    * With `baseline` (the package this one was made from), a part stored
    * byte-identically in both is not re-read: its own defects (readable,
    * well-formed) would be the baseline's too, inherited by definition.
@@ -184,6 +191,11 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
     storedSize(part) {
       index ??= indexZip(bytes);
       return index?.get(part)?.compressedSize ?? null;
+    },
+
+    storedAsIn(baseline, part) {
+      const base = zipOf.get(baseline);
+      return base !== undefined && storedIdentically(zip, base, part);
     },
 
     async structuralDefects(baseline) {

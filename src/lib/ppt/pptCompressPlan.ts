@@ -1,5 +1,12 @@
 export type CompressionPreset = "low" | "medium" | "high";
 
+/** The next stronger preset, or null for the strongest. */
+export const STRONGER_PRESET: Record<CompressionPreset, CompressionPreset | null> = {
+  low: "medium",
+  medium: "high",
+  high: null,
+};
+
 /** JPEG quality (0..1) per preset for media re-encoding. */
 export const PRESET_JPEG_QUALITY: Record<CompressionPreset, number> = {
   low: 0.82,
