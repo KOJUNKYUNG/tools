@@ -1,18 +1,12 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import { inspectPdf, pdfPageCount } from "@/lib/output-check/pdfInspector";
+import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
 import type { CompressionPreset } from "./compressPdf";
 import { hasInvalidSoftMask } from "./softMaskCheck";
 
 export interface PdfCompressRequest {
   preset: CompressionPreset;
 }
-
-/** The size property: a compression must come out strictly smaller. */
-export const SIZE_BOUND = "size-bound";
-
-/** Whether `output` failed to shrink `input` (no percentage threshold). */
-export const notSmaller = (input: Uint8Array, output: Uint8Array) =>
-  output.byteLength >= input.byteLength;
 
 const hasPdfHeader = (b: Uint8Array) =>
   b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46; // %PDF

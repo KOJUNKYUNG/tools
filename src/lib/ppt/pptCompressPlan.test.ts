@@ -4,25 +4,25 @@ import {
   pickSmaller,
   deriveCompressedName,
   estimatePptxSize,
-  PRESET_JPEG_QUALITY,
+  PRESET_QUALITY,
 } from "./pptCompressPlan";
 
 describe("classifyMedia", () => {
   it("re-encodes jpg/jpeg as JPEG at the preset quality", () => {
     expect(classifyMedia("jpg", "medium")).toEqual({
       kind: "jpeg",
-      quality: PRESET_JPEG_QUALITY.medium,
+      quality: PRESET_QUALITY.medium,
     });
     expect(classifyMedia("jpeg", "high")).toEqual({
       kind: "jpeg",
-      quality: PRESET_JPEG_QUALITY.high,
+      quality: PRESET_QUALITY.high,
     });
   });
 
   it("re-encodes png as PNG (format preserved, transparency safe)", () => {
     expect(classifyMedia("png", "low")).toEqual({
       kind: "png",
-      quality: PRESET_JPEG_QUALITY.low,
+      quality: PRESET_QUALITY.low,
     });
   });
 
@@ -85,11 +85,11 @@ describe("estimatePptxSize", () => {
     // (1000-800) + 800*0.58 = 200 + 464 = 664, under static upper (900)
     expect(estimatePptxSize(1000, 800, 0, "medium")).toBe(664);
   });
-  it("shrinks PNG bytes by a fixed ratio regardless of preset", () => {
-    // png 0.6 fixed → medium and high give the same png contribution
-    // (1000-800) + 800*0.6 = 200 + 480 = 680 for both presets
-    expect(estimatePptxSize(1000, 0, 800, "medium")).toBe(680);
-    expect(estimatePptxSize(1000, 0, 800, "high")).toBe(680);
+  it("shrinks PNG bytes a little more at each stronger preset", () => {
+    // png ratios low 0.64, medium 0.62, high 0.59; (1000-800) + 800*ratio
+    expect(estimatePptxSize(1000, 0, 800, "low")).toBe(712);
+    expect(estimatePptxSize(1000, 0, 800, "medium")).toBe(696);
+    expect(estimatePptxSize(1000, 0, 800, "high")).toBe(672);
   });
   it("clamps to the static upper bound when the formula exceeds it", () => {
     // tiny recompressible share → formula ~1000 but high upper = 1000*0.8=800

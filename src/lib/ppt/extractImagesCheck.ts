@@ -1,5 +1,6 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import { type PictureFormat, readPictureFormat } from "@/lib/output-check/pictureFormat";
+import { sameBytes } from "@/lib/output-check/sameBytes";
 import { openZip, type ZipReader } from "@/lib/output-check/zipReader";
 import type { ExtractedImage } from "./extractImages";
 import { getExt, isImageMediaPath } from "./pptImageFormats";
@@ -15,9 +16,6 @@ const CFB_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
 const isBinaryPpt = (input: Uint8Array) => CFB_SIGNATURE.every((b, i) => input[i] === b);
 
 const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
-
-const sameBytes = (a: Uint8Array, b: Uint8Array) =>
-  a.length === b.length && a.every((byte, i) => byte === b[i]);
 
 /**
  * The input deck, read with the checker's own zip reader rather than the

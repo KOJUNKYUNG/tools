@@ -1,5 +1,6 @@
-import type { OutputChecker, Violation } from "@/lib/output-check/core";
+import { notInherited, type OutputChecker, type Violation } from "@/lib/output-check/core";
 import { openPptxPackage, relsPartOf } from "@/lib/output-check/pptxPackage";
+import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { BgMode } from "./changeBackground";
 
 export interface PptBackgroundRequest {
@@ -7,21 +8,6 @@ export interface PptBackgroundRequest {
   mode: BgMode;
   /** 1-based slide indices, for `specific-slides`. */
   targetSlides?: number[];
-}
-
-const key = (v: Violation) => `${v.property}|${v.detail}`;
-
-/** Violations in `found` the input did not already have. */
-function notInherited(found: Violation[], inherited: Violation[]): Violation[] {
-  const had = new Set(inherited.map(key));
-  return found.filter((v) => !had.has(key(v)));
-}
-
-function sameBytes(a: Uint8Array | null, b: Uint8Array | null): boolean {
-  if (a === null || b === null) return a === b;
-  if (a.byteLength !== b.byteLength) return false;
-  for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
-  return true;
 }
 
 /**

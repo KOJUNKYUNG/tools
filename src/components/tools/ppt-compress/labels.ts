@@ -1,4 +1,5 @@
 import type { Dictionary } from "@/i18n/config";
+import type { CompressionPreset } from "@/lib/ppt/pptCompressPlan";
 
 export interface PptCompressLabels {
   title: string;
@@ -22,6 +23,13 @@ export interface PptCompressLabels {
   estimateActualTemplate: string;
   estimateNoChange: string;
   resultTitle: string;
+  notSmallerTitle: string;
+  /** `{preset}` and `{next}`: the chosen and the next stronger preset's name. */
+  notSmallerTryStronger: string;
+  /** `{preset}`: the strongest preset's name. */
+  notSmallerOptimized: string;
+  /** No image could be re-encoded, so no preset can help. */
+  notSmallerNoImages: string;
   originalSizeLabel: string;
   compressedSizeLabel: string;
   savingsLabel: string;
@@ -35,6 +43,13 @@ export interface PptCompressLabels {
   errorMemory: string;
   errorCorrupt: string;
   fileUpload: Dictionary["common"]["fileUpload"];
+}
+
+/** A preset's display name (Light / Medium / Heavy). */
+export function presetLabel(preset: CompressionPreset, labels: PptCompressLabels): string {
+  return { low: labels.presetLightLabel, medium: labels.presetMediumLabel, high: labels.presetHeavyLabel }[
+    preset
+  ];
 }
 
 export function getPptCompressLabels(dict: Dictionary): PptCompressLabels {
@@ -62,6 +77,10 @@ export function getPptCompressLabels(dict: Dictionary): PptCompressLabels {
     estimateActualTemplate: p.estimateActualTemplate,
     estimateNoChange: p.estimateNoChange,
     resultTitle: p.resultTitle,
+    notSmallerTitle: p.notSmallerTitle,
+    notSmallerTryStronger: p.notSmallerTryStronger,
+    notSmallerOptimized: p.notSmallerOptimized,
+    notSmallerNoImages: p.notSmallerNoImages,
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,
     savingsLabel: p.savingsLabel,

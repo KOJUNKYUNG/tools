@@ -1,7 +1,7 @@
 "use client";
 
 import type { CompressionPreset } from "@/lib/ppt/pptCompressPlan";
-import type { PptCompressLabels } from "./labels";
+import { presetLabel, type PptCompressLabels } from "./labels";
 
 interface PptCompressControlsProps {
   preset: CompressionPreset;
@@ -21,11 +21,11 @@ export function PptCompressControls({
   labels,
   disabled = false,
 }: PptCompressControlsProps) {
-  const options: { value: CompressionPreset; label: string }[] = [
-    { value: "low", label: labels.presetLightLabel },
-    { value: "medium", label: labels.presetMediumLabel },
-    { value: "high", label: labels.presetHeavyLabel },
-  ];
+  const presets: CompressionPreset[] = ["low", "medium", "high"];
+  const options = presets.map((value) => ({
+    value,
+    label: presetLabel(value, labels),
+  }));
 
   return (
     <div className="space-y-2">

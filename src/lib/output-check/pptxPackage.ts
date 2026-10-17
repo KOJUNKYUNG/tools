@@ -35,6 +35,13 @@ export interface PptxPackage {
   /** A part's size as stored in the zip (null when absent or not indexable). */
   storedSize(part: string): number | null;
   /**
+   * True when `part` is stored byte-identically here and in `baseline`, so it
+   * reads the same from both without inflating either. False when it cannot
+   * tell cheaply (an archive read through JSZip); the caller then compares
+   * the bytes.
+   */
+  storedAsIn(baseline: PptxPackage, part: string): boolean;
+  /**
    * With `baseline` (the package this one was made from), a part stored
    * byte-identically in both is not re-read: its own defects (readable,
    * well-formed) would be the baseline's too, inherited by definition.
@@ -47,6 +54,17 @@ export interface PptxPackage {
    * (`<p:bg>` picture fill) points at, or null when it declares none.
    */
   backgroundMedia(parts: readonly string[]): Promise<Map<string, string | null>>;
+  /**
+   * The parts `part` relates to by relationship type, named by the type URI's
+   * last segment (e.g. `slideLayout`), in `.rels` order. Internal targets only.
+   */
+  relatedParts(part: string, type: string): Promise<string[]>;
+  /**
+   * The media parts of the image relationships whose id `part` names, i.e.
+   * the images it shows (pictures and a declared background), in `.rels`
+   * order. Null for an external or unresolvable target.
+   */
+  shownImages(part: string): Promise<(string | null)[]>;
   /**
    * Image relationships whose source part never names their id. Only image
    * relationships are checked: a part must name them (`r:embed`, `r:link`,
@@ -78,6 +96,13 @@ function attrs(tag: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const m of tag.matchAll(TAG_ATTRS)) out[m[1]] = m[2] ?? m[3];
   return out;
+}
+
+/** Every attribute value in a part: a relationship is used when one names its id. */
+function namedValues(xml: string): Set<string> {
+  const named = new Set<string>();
+  for (const m of xml.matchAll(ATTR_VALUES)) named.add(m[1] ?? m[2]);
+  return named;
 }
 
 function decodePartName(name: string): string {
@@ -186,6 +211,11 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
       return index?.get(part)?.compressedSize ?? null;
     },
 
+    storedAsIn(baseline, part) {
+      const base = zipOf.get(baseline);
+      return base !== undefined && storedIdentically(zip, base, part);
+    },
+
     async structuralDefects(baseline) {
       const defects: Violation[] = [];
       const base = baseline && zipOf.get(baseline);
@@ -258,6 +288,22 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
       return result;
     },
 
+    async relatedParts(part, type) {
+      const suffix = `/${type}`;
+      return (await relationshipsOf(relsPartOf(part))).flatMap((r) =>
+        !r.external && r.part !== null && r.type.endsWith(suffix) ? [r.part] : [],
+      );
+    },
+
+    async shownImages(part) {
+      const [rels, xml] = await Promise.all([relationshipsOf(relsPartOf(part)), text(part)]);
+      if (xml === null) return [];
+      const named = namedValues(xml);
+      return rels
+        .filter((r) => IMAGE_REL_TYPE.test(r.type) && named.has(r.id))
+        .map((r) => r.part);
+    },
+
     async unusedRelationships(sources) {
       const wanted = sources && new Set(sources);
       const pairs: { relsPart: string; source: string }[] = [];
@@ -280,8 +326,7 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
         const xml = await text(source);
         // Unreadable parts are reported by structuralDefects, not here.
         if (xml === null) continue;
-        const named = new Set<string>();
-        for (const m of xml.matchAll(ATTR_VALUES)) named.add(m[1] ?? m[2]);
+        const named = namedValues(xml);
         for (const rel of images) {
           if (!named.has(rel.id)) {
             unused.push({
