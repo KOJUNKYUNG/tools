@@ -1,11 +1,15 @@
 import JSZip from "jszip";
 import { uniqueNames } from "@/lib/common/uniqueNames";
 import { OutputCheckError, runOutputCheck } from "@/lib/output-check/core";
-import { SIZE_BOUND } from "@/lib/output-check/sizeBound";
+import { HEADER_FORMAT_OF_MIME, readImageHeader } from "@/lib/output-check/imageHeader";
+import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
 import { checkCompressedImage, checkCompressZip } from "./compressImageCheck";
 import { isConvertedFromHeic } from "./heic";
 
 export type OutputFormat = "image/jpeg" | "image/png" | "image/webp";
+
+/** The lowest quality (percent) the tool offers. */
+export const MIN_QUALITY = 10;
 
 export interface CompressImageOptions {
   files: File[];
@@ -114,10 +118,15 @@ const browserEncoders: ImageEncoders = {
   redraw: redrawOnCanvas,
 };
 
+const inFormat = async (blob: Blob, format: OutputFormat) =>
+  readImageHeader(new Uint8Array(await blob.arrayBuffer()))?.format === HEADER_FORMAT_OF_MIME[format];
+
 /**
  * Encode one file and check it (spec #51, #60). A same-format output that is
  * not smaller keeps the original: that is an outcome, so it is settled before
- * the damage check (nothing of the output is offered).
+ * the damage check (nothing of the output is offered). Only an output in the
+ * requested format counts: a canvas PNG fallback is usually larger too, and
+ * "lower the quality" would be the wrong advice for it.
  */
 async function compressOne(
   file: File,
@@ -128,10 +137,12 @@ async function compressOne(
   const sameFormat = file.type === outputFormat && !isConvertedFromHeic(file);
   const viaLibrary = file.type === outputFormat && outputFormat !== "image/png";
   const encode = viaLibrary ? encoders.compress : encoders.redraw;
-  const notSmaller = (out: Blob) => sameFormat && out.size >= file.size;
+  const keepsOriginal = (out: Blob) => sameFormat && notSmaller(file, out);
 
   const encoded = await encode(file, outputFormat, quality);
-  if (notSmaller(encoded)) return { blob: file, keptOriginal: true };
+  if (keepsOriginal(encoded) && (await inFormat(encoded, outputFormat))) {
+    return { blob: file, keptOriginal: true };
+  }
 
   let checked: Blob;
   try {
@@ -154,7 +165,7 @@ async function compressOne(
     throw err;
   }
   // A recovery may come out larger than the input.
-  if (notSmaller(checked)) return { blob: file, keptOriginal: true };
+  if (keepsOriginal(checked)) return { blob: file, keptOriginal: true };
   return { blob: checked, keptOriginal: false };
 }
 

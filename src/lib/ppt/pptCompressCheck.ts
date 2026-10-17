@@ -1,5 +1,5 @@
 import { notInherited, type OutputChecker, type Violation } from "@/lib/output-check/core";
-import { readImageHeader, type ImageHeader } from "@/lib/output-check/imageHeader";
+import { displayedSize, readImageHeader, type ImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { sameBytes } from "@/lib/output-check/sameBytes";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
@@ -51,10 +51,6 @@ export function recompressedMediaViolations(
   return [];
 }
 
-/** Width and height as shown: EXIF orientations 5–8 turn the image a quarter. */
-function displayedSize({ width, height, orientation }: ImageHeader): [number, number] {
-  return orientation >= 5 ? [height, width] : [width, height];
-}
 
 /**
  * ppt-compress output properties (spec #51, confirmed in #60), all ⚡ (`quick`

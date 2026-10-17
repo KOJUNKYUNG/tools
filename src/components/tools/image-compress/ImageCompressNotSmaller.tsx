@@ -2,8 +2,7 @@
 
 import { ResultCard } from "@/components/common/ResultCard";
 import { template } from "@/lib/common/template";
-import type { OutputFormat } from "@/lib/image/compressImage";
-import { MIN_QUALITY } from "./ImageCompressControls";
+import { MIN_QUALITY, type OutputFormat } from "@/lib/image/compressImage";
 import type { ImageCompressLabels } from "./labels";
 
 /**

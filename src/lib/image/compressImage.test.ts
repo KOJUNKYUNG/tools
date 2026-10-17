@@ -162,7 +162,17 @@ describe("compressImages", () => {
         (e: unknown) => e,
       );
       expect(err).toBeInstanceOf(OutputFormatUnsupportedError);
-      expect((err as OutputFormatUnsupportedError).format).toBe("image/webp");
+      if (err instanceof OutputFormatUnsupportedError) expect(err.format).toBe("image/webp");
+    });
+
+    it("names the format even when the fallback PNG came out larger, not 'could not shrink'", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      // WebP → WebP goes through the library; both encoders fall back to PNG.
+      const png = pad(solidPng(3, 2), 5000);
+      const { fixed } = encoders(png, png);
+      const input = file(pad(solidPng(3, 2), 100), "a.webp", "image/webp");
+      const err = await run([input], "image/webp", fixed).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(OutputFormatUnsupportedError);
     });
   });
 });

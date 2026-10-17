@@ -21,7 +21,7 @@ import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
 import type { ImageCompressLabels } from "./labels";
 import { ImageCompressPreview } from "./ImageCompressPreview";
-import { ImageCompressControls } from "./ImageCompressControls";
+import { ImageCompressControls, type ImageEstimate } from "./ImageCompressControls";
 import { ImageCompressFileList } from "./ImageCompressFileList";
 import { ImageCompressResult } from "./ImageCompressResult";
 import { ImageCompressNotSmaller } from "./ImageCompressNotSmaller";
@@ -55,9 +55,7 @@ export function ImageCompressTool({
   const [urls, setUrls] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [normalizing, setNormalizing] = useState(false);
-  const [estimate, setEstimate] = useState<
-    { size: number; pct: number } | "not-smaller" | null
-  >(null);
+  const [estimate, setEstimate] = useState<ImageEstimate | null>(null);
   const [estimating, setEstimating] = useState(false);
   const estimateTokenRef = useRef(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);

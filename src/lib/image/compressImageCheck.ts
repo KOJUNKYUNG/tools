@@ -1,11 +1,11 @@
 import { browserDecodes } from "@/lib/output-check/browserDecode";
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import {
+  displayedSize,
   HEADER_FORMAT_OF_MIME,
   readImageHeader,
-  type ImageHeader,
 } from "@/lib/output-check/imageHeader";
-import { SIZE_BOUND } from "@/lib/output-check/sizeBound";
+import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
 import { indexZip } from "@/lib/output-check/zipReader";
 import type { OutputFormat } from "./compressImage";
 
@@ -18,11 +18,6 @@ export interface CompressedImageRequest {
    * conversion the user asked for, so it is not same-format.
    */
   sameFormat: boolean;
-}
-
-/** Width and height as shown: EXIF orientations 5–8 turn the image a quarter. */
-function displayedSize({ width, height, orientation }: ImageHeader): [number, number] {
-  return orientation >= 5 ? [height, width] : [width, height];
 }
 
 const headerOf = async (blob: Blob) => readImageHeader(new Uint8Array(await blob.arrayBuffer()));
@@ -70,7 +65,7 @@ export const checkCompressedImage: OutputChecker<Blob, CompressedImageRequest, B
   if (!(await browserDecodes(output))) {
     violations.push({ property: "image-decodes", detail: "the browser cannot decode it" });
   }
-  if (sameFormat && output.size >= input.size) {
+  if (sameFormat && notSmaller(input, output)) {
     violations.push({ property: SIZE_BOUND, detail: `${output.size} ≥ ${input.size} bytes` });
   }
   return violations;

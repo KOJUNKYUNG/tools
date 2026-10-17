@@ -36,7 +36,7 @@ describe("runOutputCheck", () => {
       check: async () => broken,
     }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(OutputCheckError);
-    expect((err as OutputCheckError).violations).toEqual(broken);
+    if (err instanceof OutputCheckError) expect(err.violations).toEqual(broken);
   });
 
   it("recovers silently when the recovery passes the check", async () => {

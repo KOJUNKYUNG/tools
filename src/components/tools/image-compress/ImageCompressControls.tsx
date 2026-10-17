@@ -2,7 +2,7 @@
 
 import { template } from "@/lib/common/template";
 import { formatBytes } from "@/lib/common/formatBytes";
-import type { OutputFormat } from "@/lib/image/compressImage";
+import { MIN_QUALITY, type OutputFormat } from "@/lib/image/compressImage";
 import { Loader2Icon } from "lucide-react";
 
 const FORMAT_OPTIONS: { value: OutputFormat; label: string }[] = [
@@ -11,8 +11,8 @@ const FORMAT_OPTIONS: { value: OutputFormat; label: string }[] = [
   { value: "image/webp", label: "WebP" },
 ];
 
-/** The lowest value of the quality slider. */
-export const MIN_QUALITY = 10;
+/** The current image's estimate; "not-smaller" when it would not shrink. */
+export type ImageEstimate = { size: number; pct: number } | "not-smaller";
 
 function pctText(pct: number): string {
   if (pct > 0) return `-${pct}%`;
@@ -27,8 +27,7 @@ interface ImageCompressControlsProps {
   onSelectFormat: (format: OutputFormat) => void;
   quality: number;
   onQualityChange: (quality: number) => void;
-  /** The current image's estimate; "not-smaller" when it would not shrink. */
-  estimate: { size: number; pct: number } | "not-smaller" | null;
+  estimate: ImageEstimate | null;
   estimating: boolean;
   estimateTemplate: string;
   estimateNotSmallerLabel: string;

@@ -16,6 +16,11 @@ export interface ImageHeader {
   orientation: number;
 }
 
+/** Width and height as shown: EXIF orientations 5–8 turn the image a quarter. */
+export function displayedSize({ width, height, orientation }: ImageHeader): [number, number] {
+  return orientation >= 5 ? [height, width] : [width, height];
+}
+
 /** The header format a canvas writes for each MIME type it is asked to encode. */
 export const HEADER_FORMAT_OF_MIME: Readonly<Partial<Record<string, ImageHeader["format"]>>> = {
   "image/png": "png",
