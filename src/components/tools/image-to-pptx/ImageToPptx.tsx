@@ -188,6 +188,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         }),
         res.name,
       ),
+    errorOptions: { corruptOutputHint: labels.errorCorrupt },
   });
 
   // Cleanup thumbnail cache on unmount

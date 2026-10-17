@@ -1,7 +1,9 @@
 import PptxGenJS from "pptxgenjs";
+import { runOutputCheck } from "@/lib/output-check/core";
 import { SLIDE_SIZES, type SlideKind } from "./slideSize";
 import { computeSlidePlacement, type Box, type PlacementAlign } from "./slidePlacement";
 import { downscaleForSlide, SLIDE_IMAGE_MAX_LONG_EDGE } from "./downscaleForSlide";
+import { checkImageToPptx } from "./imageToPptxCheck";
 
 export type Background =
   | { kind: "color"; color: string }
@@ -43,23 +45,41 @@ export interface BuildPptxInput {
   background: { kind: "color"; color: string } | { kind: "image"; file: File };
   align: PlacementAlign;
 }
-/** High-level: downscale each file, compute placement, assemble. */
-export async function buildPptx(input: BuildPptxInput, onProgress?: (pct: number) => void): Promise<Uint8Array> {
+export type DownscaleForSlide = typeof downscaleForSlide;
+
+/**
+ * image-to-pptx's engine entry: downscale each file, compute placement,
+ * assemble, then the tool's output check (see `imageToPptxCheck.ts`). A
+ * failing check has no safer mode to fall back to, so it blocks with the
+ * corrupt-output error. `downscale` is the browser's canvas; tests in Node
+ * pass a stand-in.
+ */
+export async function buildPptx(
+  input: BuildPptxInput,
+  onProgress?: (pct: number) => void,
+  downscale: DownscaleForSlide = downscaleForSlide,
+): Promise<Uint8Array> {
   const boxInches: Box = input.box;
   let background: Background;
   if (input.background.kind === "color") background = { kind: "color", color: input.background.color };
   else {
-    const bg = await downscaleForSlide(input.background.file, SLIDE_IMAGE_MAX_LONG_EDGE);
+    const bg = await downscale(input.background.file, SLIDE_IMAGE_MAX_LONG_EDGE);
     background = { kind: "image", dataUrl: bg.dataUrl };
   }
   const placed: PlacedImage[] = [];
   const total = input.files.length;
   for (let i = 0; i < total; i++) {
-    const d = await downscaleForSlide(input.files[i], SLIDE_IMAGE_MAX_LONG_EDGE);
+    const d = await downscale(input.files[i], SLIDE_IMAGE_MAX_LONG_EDGE);
     placed.push({ dataUrl: d.dataUrl, placement: computeSlidePlacement(boxInches, d.w, d.h, input.align) });
     onProgress?.(Math.round(((i + 1) / total) * 90));
   }
-  const bytes = await assemblePptxFromPlaced(placed, { slideKind: input.slideKind, background });
+  const options: AssembleOptions = { slideKind: input.slideKind, background };
+  const bytes = await assemblePptxFromPlaced(placed, options);
+  const checked = await runOutputCheck({
+    tool: "image-to-pptx",
+    output: bytes,
+    check: (out) => checkImageToPptx(placed, options, out, "quick"),
+  });
   onProgress?.(100);
-  return bytes;
+  return checked;
 }

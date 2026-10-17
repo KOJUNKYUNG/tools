@@ -459,7 +459,8 @@
         "errNotImage": "{name}: only images (JPG/PNG) can be added.",
         "errTooLarge": "{name}: exceeds the {size} size limit.",
         "errReadFailed": "Could not read the file.",
-        "errNoImages": "No images to turn into slides."
+        "errNoImages": "No images to turn into slides.",
+        "errorCorrupt": "The output PowerPoint is unusable. Try again with other images."
       }
     },
     "image-to-pdf": {
