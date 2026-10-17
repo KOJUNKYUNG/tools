@@ -1,4 +1,4 @@
-import type { OutputChecker, Violation } from "@/lib/output-check/core";
+import { notInherited, type OutputChecker, type Violation } from "@/lib/output-check/core";
 import { readImageHeader, type ImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
@@ -15,7 +15,7 @@ const HEADER_FORMAT_OF_EXT: Readonly<Record<string, ImageHeader["format"]>> = {
   png: "png",
 };
 
-const RECOMPRESSIBLE_MEDIA = (part: string) =>
+const isRecompressibleMedia = (part: string) =>
   /^ppt\/media\/[^/]+$/.test(part) && RECOMPRESSIBLE_EXTS.has(getExt(part));
 
 /**
@@ -52,14 +52,6 @@ export function recompressedMediaViolations(
 /** Width and height as shown: EXIF orientations 5–8 turn the image a quarter. */
 function displayedSize({ width, height, orientation }: ImageHeader): [number, number] {
   return orientation >= 5 ? [height, width] : [width, height];
-}
-
-const key = (v: Violation) => `${v.property}|${v.detail}`;
-
-/** Violations in `found` the input did not already have. */
-function notInherited(found: Violation[], inherited: Violation[]): Violation[] {
-  const had = new Set(inherited.map(key));
-  return found.filter((v) => !had.has(key(v)));
 }
 
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
@@ -127,7 +119,7 @@ export const checkPptCompress: OutputChecker<Uint8Array, PptCompressRequest, Uin
 
     const had = new Set(before.parts);
     for (const part of after.parts) {
-      if (!RECOMPRESSIBLE_MEDIA(part) || !had.has(part) || after.storedAsIn(before, part)) continue;
+      if (!isRecompressibleMedia(part) || !had.has(part) || after.storedAsIn(before, part)) continue;
       const [original, recompressed] = await Promise.all([before.read(part), after.read(part)]);
       // An unreadable part is the zip's damage, not a recompressed image.
       if (original === null || recompressed === null) continue;

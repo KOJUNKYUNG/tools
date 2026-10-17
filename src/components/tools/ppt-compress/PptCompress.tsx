@@ -255,7 +255,11 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
             {/* RIGHT: preset → estimate, or result, or status */}
             {isDone && result?.kind === "not-smaller" ? (
               <div className="self-start">
-                <PptCompressNotSmaller preset={preset} labels={labels} />
+                <PptCompressNotSmaller
+                  preset={preset}
+                  anyImageReencoded={result.anyImageReencoded}
+                  labels={labels}
+                />
               </div>
             ) : isDone && result?.kind === "compressed" ? (
               <div className="self-start">

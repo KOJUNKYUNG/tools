@@ -19,6 +19,17 @@ export interface Violation {
   detail: string;
 }
 
+const violationKey = (v: Violation) => `${v.property}|${v.detail}`;
+
+/**
+ * The violations in `found` that `inherited` (the same check on the input)
+ * does not also have: defects the input already had are not the tool's doing.
+ */
+export function notInherited(found: Violation[], inherited: Violation[]): Violation[] {
+  const had = new Set(inherited.map(violationKey));
+  return found.filter((v) => !had.has(violationKey(v)));
+}
+
 export type OutputChecker<TInput, TRequest, TOutput> = (
   input: TInput,
   request: TRequest,

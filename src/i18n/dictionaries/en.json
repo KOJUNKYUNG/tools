@@ -229,6 +229,7 @@
         "notSmallerTitle": "Can't shrink further",
         "notSmallerTryStronger": "{preset} compression doesn't make this deck any smaller. Try the stronger {next}.",
         "notSmallerOptimized": "Even {preset}, the strongest setting, doesn't make this deck any smaller. It's already optimized.",
+        "notSmallerNoImages": "This deck has no images that can be recompressed, so it doesn't get any smaller. Other settings give the same result.",
         "originalSizeLabel": "Original size",
         "compressedSizeLabel": "After",
         "savingsLabel": "Savings",

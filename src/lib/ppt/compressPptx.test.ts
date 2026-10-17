@@ -72,24 +72,41 @@ describe("compressPptxFromBytes", () => {
     expect(await checkPptCompress(deck, { preset: "medium" }, result.data, "full")).toEqual([]);
   });
 
-  it("reports a deck it could not shrink, without handing back a file", async () => {
+  describe("on a deck it could not shrink", () => {
     // Packed as tightly as the engine packs, so repackaging alone cannot shrink it.
-    const deck = await (await JSZip.loadAsync(await syntheticDeck())).generateAsync({
-      type: "uint8array",
-      compression: "DEFLATE",
-      compressionOptions: { level: 9 },
+    const tightDeck = async () =>
+      (await JSZip.loadAsync(await syntheticDeck())).generateAsync({
+        type: "uint8array",
+        compression: "DEFLATE",
+        compressionOptions: { level: 9 },
+      });
+
+    it("reports it without handing back a file", async () => {
+      const deck = await tightDeck();
+      const result = await compressPptxFromBytes({
+        bytes: deck,
+        preset: "high",
+        // Valid re-encodes that come out no smaller: a stronger preset may help.
+        recompress: async (bytes) => bytes,
+      });
+      expect(result).toEqual({
+        kind: "not-smaller",
+        originalSize: deck.byteLength,
+        compressedSize: expect.any(Number),
+        anyImageReencoded: true,
+      });
+      if (result.kind !== "not-smaller") throw new Error("unreachable");
+      expect(result.compressedSize).toBeGreaterThanOrEqual(result.originalSize);
     });
-    const result = await compressPptxFromBytes({
-      bytes: deck,
-      preset: "high",
-      recompress: async (bytes) => bytes,
+
+    it("says when no image could be re-encoded, so no preset can help", async () => {
+      const result = await compressPptxFromBytes({
+        bytes: await tightDeck(),
+        preset: "low",
+        // Wrong format for the PNG, wrong shape for the photo: both are kept.
+        recompress: async () => JPEG_3x2,
+      });
+      expect(result).toMatchObject({ kind: "not-smaller", anyImageReencoded: false });
     });
-    expect(result).toEqual({
-      kind: "not-smaller",
-      originalSize: deck.byteLength,
-      compressedSize: expect.any(Number),
-    });
-    if (result.kind !== "not-smaller") throw new Error("unreachable");
-    expect(result.compressedSize).toBeGreaterThanOrEqual(result.originalSize);
   });
 });

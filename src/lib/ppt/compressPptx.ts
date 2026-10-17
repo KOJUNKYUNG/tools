@@ -61,7 +61,17 @@ export interface CompressPptxOptions {
  */
 export type CompressPptxResult =
   | { kind: "compressed"; data: Uint8Array; originalSize: number; compressedSize: number }
-  | { kind: "not-smaller"; originalSize: number; compressedSize: number };
+  | {
+      kind: "not-smaller";
+      originalSize: number;
+      compressedSize: number;
+      /**
+       * False when no image could be re-encoded at all (none to re-encode, or
+       * every attempt failed or was kept as the original): a stronger preset
+       * would change nothing, so the tool must not suggest one.
+       */
+      anyImageReencoded: boolean;
+    };
 
 /** Re-encodes one image in its own format; the browser canvas at run time. */
 export type RecompressMedia = (
@@ -199,6 +209,7 @@ export async function compressPptxFromBytes({
   });
 
   onProgress?.(15);
+  let anyImageReencoded = false;
   const total = mediaPaths.length;
   for (let i = 0; i < total; i++) {
     const path = mediaPaths[i];
@@ -219,6 +230,7 @@ export async function compressPptxFromBytes({
         if (candidate && recompressedMediaViolations(path, original, candidate).length > 0) {
           candidate = null;
         }
+        if (candidate) anyImageReencoded = true;
         const chosen = pickSmaller(original, candidate);
         if (chosen.usedCandidate) {
           // Replace bytes at the SAME path; STORE because jpeg/png don't
@@ -252,6 +264,6 @@ export async function compressPptxFromBytes({
 
   const sizes = { originalSize: bytes.byteLength, compressedSize: data.byteLength };
   return notSmaller(bytes, data)
-    ? { kind: "not-smaller", ...sizes }
+    ? { kind: "not-smaller", ...sizes, anyImageReencoded }
     : { kind: "compressed", data, ...sizes };
 }

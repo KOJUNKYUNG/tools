@@ -8,8 +8,15 @@ import { presetLabel, type PptCompressLabels } from "./labels";
 /**
  * What to tell the user when `preset` could not shrink the deck: try the next
  * stronger preset, or, at the strongest, that the deck is already optimised.
+ * When no image could be re-encoded, every preset gives the same result, so
+ * none is suggested.
  */
-export function notSmallerMessage(preset: CompressionPreset, labels: PptCompressLabels): string {
+export function notSmallerMessage(
+  preset: CompressionPreset,
+  anyImageReencoded: boolean,
+  labels: PptCompressLabels,
+): string {
+  if (!anyImageReencoded) return labels.notSmallerNoImages;
   const next = STRONGER_PRESET[preset];
   return next
     ? template(labels.notSmallerTryStronger, {
@@ -21,15 +28,20 @@ export function notSmallerMessage(preset: CompressionPreset, labels: PptCompress
 
 interface PptCompressNotSmallerProps {
   preset: CompressionPreset;
+  anyImageReencoded: boolean;
   labels: PptCompressLabels;
 }
 
 /** The "could not shrink" result: nothing to download, so no actions. */
-export function PptCompressNotSmaller({ preset, labels }: PptCompressNotSmallerProps) {
+export function PptCompressNotSmaller({
+  preset,
+  anyImageReencoded,
+  labels,
+}: PptCompressNotSmallerProps) {
   return (
     <ResultCard title={labels.notSmallerTitle}>
       <p className="font-body text-[12px] leading-[1.6]" style={{ color: "var(--ink)" }}>
-        {notSmallerMessage(preset, labels)}
+        {notSmallerMessage(preset, anyImageReencoded, labels)}
       </p>
     </ResultCard>
   );

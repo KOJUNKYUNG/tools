@@ -28,6 +28,8 @@ export interface PptCompressLabels {
   notSmallerTryStronger: string;
   /** `{preset}`: the strongest preset's name. */
   notSmallerOptimized: string;
+  /** No image could be re-encoded, so no preset can help. */
+  notSmallerNoImages: string;
   originalSizeLabel: string;
   compressedSizeLabel: string;
   savingsLabel: string;
@@ -78,6 +80,7 @@ export function getPptCompressLabels(dict: Dictionary): PptCompressLabels {
     notSmallerTitle: p.notSmallerTitle,
     notSmallerTryStronger: p.notSmallerTryStronger,
     notSmallerOptimized: p.notSmallerOptimized,
+    notSmallerNoImages: p.notSmallerNoImages,
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,
     savingsLabel: p.savingsLabel,
