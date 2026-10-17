@@ -30,6 +30,7 @@ export interface ImageCompressLabels {
   notSmallerLowestQuality: string;
   notSmallerPng: string;
   keptOriginalTemplate: string;
+  keptOriginalsNote: string;
   errorCorrupt: string;
   errorFormatUnsupported: string;
   fileUpload: Dictionary["common"]["fileUpload"];
@@ -67,6 +68,7 @@ export function getImageCompressLabels(dict: Dictionary): ImageCompressLabels {
     notSmallerLowestQuality: page.notSmallerLowestQuality,
     notSmallerPng: page.notSmallerPng,
     keptOriginalTemplate: page.keptOriginalTemplate,
+    keptOriginalsNote: page.keptOriginalsNote,
     errorCorrupt: page.errorCorrupt,
     errorFormatUnsupported: page.errorFormatUnsupported,
     fileUpload: dict.common.fileUpload,

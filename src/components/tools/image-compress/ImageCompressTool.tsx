@@ -261,6 +261,7 @@ export function ImageCompressTool({
   const hasFiles = files.length > 0;
   const isDone = status === "done" && !!result;
   const busy = status === "processing";
+  const keptCount = result?.images.filter((img) => img.keptOriginal).length ?? 0;
 
   const [oversizeDismissed, setOversizeDismissed] = useState(false);
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
@@ -374,6 +375,11 @@ export function ImageCompressTool({
                       format: outputFormat ? formatLabel(outputFormat) : "",
                       quality,
                     })}
+                    keptOriginalsText={
+                      keptCount > 0
+                        ? template(labels.keptOriginalsNote, { n: keptCount })
+                        : undefined
+                    }
                     downloadLabel={labels.download}
                     onDownload={download}
                   />
