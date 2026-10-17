@@ -7,8 +7,11 @@ export const STRONGER_PRESET: Record<CompressionPreset, CompressionPreset | null
   high: null,
 };
 
-/** JPEG quality (0..1) per preset for media re-encoding. */
-export const PRESET_JPEG_QUALITY: Record<CompressionPreset, number> = {
+/**
+ * Re-encode quality (0..1) per preset: the JPEG quality, and for PNG the colour
+ * budget (browser-image-compression quantizes to 4096 × quality colours).
+ */
+export const PRESET_QUALITY: Record<CompressionPreset, number> = {
   low: 0.82,
   medium: 0.7,
   high: 0.55,
@@ -32,7 +35,7 @@ export function classifyMedia(
   preset: CompressionPreset,
 ): MediaAction {
   const e = ext.toLowerCase();
-  const quality = PRESET_JPEG_QUALITY[preset];
+  const quality = PRESET_QUALITY[preset];
   if (e === "jpg" || e === "jpeg") return { kind: "jpeg", quality };
   if (e === "png") return { kind: "png", quality };
   return { kind: "passthrough" };
@@ -81,12 +84,17 @@ export const PRESET_JPEG_RATIO: Record<CompressionPreset, number> = {
 };
 
 /**
- * Fraction of PNG bytes left after re-encoding. PNG re-encoding is lossless, so
- * the preset has NO effect — a single preset-independent ratio keeps the
- * estimate honest. Empirically PNG-heavy church decks land ~0.5–0.65; 0.6 is a
- * middle-of-the-road value across files.
+ * Fraction of PNG bytes left after re-encoding at each preset. The re-encode
+ * quantizes to 4096 × quality colours, so it is lossy and a stronger preset
+ * does shrink more, but only a little: measured with browser-image-compression
+ * 2.0.2 on the 31 PNGs of the real-file decks (2026-10), with each image kept
+ * when its candidate is no smaller, as the engine does.
  */
-export const PNG_RATIO = 0.6;
+export const PRESET_PNG_RATIO: Record<CompressionPreset, number> = {
+  low: 0.64,
+  medium: 0.62,
+  high: 0.59,
+};
 
 /** Whole-file [min,max] remaining range used as a static fallback estimate. */
 export const PRESET_RANGE: Record<CompressionPreset, [number, number]> = {
@@ -106,10 +114,9 @@ export const PRESET_IMAGE_SHARE_CUTOFF: Record<CompressionPreset, number> = {
 };
 
 /**
- * Estimate the compressed file size. JPEG bytes shrink by the preset-dependent
- * ratio; PNG bytes shrink by a fixed (preset-independent) ratio because their
- * re-encode is lossless; everything else is unchanged. Clamped by the static
- * upper bound.
+ * Estimate the compressed file size. JPEG and PNG bytes each shrink by their
+ * own preset ratio; everything else is unchanged. Clamped by the static upper
+ * bound.
  *
  * Splitting JPEG vs PNG matters: a PNG-dominated deck barely changes between
  * presets in reality, so a single blended ratio would over-promise on "high"
@@ -123,7 +130,7 @@ export function estimatePptxSize(
 ): number {
   const untouched = totalSize - jpegBytes - pngBytes;
   const formula =
-    untouched + jpegBytes * PRESET_JPEG_RATIO[preset] + pngBytes * PNG_RATIO;
+    untouched + jpegBytes * PRESET_JPEG_RATIO[preset] + pngBytes * PRESET_PNG_RATIO[preset];
   const staticUpper = totalSize * PRESET_RANGE[preset][1];
   return Math.min(formula, staticUpper);
 }

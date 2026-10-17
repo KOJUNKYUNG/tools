@@ -32,9 +32,9 @@ export interface PptxCompressAnalysis {
   totalSize: number;
   /** Number of slides (ppt/slides/slideN.xml entries). */
   slideCount: number;
-  /** Sum of jpg/jpeg media bytes (preset-sensitive in the estimate). */
+  /** Sum of jpg/jpeg media bytes (the estimate shrinks them per preset). */
   jpegBytes: number;
-  /** Sum of png media bytes (preset-independent in the estimate). */
+  /** Sum of png media bytes (the estimate shrinks them per preset). */
   pngBytes: number;
   imageCount: number;
   formatCounts: Record<string, number>;
@@ -153,7 +153,7 @@ async function recompressMedia(
   const inputFile = new File([new Uint8Array(bytes)], "m", { type: mime });
   const out = await imageCompression(inputFile, {
     maxSizeMB: Number.POSITIVE_INFINITY,
-    initialQuality: action.quality, // ignored for PNG (lossless re-encode)
+    initialQuality: action.quality, // for PNG: quantize to 4096 × quality colours
     useWebWorker: true,
     fileType: mime,
   });
