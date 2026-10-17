@@ -1,6 +1,7 @@
 import { notInherited, type OutputChecker, type Violation } from "@/lib/output-check/core";
 import { readImageHeader, type ImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
+import { sameBytes } from "@/lib/output-check/sameBytes";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
 import { getExt } from "./pptImageFormats";
 import { RECOMPRESSIBLE_EXTS, type CompressionPreset } from "./pptCompressPlan";
@@ -52,12 +53,6 @@ export function recompressedMediaViolations(
 /** Width and height as shown: EXIF orientations 5–8 turn the image a quarter. */
 function displayedSize({ width, height, orientation }: ImageHeader): [number, number] {
   return orientation >= 5 ? [height, width] : [width, height];
-}
-
-function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.byteLength !== b.byteLength) return false;
-  for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
-  return true;
 }
 
 /**

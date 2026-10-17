@@ -5,16 +5,15 @@ import type { Dictionary } from "@/i18n/config";
 import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
 import { getErrorMessage } from "@/lib/errors";
-import { readImageHeader } from "@/lib/output-check/imageHeader";
 import { solidPng } from "@/lib/pdf/testImages";
 import {
   assemblePptxFromPlaced,
   buildPptx,
   type BuildPptxInput,
-  type DownscaleForSlide,
   type PlacedImage,
 } from "./assemblePptx";
 import * as check from "./imageToPptxCheck";
+import { embedAsIs, placedAs } from "./testDownscale";
 
 // The real checker by default; one test makes it report a violation.
 vi.mock("./imageToPptxCheck", async (importOriginal) => {
@@ -61,17 +60,6 @@ describe("assemblePptxFromPlaced", () => {
   });
 });
 
-const dataUrlOf = (bytes: Uint8Array) =>
-  `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`;
-
-/** Stands in for the canvas: embeds the file's bytes as they are. */
-const passThrough: DownscaleForSlide = async (file) => {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const header = readImageHeader(bytes);
-  if (!header) throw new Error(`not an image: ${file.name}`);
-  return { dataUrl: dataUrlOf(bytes), w: header.width, h: header.height };
-};
-
 const pngFile = (name: string, w: number, h: number) =>
   new File([Buffer.from(solidPng(w, h))], name, { type: "image/png" });
 
@@ -81,15 +69,7 @@ function request(background: BuildPptxInput["background"]): BuildPptxInput {
   return { files: FILES, box: { x: 1, y: 1, w: 8, h: 5 }, slideKind: "16:9", background, align: "center" };
 }
 
-/** What the engine placed: the files' bytes, in order (placement is not checked). */
-async function placedOf(files: File[]): Promise<PlacedImage[]> {
-  return Promise.all(
-    files.map(async (f) => ({
-      dataUrl: (await passThrough(f, 0)).dataUrl,
-      placement: { x: 0, y: 0, w: 0, h: 0 },
-    })),
-  );
-}
+const embedded = async (file: File) => (await embedAsIs(file, 0)).dataUrl;
 
 describe("buildPptx", () => {
   it.each([
@@ -97,7 +77,7 @@ describe("buildPptx", () => {
     ["an image background", { kind: "image", file: pngFile("bg.png", 16, 9) } as const],
   ])("builds a deck on %s that passes the full check", async (_label, background) => {
     const progress: number[] = [];
-    const deck = await buildPptx(request(background), (pct) => progress.push(pct), passThrough);
+    const deck = await buildPptx(request(background), (pct) => progress.push(pct), embedAsIs);
 
     expect(progress.at(-1)).toBe(100);
     expect(vi.mocked(check.checkImageToPptx)).toHaveBeenLastCalledWith(
@@ -111,9 +91,10 @@ describe("buildPptx", () => {
       background:
         background.kind === "color"
           ? background
-          : { kind: "image" as const, dataUrl: (await passThrough(background.file, 0)).dataUrl },
+          : { kind: "image" as const, dataUrl: await embedded(background.file) },
     };
-    expect(await checkImageToPptx(await placedOf(FILES), opts, deck, "full")).toEqual([]);
+    const placed = placedAs(await Promise.all(FILES.map(embedded)));
+    expect(await checkImageToPptx(placed, opts, deck, "full")).toEqual([]);
   });
 
   it("blocks a failing quick check with the corrupt-output error and image-to-pptx's hint", async () => {
@@ -123,7 +104,7 @@ describe("buildPptx", () => {
     const err = await buildPptx(
       request({ kind: "color", color: "FFFFFF" }),
       undefined,
-      passThrough,
+      embedAsIs,
     ).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(Error);

@@ -1,5 +1,6 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import { openPptxPackage, type PptxPackage } from "@/lib/output-check/pptxPackage";
+import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { AssembleOptions, PlacedImage } from "./assemblePptx";
 
 /** The bytes a base64 data URL carries (what pptxgenjs embeds as the media part). */
@@ -10,39 +11,30 @@ function dataUrlBytes(url: string): Uint8Array {
   return bytes;
 }
 
-function sameBytes(a: Uint8Array | null, b: Uint8Array): boolean {
-  if (a === null || a.byteLength !== b.byteLength) return false;
-  for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
-  return true;
-}
-
 /**
- * The background image a slide inherits: its own declared background, else
- * its layout's, else its master's. pptxgenjs writes a slide master as a
+ * The background image each slide inherits: its own declared background,
+ * else its layout's, else its master's. pptxgenjs writes a slide master as a
  * slide layout, so the chain is followed rather than one part assumed. A
  * part declaring a colour background does not stop the walk, so a slide that
  * overrides the image with a colour goes unnoticed (never a false positive).
  */
-async function inheritedBackground(
-  pkg: PptxPackage,
-  slide: string,
-  cache: Map<string, string | null>,
-): Promise<string | null> {
-  const backgroundOf = async (part: string) => {
-    if (!cache.has(part)) cache.set(part, (await pkg.backgroundMedia([part])).get(part) ?? null);
-    return cache.get(part) ?? null;
-  };
-  const own = await backgroundOf(slide);
-  if (own !== null) return own;
-  for (const layout of await pkg.relatedParts(slide, "slideLayout")) {
-    const viaLayout = await backgroundOf(layout);
-    if (viaLayout !== null) return viaLayout;
-    for (const master of await pkg.relatedParts(layout, "slideMaster")) {
-      const viaMaster = await backgroundOf(master);
-      if (viaMaster !== null) return viaMaster;
-    }
-  }
-  return null;
+async function inheritedBackgrounds(pkg: PptxPackage): Promise<Map<string, string | null>> {
+  const chains = await Promise.all(
+    pkg.slideParts.map(async (slide) => {
+      const chain = [slide];
+      for (const layout of await pkg.relatedParts(slide, "slideLayout")) {
+        chain.push(layout, ...(await pkg.relatedParts(layout, "slideMaster")));
+      }
+      return chain;
+    }),
+  );
+  const declared = await pkg.backgroundMedia([...new Set(chains.flat())]);
+  return new Map(
+    chains.map((chain) => [
+      chain[0],
+      chain.map((part) => declared.get(part) ?? null).find((media) => media !== null) ?? null,
+    ]),
+  );
 }
 
 /**
@@ -104,10 +96,10 @@ export const checkImageToPptx: OutputChecker<PlacedImage[], AssembleOptions, Uin
     }
 
     if (backgroundImage !== null) {
-      const cache = new Map<string, string | null>();
+      const inherited = await inheritedBackgrounds(pkg);
       const matches = new Map<string, boolean>();
       for (const slide of pkg.slideParts) {
-        const media = await inheritedBackground(pkg, slide, cache);
+        const media = inherited.get(slide) ?? null;
         if (media !== null && !matches.has(media)) {
           matches.set(media, sameBytes(await pkg.read(media), backgroundImage));
         }

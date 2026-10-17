@@ -1,5 +1,6 @@
 import { notInherited, type OutputChecker, type Violation } from "@/lib/output-check/core";
 import { openPptxPackage, relsPartOf } from "@/lib/output-check/pptxPackage";
+import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { BgMode } from "./changeBackground";
 
 export interface PptBackgroundRequest {
@@ -7,13 +8,6 @@ export interface PptBackgroundRequest {
   mode: BgMode;
   /** 1-based slide indices, for `specific-slides`. */
   targetSlides?: number[];
-}
-
-function sameBytes(a: Uint8Array | null, b: Uint8Array | null): boolean {
-  if (a === null || b === null) return a === b;
-  if (a.byteLength !== b.byteLength) return false;
-  for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
-  return true;
 }
 
 /**
