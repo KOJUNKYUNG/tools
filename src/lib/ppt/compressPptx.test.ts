@@ -1,9 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
 import { JPEG_3x2, noisePng, solidPng, withExifOrientation } from "@/lib/pdf/testImages";
 import { compressPptxFromBytes, type RecompressMedia } from "./compressPptx";
-import { checkPptCompress } from "./pptCompressCheck";
+import * as check from "./pptCompressCheck";
+
+// The real checker by default; one test makes it report a violation.
+vi.mock("./pptCompressCheck", async (importOriginal) => {
+  const real = await importOriginal<typeof check>();
+  return { ...real, checkPptCompress: vi.fn(real.checkPptCompress) };
+});
+const { checkPptCompress } = await vi.importActual<typeof check>("./pptCompressCheck");
 
 const b64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
 
@@ -107,6 +114,20 @@ describe("compressPptxFromBytes", () => {
         recompress: async () => JPEG_3x2,
       });
       expect(result).toMatchObject({ kind: "not-smaller", anyImageReencoded: false });
+    });
+
+    it("skips the damage check, since no file is offered either way", async () => {
+      vi.mocked(check.checkPptCompress).mockClear();
+      vi.mocked(check.checkPptCompress).mockResolvedValueOnce([
+        { property: "slide-count", detail: "2 → 1 slides" },
+      ]);
+      const result = await compressPptxFromBytes({
+        bytes: await tightDeck(),
+        preset: "high",
+        recompress: async (bytes) => bytes,
+      });
+      expect(result).toMatchObject({ kind: "not-smaller" });
+      expect(vi.mocked(check.checkPptCompress)).not.toHaveBeenCalled();
     });
   });
 });

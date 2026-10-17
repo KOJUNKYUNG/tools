@@ -229,7 +229,7 @@
         "notSmallerTitle": "더 줄일 수 없음",
         "notSmallerTryStronger": "'{preset}' 단계로는 이 PPT가 더 작아지지 않습니다. 더 강한 '{next}' 단계로 다시 시도해 보세요.",
         "notSmallerOptimized": "가장 강한 '{preset}' 단계로도 더 작아지지 않습니다. 이미 최적화된 파일입니다.",
-        "notSmallerNoImages": "이 PPT에는 다시 압축할 수 있는 이미지가 없어 더 작아지지 않습니다. 다른 단계도 결과가 같습니다.",
+        "notSmallerNoImages": "이 PPT의 이미지를 더 작게 다시 압축하지 못해 크기가 줄지 않습니다. 다른 단계도 결과가 같습니다.",
         "originalSizeLabel": "원본 크기",
         "compressedSizeLabel": "압축 후",
         "savingsLabel": "절감률",

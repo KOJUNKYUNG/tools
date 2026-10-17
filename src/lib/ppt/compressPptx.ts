@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import imageCompression from "browser-image-compression";
 import { runOutputCheck } from "@/lib/output-check/core";
-import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
+import { notSmaller } from "@/lib/output-check/sizeBound";
 import { getExt, getMime } from "./pptImageFormats";
 import { aggregateFormats } from "./analyzePresentation";
 import {
@@ -251,21 +251,21 @@ export async function compressPptxFromBytes({
     compressionOptions: { level: 6 },
   });
 
-  // Damage is checked first: a damaged output blocks whatever its size. Bad
-  // images were already swapped back above, so no safer re-run remains.
-  // Not shrinking is an outcome, handled after.
+  const sizes = { originalSize: bytes.byteLength, compressedSize: generated.byteLength };
+  // Not shrinking is checked first: no file is offered then, damaged or not.
+  // Unlike pdf-compress, no safer re-run exists that could still shrink it
+  // (bad images were already swapped back above), so the damage check is
+  // skipped and the tool says "could not shrink" rather than "damaged".
+  if (notSmaller(bytes, generated)) {
+    onProgress?.(100);
+    return { kind: "not-smaller", ...sizes, anyImageReencoded };
+  }
+  // The output is smaller, so the size bound holds and only damage remains.
   const data = await runOutputCheck({
     tool: "ppt-compress",
     output: generated,
-    check: async (out) =>
-      (await checkPptCompress(bytes, { preset }, out, "quick")).filter(
-        (v) => v.property !== SIZE_BOUND,
-      ),
+    check: (out) => checkPptCompress(bytes, { preset }, out, "quick"),
   });
   onProgress?.(100);
-
-  const sizes = { originalSize: bytes.byteLength, compressedSize: data.byteLength };
-  return notSmaller(bytes, data)
-    ? { kind: "not-smaller", ...sizes, anyImageReencoded }
-    : { kind: "compressed", data, ...sizes };
+  return { kind: "compressed", data, ...sizes };
 }
