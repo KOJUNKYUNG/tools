@@ -67,8 +67,10 @@ export type CompressPptxResult =
       compressedSize: number;
       /**
        * False when no image could be re-encoded at all (none to re-encode, or
-       * every attempt failed or was kept as the original): a stronger preset
-       * would change nothing, so the tool must not suggest one.
+       * every attempt threw or broke the image's format or displayed size): a
+       * stronger preset would change nothing, so the tool must not suggest
+       * one. A valid re-encode that came out larger still counts: a stronger
+       * preset may shrink it.
        */
       anyImageReencoded: boolean;
     };

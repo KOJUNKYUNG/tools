@@ -21,7 +21,8 @@ export function PptCompressControls({
   labels,
   disabled = false,
 }: PptCompressControlsProps) {
-  const options = (["low", "medium", "high"] as const).map((value) => ({
+  const presets: CompressionPreset[] = ["low", "medium", "high"];
+  const options = presets.map((value) => ({
     value,
     label: presetLabel(value, labels),
   }));

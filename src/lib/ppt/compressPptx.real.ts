@@ -12,7 +12,8 @@ import { checkPptCompress, type PptCompressRequest } from "./pptCompressCheck";
  * every pixel, so the engine's bookkeeping (keep smaller, keep the original
  * on a bad candidate, repackage) runs on real decks. A JPEG whose EXIF turned
  * it changes shape when the tag goes, which exercises the keep-original path.
- * The preset only sets JPEG quality, which this stand-in ignores.
+ * The preset sets JPEG quality and the PNG colour budget, both of which
+ * this stand-in ignores, so one preset covers what it can exercise.
  */
 const reencode: RecompressMedia = async (bytes, action) =>
   action.kind === "png" ? redeflatePng(bytes) : stripJpegMetadata(bytes);

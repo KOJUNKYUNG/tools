@@ -65,6 +65,19 @@ describe("checkPptCompress", () => {
     ]);
   });
 
+  it("checks images in a media subfolder, as the engine recompresses them too", async () => {
+    const nested = "ppt/media/sub/extra.png";
+    const deck = await mutate(await syntheticDeck(), (zip) => {
+      zip.file(nested, noisePng(40, 20));
+    });
+    const output = await mutate(await compressed(deck), (zip) => {
+      zip.file(nested, solidPng(20, 40), { compression: "STORE" });
+    });
+    expect(await checkPptCompress(deck, request, output, "quick")).toEqual([
+      { property: "media-dimensions", detail: `${nested}: 40×20 → 20×40` },
+    ]);
+  });
+
   it("flags a malformed XML part", async () => {
     const deck = await syntheticDeck();
     const output = await mutate(await compressed(deck), async (zip) => {

@@ -16,8 +16,9 @@ const HEADER_FORMAT_OF_EXT: Readonly<Record<string, ImageHeader["format"]>> = {
   png: "png",
 };
 
+// Any depth under ppt/media/, matching what the engine recompresses.
 const isRecompressibleMedia = (part: string) =>
-  /^ppt\/media\/[^/]+$/.test(part) && RECOMPRESSIBLE_EXTS.has(getExt(part));
+  part.startsWith("ppt/media/") && RECOMPRESSIBLE_EXTS.has(getExt(part));
 
 /**
  * What is wrong with `recompressed`, the new bytes of the media part `part`
