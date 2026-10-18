@@ -1,7 +1,7 @@
 "use client";
 
 import { formatBytes } from "@/lib/common/formatBytes";
-import { computeSavings } from "@/lib/image/computeSavings";
+import { computeSavings, savingsPctText } from "@/lib/image/computeSavings";
 import { ResultCard } from "@/components/common/ResultCard";
 import { ResultActions } from "@/components/common/ResultActions";
 import type { PdfCompressLabels } from "./labels";
@@ -22,7 +22,7 @@ export function PdfCompressResult({
   labels,
   note,
 }: PdfCompressResultProps) {
-  const { pct } = computeSavings(originalSize, compressedSize);
+  const savingsText = savingsPctText(computeSavings(originalSize, compressedSize), labels.underOnePct);
 
   return (
     <ResultCard
@@ -64,7 +64,7 @@ export function PdfCompressResult({
             className="font-body text-[14px] font-semibold tabular-nums"
             style={{ color: "var(--ink-strong)" }}
           >
-            {pct}%
+            {savingsText}
           </p>
         </div>
       </div>

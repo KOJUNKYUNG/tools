@@ -1,5 +1,4 @@
 import type { Dictionary } from "@/i18n/config";
-import type { CompressionPreset } from "@/lib/pdf/compressPdf";
 
 export interface PdfCompressLabels {
   // Header (used by page chrome variant)
@@ -47,6 +46,8 @@ export interface PdfCompressLabels {
   originalSizeLabel: string;
   compressedSizeLabel: string;
   savingsLabel: string;
+  /** A saving that rounds to 0% but is not nothing. */
+  underOnePct: string;
   download: string;
   again: string;
   // Errors
@@ -55,13 +56,6 @@ export interface PdfCompressLabels {
   errorEncrypted: string;
   // Shared FileUpload labels (toasts + file list i18n)
   fileUpload: Dictionary["common"]["fileUpload"];
-}
-
-/** A preset's display name (Light / Medium / Heavy). */
-export function presetLabel(preset: CompressionPreset, labels: PdfCompressLabels): string {
-  return { low: labels.presetLightLabel, medium: labels.presetMediumLabel, high: labels.presetHeavyLabel }[
-    preset
-  ];
 }
 
 export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
@@ -103,6 +97,7 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,
     savingsLabel: p.savingsLabel,
+    underOnePct: dict.common.underOnePct,
     download: p.download,
     again: p.again,
     errorMemory: p.errorMemory,

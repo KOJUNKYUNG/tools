@@ -1,15 +1,7 @@
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
 import { checkPdfCompress } from "./pdfCompressCheck";
-
-export type CompressionPreset = "low" | "medium" | "high";
-
-/** The next stronger preset, or null for the strongest. */
-export const STRONGER_PRESET: Record<CompressionPreset, CompressionPreset | null> = {
-  low: "medium",
-  medium: "high",
-  high: null,
-};
 
 export interface CompressPdfOptions {
   file: File;

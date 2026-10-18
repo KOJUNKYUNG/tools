@@ -4,6 +4,7 @@ import {
   pickSmaller,
   deriveCompressedName,
   estimatePptxSize,
+  looksAlreadyCompressed,
   PRESET_QUALITY,
 } from "./pptCompressPlan";
 
@@ -79,20 +80,86 @@ describe("deriveCompressedName", () => {
   });
 });
 
+const freshJpeg = (bytes: number) => ({ kind: "jpeg" as const, bytes, quality: 95 });
+const freshPng = (bytes: number) => ({
+  kind: "png" as const,
+  bytes,
+  palette: false,
+  colors: null,
+  unusedAlpha: false,
+});
+
 describe("estimatePptxSize", () => {
   it("shrinks JPEG bytes by the preset-dependent ratio", () => {
     // 1000 total, 800 jpeg, 0 png, medium jpeg ratio 0.58
     // (1000-800) + 800*0.58 = 200 + 464 = 664, under static upper (900)
-    expect(estimatePptxSize(1000, 800, 0, "medium")).toBe(664);
+    expect(estimatePptxSize(1000, [freshJpeg(800)], "medium")).toBe(664);
   });
   it("shrinks PNG bytes a little more at each stronger preset", () => {
     // png ratios low 0.64, medium 0.62, high 0.59; (1000-800) + 800*ratio
-    expect(estimatePptxSize(1000, 0, 800, "low")).toBe(712);
-    expect(estimatePptxSize(1000, 0, 800, "medium")).toBe(696);
-    expect(estimatePptxSize(1000, 0, 800, "high")).toBe(672);
+    expect(estimatePptxSize(1000, [freshPng(800)], "low")).toBe(712);
+    expect(estimatePptxSize(1000, [freshPng(800)], "medium")).toBe(696);
+    expect(estimatePptxSize(1000, [freshPng(800)], "high")).toBe(672);
   });
   it("clamps to the static upper bound when the formula exceeds it", () => {
-    // tiny recompressible share → formula ~1000 but high upper = 1000*0.8=800
-    expect(estimatePptxSize(1000, 5, 5, "high")).toBe(800);
+    // 5% jpeg share → formula 950 + 50*0.42 = 971, but high upper = 1000*0.8 = 800
+    expect(estimatePptxSize(1000, [freshJpeg(50)], "high")).toBe(800);
+  });
+  it("gives no number when too little of the deck can shrink", () => {
+    // 1% image share is under every preset's cutoff
+    expect(estimatePptxSize(1000, [freshJpeg(5), freshPng(5)], "high")).toBeNull();
+    expect(estimatePptxSize(1000, [], "medium")).toBeNull();
+    expect(estimatePptxSize(0, [], "medium")).toBeNull();
+  });
+
+  describe("an already compressed image", () => {
+    it("is a JPEG saved at or near the preset's quality or lower", () => {
+      // medium re-encodes at 70; within the 2-point margin counts
+      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 70 }, "medium")).toBe(true);
+      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 72 }, "medium")).toBe(true);
+      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 73 }, "medium")).toBe(false);
+      // a fresh q85 export still shrinks at light (82)
+      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 85 }, "low")).toBe(false);
+    });
+    it("is not assumed when a JPEG's quality cannot be read", () => {
+      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: null }, "high")).toBe(false);
+    });
+    it("is an indexed (palette) PNG", () => {
+      const png = { ...freshPng(1), palette: true };
+      expect(looksAlreadyCompressed(png, "low")).toBe(true);
+      expect(looksAlreadyCompressed(freshPng(1), "high")).toBe(false);
+    });
+    it("is a PNG already within the preset's colour budget", () => {
+      // medium quantizes to 4096 * 0.7 ≈ 2867 colours
+      const png = (colors: number) => ({ ...freshPng(1), colors });
+      expect(looksAlreadyCompressed(png(2863), "medium")).toBe(true);
+      expect(looksAlreadyCompressed(png(2868), "medium")).toBe(false);
+      expect(looksAlreadyCompressed(png(2863), "high")).toBe(false);
+    });
+    it("is not a PNG the engine could still write indexed or without its alpha", () => {
+      // 256 colours or fewer: the engine writes it indexed, which shrinks it
+      expect(looksAlreadyCompressed({ ...freshPng(1), colors: 256 }, "medium")).toBe(false);
+      expect(looksAlreadyCompressed({ ...freshPng(1), colors: 257 }, "medium")).toBe(true);
+      // an alpha channel no pixel uses: the engine drops it
+      const opaque = { ...freshPng(1), colors: 1000, unusedAlpha: true };
+      expect(looksAlreadyCompressed(opaque, "medium")).toBe(false);
+    });
+
+    it("is expected to keep its size", () => {
+      // 600 fresh jpeg + 300 jpeg already at q70: 100 + 600*0.58 + 300 = 748
+      const media = [freshJpeg(600), { kind: "jpeg" as const, bytes: 300, quality: 70 }];
+      expect(estimatePptxSize(1000, media, "medium")).toBe(748);
+    });
+    it("does not count toward the static clamp", () => {
+      // high: 100 fresh jpeg + 800 palette png. The rest of the deck is 200:
+      // 100 + 100*0.42 = 142, under its clamp 200*0.8 = 160; plus the 800 kept = 942.
+      // Clamping the whole deck would promise 1000*0.8 = 800.
+      const media = [freshJpeg(100), { ...freshPng(800), palette: true }];
+      expect(estimatePptxSize(1000, media, "high")).toBe(942);
+    });
+    it("gives no number when every image is already compressed", () => {
+      const media = [{ kind: "jpeg" as const, bytes: 900, quality: 70 }];
+      expect(estimatePptxSize(1000, media, "medium")).toBeNull();
+    });
   });
 });

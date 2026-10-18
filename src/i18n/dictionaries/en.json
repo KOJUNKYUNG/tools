@@ -31,6 +31,7 @@
     "drop": "Drop files here",
     "or": "or",
     "click": "click to browse",
+    "underOnePct": "under 1%",
     "fileUpload": {
       "maxSize": "Up to {size}",
       "maxSizeEach": "Up to {size} each",
@@ -549,6 +550,7 @@
         "moreImagesTemplate": "+{n} more",
         "estimateTemplate": "Est. ~{size} · {pct} vs original",
         "estimating": "Estimating size…",
+        "estimateUnderOnePct": "under 1% smaller",
         "pngLossless": "PNG is lossless — the quality setting has no effect.",
         "doneTitle": "Compression complete",
         "settingsTemplate": "{format} · quality {quality}%",

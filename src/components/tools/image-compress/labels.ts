@@ -14,6 +14,8 @@ export interface ImageCompressLabels {
   moreImagesTemplate: string;
   estimateTemplate: string;
   estimating: string;
+  /** A saving that rounds to 0% but is not nothing, worded to say it shrank. */
+  estimateUnderOnePct: string;
   pngLossless: string;
   doneTitle: string;
   settingsTemplate: string;
@@ -52,6 +54,7 @@ export function getImageCompressLabels(dict: Dictionary): ImageCompressLabels {
     moreImagesTemplate: page.moreImagesTemplate,
     estimateTemplate: page.estimateTemplate,
     estimating: page.estimating,
+    estimateUnderOnePct: page.estimateUnderOnePct,
     pngLossless: page.pngLossless,
     doneTitle: page.doneTitle,
     settingsTemplate: page.settingsTemplate,

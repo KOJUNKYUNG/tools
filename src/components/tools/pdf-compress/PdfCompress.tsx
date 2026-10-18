@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { uploadLimitFor } from "@/lib/constants";
+import { NotSmallerCard } from "@/components/common/NotSmallerCard";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolHeader } from "@/components/common/ToolHeader";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
@@ -15,7 +17,6 @@ import { selectSizeDisplay } from "@/lib/pdf/compressEstimate";
 import {
   compressPdf,
   compressPdfFromBytes,
-  type CompressionPreset,
   type CompressPdfResult,
 } from "@/lib/pdf/compressPdf";
 import { shouldPreviewCompress } from "@/lib/pdf/livePreviewGate";
@@ -24,7 +25,7 @@ import { deriveCompressedName } from "@/lib/pdf/pdfCompressNaming";
 import { ComparePreview, renderPdfFirstPage } from "./ComparePreview";
 import { PdfCompressControls } from "./PdfCompressControls";
 import { PdfCompressEstimate } from "./PdfCompressEstimate";
-import { notSmallerMessage, PdfCompressNotSmaller } from "./PdfCompressNotSmaller";
+import { notSmallerMessage } from "./notSmallerMessage";
 import { PdfCompressResult } from "./PdfCompressResult";
 import type { PdfCompressLabels } from "./labels";
 
@@ -433,10 +434,9 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
               style={{ borderColor: "var(--border)" }}
             >
               {isDone && result?.kind === "not-smaller" ? (
-                <PdfCompressNotSmaller
-                  preset={preset}
-                  imageReencodeSkipped={result.imageReencodeSkipped}
-                  labels={labels}
+                <NotSmallerCard
+                  title={labels.notSmallerTitle}
+                  message={notSmallerMessage(preset, result.imageReencodeSkipped, labels)}
                 />
               ) : isDone && result?.kind === "compressed" ? (
                 <PdfCompressResult

@@ -1,12 +1,12 @@
 "use client";
 
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import {
   estimatePptxSize,
   PRESET_RANGE,
-  PRESET_IMAGE_SHARE_CUTOFF,
-  type CompressionPreset,
+  type MediaSample,
 } from "@/lib/ppt/pptCompressPlan";
 import type { PptCompressLabels } from "./labels";
 
@@ -14,18 +14,15 @@ interface PptCompressEstimateProps {
   preset: CompressionPreset;
   originalSize: number;
   labels: PptCompressLabels;
-  /** JPEG media bytes. null = analysis pending/failed. */
-  jpegBytes?: number | null;
-  /** PNG media bytes. null = analysis pending/failed. */
-  pngBytes?: number | null;
+  /** The deck's recompressible images. null = analysis pending/failed. */
+  media?: readonly MediaSample[] | null;
 }
 
 export function PptCompressEstimate({
   preset,
   originalSize,
   labels,
-  jpegBytes,
-  pngBytes,
+  media,
 }: PptCompressEstimateProps) {
   const descMap: Record<CompressionPreset, string> = {
     low: labels.presetLightDesc,
@@ -34,18 +31,12 @@ export function PptCompressEstimate({
   };
 
   let rangeText: string;
-  if (jpegBytes != null && pngBytes != null && originalSize > 0) {
-    const share = (jpegBytes + pngBytes) / originalSize;
-    if (share >= PRESET_IMAGE_SHARE_CUTOFF[preset]) {
-      const derived = Math.round(
-        estimatePptxSize(originalSize, jpegBytes, pngBytes, preset),
-      );
-      rangeText = template(labels.estimateActualTemplate, {
-        size: formatBytes(derived),
-      });
-    } else {
-      rangeText = labels.estimateNoChange;
-    }
+  if (media != null && originalSize > 0) {
+    const derived = estimatePptxSize(originalSize, media, preset);
+    rangeText =
+      derived === null
+        ? labels.estimateNoChange
+        : template(labels.estimateActualTemplate, { size: formatBytes(Math.round(derived)) });
   } else {
     const [lo, hi] = PRESET_RANGE[preset];
     const fromStr = formatBytes(Math.round(originalSize * lo));

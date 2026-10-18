@@ -1,5 +1,4 @@
 import type { Dictionary } from "@/i18n/config";
-import type { CompressionPreset } from "@/lib/ppt/pptCompressPlan";
 
 export interface PptCompressLabels {
   title: string;
@@ -33,6 +32,8 @@ export interface PptCompressLabels {
   originalSizeLabel: string;
   compressedSizeLabel: string;
   savingsLabel: string;
+  /** A saving that rounds to 0% but is not nothing. */
+  underOnePct: string;
   download: string;
   again: string;
   analyzingHint: string;
@@ -43,13 +44,6 @@ export interface PptCompressLabels {
   errorMemory: string;
   errorCorrupt: string;
   fileUpload: Dictionary["common"]["fileUpload"];
-}
-
-/** A preset's display name (Light / Medium / Heavy). */
-export function presetLabel(preset: CompressionPreset, labels: PptCompressLabels): string {
-  return { low: labels.presetLightLabel, medium: labels.presetMediumLabel, high: labels.presetHeavyLabel }[
-    preset
-  ];
 }
 
 export function getPptCompressLabels(dict: Dictionary): PptCompressLabels {
@@ -84,6 +78,7 @@ export function getPptCompressLabels(dict: Dictionary): PptCompressLabels {
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,
     savingsLabel: p.savingsLabel,
+    underOnePct: dict.common.underOnePct,
     download: p.download,
     again: p.again,
     analyzingHint: p.analyzingHint,

@@ -1,11 +1,4 @@
-export type CompressionPreset = "low" | "medium" | "high";
-
-/** The next stronger preset, or null for the strongest. */
-export const STRONGER_PRESET: Record<CompressionPreset, CompressionPreset | null> = {
-  low: "medium",
-  medium: "high",
-  high: null,
-};
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
 
 /**
  * Re-encode quality (0..1) per preset: the JPEG quality, and for PNG the colour
@@ -107,15 +100,83 @@ export const PRESET_RANGE: Record<CompressionPreset, [number, number]> = {
  * Minimum recompressible-share before the derived estimate is shown.
  * Below the cutoff we display "~ original size" instead of a misleading number.
  */
-export const PRESET_IMAGE_SHARE_CUTOFF: Record<CompressionPreset, number> = {
+const PRESET_IMAGE_SHARE_CUTOFF: Record<CompressionPreset, number> = {
   low: 0.15,
   medium: 0.05,
   high: 0.03,
 };
 
+/** One recompressible image, as the idle-time analysis read it. */
+export type MediaSample =
+  | {
+      kind: "jpeg";
+      bytes: number;
+      /** Estimated save quality (1–100) from its quantization tables; null if unreadable. */
+      quality: number | null;
+    }
+  | {
+      kind: "png";
+      bytes: number;
+      /** Indexed colour (IHDR colour type 3). */
+      palette: boolean;
+      /** Distinct colors, counted up to past every preset's budget; null if not counted. */
+      colors: number | null;
+      /** Stores an alpha channel that every pixel leaves fully opaque. */
+      unusedAlpha: boolean;
+    };
+
+/** The engine writes a PNG of this many colours or fewer as an indexed PNG. */
+const INDEXED_MAX_COLORS = 256;
+
 /**
- * Estimate the compressed file size. JPEG and PNG bytes each shrink by their
- * own preset ratio; everything else is unchanged. Clamped by the static upper
+ * The colour budget a preset's PNG re-encode quantizes to: browser-image-
+ * compression keeps at most 4096 × quality colours.
+ */
+export function pngColorBudget(preset: CompressionPreset): number {
+  return 4096 * PRESET_QUALITY[preset];
+}
+
+/**
+ * A JPEG this many quality points above the preset's still counts as already
+ * compressed. Chrome's canvas writes the exact IJG tables, so its output reads
+ * back exactly; the margin covers encoders whose tables differ slightly.
+ */
+const JPEG_QUALITY_MARGIN = 2;
+
+/**
+ * Whether re-encoding at `preset` is unlikely to shrink the image: a JPEG
+ * already saved at about the preset's quality or lower, or a PNG already
+ * indexed, or already within the preset's colour budget (the engine's own
+ * output has at most that many colours but stays truecolour). Such an image
+ * is expected to keep its size, since the engine keeps the original when the
+ * re-encode is no smaller (#78). Compared against the chosen preset only: a
+ * deck compressed at one preset and re-run at a stronger one still counts as
+ * fresh, so that case can over-promise.
+ */
+export function looksAlreadyCompressed(media: MediaSample, preset: CompressionPreset): boolean {
+  if (media.kind === "png") {
+    if (media.palette) return true;
+    // Within the budget, the engine still shrinks a PNG it can write indexed
+    // or whose unused alpha channel it can drop.
+    return (
+      media.colors !== null &&
+      media.colors > INDEXED_MAX_COLORS &&
+      media.colors <= pngColorBudget(preset) &&
+      !media.unusedAlpha
+    );
+  }
+  return (
+    media.quality !== null &&
+    media.quality <= PRESET_QUALITY[preset] * 100 + JPEG_QUALITY_MARGIN
+  );
+}
+
+/**
+ * Estimate the compressed file size, or null when too little of the deck can
+ * shrink for a number to mean anything (the UI says "about the original
+ * size"). Fresh JPEG and PNG bytes each shrink by their own preset ratio;
+ * already compressed images and everything else are unchanged. The part of
+ * the deck that is not already compressed is clamped by the static upper
  * bound.
  *
  * Splitting JPEG vs PNG matters: a PNG-dominated deck barely changes between
@@ -124,13 +185,23 @@ export const PRESET_IMAGE_SHARE_CUTOFF: Record<CompressionPreset, number> = {
  */
 export function estimatePptxSize(
   totalSize: number,
-  jpegBytes: number,
-  pngBytes: number,
+  media: readonly MediaSample[],
   preset: CompressionPreset,
-): number {
-  const untouched = totalSize - jpegBytes - pngBytes;
+): number | null {
+  let jpegBytes = 0;
+  let pngBytes = 0;
+  let keptBytes = 0;
+  for (const m of media) {
+    if (looksAlreadyCompressed(m, preset)) keptBytes += m.bytes;
+    else if (m.kind === "jpeg") jpegBytes += m.bytes;
+    else pngBytes += m.bytes;
+  }
+  if (totalSize <= 0 || (jpegBytes + pngBytes) / totalSize < PRESET_IMAGE_SHARE_CUTOFF[preset]) {
+    return null;
+  }
+  const rest = totalSize - keptBytes;
+  const untouched = rest - jpegBytes - pngBytes;
   const formula =
     untouched + jpegBytes * PRESET_JPEG_RATIO[preset] + pngBytes * PRESET_PNG_RATIO[preset];
-  const staticUpper = totalSize * PRESET_RANGE[preset][1];
-  return Math.min(formula, staticUpper);
+  return keptBytes + Math.min(formula, rest * PRESET_RANGE[preset][1]);
 }

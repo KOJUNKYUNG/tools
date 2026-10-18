@@ -3,6 +3,7 @@
 import { template } from "@/lib/common/template";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { MIN_QUALITY, type OutputFormat } from "@/lib/image/compressImage";
+import { savingsPctText, type Savings } from "@/lib/image/computeSavings";
 import { Loader2Icon } from "lucide-react";
 
 const FORMAT_OPTIONS: { value: OutputFormat; label: string }[] = [
@@ -12,13 +13,7 @@ const FORMAT_OPTIONS: { value: OutputFormat; label: string }[] = [
 ];
 
 /** The current image's estimate; "not-smaller" when it would not shrink. */
-export type ImageEstimate = { size: number; pct: number } | "not-smaller";
-
-function pctText(pct: number): string {
-  if (pct > 0) return `-${pct}%`;
-  if (pct < 0) return `+${-pct}%`;
-  return "±0%";
-}
+export type ImageEstimate = { size: number; savings: Savings } | "not-smaller";
 
 interface ImageCompressControlsProps {
   formatTitle: string;
@@ -32,6 +27,7 @@ interface ImageCompressControlsProps {
   estimateTemplate: string;
   estimateNotSmallerLabel: string;
   estimatingLabel: string;
+  underOnePctLabel: string;
   pngLosslessLabel: string;
 }
 
@@ -47,6 +43,7 @@ export function ImageCompressControls({
   estimateTemplate,
   estimateNotSmallerLabel,
   estimatingLabel,
+  underOnePctLabel,
   pngLosslessLabel,
 }: ImageCompressControlsProps) {
   return (
@@ -122,7 +119,7 @@ export function ImageCompressControls({
           ) : estimate ? (
             template(estimateTemplate, {
               size: formatBytes(estimate.size),
-              pct: pctText(estimate.pct),
+              pct: savingsPctText(estimate.savings, underOnePctLabel, { signed: true }),
             })
           ) : (
             " "

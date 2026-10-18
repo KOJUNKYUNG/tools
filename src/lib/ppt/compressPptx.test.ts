@@ -2,7 +2,11 @@ import { describe, it, expect, vi } from "vitest";
 import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
 import { JPEG_3x2, noisePng, solidPng, withExifOrientation } from "@/lib/pdf/testImages";
-import { compressPptxFromBytes, type RecompressMedia } from "./compressPptx";
+import {
+  analyzePptxForCompress,
+  compressPptxFromBytes,
+  type RecompressMedia,
+} from "./compressPptx";
 import * as check from "./pptCompressCheck";
 
 // The real checker by default; one test makes it report a violation.
@@ -129,5 +133,28 @@ describe("compressPptxFromBytes", () => {
       expect(result).toMatchObject({ kind: "not-smaller" });
       expect(vi.mocked(check.checkPptCompress)).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("analyzePptxForCompress", () => {
+  it("reads each image's size and signs of earlier compression", async () => {
+    const deck = await syntheticDeck();
+    const counted: number[] = [];
+    const analysis = await analyzePptxForCompress(
+      new File([new Uint8Array(deck)], "deck.pptx"),
+      async (bytes, cap) => {
+        counted.push(cap);
+        return bytes.length > 0 ? { colors: 1234, opaque: true } : null;
+      },
+    );
+    const png = analysis.media.find((m) => m.kind === "png");
+    const jpeg = analysis.media.find((m) => m.kind === "jpeg");
+    // noisePng is RGB: no alpha channel to drop, however opaque the pixels
+    expect(png).toMatchObject({ palette: false, colors: 1234, unusedAlpha: false });
+    expect(png?.bytes).toBe((await media(deck, PNG_MEDIA)).length);
+    expect(jpeg).toMatchObject({ bytes: (await media(deck, JPEG_MEDIA)).length });
+    expect(jpeg?.kind === "jpeg" && jpeg.quality).toBeGreaterThan(0);
+    // Counted just past the weakest preset's budget (4096 * 0.82).
+    expect(counted).toEqual([3359]);
   });
 });

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { totalSizeWarnFor } from "@/lib/constants";
+import { NotSmallerCard } from "@/components/common/NotSmallerCard";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolHeader } from "@/components/common/ToolHeader";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
@@ -24,7 +25,7 @@ import { ImageCompressPreview } from "./ImageCompressPreview";
 import { ImageCompressControls, type ImageEstimate } from "./ImageCompressControls";
 import { ImageCompressFileList } from "./ImageCompressFileList";
 import { ImageCompressResult } from "./ImageCompressResult";
-import { ImageCompressNotSmaller } from "./ImageCompressNotSmaller";
+import { notSmallerMessage } from "./notSmallerMessage";
 
 const IMAGE_ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
@@ -200,8 +201,10 @@ export function ImageCompressTool({
         if (img.keptOriginal) {
           setEstimate("not-smaller");
         } else {
-          const { pct } = computeSavings(img.originalSize, img.compressedSize);
-          setEstimate({ size: img.compressedSize, pct });
+          setEstimate({
+            size: img.compressedSize,
+            savings: computeSavings(img.originalSize, img.compressedSize),
+          });
         }
         setCompressedPreview(img.blob);
       } catch {
@@ -361,10 +364,9 @@ export function ImageCompressTool({
                   idle (controls), processing, and done (result card) states. */}
               <div style={{ minHeight: "188px" }}>
                 {isDone && result.kind === "not-smaller" && outputFormat ? (
-                  <ImageCompressNotSmaller
-                    format={outputFormat}
-                    quality={quality}
-                    labels={labels}
+                  <NotSmallerCard
+                    title={labels.notSmallerTitle}
+                    message={notSmallerMessage(outputFormat, quality, labels)}
                   />
                 ) : isDone ? (
                   <ImageCompressResult
@@ -394,6 +396,7 @@ export function ImageCompressTool({
                     estimateTemplate={labels.estimateTemplate}
                     estimateNotSmallerLabel={labels.estimateNotSmaller}
                     estimatingLabel={labels.estimating}
+                    underOnePctLabel={labels.estimateUnderOnePct}
                     pngLosslessLabel={labels.pngLossless}
                   />
                 ) : (

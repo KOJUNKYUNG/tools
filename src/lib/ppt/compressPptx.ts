@@ -1,5 +1,12 @@
 import JSZip from "jszip";
 import imageCompression from "browser-image-compression";
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
+import {
+  countColors,
+  estimateJpegQuality,
+  readPngHeader,
+  type ColorCount,
+} from "@/lib/image/alreadyCompressed";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { notSmaller } from "@/lib/output-check/sizeBound";
 import { getExt, getMime } from "./pptImageFormats";
@@ -7,9 +14,10 @@ import { aggregateFormats } from "./analyzePresentation";
 import {
   classifyMedia,
   pickSmaller,
+  pngColorBudget,
   RECOMPRESSIBLE_EXTS,
-  type CompressionPreset,
   type MediaAction,
+  type MediaSample,
 } from "./pptCompressPlan";
 import { checkPptCompress, recompressedMediaViolations } from "./pptCompressCheck";
 
@@ -32,10 +40,8 @@ export interface PptxCompressAnalysis {
   totalSize: number;
   /** Number of slides (ppt/slides/slideN.xml entries). */
   slideCount: number;
-  /** Sum of jpg/jpeg media bytes (the estimate shrinks them per preset). */
-  jpegBytes: number;
-  /** Sum of png media bytes (the estimate shrinks them per preset). */
-  pngBytes: number;
+  /** Each jpg/jpeg/png in ppt/media, for the size estimate. */
+  media: MediaSample[];
   imageCount: number;
   formatCounts: Record<string, number>;
   /**
@@ -82,11 +88,54 @@ export type RecompressMedia = (
 ) => Promise<Uint8Array>;
 
 /**
- * Idle-time analysis: pull the embedded thumbnail, count images, and sum the
- * recompressible media bytes for the size estimate. One unzip per file.
+ * Counts a PNG's distinct colours up to one past `cap`; null when it cannot.
+ * The browser canvas at run time.
+ */
+export type CountPngColors = (bytes: Uint8Array, cap: number) => Promise<ColorCount | null>;
+
+/** Past the weakest preset's budget, every preset would quantize the PNG. */
+const COLOR_COUNT_CAP = Math.ceil(pngColorBudget("low"));
+
+/**
+ * Larger PNGs are not decoded for the count (16 MP, 64 MB of RGBA) and are
+ * estimated as fresh, as before #78.
+ */
+const MAX_COUNT_PIXELS = 16 * 1024 * 1024;
+
+/**
+ * Decodes through a canvas with the browser's default colour handling, as the
+ * engine's re-encoder does, so the count is of the pixels it would quantize.
+ * Without OffscreenCanvas (or on a decode failure) the PNG is not counted and
+ * the estimate treats it as fresh.
+ */
+const countPngColorsInBrowser: CountPngColors = async (bytes, cap) => {
+  if (typeof createImageBitmap !== "function" || typeof OffscreenCanvas === "undefined") {
+    return null;
+  }
+  try {
+    // new Uint8Array(...) keeps BlobPart happy under TS strict.
+    const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: "image/png" }));
+    try {
+      const ctx = new OffscreenCanvas(bitmap.width, bitmap.height).getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(bitmap, 0, 0);
+      return countColors(ctx.getImageData(0, 0, bitmap.width, bitmap.height).data, cap);
+    } finally {
+      bitmap.close();
+    }
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Idle-time analysis: pull the embedded thumbnail, count images, and read
+ * each recompressible image's size and signs of earlier compression for the
+ * size estimate. One unzip per file.
  */
 export async function analyzePptxForCompress(
   file: File,
+  countPngColors: CountPngColors = countPngColorsInBrowser,
 ): Promise<PptxCompressAnalysis> {
   const ab = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(ab);
@@ -108,8 +157,7 @@ export async function analyzePptxForCompress(
 
   const { imageCount, formatCounts } = aggregateFormats(imageBaseNames);
 
-  let jpegBytes = 0;
-  let pngBytes = 0;
+  const media: MediaSample[] = [];
   // Track the largest recompressible image to use as the preview.
   let largestBytes: Uint8Array | null = null;
   let largestExt = "";
@@ -118,8 +166,25 @@ export async function analyzePptxForCompress(
     if (!entry) continue;
     const bytes = await entry.async("uint8array");
     const ext = getExt(p);
-    if (ext === "png") pngBytes += bytes.length;
-    else jpegBytes += bytes.length;
+    if (ext === "png") {
+      const header = readPngHeader(bytes);
+      const palette = header?.colorType === 3;
+      // A palette PNG already counts as compressed; no need to decode it.
+      const counted =
+        header && !palette && header.width * header.height <= MAX_COUNT_PIXELS
+          ? await countPngColors(bytes, COLOR_COUNT_CAP)
+          : null;
+      const hasAlpha = header?.colorType === 4 || header?.colorType === 6;
+      media.push({
+        kind: "png",
+        bytes: bytes.length,
+        palette,
+        colors: counted?.colors ?? null,
+        unusedAlpha: hasAlpha && (counted?.opaque ?? false),
+      });
+    } else {
+      media.push({ kind: "jpeg", bytes: bytes.length, quality: estimateJpegQuality(bytes) });
+    }
     if (!largestBytes || bytes.length > largestBytes.length) {
       largestBytes = bytes;
       largestExt = ext;
@@ -137,8 +202,7 @@ export async function analyzePptxForCompress(
   return {
     totalSize: file.size,
     slideCount,
-    jpegBytes,
-    pngBytes,
+    media,
     imageCount,
     formatCounts,
     previewBlob,

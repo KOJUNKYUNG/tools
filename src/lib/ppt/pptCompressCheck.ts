@@ -1,10 +1,11 @@
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import { notInherited, type OutputChecker, type Violation } from "@/lib/output-check/core";
 import { displayedSize, readImageHeader, type ImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { sameBytes } from "@/lib/output-check/sameBytes";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
 import { getExt } from "./pptImageFormats";
-import { RECOMPRESSIBLE_EXTS, type CompressionPreset } from "./pptCompressPlan";
+import { RECOMPRESSIBLE_EXTS } from "./pptCompressPlan";
 
 export interface PptCompressRequest {
   preset: CompressionPreset;

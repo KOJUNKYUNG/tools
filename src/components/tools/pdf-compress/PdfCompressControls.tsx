@@ -1,7 +1,7 @@
 "use client";
 
-import type { CompressionPreset } from "@/lib/pdf/compressPdf";
-import { presetLabel, type PdfCompressLabels } from "./labels";
+import { presetLabel, type CompressionPreset } from "@/lib/common/compressionPreset";
+import type { PdfCompressLabels } from "./labels";
 
 interface PdfCompressControlsProps {
   preset: CompressionPreset;
