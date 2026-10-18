@@ -281,8 +281,7 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
                     preset={preset}
                     originalSize={file.size}
                     labels={labels}
-                    jpegBytes={analysis ? analysis.jpegBytes : null}
-                    pngBytes={analysis ? analysis.pngBytes : null}
+                    media={analysis ? analysis.media : null}
                   />
                 )}
               </div>
