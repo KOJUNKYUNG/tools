@@ -558,7 +558,16 @@
         "removeAria": "{name} 제거",
         "prevAria": "이전 이미지",
         "nextAria": "다음 이미지",
-        "comparePreview": "압축 미리보기"
+        "comparePreview": "압축 미리보기",
+        "estimateNotSmaller": "줄어들지 않음",
+        "notSmallerTitle": "더 줄일 수 없음",
+        "notSmallerLowerQuality": "품질 {quality}%로는 이미지가 더 작아지지 않습니다. 품질을 낮춰 다시 시도해 보세요.",
+        "notSmallerLowestQuality": "가장 낮은 품질 {quality}%로도 이미지가 더 작아지지 않습니다.",
+        "notSmallerPng": "PNG는 품질 설정이 없어 이미지를 더 줄일 수 없습니다. JPG나 WebP로 바꾸면 작아질 수 있습니다.",
+        "keptOriginalTemplate": "{size} · 줄일 수 없음",
+        "keptOriginalsNote": "줄일 수 없는 {n}장은 원본 그대로 넣었습니다.",
+        "errorCorrupt": "도구에 문제가 생겨 이미지를 만들지 못했습니다. 다시 시도하거나 다른 브라우저에서 시도해 주세요.",
+        "errorFormatUnsupported": "이 브라우저는 {format} 형식으로 저장할 수 없습니다. 다른 형식을 골라 주세요."
       }
     },
     "heic-convert": { "title": "HEIC 변환", "description": "아이폰 HEIC 사진을 JPG·PNG로 변환합니다." },

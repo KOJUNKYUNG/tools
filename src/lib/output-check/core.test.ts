@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { runOutputCheck, type Violation } from "./core";
+import { OutputCheckError, runOutputCheck, type Violation } from "./core";
 import { getErrorMessage } from "@/lib/errors";
 
 const broken: Violation[] = [{ property: "slide-count", detail: "3 → 2" }];
@@ -26,6 +26,17 @@ describe("runOutputCheck", () => {
     expect(getErrorMessage(err, { corruptOutputHint: "tool hint" }).message).toBe(
       "tool hint",
     );
+  });
+
+  it("carries the violations it blocked on, so a tool can word a specific cause", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const err = await runOutputCheck({
+      tool: "ppt-background",
+      output: "bad",
+      check: async () => broken,
+    }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(OutputCheckError);
+    if (err instanceof OutputCheckError) expect(err.violations).toEqual(broken);
   });
 
   it("recovers silently when the recovery passes the check", async () => {

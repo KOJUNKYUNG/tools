@@ -24,6 +24,15 @@ export interface ImageCompressLabels {
   prevAria: string;
   nextAria: string;
   comparePreview: string;
+  estimateNotSmaller: string;
+  notSmallerTitle: string;
+  notSmallerLowerQuality: string;
+  notSmallerLowestQuality: string;
+  notSmallerPng: string;
+  keptOriginalTemplate: string;
+  keptOriginalsNote: string;
+  errorCorrupt: string;
+  errorFormatUnsupported: string;
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
@@ -53,6 +62,15 @@ export function getImageCompressLabels(dict: Dictionary): ImageCompressLabels {
     prevAria: page.prevAria,
     nextAria: page.nextAria,
     comparePreview: page.comparePreview,
+    estimateNotSmaller: page.estimateNotSmaller,
+    notSmallerTitle: page.notSmallerTitle,
+    notSmallerLowerQuality: page.notSmallerLowerQuality,
+    notSmallerLowestQuality: page.notSmallerLowestQuality,
+    notSmallerPng: page.notSmallerPng,
+    keptOriginalTemplate: page.keptOriginalTemplate,
+    keptOriginalsNote: page.keptOriginalsNote,
+    errorCorrupt: page.errorCorrupt,
+    errorFormatUnsupported: page.errorFormatUnsupported,
     fileUpload: dict.common.fileUpload,
   };
 }

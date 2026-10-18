@@ -6,6 +6,8 @@
  */
 export const SIZE_BOUND = "size-bound";
 
+const sizeOf = (file: Uint8Array | Blob) => (file instanceof Blob ? file.size : file.byteLength);
+
 /** Whether `output` failed to shrink `input` (no percentage threshold). */
-export const notSmaller = (input: Uint8Array, output: Uint8Array) =>
-  output.byteLength >= input.byteLength;
+export const notSmaller = (input: Uint8Array | Blob, output: Uint8Array | Blob) =>
+  sizeOf(output) >= sizeOf(input);

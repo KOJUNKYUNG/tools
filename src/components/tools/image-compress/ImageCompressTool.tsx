@@ -11,6 +11,7 @@ import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import {
   compressImages,
+  OutputFormatUnsupportedError,
   type CompressResult,
   type OutputFormat,
 } from "@/lib/image/compressImage";
@@ -20,9 +21,10 @@ import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
 import type { ImageCompressLabels } from "./labels";
 import { ImageCompressPreview } from "./ImageCompressPreview";
-import { ImageCompressControls } from "./ImageCompressControls";
+import { ImageCompressControls, type ImageEstimate } from "./ImageCompressControls";
 import { ImageCompressFileList } from "./ImageCompressFileList";
 import { ImageCompressResult } from "./ImageCompressResult";
+import { ImageCompressNotSmaller } from "./ImageCompressNotSmaller";
 
 const IMAGE_ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
@@ -53,9 +55,7 @@ export function ImageCompressTool({
   const [urls, setUrls] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [normalizing, setNormalizing] = useState(false);
-  const [estimate, setEstimate] = useState<{ size: number; pct: number } | null>(
-    null,
-  );
+  const [estimate, setEstimate] = useState<ImageEstimate | null>(null);
   const [estimating, setEstimating] = useState(false);
   const estimateTokenRef = useRef(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -76,9 +76,19 @@ export function ImageCompressTool({
   } = useToolProcessor<CompressResult>({
     processor: (files, onProgress) => {
       if (!outputFormat) throw new Error("출력 형식을 선택해 주세요.");
-      return compressImages({ files, quality, outputFormat, onProgress });
+      return compressImages({ files, quality, outputFormat, onProgress }).catch(
+        (err: unknown) => {
+          if (!(err instanceof OutputFormatUnsupportedError)) throw err;
+          throw new Error(
+            template(labels.errorFormatUnsupported, { format: formatLabel(err.format) }),
+          );
+        },
+      );
     },
+    errorOptions: { corruptOutputHint: labels.errorCorrupt },
     onDownload: (res) => {
+      // A "could not shrink" result offers no download.
+      if (res.kind !== "compressed") return;
       const mime =
         res.type === "zip" ? "application/zip" : outputFormat ?? "image/jpeg";
       downloadBlob(res.data, res.filename, mime);
@@ -187,8 +197,12 @@ export function ImageCompressTool({
         const res = await compressImages({ files: [file], quality, outputFormat });
         if (token !== estimateTokenRef.current) return;
         const img = res.images[0];
-        const { pct } = computeSavings(img.originalSize, img.compressedSize);
-        setEstimate({ size: img.compressedSize, pct });
+        if (img.keptOriginal) {
+          setEstimate("not-smaller");
+        } else {
+          const { pct } = computeSavings(img.originalSize, img.compressedSize);
+          setEstimate({ size: img.compressedSize, pct });
+        }
         setCompressedPreview(img.blob);
       } catch {
         if (token === estimateTokenRef.current) {
@@ -245,6 +259,7 @@ export function ImageCompressTool({
   const hasFiles = files.length > 0;
   const isDone = status === "done" && !!result;
   const busy = status === "processing";
+  const keptCount = result?.images.filter((img) => img.keptOriginal).length ?? 0;
 
   const [oversizeDismissed, setOversizeDismissed] = useState(false);
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
@@ -345,13 +360,24 @@ export function ImageCompressTool({
               {/* Reserve height so the file list below does not shift between the
                   idle (controls), processing, and done (result card) states. */}
               <div style={{ minHeight: "188px" }}>
-                {isDone ? (
+                {isDone && result.kind === "not-smaller" && outputFormat ? (
+                  <ImageCompressNotSmaller
+                    format={outputFormat}
+                    quality={quality}
+                    labels={labels}
+                  />
+                ) : isDone ? (
                   <ImageCompressResult
                     doneTitle={labels.doneTitle}
                     settingsText={template(labels.settingsTemplate, {
                       format: outputFormat ? formatLabel(outputFormat) : "",
                       quality,
                     })}
+                    keptOriginalsText={
+                      keptCount > 0
+                        ? template(labels.keptOriginalsNote, { n: keptCount })
+                        : undefined
+                    }
                     downloadLabel={labels.download}
                     onDownload={download}
                   />
@@ -366,6 +392,7 @@ export function ImageCompressTool({
                     estimate={estimate}
                     estimating={estimating}
                     estimateTemplate={labels.estimateTemplate}
+                    estimateNotSmallerLabel={labels.estimateNotSmaller}
                     estimatingLabel={labels.estimating}
                     pngLosslessLabel={labels.pngLossless}
                   />
@@ -387,11 +414,13 @@ export function ImageCompressTool({
                     name: img.name,
                     originalSize: img.originalSize,
                     compressedSize: img.compressedSize,
+                    keptOriginal: img.keptOriginal,
                   })) ?? []
                 }
                 onRemove={handleRemove}
                 removeAriaTemplate={labels.removeAria}
                 sizeChangeTemplate={labels.sizeChangeTemplate}
+                keptOriginalTemplate={labels.keptOriginalTemplate}
                 disabled={busy}
               />
             </div>
