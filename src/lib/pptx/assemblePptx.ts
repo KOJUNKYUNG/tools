@@ -13,6 +13,23 @@ export interface AssembleOptions { slideKind: SlideKind; background: Background;
 
 const BG_MASTER = "ONTAB_BG";
 
+/**
+ * pptxgenjs names a background part, and picks its content type, by the
+ * extension of `path`; given only `data` it assumes PNG, so a JPEG would be
+ * stored as `.png` (#74). The downscaler encodes only these two.
+ */
+const BACKGROUND_PATH_OF_MIME: Readonly<Record<string, string>> = {
+  "image/png": "background.png",
+  "image/jpeg": "background.jpeg",
+};
+
+function backgroundPath(dataUrl: string): string {
+  const mime = dataUrl.slice("data:".length, dataUrl.indexOf(";"));
+  const path = BACKGROUND_PATH_OF_MIME[mime];
+  if (!path) throw new Error(`unsupported background image type: ${mime}`);
+  return path;
+}
+
 /** Low-level: caller supplies already-downscaled data URLs + placements. */
 export async function assemblePptxFromPlaced(images: PlacedImage[], opts: AssembleOptions): Promise<Uint8Array> {
   const pptx = new PptxGenJS();
@@ -28,7 +45,7 @@ export async function assemblePptxFromPlaced(images: PlacedImage[], opts: Assemb
   const masterBg =
     opts.background.kind === "color"
       ? { color: opts.background.color }
-      : { data: opts.background.dataUrl };
+      : { data: opts.background.dataUrl, path: backgroundPath(opts.background.dataUrl) };
   pptx.defineSlideMaster({ title: BG_MASTER, background: masterBg });
   for (const img of images) {
     const slide = pptx.addSlide({ masterName: BG_MASTER });

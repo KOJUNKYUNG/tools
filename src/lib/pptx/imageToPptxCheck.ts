@@ -1,4 +1,5 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
+import { readImageHeader, type ImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage, type PptxPackage } from "@/lib/output-check/pptxPackage";
 import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { AssembleOptions, PlacedImage } from "./assemblePptx";
@@ -37,6 +38,21 @@ async function inheritedBackgrounds(pkg: PptxPackage): Promise<Map<string, strin
   );
 }
 
+/** The header format each background extension pptxgenjs can write stands for. */
+const FORMAT_OF_EXTENSION: Readonly<Record<string, ImageHeader["format"]>> = {
+  png: "png",
+  jpeg: "jpeg",
+  jpg: "jpeg",
+};
+
+/** Why `part`'s bytes do not hold the format its extension names, or null when they do. */
+function headerMismatch(part: string, bytes: Uint8Array | null): string | null {
+  const expected = FORMAT_OF_EXTENSION[part.slice(part.lastIndexOf(".") + 1).toLowerCase()];
+  const found = bytes && readImageHeader(bytes)?.format;
+  if (found && found === expected) return null;
+  return `${part}: holds ${found ?? "unreadable bytes"}`;
+}
+
 /**
  * Package overhead pptxgenjs adds besides the images: about 41 KB for an
  * empty deck plus 5 KB per slide (slide, notes and their relationships),
@@ -58,6 +74,8 @@ const SLIDE_OVERHEAD = 8 * 1024;
  *   embedded (byte-identical to the downscaled data the engine placed)
  * - `slide-background`: with an image background, every slide inherits that
  *   image (stored once, on the master pptxgenjs writes as a layout)
+ * - `background-header`: the inherited background part's bytes are the
+ *   format its extension names, so a JPEG is not stored as `.png` (#74)
  * - `size-bound`: output ≤ the embedded images + background + package
  *   overhead, so a background stored once per slide does not slip through
  *
@@ -101,7 +119,10 @@ export const checkImageToPptx: OutputChecker<PlacedImage[], AssembleOptions, Uin
       for (const slide of pkg.slideParts) {
         const media = inherited.get(slide) ?? null;
         if (media !== null && !matches.has(media)) {
-          matches.set(media, sameBytes(await pkg.read(media), backgroundImage));
+          const bytes = await pkg.read(media);
+          matches.set(media, sameBytes(bytes, backgroundImage));
+          const mismatch = headerMismatch(media, bytes);
+          if (mismatch) violations.push({ property: "background-header", detail: mismatch });
         }
         if (media === null || !matches.get(media)) {
           violations.push({
