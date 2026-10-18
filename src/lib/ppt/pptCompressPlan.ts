@@ -175,9 +175,9 @@ export function looksAlreadyCompressed(media: MediaSample, preset: CompressionPr
  * Estimate the compressed file size, or null when too little of the deck can
  * shrink for a number to mean anything (the UI says "about the original
  * size"). Fresh JPEG and PNG bytes each shrink by their own preset ratio;
- * already compressed images and everything else are unchanged. The part of
- * the deck that is not already compressed is clamped by the static upper
- * bound.
+ * already compressed images and everything else are unchanged. The result is
+ * not pulled into the static range: on a deck that is mostly not images, that
+ * would promise savings the images cannot deliver (#81).
  *
  * Splitting JPEG vs PNG matters: a PNG-dominated deck barely changes between
  * presets in reality, so a single blended ratio would over-promise on "high"
@@ -199,9 +199,9 @@ export function estimatePptxSize(
   if (totalSize <= 0 || (jpegBytes + pngBytes) / totalSize < PRESET_IMAGE_SHARE_CUTOFF[preset]) {
     return null;
   }
-  const rest = totalSize - keptBytes;
-  const untouched = rest - jpegBytes - pngBytes;
-  const formula =
-    untouched + jpegBytes * PRESET_JPEG_RATIO[preset] + pngBytes * PRESET_PNG_RATIO[preset];
-  return keptBytes + Math.min(formula, rest * PRESET_RANGE[preset][1]);
+  return (
+    totalSize -
+    jpegBytes * (1 - PRESET_JPEG_RATIO[preset]) -
+    pngBytes * (1 - PRESET_PNG_RATIO[preset])
+  );
 }

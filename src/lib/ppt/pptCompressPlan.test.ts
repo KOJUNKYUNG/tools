@@ -101,9 +101,10 @@ describe("estimatePptxSize", () => {
     expect(estimatePptxSize(1000, [freshPng(800)], "medium")).toBe(696);
     expect(estimatePptxSize(1000, [freshPng(800)], "high")).toBe(672);
   });
-  it("clamps to the static upper bound when the formula exceeds it", () => {
-    // 5% jpeg share → formula 950 + 50*0.42 = 971, but high upper = 1000*0.8 = 800
-    expect(estimatePptxSize(1000, [freshJpeg(50)], "high")).toBe(800);
+  it("promises no more than the images can shrink when they are a small share", () => {
+    // 5% jpeg share at high: 950 untouched + 50*0.42 = 971 (not the 800 the
+    // static range would suggest)
+    expect(estimatePptxSize(1000, [freshJpeg(50)], "high")).toBe(971);
   });
   it("gives no number when too little of the deck can shrink", () => {
     // 1% image share is under every preset's cutoff
@@ -149,13 +150,6 @@ describe("estimatePptxSize", () => {
       // 600 fresh jpeg + 300 jpeg already at q70: 100 + 600*0.58 + 300 = 748
       const media = [freshJpeg(600), { kind: "jpeg" as const, bytes: 300, quality: 70 }];
       expect(estimatePptxSize(1000, media, "medium")).toBe(748);
-    });
-    it("does not count toward the static clamp", () => {
-      // high: 100 fresh jpeg + 800 palette png. The rest of the deck is 200:
-      // 100 + 100*0.42 = 142, under its clamp 200*0.8 = 160; plus the 800 kept = 942.
-      // Clamping the whole deck would promise 1000*0.8 = 800.
-      const media = [freshJpeg(100), { ...freshPng(800), palette: true }];
-      expect(estimatePptxSize(1000, media, "high")).toBe(942);
     });
     it("gives no number when every image is already compressed", () => {
       const media = [{ kind: "jpeg" as const, bytes: 900, quality: 70 }];
