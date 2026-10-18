@@ -152,26 +152,26 @@ describe("estimatePptxSize", () => {
       expect(estimatePptxSize(1000, media, "medium")).toBe(748);
     });
     it("shrinks only a little when it was saved at a weaker preset and re-run stronger", () => {
-      // a deck compressed at medium (JPEGs at q70), re-run at heavy:
+      // a deck compressed at medium (JPEGs at q70), re-run at high:
       // 900 * 0.89 + 100 = 901, not 900 * 0.42 + 100 = 478
       const media = [{ kind: "jpeg" as const, bytes: 900, quality: 70 }];
       expect(estimatePptxSize(1000, media, "high")).toBeCloseTo(901);
     });
-    it("re-run from light shrinks by the measured step to the chosen preset", () => {
-      // JPEGs at q82 (light, or any q80–84 export): medium 0.86, heavy 0.51
+    it("re-run from low shrinks by the measured step to the chosen preset", () => {
+      // JPEGs at q82 (low, or any q80–84 export): medium 0.86, high 0.51
       const media = [{ kind: "jpeg" as const, bytes: 900, quality: 83 }];
       expect(estimatePptxSize(1000, media, "medium")).toBeCloseTo(874);
       expect(estimatePptxSize(1000, media, "high")).toBeCloseTo(559);
     });
     it("re-run PNG shrinks by the step from the tightest weaker budget it fits", () => {
-      // budgets: light 3359, medium 2867; heavy re-runs at 2252
+      // budgets: low 3359, medium 2867; high re-runs at 2252
       const png = (colors: number) => [{ ...freshPng(900), colors }];
-      expect(estimatePptxSize(1000, png(3000), "medium")).toBeCloseTo(973); // light → medium 0.97
-      expect(estimatePptxSize(1000, png(3000), "high")).toBeCloseTo(928); // light → heavy 0.92
-      expect(estimatePptxSize(1000, png(2500), "high")).toBeCloseTo(955); // medium → heavy 0.95
+      expect(estimatePptxSize(1000, png(3000), "medium")).toBeCloseTo(973); // low → medium 0.97
+      expect(estimatePptxSize(1000, png(3000), "high")).toBeCloseTo(928); // low → high 0.92
+      expect(estimatePptxSize(1000, png(2500), "high")).toBeCloseTo(955); // medium → high 0.95
     });
     it("a JPEG between presets' qualities still gets the fresh ratio", () => {
-      // q76 is neither medium's 70 nor light's 82: 100 + 900*0.42 = 478
+      // q76 is neither medium's 70 nor low's 82: 100 + 900*0.42 = 478
       const media = [{ kind: "jpeg" as const, bytes: 900, quality: 76 }];
       expect(estimatePptxSize(1000, media, "high")).toBeCloseTo(478);
     });

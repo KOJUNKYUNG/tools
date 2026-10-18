@@ -27,9 +27,8 @@ bytes going in.</p>
 <div id="out"></div>
 <script type="module">
 import { estimateJpegQuality } from "/lib/alreadyCompressed.js";
+import { PRESET_QUALITY as QUALITY } from "/lib/pptCompressPlan.js";
 
-// Must match PRESET_QUALITY in src/lib/ppt/pptCompressPlan.ts.
-const QUALITY = { low: 0.82, medium: 0.7, high: 0.55 };
 const STEPS = [["low", "medium"], ["low", "high"], ["medium", "high"]];
 const status = (text) => (document.getElementById("status").textContent = text);
 

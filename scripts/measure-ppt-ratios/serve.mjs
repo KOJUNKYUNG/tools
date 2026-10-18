@@ -1,11 +1,14 @@
 // Serves the ppt-compress ratio measurement page (index.html) on
 // http://localhost:4310. The page re-encodes every image in the real-file
-// decks, and each loose JPEG/PNG, with the engine's own encoder (browser-image-compression, from
-// node_modules) and reports how much each preset step leaves.
+// decks, and each loose JPEG/PNG, with the engine's own encoder
+// (browser-image-compression, from node_modules) and reports how much each
+// preset step leaves.
 //
 // Run: preview_start "measure-ppt-ratios" (.claude/launch.json), or
 //      node scripts/measure-ppt-ratios/serve.mjs
 // Decks come from tests/fixtures (REAL_FIXTURES_DIR overrides), local-only.
+// The dev server's tool pages (localhost:3000) may also fetch a deck from
+// /fixtures/<name> to check an estimate against a real compression.
 
 import { createServer } from "node:http";
 import { stripTypeScriptTypes } from "node:module";
@@ -27,8 +30,12 @@ const files = {
   "/lib/jszip.js": [join(root, "node_modules/jszip/dist/jszip.min.js"), "text/javascript"],
 };
 
-// The page reads JPEG quality with the estimator's own code.
-const QUALITY_MODULE = join(root, "src/lib/image/alreadyCompressed.ts");
+// The page reads JPEG quality and the preset qualities from the estimator's
+// own code, served with its types stripped.
+const modules = {
+  "/lib/alreadyCompressed.js": join(root, "src/lib/image/alreadyCompressed.ts"),
+  "/lib/pptCompressPlan.js": join(root, "src/lib/ppt/pptCompressPlan.ts"),
+};
 
 createServer(async (req, res) => {
   try {
@@ -37,9 +44,9 @@ createServer(async (req, res) => {
       const [file, type] = files[path];
       res.writeHead(200, { "content-type": type });
       res.end(await readFile(file));
-    } else if (path === "/lib/alreadyCompressed.js") {
+    } else if (modules[path]) {
       res.writeHead(200, { "content-type": "text/javascript" });
-      res.end(stripTypeScriptTypes(await readFile(QUALITY_MODULE, "utf8")));
+      res.end(stripTypeScriptTypes(await readFile(modules[path], "utf8")));
     } else if (path === "/fixtures") {
       // Decks, plus loose images as they would sit in a deck.
       const names = (await readdir(fixtures)).filter((n) => /\.(pptx|png|jpe?g)$/i.test(n));
@@ -48,7 +55,6 @@ createServer(async (req, res) => {
     } else if (path.startsWith("/fixtures/")) {
       // basename() keeps the request inside the fixtures folder.
       const name = basename(path.slice("/fixtures/".length));
-      // The dev server's tool pages may fetch a deck from here to test with.
       res.writeHead(200, {
         "content-type": "application/octet-stream",
         "access-control-allow-origin": "http://localhost:3000",
