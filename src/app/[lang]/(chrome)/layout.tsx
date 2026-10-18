@@ -13,7 +13,7 @@ export default async function ChromeLayout({
   const dict = await getDictionary(lang as Locale);
   return (
     <>
-      <Header locale={lang} />
+      <Header locale={lang} themeToggleLabel={dict.common.themeToggle} />
       <main className="flex-1">{children}</main>
       <Footer
         copyright={dict.footer.copyright}

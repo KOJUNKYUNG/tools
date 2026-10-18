@@ -32,6 +32,17 @@
     "or": "또는",
     "click": "클릭해서 찾아보기",
     "underOnePct": "1% 미만",
+    "themeToggle": "테마 바꾸기",
+    "resizeHandles": {
+      "nw": "크기 조절 (왼쪽 위)",
+      "n": "크기 조절 (위)",
+      "ne": "크기 조절 (오른쪽 위)",
+      "e": "크기 조절 (오른쪽)",
+      "se": "크기 조절 (오른쪽 아래)",
+      "s": "크기 조절 (아래)",
+      "sw": "크기 조절 (왼쪽 아래)",
+      "w": "크기 조절 (왼쪽)"
+    },
     "fileUpload": {
       "maxSize": "최대 {size}",
       "maxSizeEach": "파일당 최대 {size}",
@@ -40,6 +51,7 @@
       "dismiss": "닫기",
       "tooLargeTemplate": "{name}: 파일 크기가 {size}를 초과합니다.",
       "invalidTypeTemplate": "{name}: 지원하지 않는 파일 형식입니다.",
+      "tooManyFiles": "파일은 한 번에 하나만 올릴 수 있습니다.",
       "errorTemplate": "{name}: {message}",
       "selectedCountTemplate": "{n}개 파일 선택됨",
       "clearAll": "전체 삭제",
@@ -162,7 +174,7 @@
           "download": "다운로드",
           "error": "오류 발생",
           "errorBody": "처리 중 문제가 발생했습니다. 다시 시도해 주세요.",
-          "errorCorrupt": "결과 파일이 손상되어 사용할 수 없습니다. 다른 이미지나 파일로 다시 시도해 주세요.",
+          "errorCorrupt": "도구에 문제가 생겨 배경을 바꾸지 못했습니다. 다시 시도해 주세요.",
           "retry": "재시도",
           "tryAnother": "다시 하기"
         },
@@ -200,7 +212,7 @@
         "imagesLabel": "이미지",
         "noImagesHint": "이미지 없음",
         "errorNoImages": "PPT 파일에서 이미지를 찾을 수 없습니다.",
-        "errorCorrupt": "이미지를 온전히 꺼내지 못했습니다. .ppt 파일이라면 PowerPoint에서 .pptx로 저장한 뒤 다시 시도해 주세요.",
+        "errorCorrupt": "도구에 문제가 생겨 이미지를 온전히 꺼내지 못했습니다. .ppt 파일이라면 PowerPoint에서 .pptx로 저장한 뒤 다시 시도해 주세요.",
         "toPptx": "이미지 → PPT로 보내기"
       }
     },
@@ -242,7 +254,7 @@
         "imageCount": "{n}개",
         "noImagesHint": "압축할 이미지 없음",
         "errorMemory": "브라우저 메모리가 부족합니다. 더 작은 파일을 사용해 주세요.",
-        "errorCorrupt": "압축 결과가 손상되어 사용할 수 없습니다. 다른 압축 강도로 시도해 주세요."
+        "errorCorrupt": "도구에 문제가 생겨 PPT를 압축하지 못했습니다. 다시 시도해 주세요."
       }
     },
     "pdf-arrange": {
@@ -270,7 +282,7 @@
         "downloadPdf": "PDF 다운로드",
         "downloadZipTemplate": "ZIP 다운로드 ({n}개)",
         "downloadOneAria": "{name} 다운로드",
-        "errorCorrupt": "결과 PDF가 손상되어 사용할 수 없습니다. 페이지 구성을 바꾸거나 다른 파일로 다시 시도해 주세요."
+        "errorCorrupt": "도구에 문제가 생겨 PDF를 만들지 못했습니다. 다시 시도해 주세요."
       }
     },
     "pdf-merge": { "title": "PDF 합치기", "description": "여러 PDF 파일을 하나로 정밀하게 병합합니다." },
@@ -285,12 +297,12 @@
         "fileInfo": "{name} · {size}",
         "pageCount": "{count}p",
         "oversizeBadge": "느릴 수 있음",
-        "presetGroupLabel": "압축 레벨",
-        "presetLightLabel": "Light",
+        "presetGroupLabel": "압축 강도",
+        "presetLightLabel": "약하게",
         "presetLightDesc": "이미지 그대로 · 최소 압축",
-        "presetMediumLabel": "Medium",
+        "presetMediumLabel": "보통",
         "presetMediumDesc": "이미지 재인코딩 · 균형",
-        "presetHeavyLabel": "Heavy",
+        "presetHeavyLabel": "강하게",
         "presetHeavyDesc": "이미지 축소·재인코딩 · 최대",
         "compress": "압축하기",
         "processing": "압축 중…",
@@ -315,7 +327,7 @@
         "download": "다운로드",
         "again": "다시 하기",
         "errorMemory": "브라우저 메모리가 부족합니다. 더 작은 PDF를 사용해 주세요.",
-        "errorCorrupt": "압축 결과가 손상되어 사용할 수 없습니다. 다른 압축 강도로 시도해 주세요.",
+        "errorCorrupt": "도구에 문제가 생겨 PDF를 압축하지 못했습니다. 다시 시도해 주세요.",
         "errorEncrypted": "암호가 걸린 PDF는 압축할 수 없습니다. 'PDF 암호·잠금'에서 암호를 해제한 뒤 다시 올려 주세요."
       }
     },
@@ -370,7 +382,7 @@
         "download": "다운로드",
         "again": "다시 하기",
         "errorMemory": "브라우저 메모리가 부족합니다. 더 작은 PDF를 사용해 주세요.",
-        "errorCorrupt": "결과 PDF가 손상되어 사용할 수 없습니다. 설정을 바꿔 다시 시도해 주세요.",
+        "errorCorrupt": "도구에 문제가 생겨 PDF를 만들지 못했습니다. 다시 시도해 주세요.",
         "errorOpen": "PDF를 열 수 없습니다. 암호화되었거나 손상된 파일일 수 있습니다."
       }
     },
@@ -416,7 +428,7 @@
         "download": "다운로드",
         "again": "다시 하기",
         "errorMemory": "브라우저 메모리가 부족합니다. 더 작은 PDF를 사용해 주세요.",
-        "errorCorrupt": "결과 PDF가 손상되어 사용할 수 없습니다. 다시 시도해 주세요.",
+        "errorCorrupt": "도구에 문제가 생겨 PDF를 처리하지 못했습니다. 다시 시도해 주세요. 계속 실패하면 PDF 파일이 손상되었을 수 있습니다.",
         "errorWrongPassword": "암호가 올바르지 않습니다. 다시 확인해 주세요."
       }
     },
@@ -490,7 +502,7 @@
         "download": "다운로드",
         "compressHandoff": "PDF 압축하기",
         "again": "다시 하기",
-        "errorCorrupt": "결과 PDF가 손상되어 사용할 수 없습니다. 페이지 크기를 바꾸거나 다른 이미지로 다시 시도해 주세요."
+        "errorCorrupt": "도구에 문제가 생겨 PDF를 만들지 못했습니다. 다시 시도해 주세요."
       }
     },
     "pdf-to-image": {
@@ -594,6 +606,8 @@
         "sizePresetsTitle": "크기 프리셋",
         "ratioPresetsTitle": "비율 프리셋",
         "customRatio": "사용자 지정",
+        "ratioWidthAria": "비율 가로",
+        "ratioHeightAria": "비율 세로",
         "sizePreset": {
           "fhd": "FHD (1920×1080)",
           "hd": "HD (1280×720)",
@@ -611,7 +625,7 @@
         "uploadPrompt": "이미지를 드래그하거나 클릭하여 업로드",
         "uploadHint": "JPG, PNG, WebP 파일을 지원합니다.",
         "tryAgain": "다시 하기",
-        "errorCorrupt": "결과 이미지가 손상되어 사용할 수 없습니다. 다시 시도하거나 다른 브라우저에서 시도해 주세요.",
+        "errorCorrupt": "도구에 문제가 생겨 이미지를 만들지 못했습니다. 다시 시도하거나 다른 브라우저에서 시도해 주세요.",
         "cropSelectionLabel": "영역 선택 (드래그하여 이동, 모서리로 크기 조절)",
         "stretchModeLabel": "이미지를 지정한 크기에 강제로 맞춰 크기를 변경",
         "cropFooterTemplate": "{w}×{h} 비율로 잘라냅니다 · 크롭 영역: {cw}×{ch}px"

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
-import { noisePng, solidPng } from "@/lib/pdf/testImages";
+import { JPEG_3x2, noisePng, solidPng } from "@/lib/pdf/testImages";
 import { assemblePptxFromPlaced, type AssembleOptions, type PlacedImage } from "./assemblePptx";
 import { checkImageToPptx } from "./imageToPptxCheck";
 
@@ -97,6 +97,21 @@ describe("checkImageToPptx", () => {
       "slide-background",
       "slide-background",
       "slide-background",
+    ]);
+  });
+
+  it("flags a background part whose bytes do not match its extension, at full depth only", async () => {
+    // What pptxgenjs writes given only `data` (#74): a JPEG under a .png name.
+    const jpeg = `data:image/jpeg;base64,${Buffer.from(JPEG_3x2).toString("base64")}`;
+    const opts: AssembleOptions = { slideKind: "16:9", background: { kind: "image", dataUrl: jpeg } };
+    const pptx = new PptxGenJS();
+    pptx.defineSlideMaster({ title: "BG", background: { data: jpeg } });
+    for (const img of IMAGES) pptx.addSlide({ masterName: "BG" }).addImage({ data: img.dataUrl, ...img.placement });
+    // write() returns a union over every outputType; "uint8array" yields this one.
+    const deck = (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
+    expect(await checkImageToPptx(IMAGES, opts, deck, "quick")).toEqual([]);
+    expect(await checkImageToPptx(IMAGES, opts, deck, "full")).toEqual([
+      { property: "background-header", detail: "ppt/media/BG-image-1.png: holds jpeg" },
     ]);
   });
 

@@ -1,4 +1,5 @@
 import PptxGenJS from "pptxgenjs";
+import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { SLIDE_SIZES, type SlideKind } from "./slideSize";
 import { computeSlidePlacement, type Box, type PlacementAlign } from "./slidePlacement";
@@ -12,6 +13,27 @@ export interface PlacedImage { dataUrl: string; placement: Box; }
 export interface AssembleOptions { slideKind: SlideKind; background: Background; }
 
 const BG_MASTER = "ONTAB_BG";
+
+/**
+ * pptxgenjs names a background part, and picks its content type, by the
+ * extension of `path`; given only `data` it assumes PNG, so a JPEG would be
+ * stored as `.png` (#74). The downscaler encodes only these two; anything
+ * else (e.g. `data:,` from a canvas that could not allocate) is the tool's
+ * failure, reported as corrupt output.
+ */
+const BACKGROUND_PATH_OF_MIME: Readonly<Record<string, string>> = {
+  "image/png": "background.png",
+  "image/jpeg": "background.jpeg",
+};
+
+function backgroundPath(dataUrl: string): string {
+  const mime = dataUrl.slice("data:".length).split(/[;,]/)[0];
+  const path = BACKGROUND_PATH_OF_MIME[mime];
+  if (!path) {
+    throw new Error(`${CORRUPT_OUTPUT_PREFIX}: image-to-pptx: background encoded as "${mime}"`);
+  }
+  return path;
+}
 
 /** Low-level: caller supplies already-downscaled data URLs + placements. */
 export async function assemblePptxFromPlaced(images: PlacedImage[], opts: AssembleOptions): Promise<Uint8Array> {
@@ -28,7 +50,7 @@ export async function assemblePptxFromPlaced(images: PlacedImage[], opts: Assemb
   const masterBg =
     opts.background.kind === "color"
       ? { color: opts.background.color }
-      : { data: opts.background.dataUrl };
+      : { data: opts.background.dataUrl, path: backgroundPath(opts.background.dataUrl) };
   pptx.defineSlideMaster({ title: BG_MASTER, background: masterBg });
   for (const img of images) {
     const slide = pptx.addSlide({ masterName: BG_MASTER });

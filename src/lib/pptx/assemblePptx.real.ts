@@ -57,6 +57,11 @@ async function requests(input: Uint8Array): Promise<RealFileRequest<Request>[]> 
       label: "4:3, image background, 3 slides, centered",
       request: { slides: [other, photo, backdrop], background: backdrop, slideKind: "4:3", align: "center" },
     },
+    {
+      // A JPEG photo as background must be stored as a JPEG part (#74).
+      label: "16:9, the photo as background",
+      request: { slides: [other], background: photo, slideKind: "16:9", align: "center" },
+    },
   ];
 }
 

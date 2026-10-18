@@ -20,7 +20,7 @@ export function Screen1Landing({ locale, dict, lidState, onOpen }: Screen1Landin
       className="flex flex-col h-screen relative overflow-hidden"
       style={{ background: "var(--bg)" }}
     >
-      <Header locale={locale} />
+      <Header locale={locale} themeToggleLabel={dict.common.themeToggle} />
 
       <main className="flex-1 flex flex-col items-center justify-center px-8 py-8 relative">
         <div style={{ pointerEvents: heroVisible ? "auto" : "none" }}>

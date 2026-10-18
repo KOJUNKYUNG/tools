@@ -1,6 +1,7 @@
 "use client";
 
 import { CropSelector, type CropRect } from "@/components/image/CropSelector";
+import type { Dictionary } from "@/i18n/config";
 import { template } from "@/lib/common/template";
 
 interface ImageResizePreviewProps {
@@ -13,6 +14,7 @@ interface ImageResizePreviewProps {
   cropSelectionLabel: string;
   stretchModeLabel: string;
   cropFooterTemplate: string;
+  handleLabels: Dictionary["common"]["resizeHandles"];
 }
 
 export function ImageResizePreview({
@@ -25,6 +27,7 @@ export function ImageResizePreview({
   cropSelectionLabel,
   stretchModeLabel,
   cropFooterTemplate,
+  handleLabels,
 }: ImageResizePreviewProps) {
   if (!imageUrl) return null;
 
@@ -35,6 +38,7 @@ export function ImageResizePreview({
         targetWidth={targetW}
         targetHeight={targetH}
         onCropChange={onCropChange}
+        handleLabels={handleLabels}
       />
     ) : (
       <div

@@ -21,6 +21,8 @@ interface ImageResizePresetsProps {
   onRatioPreset: (preset: AspectPreset, idx: number) => void;
   activePreset: ActivePreset;
   customLabel: string;
+  ratioWidthAria: string;
+  ratioHeightAria: string;
   customOpen: boolean;
   customRatio: { w: string; h: string } | null;
   onCustomToggle: () => void;
@@ -36,6 +38,8 @@ export function ImageResizePresets({
   onRatioPreset,
   activePreset,
   customLabel,
+  ratioWidthAria,
+  ratioHeightAria,
   customOpen,
   customRatio,
   onCustomToggle,
@@ -92,7 +96,7 @@ export function ImageResizePresets({
                   borderColor: "var(--border)",
                   color: "var(--ink-strong)",
                 }}
-                aria-label="ratio width"
+                aria-label={ratioWidthAria}
               />
               <span style={{ color: "var(--ink-soft)" }}>:</span>
               <input
@@ -112,7 +116,7 @@ export function ImageResizePresets({
                   borderColor: "var(--border)",
                   color: "var(--ink-strong)",
                 }}
-                aria-label="ratio height"
+                aria-label={ratioHeightAria}
               />
             </span>
           )}

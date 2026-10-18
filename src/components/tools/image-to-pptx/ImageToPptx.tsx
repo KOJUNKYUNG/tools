@@ -536,6 +536,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
                 : { kind: "image", url: bg.url }
             }
             refImageUrl={refImageUrl}
+            handleLabels={labels.resizeHandles}
             align={align}
           />
           <PlacementControls

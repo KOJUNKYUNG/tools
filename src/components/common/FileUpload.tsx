@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { DEFAULT_UPLOAD_LIMIT } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
+import { rejectionMessages } from "./fileUploadRejections";
 
 interface FileUploadProps {
   accept: Accept;
@@ -38,6 +39,8 @@ interface FileUploadProps {
     tooLargeTemplate?: string;
     /** "{name}" — toast on bad MIME/extension. */
     invalidTypeTemplate?: string;
+    /** Toast, once per drop, when more files are dropped than `multiple` allows. */
+    tooManyFiles?: string;
     /** "{name}", "{message}" — toast fallback for any other rejection. */
     errorTemplate?: string;
     /** "{n}" — selected-file count header. */
@@ -67,22 +70,17 @@ export function FileUpload({
 
   const tooLargeTpl = labels?.tooLargeTemplate ?? "{name}: 파일 크기가 {size}를 초과합니다.";
   const invalidTypeTpl = labels?.invalidTypeTemplate ?? "{name}: 지원하지 않는 파일 형식입니다.";
+  const tooManyFiles = labels?.tooManyFiles ?? "파일은 한 번에 하나만 올릴 수 있습니다.";
   const errorTpl = labels?.errorTemplate ?? "{name}: {message}";
 
   const onDrop = useCallback(
     (accepted: File[], rejections: FileRejection[]) => {
-      for (const rejection of rejections) {
-        const name = rejection.file.name;
-        for (const err of rejection.errors) {
-          if (err.code === "file-too-large") {
-            toast.error(template(tooLargeTpl, { name, size: formatBytes(maxSize) }));
-          } else if (err.code === "file-invalid-type") {
-            toast.error(template(invalidTypeTpl, { name }));
-          } else {
-            toast.error(template(errorTpl, { name, message: err.message }));
-          }
-        }
-      }
+      const messages = rejectionMessages(
+        rejections,
+        { tooLarge: tooLargeTpl, invalidType: invalidTypeTpl, tooMany: tooManyFiles, other: errorTpl },
+        formatBytes(maxSize),
+      );
+      for (const message of messages) toast.error(message);
 
       if (accepted.length > 0) {
         const next = multiple ? [...files, ...accepted] : accepted;
@@ -90,7 +88,7 @@ export function FileUpload({
         onFiles(next);
       }
     },
-    [files, maxSize, multiple, onFiles, tooLargeTpl, invalidTypeTpl, errorTpl],
+    [files, maxSize, multiple, onFiles, tooLargeTpl, invalidTypeTpl, tooManyFiles, errorTpl],
   );
 
   const removeFile = (index: number) => {

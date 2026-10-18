@@ -453,6 +453,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
               cropSelectionLabel={labels.cropSelectionLabel}
               stretchModeLabel={labels.stretchModeLabel}
               cropFooterTemplate={labels.cropFooterTemplate}
+              handleLabels={labels.resizeHandles}
             />
 
             {/* Right: controls / result */}
@@ -511,6 +512,8 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                   onRatioPreset={handleRatioPreset}
                   activePreset={activePreset}
                   customLabel={labels.customRatio}
+                  ratioWidthAria={labels.ratioWidthAria}
+                  ratioHeightAria={labels.ratioHeightAria}
                   customOpen={customOpen}
                   customRatio={customRatio}
                   onCustomToggle={handleCustomToggle}
