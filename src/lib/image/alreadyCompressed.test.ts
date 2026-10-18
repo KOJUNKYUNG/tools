@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { countColors, estimateJpegQuality, ijgTable, isPalettePng } from "./alreadyCompressed";
+import { countColors, estimateJpegQuality, ijgTable, readPngHeader } from "./alreadyCompressed";
 
 /** A minimal JPEG head: SOI, the given DQT segments, then SOS. */
 function jpeg(...dqts: Uint8Array[]): Uint8Array {
@@ -57,22 +57,21 @@ describe("estimateJpegQuality", () => {
   });
 });
 
-describe("isPalettePng", () => {
+describe("readPngHeader", () => {
   function png(colorType: number): Uint8Array {
     const head = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13];
     const ihdr = [..."IHDR"].map((c) => c.charCodeAt(0));
-    return Uint8Array.from([...head, ...ihdr, 0, 0, 0, 1, 0, 0, 0, 1, 8, colorType, 0, 0, 0]);
+    return Uint8Array.from([...head, ...ihdr, 0, 0, 2, 0, 0, 0, 1, 44, 8, colorType, 0, 0, 0]);
   }
 
-  it("is true for colour type 3 (indexed)", () => {
-    expect(isPalettePng(png(3))).toBe(true);
+  it("reads the size and colour type", () => {
+    expect(readPngHeader(png(3))).toEqual({ width: 512, height: 300, colorType: 3 });
+    expect(readPngHeader(png(6))?.colorType).toBe(6);
   });
 
-  it("is false for truecolour, greyscale and non-PNG bytes", () => {
-    expect(isPalettePng(png(2))).toBe(false);
-    expect(isPalettePng(png(6))).toBe(false);
-    expect(isPalettePng(png(0))).toBe(false);
-    expect(isPalettePng(Uint8Array.from([0xff, 0xd8]))).toBe(false);
+  it("is null for non-PNG bytes", () => {
+    expect(readPngHeader(Uint8Array.from([0xff, 0xd8]))).toBeNull();
+    expect(readPngHeader(new Uint8Array(30))).toBeNull();
   });
 });
 
@@ -82,15 +81,20 @@ describe("countColors", () => {
 
   it("counts distinct RGBA values", () => {
     const px = rgba([0, 0, 0, 255], [255, 255, 255, 255], [0, 0, 0, 255], [0, 0, 0, 128]);
-    expect(countColors(px, 10)).toBe(3);
+    expect(countColors(px, 10)).toEqual({ colors: 3, opaque: false });
+  });
+
+  it("knows when every pixel is opaque", () => {
+    const px = rgba([0, 0, 0, 255], [255, 255, 255, 255]);
+    expect(countColors(px, 10)).toEqual({ colors: 2, opaque: true });
   });
 
   it("stops one past the cap", () => {
     const px = Uint8ClampedArray.from({ length: 100 * 4 }, (_, i) => (i % 4 === 3 ? 255 : i >> 2));
-    expect(countColors(px, 10)).toBe(11);
+    expect(countColors(px, 10).colors).toBe(11);
   });
 
   it("is 0 for no pixels", () => {
-    expect(countColors(new Uint8ClampedArray(), 10)).toBe(0);
+    expect(countColors(new Uint8ClampedArray(), 10)).toEqual({ colors: 0, opaque: true });
   });
 });

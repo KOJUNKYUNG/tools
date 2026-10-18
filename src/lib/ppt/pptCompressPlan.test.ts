@@ -81,7 +81,13 @@ describe("deriveCompressedName", () => {
 });
 
 const freshJpeg = (bytes: number) => ({ kind: "jpeg" as const, bytes, quality: 95 });
-const freshPng = (bytes: number) => ({ kind: "png" as const, bytes, palette: false, colors: null });
+const freshPng = (bytes: number) => ({
+  kind: "png" as const,
+  bytes,
+  palette: false,
+  colors: null,
+  unusedAlpha: false,
+});
 
 describe("estimatePptxSize", () => {
   it("shrinks JPEG bytes by the preset-dependent ratio", () => {
@@ -108,26 +114,35 @@ describe("estimatePptxSize", () => {
 
   describe("an already compressed image", () => {
     it("is a JPEG saved at or near the preset's quality or lower", () => {
-      // medium re-encodes at 70; within the 5-point margin counts
+      // medium re-encodes at 70; within the 2-point margin counts
       expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 70 }, "medium")).toBe(true);
-      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 75 }, "medium")).toBe(true);
-      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 76 }, "medium")).toBe(false);
-      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 95 }, "low")).toBe(false);
+      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 72 }, "medium")).toBe(true);
+      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 73 }, "medium")).toBe(false);
+      // a fresh q85 export still shrinks at light (82)
+      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 85 }, "low")).toBe(false);
     });
     it("is not assumed when a JPEG's quality cannot be read", () => {
       expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: null }, "high")).toBe(false);
     });
     it("is an indexed (palette) PNG", () => {
-      const png = { kind: "png" as const, bytes: 1, palette: true, colors: null };
+      const png = { ...freshPng(1), palette: true };
       expect(looksAlreadyCompressed(png, "low")).toBe(true);
       expect(looksAlreadyCompressed(freshPng(1), "high")).toBe(false);
     });
     it("is a PNG already within the preset's colour budget", () => {
       // medium quantizes to 4096 * 0.7 ≈ 2867 colours
-      const png = (colors: number) => ({ kind: "png" as const, bytes: 1, palette: false, colors });
+      const png = (colors: number) => ({ ...freshPng(1), colors });
       expect(looksAlreadyCompressed(png(2863), "medium")).toBe(true);
       expect(looksAlreadyCompressed(png(2868), "medium")).toBe(false);
       expect(looksAlreadyCompressed(png(2863), "high")).toBe(false);
+    });
+    it("is not a PNG the engine could still write indexed or without its alpha", () => {
+      // 256 colours or fewer: the engine writes it indexed, which shrinks it
+      expect(looksAlreadyCompressed({ ...freshPng(1), colors: 256 }, "medium")).toBe(false);
+      expect(looksAlreadyCompressed({ ...freshPng(1), colors: 257 }, "medium")).toBe(true);
+      // an alpha channel no pixel uses: the engine drops it
+      const opaque = { ...freshPng(1), colors: 1000, unusedAlpha: true };
+      expect(looksAlreadyCompressed(opaque, "medium")).toBe(false);
     });
 
     it("is expected to keep its size", () => {
@@ -139,7 +154,7 @@ describe("estimatePptxSize", () => {
       // high: 100 fresh jpeg + 800 palette png. The rest of the deck is 200:
       // 100 + 100*0.42 = 142, under its clamp 200*0.8 = 160; plus the 800 kept = 942.
       // Clamping the whole deck would promise 1000*0.8 = 800.
-      const media = [freshJpeg(100), { kind: "png" as const, bytes: 800, palette: true, colors: null }];
+      const media = [freshJpeg(100), { ...freshPng(800), palette: true }];
       expect(estimatePptxSize(1000, media, "high")).toBe(942);
     });
     it("gives no number when every image is already compressed", () => {

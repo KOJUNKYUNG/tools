@@ -144,12 +144,13 @@ describe("analyzePptxForCompress", () => {
       new File([new Uint8Array(deck)], "deck.pptx"),
       async (bytes, cap) => {
         counted.push(cap);
-        return bytes.length > 0 ? 1234 : null;
+        return bytes.length > 0 ? { colors: 1234, opaque: true } : null;
       },
     );
     const png = analysis.media.find((m) => m.kind === "png");
     const jpeg = analysis.media.find((m) => m.kind === "jpeg");
-    expect(png).toMatchObject({ palette: false, colors: 1234 });
+    // noisePng is RGB: no alpha channel to drop, however opaque the pixels
+    expect(png).toMatchObject({ palette: false, colors: 1234, unusedAlpha: false });
     expect(png?.bytes).toBe((await media(deck, PNG_MEDIA)).length);
     expect(jpeg).toMatchObject({ bytes: (await media(deck, JPEG_MEDIA)).length });
     expect(jpeg?.kind === "jpeg" && jpeg.quality).toBeGreaterThan(0);

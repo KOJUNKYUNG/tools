@@ -97,12 +97,28 @@ export function estimateJpegQuality(bytes: Uint8Array): number | null {
   return best;
 }
 
-/** Whether a PNG is indexed (IHDR colour type 3): its colours are already reduced. */
-export function isPalettePng(bytes: Uint8Array): boolean {
+export interface PngHeader {
+  width: number;
+  height: number;
+  /** IHDR colour type: 0 grey, 2 RGB, 3 indexed, 4 grey + alpha, 6 RGBA. */
+  colorType: number;
+}
+
+/** A PNG's size and colour type from its IHDR chunk; null for anything else. */
+export function readPngHeader(bytes: Uint8Array): PngHeader | null {
   const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  if (bytes.length < 26 || signature.some((b, i) => bytes[i] !== b)) return false;
+  if (bytes.length < 26 || signature.some((b, i) => bytes[i] !== b)) return null;
   const ihdr = String.fromCharCode(bytes[12], bytes[13], bytes[14], bytes[15]);
-  return ihdr === "IHDR" && bytes[25] === 3;
+  if (ihdr !== "IHDR") return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return { width: view.getUint32(16), height: view.getUint32(20), colorType: bytes[25] };
+}
+
+export interface ColorCount {
+  /** Distinct RGBA values, counted no further than one past the cap. */
+  colors: number;
+  /** Every pixel fully opaque; only known when the count stayed within the cap. */
+  opaque: boolean;
 }
 
 /**
@@ -110,9 +126,13 @@ export function isPalettePng(bytes: Uint8Array): boolean {
  * past `cap`: past the cap the exact number does not matter, and a photo
  * gets there within its first rows.
  */
-export function countColors(pixels: Uint8ClampedArray, cap: number): number {
+export function countColors(pixels: Uint8ClampedArray, cap: number): ColorCount {
   const words = new Uint32Array(pixels.buffer, pixels.byteOffset, pixels.byteLength >> 2);
   const seen = new Set<number>();
-  for (let i = 0; i < words.length && seen.size <= cap; i++) seen.add(words[i]);
-  return seen.size;
+  let opaque = true;
+  for (let i = 0; i < words.length && seen.size <= cap; i++) {
+    seen.add(words[i]);
+    if (pixels[i * 4 + 3] !== 255) opaque = false;
+  }
+  return { colors: seen.size, opaque };
 }

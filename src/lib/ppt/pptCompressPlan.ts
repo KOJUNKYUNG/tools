@@ -121,7 +121,12 @@ export type MediaSample =
       palette: boolean;
       /** Distinct colors, counted up to past every preset's budget; null if not counted. */
       colors: number | null;
+      /** Stores an alpha channel that every pixel leaves fully opaque. */
+      unusedAlpha: boolean;
     };
+
+/** The engine writes a PNG of this many colours or fewer as an indexed PNG. */
+const INDEXED_MAX_COLORS = 256;
 
 /**
  * The colour budget a preset's PNG re-encode quantizes to: browser-image-
@@ -133,24 +138,32 @@ export function pngColorBudget(preset: CompressionPreset): number {
 
 /**
  * A JPEG this many quality points above the preset's still counts as already
- * compressed: re-encoding it gains little, and the quality estimate of the
- * engine's own output can read a point or two off.
+ * compressed. Chrome's canvas writes the exact IJG tables, so its output reads
+ * back exactly; the margin covers encoders whose tables differ slightly.
  */
-const JPEG_QUALITY_MARGIN = 5;
+const JPEG_QUALITY_MARGIN = 2;
 
 /**
  * Whether re-encoding at `preset` is unlikely to shrink the image: a JPEG
  * already saved at about the preset's quality or lower, or a PNG already
- * reduced to a palette or to within the preset's colour budget (the engine's
- * own output has at most that many colours but stays RGBA). Such an image is
- * expected to keep its size, since the engine keeps the original when the
+ * indexed, or already within the preset's colour budget (the engine's own
+ * output has at most that many colours but stays truecolour). Such an image
+ * is expected to keep its size, since the engine keeps the original when the
  * re-encode is no smaller (#78). Compared against the chosen preset only: a
  * deck compressed at one preset and re-run at a stronger one still counts as
  * fresh, so that case can over-promise.
  */
 export function looksAlreadyCompressed(media: MediaSample, preset: CompressionPreset): boolean {
   if (media.kind === "png") {
-    return media.palette || (media.colors !== null && media.colors <= pngColorBudget(preset));
+    if (media.palette) return true;
+    // Within the budget, the engine still shrinks a PNG it can write indexed
+    // or whose unused alpha channel it can drop.
+    return (
+      media.colors !== null &&
+      media.colors > INDEXED_MAX_COLORS &&
+      media.colors <= pngColorBudget(preset) &&
+      !media.unusedAlpha
+    );
   }
   return (
     media.quality !== null &&
