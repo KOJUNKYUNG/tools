@@ -78,6 +78,12 @@ describe("compressImages", () => {
     expect(res.images[0].keptOriginal).toBe(true);
   });
 
+  it("judges the format by the bytes: a JPEG without a MIME type that did not shrink is kept", async () => {
+    const { fixed } = encoders(null, jpegOfSize(3000));
+    const res = await run([file(jpegOfSize(2000), "photo.jpg", "")], "image/jpeg", fixed);
+    expect(res.kind).toBe("not-smaller");
+  });
+
   it("offers a larger format conversion: it is what the user asked for", async () => {
     const out = pad(solidPng(3, 2), 2000);
     const { fixed } = encoders(null, out);

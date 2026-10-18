@@ -1,9 +1,14 @@
 import JSZip from "jszip";
 import { uniqueNames } from "@/lib/common/uniqueNames";
 import { OutputCheckError, runOutputCheck } from "@/lib/output-check/core";
-import { HEADER_FORMAT_OF_MIME, readImageHeader } from "@/lib/output-check/imageHeader";
+import { readImageHeader } from "@/lib/output-check/imageHeader";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
-import { checkCompressedImage, checkCompressZip } from "./compressImageCheck";
+import {
+  checkCompressedImage,
+  checkCompressZip,
+  IMAGE_FORMAT,
+  isFormat,
+} from "./compressImageCheck";
 import { isConvertedFromHeic } from "./heic";
 
 export type OutputFormat = "image/jpeg" | "image/png" | "image/webp";
@@ -119,7 +124,7 @@ const browserEncoders: ImageEncoders = {
 };
 
 const inFormat = async (blob: Blob, format: OutputFormat) =>
-  readImageHeader(new Uint8Array(await blob.arrayBuffer()))?.format === HEADER_FORMAT_OF_MIME[format];
+  isFormat(readImageHeader(new Uint8Array(await blob.arrayBuffer())), format);
 
 /**
  * Encode one file and check it (spec #51, #60). A same-format output that is
@@ -134,7 +139,8 @@ async function compressOne(
   quality: number,
   encoders: ImageEncoders,
 ): Promise<{ blob: Blob; keptOriginal: boolean }> {
-  const sameFormat = file.type === outputFormat && !isConvertedFromHeic(file);
+  // Judged by the bytes: a file's MIME type may be empty or wrong.
+  const sameFormat = !isConvertedFromHeic(file) && (await inFormat(file, outputFormat));
   const viaLibrary = file.type === outputFormat && outputFormat !== "image/png";
   const encode = viaLibrary ? encoders.compress : encoders.redraw;
   const keepsOriginal = (out: Blob) => sameFormat && notSmaller(file, out);
@@ -159,7 +165,7 @@ async function compressOne(
       recover: viaLibrary ? () => encoders.redraw(file, outputFormat, quality) : undefined,
     });
   } catch (err) {
-    if (err instanceof OutputCheckError && err.violations.some((v) => v.property === "image-format")) {
+    if (err instanceof OutputCheckError && err.violations.some((v) => v.property === IMAGE_FORMAT)) {
       throw new OutputFormatUnsupportedError(outputFormat);
     }
     throw err;

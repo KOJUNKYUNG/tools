@@ -2,8 +2,10 @@ import { browserDecodes } from "@/lib/output-check/browserDecode";
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import {
   displayedSize,
+  hasUnreadOrientation,
   HEADER_FORMAT_OF_MIME,
   readImageHeader,
+  type ImageHeader,
 } from "@/lib/output-check/imageHeader";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
 import { indexZip } from "@/lib/output-check/zipReader";
@@ -20,7 +22,14 @@ export interface CompressedImageRequest {
   sameFormat: boolean;
 }
 
-const headerOf = async (blob: Blob) => readImageHeader(new Uint8Array(await blob.arrayBuffer()));
+const bytesOf = async (blob: Blob) => new Uint8Array(await blob.arrayBuffer());
+
+/** The property a canvas's PNG fallback violates; the engine words it for the user. */
+export const IMAGE_FORMAT = "image-format";
+
+/** Whether a header is in the format `format` asks for. */
+export const isFormat = (header: ImageHeader | null, format: OutputFormat) =>
+  header?.format === HEADER_FORMAT_OF_MIME[format];
 
 /**
  * image-compress output properties for one image (spec #51, confirmed in
@@ -33,7 +42,9 @@ const headerOf = async (blob: Blob) => readImageHeader(new Uint8Array(await blob
  *   user to pick another format
  * - `image-size`: its size as displayed equals the input's (canvases draw a
  *   phone photo turned upright). Skipped when the input's header is
- *   unreadable: there is nothing certain to compare against
+ *   unreadable, or when it carries orientation metadata the header reader
+ *   does not read (WebP EXIF, PNG eXIf): there is nothing certain to compare
+ *   against
  * - `image-decodes`: the browser decodes it
  * - `size-bound`: a same-format output is strictly smaller than its input.
  *   The engine settles this before checking (a file that did not shrink is
@@ -45,15 +56,18 @@ export const checkCompressedImage: OutputChecker<Blob, CompressedImageRequest, B
   output,
 ) => {
   const violations: Violation[] = [];
-  const header = await headerOf(output);
+  const header = readImageHeader(await bytesOf(output));
   if (!header) {
     violations.push({ property: "image-header", detail: "the output's header cannot be read" });
   } else {
-    const expected = HEADER_FORMAT_OF_MIME[format];
-    if (header.format !== expected) {
-      violations.push({ property: "image-format", detail: `expected ${expected}, got ${header.format}` });
+    if (!isFormat(header, format)) {
+      violations.push({
+        property: IMAGE_FORMAT,
+        detail: `expected ${HEADER_FORMAT_OF_MIME[format]}, got ${header.format}`,
+      });
     }
-    const source = await headerOf(input);
+    const inputBytes = await bytesOf(input);
+    const source = hasUnreadOrientation(inputBytes) ? null : readImageHeader(inputBytes);
     if (source) {
       const [w, h] = displayedSize(source);
       const [ow, oh] = displayedSize(header);

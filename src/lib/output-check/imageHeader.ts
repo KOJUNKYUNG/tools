@@ -146,6 +146,26 @@ function readWebp(bytes: Uint8Array): ImageHeader | null {
   return size && { format: "webp", ...size, orientation: 1 };
 }
 
+/**
+ * Whether the image carries orientation metadata this reader does not read:
+ * a WebP whose extended header flags an EXIF chunk, or a PNG with an eXIf
+ * chunk before its image data. Browsers may turn such an image when showing
+ * it, so its displayed size is not known from the header alone.
+ */
+export function hasUnreadOrientation(bytes: Uint8Array): boolean {
+  if (ascii(bytes, 0, "RIFF") && ascii(bytes, 8, "WEBP") && ascii(bytes, 12, "VP8X")) {
+    return bytes.length > 20 && (bytes[20] & 0x08) !== 0;
+  }
+  if (!PNG_SIGNATURE.every((b, i) => bytes[i] === b)) return false;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  // Chunks: length (4), type (4), data, CRC (4).
+  for (let at = 8; at + 8 <= bytes.length; at += 12 + view.getUint32(at)) {
+    if (ascii(bytes, at + 4, "eXIf")) return true;
+    if (ascii(bytes, at + 4, "IDAT")) return false;
+  }
+  return false;
+}
+
 /** The image's format and pixel size, or null for bytes it cannot read. */
 export function readImageHeader(bytes: Uint8Array): ImageHeader | null {
   if (PNG_SIGNATURE.every((b, i) => bytes[i] === b)) return readPng(bytes);
