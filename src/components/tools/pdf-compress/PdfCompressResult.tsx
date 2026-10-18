@@ -22,7 +22,7 @@ export function PdfCompressResult({
   labels,
   note,
 }: PdfCompressResultProps) {
-  const savings = savingsPctText(computeSavings(originalSize, compressedSize), labels.underOnePct);
+  const savingsText = savingsPctText(computeSavings(originalSize, compressedSize), labels.underOnePct);
 
   return (
     <ResultCard
@@ -64,7 +64,7 @@ export function PdfCompressResult({
             className="font-body text-[14px] font-semibold tabular-nums"
             style={{ color: "var(--ink-strong)" }}
           >
-            {savings}
+            {savingsText}
           </p>
         </div>
       </div>

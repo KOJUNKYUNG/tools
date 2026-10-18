@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import imageCompression from "browser-image-compression";
 import type { CompressionPreset } from "@/lib/common/compressionPreset";
-import { countColours, estimateJpegQuality, isPalettePng } from "@/lib/image/alreadyCompressed";
+import { countColors, estimateJpegQuality, isPalettePng } from "@/lib/image/alreadyCompressed";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { notSmaller } from "@/lib/output-check/sizeBound";
 import { getExt, getMime } from "./pptImageFormats";
@@ -9,7 +9,7 @@ import { aggregateFormats } from "./analyzePresentation";
 import {
   classifyMedia,
   pickSmaller,
-  pngColourBudget,
+  pngColorBudget,
   RECOMPRESSIBLE_EXTS,
   type MediaAction,
   type MediaSample,
@@ -86,17 +86,17 @@ export type RecompressMedia = (
  * Counts a PNG's distinct colours up to one past `cap`; null when it cannot.
  * The browser canvas at run time.
  */
-export type CountPngColours = (bytes: Uint8Array, cap: number) => Promise<number | null>;
+export type CountPngColors = (bytes: Uint8Array, cap: number) => Promise<number | null>;
 
 /** Past the weakest preset's budget, every preset would quantize the PNG. */
-const COLOUR_COUNT_CAP = Math.ceil(pngColourBudget("low"));
+const COLOR_COUNT_CAP = Math.ceil(pngColorBudget("low"));
 
 /**
  * Decodes through a canvas, as the engine's re-encoder does, so the count is
  * of the pixels it would quantize. Without OffscreenCanvas (or on a decode
  * failure) the PNG is not counted and the estimate treats it as fresh.
  */
-const countPngColoursInBrowser: CountPngColours = async (bytes, cap) => {
+const countPngColorsInBrowser: CountPngColors = async (bytes, cap) => {
   if (typeof createImageBitmap !== "function" || typeof OffscreenCanvas === "undefined") {
     return null;
   }
@@ -110,7 +110,7 @@ const countPngColoursInBrowser: CountPngColours = async (bytes, cap) => {
       const ctx = new OffscreenCanvas(bitmap.width, bitmap.height).getContext("2d");
       if (!ctx) return null;
       ctx.drawImage(bitmap, 0, 0);
-      return countColours(ctx.getImageData(0, 0, bitmap.width, bitmap.height).data, cap);
+      return countColors(ctx.getImageData(0, 0, bitmap.width, bitmap.height).data, cap);
     } finally {
       bitmap.close();
     }
@@ -126,7 +126,7 @@ const countPngColoursInBrowser: CountPngColours = async (bytes, cap) => {
  */
 export async function analyzePptxForCompress(
   file: File,
-  countPngColours: CountPngColours = countPngColoursInBrowser,
+  countPngColors: CountPngColors = countPngColorsInBrowser,
 ): Promise<PptxCompressAnalysis> {
   const ab = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(ab);
@@ -160,8 +160,8 @@ export async function analyzePptxForCompress(
     if (ext === "png") {
       const palette = isPalettePng(bytes);
       // A palette PNG already counts as compressed; no need to decode it.
-      const colours = palette ? null : await countPngColours(bytes, COLOUR_COUNT_CAP);
-      media.push({ kind: "png", bytes: bytes.length, palette, colours });
+      const colors = palette ? null : await countPngColors(bytes, COLOR_COUNT_CAP);
+      media.push({ kind: "png", bytes: bytes.length, palette, colors });
     } else {
       media.push({ kind: "jpeg", bytes: bytes.length, quality: estimateJpegQuality(bytes) });
     }

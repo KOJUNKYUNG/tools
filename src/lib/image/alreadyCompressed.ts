@@ -31,7 +31,7 @@ const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 /** Each quality's table sums, luma alone and luma + chroma, for 1–100. */
 const IJG_SUMS = Array.from({ length: 100 }, (_, i) => {
   const luma = sum(ijgTable("luma", i + 1));
-  return { quality: i + 1, luma, both: luma + sum(ijgTable("chroma", i + 1)) };
+  return { quality: i + 1, luma, lumaPlusChroma: luma + sum(ijgTable("chroma", i + 1)) };
 });
 
 /** The quantization tables (id → 64 values) defined before the first scan. */
@@ -87,7 +87,7 @@ export function estimateJpegQuality(bytes: Uint8Array): number | null {
   let best = 1;
   let bestGap = Infinity;
   for (const sums of IJG_SUMS) {
-    const gap = Math.abs((chroma ? sums.both : sums.luma) - target);
+    const gap = Math.abs((chroma ? sums.lumaPlusChroma : sums.luma) - target);
     // Sums fall as quality rises; on a tie keep the higher quality.
     if (gap <= bestGap) {
       best = sums.quality;
@@ -110,7 +110,7 @@ export function isPalettePng(bytes: Uint8Array): boolean {
  * past `cap`: past the cap the exact number does not matter, and a photo
  * gets there within its first rows.
  */
-export function countColours(pixels: Uint8ClampedArray, cap: number): number {
+export function countColors(pixels: Uint8ClampedArray, cap: number): number {
   const words = new Uint32Array(pixels.buffer, pixels.byteOffset, pixels.byteLength >> 2);
   const seen = new Set<number>();
   for (let i = 0; i < words.length && seen.size <= cap; i++) seen.add(words[i]);

@@ -149,7 +149,7 @@ describe("analyzePptxForCompress", () => {
     );
     const png = analysis.media.find((m) => m.kind === "png");
     const jpeg = analysis.media.find((m) => m.kind === "jpeg");
-    expect(png).toMatchObject({ palette: false, colours: 1234 });
+    expect(png).toMatchObject({ palette: false, colors: 1234 });
     expect(png?.bytes).toBe((await media(deck, PNG_MEDIA)).length);
     expect(jpeg).toMatchObject({ bytes: (await media(deck, JPEG_MEDIA)).length });
     expect(jpeg?.kind === "jpeg" && jpeg.quality).toBeGreaterThan(0);

@@ -19,7 +19,7 @@ export function PptCompressResult({
   onDownload,
   labels,
 }: PptCompressResultProps) {
-  const savings = savingsPctText(computeSavings(originalSize, compressedSize), labels.underOnePct);
+  const savingsText = savingsPctText(computeSavings(originalSize, compressedSize), labels.underOnePct);
 
   return (
     <ResultCard
@@ -61,7 +61,7 @@ export function PptCompressResult({
             className="font-body text-[14px] font-semibold tabular-nums"
             style={{ color: "var(--ink-strong)" }}
           >
-            {savings}
+            {savingsText}
           </p>
         </div>
       </div>

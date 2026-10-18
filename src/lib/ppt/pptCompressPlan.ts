@@ -100,7 +100,7 @@ export const PRESET_RANGE: Record<CompressionPreset, [number, number]> = {
  * Minimum recompressible-share before the derived estimate is shown.
  * Below the cutoff we display "~ original size" instead of a misleading number.
  */
-export const PRESET_IMAGE_SHARE_CUTOFF: Record<CompressionPreset, number> = {
+const PRESET_IMAGE_SHARE_CUTOFF: Record<CompressionPreset, number> = {
   low: 0.15,
   medium: 0.05,
   high: 0.03,
@@ -119,15 +119,15 @@ export type MediaSample =
       bytes: number;
       /** Indexed colour (IHDR colour type 3). */
       palette: boolean;
-      /** Distinct colours, counted up to past every preset's budget; null if not counted. */
-      colours: number | null;
+      /** Distinct colors, counted up to past every preset's budget; null if not counted. */
+      colors: number | null;
     };
 
 /**
  * The colour budget a preset's PNG re-encode quantizes to: browser-image-
  * compression keeps at most 4096 × quality colours.
  */
-export function pngColourBudget(preset: CompressionPreset): number {
+export function pngColorBudget(preset: CompressionPreset): number {
   return 4096 * PRESET_QUALITY[preset];
 }
 
@@ -136,7 +136,7 @@ export function pngColourBudget(preset: CompressionPreset): number {
  * compressed: re-encoding it gains little, and the quality estimate of the
  * engine's own output can read a point or two off.
  */
-export const JPEG_QUALITY_MARGIN = 5;
+const JPEG_QUALITY_MARGIN = 5;
 
 /**
  * Whether re-encoding at `preset` is unlikely to shrink the image: a JPEG
@@ -150,7 +150,7 @@ export const JPEG_QUALITY_MARGIN = 5;
  */
 export function looksAlreadyCompressed(media: MediaSample, preset: CompressionPreset): boolean {
   if (media.kind === "png") {
-    return media.palette || (media.colours !== null && media.colours <= pngColourBudget(preset));
+    return media.palette || (media.colors !== null && media.colors <= pngColorBudget(preset));
   }
   return (
     media.quality !== null &&

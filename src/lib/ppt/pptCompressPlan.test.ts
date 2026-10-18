@@ -81,7 +81,7 @@ describe("deriveCompressedName", () => {
 });
 
 const freshJpeg = (bytes: number) => ({ kind: "jpeg" as const, bytes, quality: 95 });
-const freshPng = (bytes: number) => ({ kind: "png" as const, bytes, palette: false, colours: null });
+const freshPng = (bytes: number) => ({ kind: "png" as const, bytes, palette: false, colors: null });
 
 describe("estimatePptxSize", () => {
   it("shrinks JPEG bytes by the preset-dependent ratio", () => {
@@ -118,13 +118,13 @@ describe("estimatePptxSize", () => {
       expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: null }, "high")).toBe(false);
     });
     it("is an indexed (palette) PNG", () => {
-      const png = { kind: "png" as const, bytes: 1, palette: true, colours: null };
+      const png = { kind: "png" as const, bytes: 1, palette: true, colors: null };
       expect(looksAlreadyCompressed(png, "low")).toBe(true);
       expect(looksAlreadyCompressed(freshPng(1), "high")).toBe(false);
     });
     it("is a PNG already within the preset's colour budget", () => {
       // medium quantizes to 4096 * 0.7 ≈ 2867 colours
-      const png = (colours: number) => ({ kind: "png" as const, bytes: 1, palette: false, colours });
+      const png = (colors: number) => ({ kind: "png" as const, bytes: 1, palette: false, colors });
       expect(looksAlreadyCompressed(png(2863), "medium")).toBe(true);
       expect(looksAlreadyCompressed(png(2868), "medium")).toBe(false);
       expect(looksAlreadyCompressed(png(2863), "high")).toBe(false);
@@ -139,7 +139,7 @@ describe("estimatePptxSize", () => {
       // high: 100 fresh jpeg + 800 palette png. The rest of the deck is 200:
       // 100 + 100*0.42 = 142, under its clamp 200*0.8 = 160; plus the 800 kept = 942.
       // Clamping the whole deck would promise 1000*0.8 = 800.
-      const media = [freshJpeg(100), { kind: "png" as const, bytes: 800, palette: true, colours: null }];
+      const media = [freshJpeg(100), { kind: "png" as const, bytes: 800, palette: true, colors: null }];
       expect(estimatePptxSize(1000, media, "high")).toBe(942);
     });
     it("gives no number when every image is already compressed", () => {

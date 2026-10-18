@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { countColours, estimateJpegQuality, ijgTable, isPalettePng } from "./alreadyCompressed";
+import { countColors, estimateJpegQuality, ijgTable, isPalettePng } from "./alreadyCompressed";
 
 /** A minimal JPEG head: SOI, the given DQT segments, then SOS. */
 function jpeg(...dqts: Uint8Array[]): Uint8Array {
@@ -58,10 +58,10 @@ describe("estimateJpegQuality", () => {
 });
 
 describe("isPalettePng", () => {
-  function png(colourType: number): Uint8Array {
+  function png(colorType: number): Uint8Array {
     const head = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13];
     const ihdr = [..."IHDR"].map((c) => c.charCodeAt(0));
-    return Uint8Array.from([...head, ...ihdr, 0, 0, 0, 1, 0, 0, 0, 1, 8, colourType, 0, 0, 0]);
+    return Uint8Array.from([...head, ...ihdr, 0, 0, 0, 1, 0, 0, 0, 1, 8, colorType, 0, 0, 0]);
   }
 
   it("is true for colour type 3 (indexed)", () => {
@@ -76,21 +76,21 @@ describe("isPalettePng", () => {
   });
 });
 
-describe("countColours", () => {
+describe("countColors", () => {
   /** RGBA pixels from [r, g, b, a] tuples. */
   const rgba = (...px: number[][]) => Uint8ClampedArray.from(px.flat());
 
   it("counts distinct RGBA values", () => {
     const px = rgba([0, 0, 0, 255], [255, 255, 255, 255], [0, 0, 0, 255], [0, 0, 0, 128]);
-    expect(countColours(px, 10)).toBe(3);
+    expect(countColors(px, 10)).toBe(3);
   });
 
   it("stops one past the cap", () => {
     const px = Uint8ClampedArray.from({ length: 100 * 4 }, (_, i) => (i % 4 === 3 ? 255 : i >> 2));
-    expect(countColours(px, 10)).toBe(11);
+    expect(countColors(px, 10)).toBe(11);
   });
 
   it("is 0 for no pixels", () => {
-    expect(countColours(new Uint8ClampedArray(), 10)).toBe(0);
+    expect(countColors(new Uint8ClampedArray(), 10)).toBe(0);
   });
 });
