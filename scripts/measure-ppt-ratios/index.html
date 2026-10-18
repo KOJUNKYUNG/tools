@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ppt-compress ratios</title>
+<style>
+  body { font: 13px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #111; }
+  table { border-collapse: collapse; margin-top: 12px; }
+  th, td { border: 1px solid #ccc; padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+</style>
+<script src="/lib/bic.js"></script>
+<script src="/lib/jszip.js"></script>
+</head>
+<body>
+<h1>ppt-compress re-encode ratios</h1>
+<p>Each image in the real-file decks and each loose JPEG/PNG (deduplicated) is re-encoded the way the engine does it,
+keeping the original when the candidate is no smaller. A ratio is the bytes left over the
+bytes going in.</p>
+<ul>
+  <li><b>fresh → P</b>: the image as found, re-encoded at preset P. JPEGs are grouped by the quality they were saved at.</li>
+  <li><b>W → P</b>: the image after the engine compressed it at weaker preset W, re-run at P.
+    Skipped when W left the image unchanged, or (PNG) when W wrote it indexed, since both
+    already count as compressed.</li>
+</ul>
+<p id="status">Starting…</p>
+<div id="out"></div>
+<script type="module">
+import { estimateJpegQuality } from "/lib/alreadyCompressed.js";
+import { PRESET_QUALITY as QUALITY } from "/lib/pptCompressPlan.js";
+
+const STEPS = [["low", "medium"], ["low", "high"], ["medium", "high"]];
+const status = (text) => (document.getElementById("status").textContent = text);
+
+// Same options as recompressMedia in src/lib/ppt/compressPptx.ts; the worker
+// loads the library from this server instead of the CDN.
+async function encode(bytes, mime, quality) {
+  const file = new File([bytes], "m", { type: mime });
+  const out = await imageCompression(file, {
+    maxSizeMB: Number.POSITIVE_INFINITY,
+    initialQuality: quality,
+    useWebWorker: true,
+    fileType: mime,
+    libURL: location.origin + "/lib/bic.js",
+  });
+  return new Uint8Array(await out.arrayBuffer());
+}
+const keepSmaller = (original, candidate) =>
+  candidate.length < original.length ? candidate : original;
+const isIndexedPng = (bytes) => bytes[25] === 3; // IHDR colour type
+
+async function collectImages() {
+  const names = await (await fetch("/fixtures")).json();
+  const seen = new Map();
+  const add = async (source, path, bytes) => {
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-1", bytes)))
+      .map((b) => b.toString(16).padStart(2, "0")).join("");
+    if (seen.has(hash)) return;
+    const kind = /\.png$/i.test(path) ? "png" : "jpeg";
+    const quality = kind === "jpeg" ? estimateJpegQuality(bytes) : null;
+    seen.set(hash, { source, path, kind, quality, bytes });
+  };
+  for (const name of names) {
+    const data = await (await fetch("/fixtures/" + encodeURIComponent(name))).arrayBuffer();
+    if (!/\.pptx$/i.test(name)) {
+      await add(name, name, new Uint8Array(data));
+      continue;
+    }
+    const zip = await JSZip.loadAsync(data);
+    for (const path of Object.keys(zip.files)) {
+      if (/^ppt\/media\/.+\.(png|jpe?g)$/i.test(path)) {
+        await add(name, path, await zip.files[path].async("uint8array"));
+      }
+    }
+  }
+  return { sources: names.length, images: [...seen.values()] };
+}
+
+// Fresh JPEGs are grouped by the quality they were saved at.
+function qualityBand(q) {
+  if (q === null) return "q?";
+  if (q < 80) return "q<80";
+  if (q <= 84) return "q80-84";
+  if (q <= 89) return "q85-89";
+  return "q90+";
+}
+
+async function measure() {
+  const { sources, images } = await collectImages();
+  const rows = []; // { kind, step, quality, before, after, source, path }
+  const skipped = {};
+  for (const [i, img] of images.entries()) {
+    status(`Image ${i + 1}/${images.length} (${img.kind}, ${Math.round(img.bytes.length / 1024)} KB)`);
+    const mime = img.kind === "png" ? "image/png" : "image/jpeg";
+    const once = {};
+    for (const [preset, quality] of Object.entries(QUALITY)) {
+      once[preset] = keepSmaller(img.bytes, await encode(img.bytes, mime, quality));
+      const from = img.kind === "jpeg" ? `fresh ${qualityBand(img.quality)}` : "fresh";
+      rows.push({ kind: img.kind, step: `${from} → ${preset}`, quality: img.quality, before: img.bytes.length, after: once[preset].length, source: img.source, path: img.path });
+    }
+    for (const [weak, strong] of STEPS) {
+      const step = `${weak} → ${strong}`;
+      const first = once[weak];
+      if (first === img.bytes || (img.kind === "png" && isIndexedPng(first))) {
+        const key = `${img.kind} ${step}`;
+        skipped[key] = (skipped[key] ?? 0) + 1;
+        continue;
+      }
+      const second = keepSmaller(first, await encode(first, mime, QUALITY[strong]));
+      rows.push({ kind: img.kind, step, quality: img.quality, before: first.length, after: second.length, source: img.source, path: img.path });
+    }
+  }
+  return { sources, images: images.length, rows, skipped };
+}
+
+function summarize(rows) {
+  const groups = new Map();
+  for (const r of rows) {
+    const key = `${r.kind} ${r.step}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  const round = (x) => Math.round(x * 1000) / 1000;
+  return [...groups].map(([key, rs]) => {
+    const ratios = rs.map((r) => r.after / r.before).sort((a, b) => a - b);
+    const mid = ratios.length >> 1;
+    const median = ratios.length % 2 ? ratios[mid] : (ratios[mid - 1] + ratios[mid]) / 2;
+    return {
+      key,
+      n: rs.length,
+      unchanged: ratios.filter((x) => x >= 1).length,
+      min: round(ratios[0]),
+      median: round(median),
+      max: round(ratios[ratios.length - 1]),
+      weighted: round(rs.reduce((s, r) => s + r.after, 0) / rs.reduce((s, r) => s + r.before, 0)),
+    };
+  });
+}
+
+measure().then((result) => {
+  const summary = summarize(result.rows);
+  window.__results = { ...result, summary };
+  status(`Done: ${result.images} unique images from ${result.sources} files. Skipped: ${JSON.stringify(result.skipped)}`);
+  const cols = ["key", "n", "unchanged", "min", "median", "max", "weighted"];
+  document.getElementById("out").innerHTML =
+    `<table><tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr>` +
+    summary.sort((a, b) => a.key.localeCompare(b.key)).map((s) => `<tr>${cols.map((c) => `<td>${s[c]}</td>`).join("")}</tr>`).join("") +
+    "</table>";
+}, (error) => status("Failed: " + error));
+</script>
+</body>
+</html>
