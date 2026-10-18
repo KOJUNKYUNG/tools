@@ -201,8 +201,10 @@ export function ImageCompressTool({
         if (img.keptOriginal) {
           setEstimate("not-smaller");
         } else {
-          const { pct } = computeSavings(img.originalSize, img.compressedSize);
-          setEstimate({ size: img.compressedSize, pct });
+          setEstimate({
+            size: img.compressedSize,
+            savings: computeSavings(img.originalSize, img.compressedSize),
+          });
         }
         setCompressedPreview(img.blob);
       } catch {
@@ -394,6 +396,7 @@ export function ImageCompressTool({
                     estimateTemplate={labels.estimateTemplate}
                     estimateNotSmallerLabel={labels.estimateNotSmaller}
                     estimatingLabel={labels.estimating}
+                    underOnePctLabel={labels.underOnePct}
                     pngLosslessLabel={labels.pngLossless}
                   />
                 ) : (

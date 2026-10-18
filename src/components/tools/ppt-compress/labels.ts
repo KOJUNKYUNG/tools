@@ -32,6 +32,8 @@ export interface PptCompressLabels {
   originalSizeLabel: string;
   compressedSizeLabel: string;
   savingsLabel: string;
+  /** A saving that rounds to 0% but is not nothing. */
+  underOnePct: string;
   download: string;
   again: string;
   analyzingHint: string;
@@ -76,6 +78,7 @@ export function getPptCompressLabels(dict: Dictionary): PptCompressLabels {
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,
     savingsLabel: p.savingsLabel,
+    underOnePct: dict.common.underOnePct,
     download: p.download,
     again: p.again,
     analyzingHint: p.analyzingHint,

@@ -31,6 +31,7 @@
     "drop": "Drop files here",
     "or": "or",
     "click": "click to browse",
+    "underOnePct": "under 1%",
     "fileUpload": {
       "maxSize": "Up to {size}",
       "maxSizeEach": "Up to {size} each",

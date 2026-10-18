@@ -46,6 +46,8 @@ export interface PdfCompressLabels {
   originalSizeLabel: string;
   compressedSizeLabel: string;
   savingsLabel: string;
+  /** A saving that rounds to 0% but is not nothing. */
+  underOnePct: string;
   download: string;
   again: string;
   // Errors
@@ -95,6 +97,7 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
     originalSizeLabel: p.originalSizeLabel,
     compressedSizeLabel: p.compressedSizeLabel,
     savingsLabel: p.savingsLabel,
+    underOnePct: dict.common.underOnePct,
     download: p.download,
     again: p.again,
     errorMemory: p.errorMemory,
