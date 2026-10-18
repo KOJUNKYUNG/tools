@@ -21,7 +21,8 @@ export interface RejectionTemplates {
 export function rejectionMessages(
   rejections: readonly FileRejection[],
   templates: RejectionTemplates,
-  maxSize: string,
+  /** The size limit as shown, e.g. "10 MB". */
+  sizeLabel: string,
 ): string[] {
   const tooMany = rejections.some((r) => r.errors.some((e) => e.code === ErrorCode.TooManyFiles));
   const messages = tooMany ? [templates.tooMany] : [];
@@ -30,7 +31,7 @@ export function rejectionMessages(
     for (const err of errors) {
       if (err.code === ErrorCode.TooManyFiles) continue;
       if (err.code === ErrorCode.FileTooLarge) {
-        messages.push(template(templates.tooLarge, { name, size: maxSize }));
+        messages.push(template(templates.tooLarge, { name, size: sizeLabel }));
       } else if (err.code === ErrorCode.FileInvalidType) {
         messages.push(template(templates.invalidType, { name }));
       } else {
