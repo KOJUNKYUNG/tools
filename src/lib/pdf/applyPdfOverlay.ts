@@ -1,4 +1,5 @@
 import { PDFDocument, PDFImage, PDFPage, degrees } from "pdf-lib";
+import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 import { formatPageNumber, type PageNumberFormat } from "./pageNumberFormat";
@@ -221,7 +222,7 @@ export async function applyOverlay({
   const pages = pdf.getPages();
   const total = pages.length;
   // A PDF with no pages is the user's file, not damage the tool did (#75).
-  if (total === 0) throw new Error("INVALID_INPUT: PDF has no pages");
+  if (total === 0) throw new Error(`${INVALID_INPUT_PREFIX}: PDF has no pages`);
 
   // Explicit 1-based page set (empty = nothing to do).
   const pageSet = new Set(options.pages);

@@ -32,9 +32,11 @@ describe("rejectionMessages", () => {
   });
 
   it("reports a file's other problems alongside the one too-many-files message", () => {
+    // react-dropzone marks only the files it would otherwise accept as too many.
     const rejections = [
-      rejection("a.txt", ErrorCode.FileInvalidType, ErrorCode.TooManyFiles),
+      rejection("a.txt", ErrorCode.FileInvalidType),
       rejection("b.pdf", ErrorCode.TooManyFiles),
+      rejection("c.pdf", ErrorCode.TooManyFiles),
     ];
     expect(rejectionMessages(rejections, TEMPLATES, "10 MB")).toEqual([
       "one file at a time",

@@ -1,4 +1,5 @@
 import PptxGenJS from "pptxgenjs";
+import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { SLIDE_SIZES, type SlideKind } from "./slideSize";
 import { computeSlidePlacement, type Box, type PlacementAlign } from "./slidePlacement";
@@ -16,7 +17,9 @@ const BG_MASTER = "ONTAB_BG";
 /**
  * pptxgenjs names a background part, and picks its content type, by the
  * extension of `path`; given only `data` it assumes PNG, so a JPEG would be
- * stored as `.png` (#74). The downscaler encodes only these two.
+ * stored as `.png` (#74). The downscaler encodes only these two; anything
+ * else (e.g. `data:,` from a canvas that could not allocate) is the tool's
+ * failure, reported as corrupt output.
  */
 const BACKGROUND_PATH_OF_MIME: Readonly<Record<string, string>> = {
   "image/png": "background.png",
@@ -24,9 +27,11 @@ const BACKGROUND_PATH_OF_MIME: Readonly<Record<string, string>> = {
 };
 
 function backgroundPath(dataUrl: string): string {
-  const mime = dataUrl.slice("data:".length, dataUrl.indexOf(";"));
+  const mime = dataUrl.slice("data:".length).split(/[;,]/)[0];
   const path = BACKGROUND_PATH_OF_MIME[mime];
-  if (!path) throw new Error(`unsupported background image type: ${mime}`);
+  if (!path) {
+    throw new Error(`${CORRUPT_OUTPUT_PREFIX}: image-to-pptx: background encoded as "${mime}"`);
+  }
   return path;
 }
 

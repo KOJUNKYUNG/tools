@@ -4,7 +4,7 @@ import { getImageToPptxLabels } from "@/components/tools/image-to-pptx/labels";
 import type { Dictionary } from "@/i18n/config";
 import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
-import { getErrorMessage } from "@/lib/errors";
+import { CORRUPT_OUTPUT_PREFIX, getErrorMessage } from "@/lib/errors";
 import { JPEG_3x2, solidPng } from "@/lib/pdf/testImages";
 import {
   assemblePptxFromPlaced,
@@ -69,6 +69,15 @@ describe("assemblePptxFromPlaced", () => {
     expect(backgrounds).toEqual([`ppt/media/ONTAB_BG-image-1.${extension}`]);
     const types = await zip.file("[Content_Types].xml")!.async("text");
     expect(types).toContain(`<Default Extension="${extension}" ContentType="${contentType}"/>`);
+  });
+
+  it("treats a background the canvas did not encode as PNG or JPEG as the tool's failure", async () => {
+    // `data:,` is what a canvas that could not allocate returns from toDataURL.
+    for (const dataUrl of ["data:,", "data:image/webp;base64,UklGRg=="]) {
+      await expect(
+        assemblePptxFromPlaced(placed(1), { slideKind: "16:9", background: { kind: "image", dataUrl } }),
+      ).rejects.toThrow(CORRUPT_OUTPUT_PREFIX);
+    }
   });
 });
 
