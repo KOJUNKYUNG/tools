@@ -149,9 +149,8 @@ const JPEG_QUALITY_MARGIN = 2;
  * indexed, or already within the preset's colour budget (the engine's own
  * output has at most that many colours but stays truecolour). Such an image
  * is expected to keep its size, since the engine keeps the original when the
- * re-encode is no smaller (#78). Compared against the chosen preset only: a
- * deck compressed at one preset and re-run at a stronger one still counts as
- * fresh, so that case can over-promise.
+ * re-encode is no smaller (#78). Compared against the chosen preset only; an
+ * image saved at a weaker preset is `savedAtWeakerPreset`.
  */
 export function looksAlreadyCompressed(media: MediaSample, preset: CompressionPreset): boolean {
   if (media.kind === "png") {
@@ -171,11 +170,77 @@ export function looksAlreadyCompressed(media: MediaSample, preset: CompressionPr
   );
 }
 
+/** The presets weaker than each one, strongest first. */
+const WEAKER_PRESETS: Record<CompressionPreset, readonly CompressionPreset[]> = {
+  low: [],
+  medium: ["low"],
+  high: ["medium", "low"],
+};
+
+/**
+ * Fraction of bytes left when an image saved at a weaker preset (the inner
+ * key) is re-run at a stronger one (the outer key). Re-encoding an image
+ * already quantized at a nearby quality saves far less than the fresh ratio
+ * (#81). Measured with scripts/measure-ppt-ratios (browser-image-compression
+ * 2.0.2, Chrome, 2026-10-19) as byte-weighted means over the real-file
+ * images: 21 JPEGs, 72 PNGs. JPEG low → high spreads widely (0.25–0.87); the
+ * others stay within about ±0.06. Fresh JPEGs saved at q80–84 shrank like
+ * the engine's own low output (0.855 vs 0.864 at medium, n=4), so a JPEG
+ * near a preset's quality counts as that preset's output whatever made it.
+ */
+export const RERUN_RATIO: Record<
+  MediaSample["kind"],
+  Record<CompressionPreset, Partial<Record<CompressionPreset, number>>>
+> = {
+  jpeg: { low: {}, medium: { low: 0.86 }, high: { low: 0.51, medium: 0.89 } },
+  png: { low: {}, medium: { low: 0.97 }, high: { low: 0.92, medium: 0.95 } },
+};
+
+/**
+ * The weaker preset whose output `media` looks like, or null: a JPEG saved
+ * within the margin of that preset's quality, or a PNG of more colours than
+ * `preset`'s budget but within the weaker one's (and none the engine could
+ * still write indexed or without its alpha). Only meaningful for an image
+ * that does not already look compressed at `preset`.
+ */
+export function savedAtWeakerPreset(
+  media: MediaSample,
+  preset: CompressionPreset,
+): CompressionPreset | null {
+  for (const weaker of WEAKER_PRESETS[preset]) {
+    if (media.kind === "jpeg") {
+      const quality = PRESET_QUALITY[weaker] * 100;
+      if (media.quality !== null && Math.abs(media.quality - quality) <= JPEG_QUALITY_MARGIN) {
+        return weaker;
+      }
+    } else if (
+      !media.palette &&
+      media.colors !== null &&
+      media.colors > INDEXED_MAX_COLORS &&
+      media.colors <= pngColorBudget(weaker) &&
+      !media.unusedAlpha
+    ) {
+      return weaker;
+    }
+  }
+  return null;
+}
+
+/** Fraction of `media`'s bytes expected to be left after compressing at `preset`. */
+function remainingRatio(media: MediaSample, preset: CompressionPreset): number {
+  if (looksAlreadyCompressed(media, preset)) return 1;
+  const weaker = savedAtWeakerPreset(media, preset);
+  const rerun = weaker && RERUN_RATIO[media.kind][preset][weaker];
+  if (rerun) return rerun;
+  return media.kind === "jpeg" ? PRESET_JPEG_RATIO[preset] : PRESET_PNG_RATIO[preset];
+}
+
 /**
  * Estimate the compressed file size, or null when too little of the deck can
  * shrink for a number to mean anything (the UI says "about the original
- * size"). Fresh JPEG and PNG bytes each shrink by their own preset ratio;
- * already compressed images and everything else are unchanged. The result is
+ * size"). Fresh JPEG and PNG bytes each shrink by their own preset ratio,
+ * images saved at a weaker preset by their re-run ratio; already compressed
+ * images and everything else are unchanged. The result is
  * not pulled into the static range: on a deck that is mostly not images, that
  * would promise savings the images cannot deliver (#81).
  *
@@ -188,20 +253,16 @@ export function estimatePptxSize(
   media: readonly MediaSample[],
   preset: CompressionPreset,
 ): number | null {
-  let jpegBytes = 0;
-  let pngBytes = 0;
-  let keptBytes = 0;
+  let shrinkingBytes = 0;
+  let savedBytes = 0;
   for (const m of media) {
-    if (looksAlreadyCompressed(m, preset)) keptBytes += m.bytes;
-    else if (m.kind === "jpeg") jpegBytes += m.bytes;
-    else pngBytes += m.bytes;
+    const ratio = remainingRatio(m, preset);
+    if (ratio >= 1) continue;
+    shrinkingBytes += m.bytes;
+    savedBytes += m.bytes * (1 - ratio);
   }
-  if (totalSize <= 0 || (jpegBytes + pngBytes) / totalSize < PRESET_IMAGE_SHARE_CUTOFF[preset]) {
+  if (totalSize <= 0 || shrinkingBytes / totalSize < PRESET_IMAGE_SHARE_CUTOFF[preset]) {
     return null;
   }
-  return (
-    totalSize -
-    jpegBytes * (1 - PRESET_JPEG_RATIO[preset]) -
-    pngBytes * (1 - PRESET_PNG_RATIO[preset])
-  );
+  return totalSize - savedBytes;
 }
