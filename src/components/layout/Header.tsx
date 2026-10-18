@@ -8,9 +8,10 @@ import { LanguageToggle } from "@/components/layout/LanguageToggle";
 
 interface HeaderProps {
   locale: string;
+  themeToggleLabel: string;
 }
 
-export function Header({ locale }: HeaderProps) {
+export function Header({ locale, themeToggleLabel }: HeaderProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   // next-themes can't resolve the theme until mounted on the client; flipping a
@@ -35,8 +36,8 @@ export function Header({ locale }: HeaderProps) {
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="w-8 h-8 flex items-center justify-center rounded-[4px] transition-colors focus-ring"
           style={{ color: "var(--ink-strong)" }}
-          title="Toggle theme"
-          aria-label="Toggle theme"
+          title={themeToggleLabel}
+          aria-label={themeToggleLabel}
         >
           {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
         </button>

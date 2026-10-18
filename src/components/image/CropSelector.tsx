@@ -43,6 +43,8 @@ const HANDLE_CURSORS: Record<ResizeHandle, string> = {
 
 interface CropSelectorProps {
   imageUrl: string;
+  /** Accessible name of each resize handle. */
+  handleLabels: Record<ResizeHandle, string>;
   targetWidth: number;
   targetHeight: number;
   onCropChange: (crop: CropRect) => void;
@@ -89,6 +91,7 @@ export function CropSelector({
   targetWidth,
   targetHeight,
   onCropChange,
+  handleLabels,
 }: CropSelectorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -290,7 +293,7 @@ export function CropSelector({
                 <div
                   key={h}
                   role="button"
-                  aria-label={`Resize ${h}`}
+                  aria-label={handleLabels[h]}
                   className="absolute size-3 rounded-sm border-2 border-white bg-white/90 shadow"
                   style={{
                     ...HANDLE_POSITIONS[h],

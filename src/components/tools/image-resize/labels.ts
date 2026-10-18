@@ -15,6 +15,8 @@ export interface ImageResizeLabels {
   sizePresetsTitle: string;
   ratioPresetsTitle: string;
   customRatio: string;
+  ratioWidthAria: string;
+  ratioHeightAria: string;
   apply: string;
   doneTitle: string;
   download: string;
@@ -29,6 +31,7 @@ export interface ImageResizeLabels {
   cropSelectionLabel: string;
   stretchModeLabel: string;
   cropFooterTemplate: string;
+  resizeHandles: Dictionary["common"]["resizeHandles"];
   sizePresetLabels: Record<string, string>;
   fileUpload: Dictionary["common"]["fileUpload"];
 }
@@ -50,6 +53,8 @@ export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
     sizePresetsTitle: page.sizePresetsTitle,
     ratioPresetsTitle: page.ratioPresetsTitle,
     customRatio: page.customRatio,
+    ratioWidthAria: page.ratioWidthAria,
+    ratioHeightAria: page.ratioHeightAria,
     apply: page.apply,
     doneTitle: page.doneTitle,
     download: page.download,
@@ -64,6 +69,7 @@ export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
     cropSelectionLabel: page.cropSelectionLabel,
     stretchModeLabel: page.stretchModeLabel,
     cropFooterTemplate: page.cropFooterTemplate,
+    resizeHandles: dict.common.resizeHandles,
     sizePresetLabels: {
       fhd: page.sizePreset.fhd,
       hd: page.sizePreset.hd,

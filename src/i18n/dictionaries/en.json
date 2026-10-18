@@ -32,6 +32,17 @@
     "or": "or",
     "click": "click to browse",
     "underOnePct": "under 1%",
+    "themeToggle": "Toggle theme",
+    "resizeHandles": {
+      "nw": "Resize (top left)",
+      "n": "Resize (top)",
+      "ne": "Resize (top right)",
+      "e": "Resize (right)",
+      "se": "Resize (bottom right)",
+      "s": "Resize (bottom)",
+      "sw": "Resize (bottom left)",
+      "w": "Resize (left)"
+    },
     "fileUpload": {
       "maxSize": "Up to {size}",
       "maxSizeEach": "Up to {size} each",
@@ -40,6 +51,7 @@
       "dismiss": "Dismiss",
       "tooLargeTemplate": "{name}: file exceeds the {size} limit.",
       "invalidTypeTemplate": "{name}: unsupported file type.",
+      "tooManyFiles": "You can upload one file at a time.",
       "errorTemplate": "{name}: {message}",
       "selectedCountTemplate": "{n} file(s) selected",
       "clearAll": "Clear all",
@@ -594,6 +606,8 @@
         "sizePresetsTitle": "Size presets",
         "ratioPresetsTitle": "Ratio presets",
         "customRatio": "Custom",
+        "ratioWidthAria": "Ratio width",
+        "ratioHeightAria": "Ratio height",
         "sizePreset": {
           "fhd": "FHD (1920×1080)",
           "hd": "HD (1280×720)",

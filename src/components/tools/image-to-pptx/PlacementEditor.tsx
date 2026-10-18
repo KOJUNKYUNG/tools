@@ -12,6 +12,8 @@ interface PlacementEditorProps {
   background: { kind: "color"; color: string } | { kind: "image"; url: string };
   refImageUrl: string | null;
   align: PlacementAlign;
+  /** Accessible name of each resize handle. */
+  handleLabels: Record<Handle, string>;
 }
 
 
@@ -97,7 +99,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
             className={`pointer-events-none absolute left-0 top-0 h-full w-full object-contain ${props.align === "center" ? "object-center" : "object-left-top"}`} />
         )}
         {(["nw","n","ne","e","se","s","sw","w"] as Handle[]).map((h) => (
-          <div key={h} role="button" aria-label={`resize ${h}`}
+          <div key={h} role="button" aria-label={props.handleLabels[h]}
             onPointerDown={(e) => onHandleDown(e, h)}
             className="absolute size-3 rounded-sm border-2 bg-white"
             style={{ borderColor: "var(--mono-1000)", ...HANDLE_POS[h], touchAction: "none" }} />
