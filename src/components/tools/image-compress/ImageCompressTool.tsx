@@ -396,7 +396,7 @@ export function ImageCompressTool({
                     estimateTemplate={labels.estimateTemplate}
                     estimateNotSmallerLabel={labels.estimateNotSmaller}
                     estimatingLabel={labels.estimating}
-                    underOnePctLabel={labels.underOnePct}
+                    underOnePctLabel={labels.estimateUnderOnePct}
                     pngLosslessLabel={labels.pngLossless}
                   />
                 ) : (

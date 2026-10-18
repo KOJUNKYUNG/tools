@@ -550,6 +550,7 @@
         "moreImagesTemplate": "+{n}개 이미지",
         "estimateTemplate": "예상 ~{size} · 원본 대비 {pct}",
         "estimating": "예상 용량 계산 중…",
+        "estimateUnderOnePct": "1% 미만 감소",
         "pngLossless": "PNG는 무손실 — 품질 설정이 적용되지 않습니다.",
         "doneTitle": "압축 완료",
         "settingsTemplate": "{format} · 품질 {quality}%",
