@@ -162,7 +162,7 @@
           "download": "Download",
           "error": "Error",
           "errorBody": "Something went wrong. Please try again.",
-          "errorCorrupt": "The result file is unusable. Try a different image or file.",
+          "errorCorrupt": "Something went wrong with the tool, so the background couldn't be changed. Please try again.",
           "retry": "Retry",
           "tryAnother": "Start over"
         },
@@ -200,7 +200,7 @@
         "imagesLabel": "Images",
         "noImagesHint": "No images",
         "errorNoImages": "No images found in this presentation.",
-        "errorCorrupt": "Couldn't extract the images intact. If this is a .ppt file, save it as .pptx in PowerPoint and try again.",
+        "errorCorrupt": "Something went wrong with the tool, so the images couldn't be extracted intact. If this is a .ppt file, save it as .pptx in PowerPoint and try again.",
         "toPptx": "Send to Image → PPT"
       }
     },
@@ -242,7 +242,7 @@
         "imageCount": "{n}",
         "noImagesHint": "No images to compress",
         "errorMemory": "Browser ran out of memory. Try a smaller file.",
-        "errorCorrupt": "The compressed file is unusable. Try a different compression level."
+        "errorCorrupt": "Something went wrong with the tool, so the PowerPoint couldn't be compressed. Please try again."
       }
     },
     "pdf-arrange": {
@@ -270,7 +270,7 @@
         "downloadPdf": "Download PDF",
         "downloadZipTemplate": "Download ZIP ({n})",
         "downloadOneAria": "Download {name}",
-        "errorCorrupt": "The output PDF is unusable. Try a different arrangement or other files."
+        "errorCorrupt": "Something went wrong with the tool, so the PDF couldn't be made. Please try again."
       }
     },
     "pdf-merge": { "title": "Merge PDFs", "description": "Combine multiple PDFs into one precise document." },
@@ -315,7 +315,7 @@
         "download": "Download",
         "again": "Start over",
         "errorMemory": "Browser ran out of memory. Try a smaller PDF.",
-        "errorCorrupt": "The compressed file is unusable. Try a different compression level.",
+        "errorCorrupt": "Something went wrong with the tool, so the PDF couldn't be compressed. Please try again.",
         "errorEncrypted": "Password-protected PDFs can't be compressed. Remove the password with 'Lock·unlock PDF' first, then upload again."
       }
     },
@@ -370,7 +370,7 @@
         "download": "Download",
         "again": "Start over",
         "errorMemory": "Browser ran out of memory. Try a smaller PDF.",
-        "errorCorrupt": "The output PDF is unusable. Adjust the settings and try again.",
+        "errorCorrupt": "Something went wrong with the tool, so the PDF couldn't be made. Please try again.",
         "errorOpen": "Couldn't open this PDF. It may be encrypted or damaged."
       }
     },
@@ -416,7 +416,7 @@
         "download": "Download",
         "again": "Start over",
         "errorMemory": "Browser ran out of memory. Try a smaller PDF.",
-        "errorCorrupt": "The output PDF is unusable. Please try again.",
+        "errorCorrupt": "Something went wrong with the tool, so the PDF couldn't be processed. Please try again. If it keeps failing, the PDF may be damaged.",
         "errorWrongPassword": "The password is incorrect. Please check and try again."
       }
     },
@@ -490,7 +490,7 @@
         "download": "Download",
         "compressHandoff": "Compress PDF",
         "again": "Start over",
-        "errorCorrupt": "The output PDF is unusable. Try a different page size or other images."
+        "errorCorrupt": "Something went wrong with the tool, so the PDF couldn't be made. Please try again."
       }
     },
     "pdf-to-image": {
@@ -611,7 +611,7 @@
         "uploadPrompt": "Drag and drop an image, or click to upload",
         "uploadHint": "JPG, PNG, WebP supported.",
         "tryAgain": "Start over",
-        "errorCorrupt": "The resized image came out damaged and can't be used. Try again, or try another browser.",
+        "errorCorrupt": "Something went wrong in the tool and the image couldn't be made. Try again, or try another browser.",
         "cropSelectionLabel": "Selection (drag to move, corners to resize)",
         "stretchModeLabel": "The image is stretched to fit the given size.",
         "cropFooterTemplate": "Crop to {w}×{h} ratio · selection: {cw}×{ch}px"

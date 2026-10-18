@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, degrees } from "pdf-lib";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
+import { CORRUPT_OUTPUT_PREFIX, INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { applyOverlay, type OverlayOptions, type WatermarkOptions } from "./applyPdfOverlay";
 import * as check from "./pdfWatermarkCheck";
 import { JPEG_3x2, solidPng } from "./testImages";
@@ -85,6 +85,11 @@ describe("applyOverlay", () => {
   it("returns the input untouched when no page is selected", async () => {
     const bytes = await input();
     expect(await run(bytes, watermark([]))).toEqual(bytes);
+  });
+
+  it("rejects a PDF with no pages as the user's file, not the tool's output", async () => {
+    const empty = await (await PDFDocument.create()).save({ addDefaultPage: false });
+    await expect(run(empty, numbers([1]))).rejects.toThrow(INVALID_INPUT_PREFIX);
   });
 
   it("blocks an output the check rejects", async () => {

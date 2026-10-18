@@ -220,7 +220,8 @@ export async function applyOverlay({
 
   const pages = pdf.getPages();
   const total = pages.length;
-  if (total === 0) throw new Error("CORRUPT_OUTPUT: PDF에 페이지가 없습니다.");
+  // A PDF with no pages is the user's file, not damage the tool did (#75).
+  if (total === 0) throw new Error("INVALID_INPUT: PDF has no pages");
 
   // Explicit 1-based page set (empty = nothing to do).
   const pageSet = new Set(options.pages);
