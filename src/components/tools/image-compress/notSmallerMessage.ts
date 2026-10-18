@@ -1,6 +1,3 @@
-"use client";
-
-import { ResultCard } from "@/components/common/ResultCard";
 import { template } from "@/lib/common/template";
 import { MIN_QUALITY, type OutputFormat } from "@/lib/image/compressImage";
 import type { ImageCompressLabels } from "./labels";
@@ -18,22 +15,5 @@ export function notSmallerMessage(
   return template(
     quality > MIN_QUALITY ? labels.notSmallerLowerQuality : labels.notSmallerLowestQuality,
     { quality },
-  );
-}
-
-interface ImageCompressNotSmallerProps {
-  format: OutputFormat;
-  quality: number;
-  labels: ImageCompressLabels;
-}
-
-/** The "could not shrink" result: nothing to download, so no actions. */
-export function ImageCompressNotSmaller({ format, quality, labels }: ImageCompressNotSmallerProps) {
-  return (
-    <ResultCard title={labels.notSmallerTitle}>
-      <p className="font-body text-[12px] leading-[1.6]" style={{ color: "var(--ink)" }}>
-        {notSmallerMessage(format, quality, labels)}
-      </p>
-    </ResultCard>
   );
 }

@@ -1,11 +1,4 @@
-export type CompressionPreset = "low" | "medium" | "high";
-
-/** The next stronger preset, or null for the strongest. */
-export const STRONGER_PRESET: Record<CompressionPreset, CompressionPreset | null> = {
-  low: "medium",
-  medium: "high",
-  high: null,
-};
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
 
 /**
  * Re-encode quality (0..1) per preset: the JPEG quality, and for PNG the colour

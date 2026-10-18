@@ -1,12 +1,12 @@
 "use client";
 
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import {
   estimatePptxSize,
   PRESET_RANGE,
   PRESET_IMAGE_SHARE_CUTOFF,
-  type CompressionPreset,
 } from "@/lib/ppt/pptCompressPlan";
 import type { PptCompressLabels } from "./labels";
 

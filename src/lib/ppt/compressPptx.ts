@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import imageCompression from "browser-image-compression";
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { notSmaller } from "@/lib/output-check/sizeBound";
 import { getExt, getMime } from "./pptImageFormats";
@@ -8,7 +9,6 @@ import {
   classifyMedia,
   pickSmaller,
   RECOMPRESSIBLE_EXTS,
-  type CompressionPreset,
   type MediaAction,
 } from "./pptCompressPlan";
 import { checkPptCompress, recompressedMediaViolations } from "./pptCompressCheck";

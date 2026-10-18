@@ -1,7 +1,7 @@
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import { inspectPdf, pdfPageCount } from "@/lib/output-check/pdfInspector";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
-import type { CompressionPreset } from "./compressPdf";
 import { hasInvalidSoftMask } from "./softMaskCheck";
 
 export interface PdfCompressRequest {

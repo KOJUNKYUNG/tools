@@ -1,8 +1,8 @@
 "use client";
 
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
-import { type CompressionPreset } from "@/lib/pdf/compressPdf";
 import type { SizeDisplay } from "@/lib/pdf/compressEstimate";
 import type { PdfCompressLabels } from "./labels";
 

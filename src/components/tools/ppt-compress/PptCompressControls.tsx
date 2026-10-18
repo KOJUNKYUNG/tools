@@ -1,7 +1,7 @@
 "use client";
 
-import type { CompressionPreset } from "@/lib/ppt/pptCompressPlan";
-import { presetLabel, type PptCompressLabels } from "./labels";
+import { presetLabel, type CompressionPreset } from "@/lib/common/compressionPreset";
+import type { PptCompressLabels } from "./labels";
 
 interface PptCompressControlsProps {
   preset: CompressionPreset;

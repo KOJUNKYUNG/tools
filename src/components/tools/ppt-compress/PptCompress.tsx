@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
 import { OversizeNotice } from "@/components/common/OversizeNotice";
+import { NotSmallerCard } from "@/components/common/NotSmallerCard";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolHeader } from "@/components/common/ToolHeader";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { uploadLimitFor } from "@/lib/constants";
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
@@ -17,13 +19,10 @@ import {
   type CompressPptxResult,
   type PptxCompressAnalysis,
 } from "@/lib/ppt/compressPptx";
-import {
-  deriveCompressedName,
-  type CompressionPreset,
-} from "@/lib/ppt/pptCompressPlan";
+import { deriveCompressedName } from "@/lib/ppt/pptCompressPlan";
 import { PptCompressControls } from "./PptCompressControls";
 import { PptCompressEstimate } from "./PptCompressEstimate";
-import { PptCompressNotSmaller } from "./PptCompressNotSmaller";
+import { notSmallerMessage } from "./notSmallerMessage";
 import { PptCompressPreview } from "./PptCompressPreview";
 import { PptCompressResult } from "./PptCompressResult";
 import type { PptCompressLabels } from "./labels";
@@ -255,10 +254,9 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
             {/* RIGHT: preset → estimate, or result, or status */}
             {isDone && result?.kind === "not-smaller" ? (
               <div className="self-start">
-                <PptCompressNotSmaller
-                  preset={preset}
-                  anyImageReencoded={result.anyImageReencoded}
-                  labels={labels}
+                <NotSmallerCard
+                  title={labels.notSmallerTitle}
+                  message={notSmallerMessage(preset, result.anyImageReencoded, labels)}
                 />
               </div>
             ) : isDone && result?.kind === "compressed" ? (

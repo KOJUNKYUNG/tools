@@ -1,5 +1,4 @@
 import type { Dictionary } from "@/i18n/config";
-import type { CompressionPreset } from "@/lib/ppt/pptCompressPlan";
 
 export interface PptCompressLabels {
   title: string;
@@ -43,13 +42,6 @@ export interface PptCompressLabels {
   errorMemory: string;
   errorCorrupt: string;
   fileUpload: Dictionary["common"]["fileUpload"];
-}
-
-/** A preset's display name (Light / Medium / Heavy). */
-export function presetLabel(preset: CompressionPreset, labels: PptCompressLabels): string {
-  return { low: labels.presetLightLabel, medium: labels.presetMediumLabel, high: labels.presetHeavyLabel }[
-    preset
-  ];
 }
 
 export function getPptCompressLabels(dict: Dictionary): PptCompressLabels {
