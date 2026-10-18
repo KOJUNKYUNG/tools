@@ -7,7 +7,7 @@
 // Run: preview_start "measure-ppt-ratios" (.claude/launch.json), or
 //      node scripts/measure-ppt-ratios/serve.mjs
 // Decks come from tests/fixtures (REAL_FIXTURES_DIR overrides), local-only.
-// The dev server's tool pages (localhost:3000) may also fetch a deck from
+// The dev server's tool pages (localhost, any port) may also fetch a deck from
 // /fixtures/<name> to check an estimate against a real compression.
 
 import { createServer } from "node:http";
@@ -55,9 +55,12 @@ createServer(async (req, res) => {
     } else if (path.startsWith("/fixtures/")) {
       // basename() keeps the request inside the fixtures folder.
       const name = basename(path.slice("/fixtures/".length));
+      // Any local dev server port: next dev moves off 3000 when it is taken.
+      const origin = req.headers.origin ?? "";
+      const local = /^http:\/\/localhost:\d+$/.test(origin);
       res.writeHead(200, {
         "content-type": "application/octet-stream",
-        "access-control-allow-origin": "http://localhost:3000",
+        ...(local && { "access-control-allow-origin": origin }),
       });
       res.end(await readFile(join(fixtures, name)));
     } else {

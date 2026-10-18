@@ -237,8 +237,8 @@ function savedAtWeakerPreset(
 function remainingRatio(media: MediaSample, preset: CompressionPreset): number {
   if (looksAlreadyCompressed(media, preset)) return 1;
   const weaker = savedAtWeakerPreset(media, preset);
-  const rerun = weaker && RERUN_RATIO[media.kind][preset][weaker];
-  if (rerun) return rerun;
+  const rerun = weaker === null ? undefined : RERUN_RATIO[media.kind][preset][weaker];
+  if (rerun !== undefined) return rerun;
   return media.kind === "jpeg" ? PRESET_JPEG_RATIO[preset] : PRESET_PNG_RATIO[preset];
 }
 
