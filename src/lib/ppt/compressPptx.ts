@@ -98,7 +98,7 @@ export interface PngPixelCount extends ColorCount {
  * Counts a PNG's distinct colours up to one past `cap`, and its visible
  * pixels; null when it cannot. The browser canvas at run time.
  */
-export type CountPngColors = (bytes: Uint8Array, cap: number) => Promise<PngPixelCount | null>;
+export type CountPngPixels = (bytes: Uint8Array, cap: number) => Promise<PngPixelCount | null>;
 
 /** Past the weakest preset's budget, every preset would quantize the PNG. */
 const COLOR_COUNT_CAP = pngColorBudget("low");
@@ -115,7 +115,7 @@ const MAX_COUNT_PIXELS = 16 * 1024 * 1024;
  * Without OffscreenCanvas (or on a decode failure) the PNG is not counted and
  * the estimate treats it as fresh, with every pixel taken as visible.
  */
-const countPngColorsInBrowser: CountPngColors = async (bytes, cap) => {
+const countPngPixelsInBrowser: CountPngPixels = async (bytes, cap) => {
   if (typeof createImageBitmap !== "function" || typeof OffscreenCanvas === "undefined") {
     return null;
   }
@@ -143,7 +143,7 @@ const countPngColorsInBrowser: CountPngColors = async (bytes, cap) => {
  */
 export async function analyzePptxForCompress(
   file: File,
-  countPngColors: CountPngColors = countPngColorsInBrowser,
+  countPngPixels: CountPngPixels = countPngPixelsInBrowser,
 ): Promise<PptxCompressAnalysis> {
   const ab = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(ab);
@@ -180,7 +180,7 @@ export async function analyzePptxForCompress(
       // A palette PNG already counts as compressed; no need to decode it.
       const counted =
         header && !palette && header.width * header.height <= MAX_COUNT_PIXELS
-          ? await countPngColors(bytes, COLOR_COUNT_CAP)
+          ? await countPngPixels(bytes, COLOR_COUNT_CAP)
           : null;
       const hasAlpha = header?.colorType === 4 || header?.colorType === 6;
       media.push({

@@ -2,7 +2,7 @@ import type { CompressionPreset } from "@/lib/common/compressionPreset";
 
 /**
  * Re-encode quality (0..1) per preset: the JPEG quality, and for PNG the colour
- * budget (browser-image-compression quantizes to 4096 × quality colours).
+ * budget (see `pngColorBudget`).
  */
 export const PRESET_QUALITY: Record<CompressionPreset, number> = {
   low: 0.82,
@@ -158,7 +158,10 @@ function jpegRatioAt(quality: number, preset: CompressionPreset): number {
  * byte-weighted, each kept when its candidate is no smaller as the engine
  * does: bytes per visible pixel over the 24 above 1.2 bytes per pixel (per
  * image 1.0–1.9 at medium), the ratio over the 57 below (per image
- * 0.23–1.00). In-sample on those decks (PNGs per deck −14% to +7% at medium).
+ * 0.23–1.00). Taking the smaller, the per-pixel figure decides only above
+ * about 1.8 bytes per visible pixel; the PNGs between estimate as flat, which
+ * promises less. In-sample on those decks (PNGs per deck −13% to +7% at
+ * medium, through this rule).
  * Hold-out: the 24 Kodak photos as opaque PNGs come out −4% as found and
  * +10% saved by Chrome, per image −15% to +51%.
  */
@@ -173,7 +176,10 @@ const FLAT_PNG_RATIO: Record<CompressionPreset, number> = {
   high: 0.791,
 };
 
-/** A fresh PNG's remaining ratio; without a pixel count, the flat ratio, the smaller promise. */
+/**
+ * A fresh PNG's remaining ratio. Without a pixel count, the flat ratio: the
+ * smaller promise.
+ */
 function freshPngRatio(
   media: Extract<MediaSample, { kind: "png" }>,
   preset: CompressionPreset,
@@ -342,8 +348,8 @@ function remainingRatio(media: MediaSample, preset: CompressionPreset): number {
  * size"). JPEG bytes shrink by what their save quality leaves at the preset
  * (one curve for fresh JPEGs and the engine's own output alike), PNG bytes
  * by what their visible pixels or the flat-graphic ratio leave, or by the
- * re-run ratio when saved at a weaker preset; already compressed images and everything else are unchanged. The
- * result is not pulled into the static range: on a deck that is mostly not
+ * re-run ratio when saved at a weaker preset; already compressed images and
+ * everything else are unchanged. The result is not pulled into the static range: on a deck that is mostly not
  * images, that would promise savings the images cannot deliver (#81).
  *
  * Splitting JPEG vs PNG matters: a PNG-dominated deck barely changes between
