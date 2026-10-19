@@ -80,7 +80,7 @@ The pixels a picture in a deck actually needs: the largest extent it is drawn
 at across every use, crop zoom and group scaling included, at a slide width
 given in **projected pixels** (what a projector or screen shows). ppt-compress
 downsamples only pictures holding more pixels than their display size, and
-leaves a picture whose display size it cannot work out untouched (ADR-0006).
+leaves a picture whose display size it cannot work out untouched (spec #91).
 _Avoid_: ppi of slide inches — slide sizes vary (20 × 11.25 in is common) and
 say nothing about what is shown.
 
