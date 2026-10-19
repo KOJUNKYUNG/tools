@@ -74,6 +74,11 @@ describe("getErrorMessage — other branches", () => {
     expect(res.message).toBe("Format not supported");
   });
 
+  it("shows a user message as it is even when it mentions memory", () => {
+    const res = getErrorMessage(new UserFacingError("Not enough memory for 600 DPI"), { copy });
+    expect(res.message).toBe("Not enough memory for 600 DPI");
+  });
+
   it("hides an engine's own message behind the unexpected-error copy (#83)", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const err = new Error("Canvas 2D 컨텍스트를 만들 수 없습니다.");

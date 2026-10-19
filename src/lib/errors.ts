@@ -36,6 +36,12 @@ export const WRONG_PASSWORD_PREFIX = "WRONG_PASSWORD";
 export const INVALID_INPUT_PREFIX = "INVALID_INPUT";
 
 /**
+ * Thrown by the ppt-extract extractors when a deck holds no images: the
+ * tool's answer to the user, not a failure.
+ */
+export const NO_IMAGES = "NO_IMAGES";
+
+/**
  * Sentinel prefix for a result an output check (or a tool's own integrity
  * guard) found unusable. Maps to the tool's `corruptOutputHint`.
  */
@@ -71,6 +77,10 @@ export function getErrorMessage(
   const { copy } = options;
   const rawMessage = err instanceof Error ? err.message : "";
 
+  if (err instanceof UserFacingError) {
+    return { code: ToolErrorCode.PROCESSING_FAILED, message: err.message };
+  }
+
   if (rawMessage.startsWith(WRONG_PASSWORD_PREFIX)) {
     return {
       code: ToolErrorCode.INVALID_FILE,
@@ -100,10 +110,6 @@ export function getErrorMessage(
       code: ToolErrorCode.MEMORY,
       message: options.memoryHint ?? copy.memory,
     };
-  }
-
-  if (err instanceof UserFacingError) {
-    return { code: ToolErrorCode.PROCESSING_FAILED, message: err.message };
   }
 
   // An engine's or library's own message: for the developer log, not the user.

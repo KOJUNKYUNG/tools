@@ -16,6 +16,7 @@ import {
   type CompressResult,
   type OutputFormat,
 } from "@/lib/image/compressImage";
+import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { normalizeImageFiles } from "@/lib/image/heic";
 import { computeSavings } from "@/lib/image/computeSavings";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
@@ -26,7 +27,6 @@ import { ImageCompressControls, type ImageEstimate } from "./ImageCompressContro
 import { ImageCompressFileList } from "./ImageCompressFileList";
 import { ImageCompressResult } from "./ImageCompressResult";
 import { notSmallerMessage } from "./notSmallerMessage";
-import { getErrorMessage, UserFacingError } from "@/lib/errors";
 
 const IMAGE_ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
@@ -77,7 +77,7 @@ export function ImageCompressTool({
     download,
   } = useToolProcessor<CompressResult>({
     processor: (files, onProgress) => {
-      if (!outputFormat) throw new Error("출력 형식을 선택해 주세요.");
+      if (!outputFormat) throw new Error("no output format"); // Compress is disabled then
       return compressImages({ files, quality, outputFormat, onProgress }).catch(
         (err: unknown) => {
           if (!(err instanceof OutputFormatUnsupportedError)) throw err;

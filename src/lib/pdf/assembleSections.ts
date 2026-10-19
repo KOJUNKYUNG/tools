@@ -19,6 +19,7 @@ import {
   rotateDegrees,
   translate,
 } from "pdf-lib";
+import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { type PageItem, buildOutputNames } from "./pageItem";
 import { computeImageFit } from "./imageFit";
@@ -57,7 +58,8 @@ export function detectImageFormat(bytes: Uint8Array): "png" | "jpg" {
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
     return "jpg";
   }
-  throw new Error("지원하지 않는 이미지 형식입니다 (PNG/JPG만 가능).");
+  // The file is not what its name says: the user's file, not the tool.
+  throw new Error(`${INVALID_INPUT_PREFIX}: not a PNG or JPEG image`);
 }
 
 /**

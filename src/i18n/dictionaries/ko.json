@@ -37,7 +37,8 @@
       "memory": "브라우저 메모리가 부족합니다. 파일 크기나 개수를 줄여 다시 시도해 주세요.",
       "invalidFile": "지원하지 않거나 손상된 파일입니다.",
       "heicConvertFailed": "HEIC 파일을 변환할 수 없습니다.",
-      "readFailed": "파일을 읽을 수 없습니다."
+      "readFailed": "파일을 읽을 수 없습니다.",
+      "pdfOpenFailedTemplate": "{name}: 손상되었거나 암호화된 PDF입니다."
     },
     "themeToggle": "테마 바꾸기",
     "resizeHandles": {
@@ -477,7 +478,6 @@
         "alignCenter": "가운데",
         "errNotImage": "{name}: 이미지(JPG/PNG)만 추가할 수 있습니다.",
         "errTooLarge": "{name}: 파일 크기가 {size}를 초과합니다.",
-        "errReadFailed": "파일을 읽을 수 없습니다.",
         "errNoImages": "슬라이드로 만들 이미지가 없습니다.",
         "errorCorrupt": "도구에 문제가 생겨 PPT를 만들지 못했습니다. 다시 시도해 주세요."
       }
@@ -545,6 +545,7 @@
         "streamedTitle": "저장 완료",
         "streamedSummary": "이미지 {n}장을 zip 파일 {m}개로 나눠 저장했습니다.",
         "batchSavedToast": "파트 {n} 저장됨",
+        "errorMemory": "브라우저 메모리가 부족합니다. DPI를 낮추거나 페이지가 적은 PDF를 사용해 주세요.",
         "errorCorrupt": "{page}번째 페이지를 이미지로 바꾸지 못해 변환을 멈췄습니다. 그 페이지를 빼거나 DPI를 낮춰 다시 시도해 주세요.",
         "errorCorruptAfterBatches": "{page}번째 페이지를 이미지로 바꾸지 못해 변환을 멈췄습니다. 이미 저장된 파트 {n}개에는 그 앞 페이지까지만 들어 있습니다. 그 페이지를 빼거나 DPI를 낮춰 다시 시도해 주세요."
       }

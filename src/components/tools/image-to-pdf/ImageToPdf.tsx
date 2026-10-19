@@ -176,7 +176,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
   } = useToolProcessor<ImageToPdfResultData>({
     processor: async (_files, onProgress) => {
       const live = items.filter((p) => !p.deleted);
-      if (live.length === 0) throw new Error("변환할 이미지가 없습니다.");
+      if (live.length === 0) throw new Error("no images to convert"); // Convert is disabled then
       const bytes = await convertImagesToPdf(
         { pages: live, sourceBytesById, imageLayout },
         onProgress,
@@ -209,14 +209,17 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       const images = normalized.filter((f) => f.type === "image/png" || f.type === "image/jpeg");
       for (const f of normalized) {
         if (!(f.type === "image/png" || f.type === "image/jpeg")) {
-          toast.error(`${f.name}: 이미지(JPG/PNG)만 추가할 수 있습니다.`);
+          toast.error(template(labels.fileUpload.invalidTypeTemplate, { name: f.name }));
         }
       }
       const accepted = images.filter((f) => f.size <= uploadLimitFor("image-to-pdf"));
       for (const f of images) {
         if (f.size > uploadLimitFor("image-to-pdf")) {
           toast.error(
-            `${f.name}: 파일 크기가 ${formatBytes(uploadLimitFor("image-to-pdf"))}를 초과합니다.`,
+            template(labels.fileUpload.tooLargeTemplate, {
+              name: f.name,
+              size: formatBytes(uploadLimitFor("image-to-pdf")),
+            }),
           );
         }
       }
@@ -250,7 +253,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         setLoadingPages(false);
       }
     },
-    [files, setFiles, labels.errors],
+    [files, setFiles, labels.errors, labels.fileUpload],
   );
 
   const handleUpload = useCallback(

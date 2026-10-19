@@ -163,7 +163,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
   } = useToolProcessor<ArrangeResult>({
     processor: async (_files, onProgress) => {
       const sections = splitIntoSections(items);
-      if (sections.length === 0) throw new Error("출력할 페이지가 없습니다.");
+      if (sections.length === 0) throw new Error("no pages to write"); // Apply is disabled then
       const outBytes = await arrangePdf(
         { sections, sourceBytesById },
         onProgress,
@@ -222,7 +222,10 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
       for (const f of normalized) {
         if (f.size > uploadLimitFor("pdf-arrange")) {
           toast.error(
-            `${f.name}: 파일 크기가 ${formatBytes(uploadLimitFor("pdf-arrange"))}를 초과합니다.`,
+            template(labels.fileUpload.tooLargeTemplate, {
+              name: f.name,
+              size: formatBytes(uploadLimitFor("pdf-arrange")),
+            }),
           );
         }
       }
@@ -234,7 +237,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
       try {
         const built = await buildPageItems(accepted);
         for (const name of built.failed) {
-          toast.error(`${name}: 손상되었거나 암호화된 PDF입니다.`);
+          toast.error(template(labels.errors.pdfOpenFailedTemplate, { name }));
         }
         if (built.items.length === 0) return;
 
@@ -262,7 +265,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
         setLoadingPages(false);
       }
     },
-    [files, setFiles, labels.errors],
+    [files, setFiles, labels.errors, labels.fileUpload],
   );
 
   const handleUpload = useCallback(

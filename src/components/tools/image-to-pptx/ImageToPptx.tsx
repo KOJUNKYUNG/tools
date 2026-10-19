@@ -353,7 +353,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         }
       } catch (err) {
         toast.error(
-          getErrorMessage(err, { copy: labels.errors, fallbackMessage: labels.errReadFailed }).message,
+          getErrorMessage(err, { copy: labels.errors, fallbackMessage: labels.errors.readFailed }).message,
         );
       } finally {
         setLoadingPages(false);

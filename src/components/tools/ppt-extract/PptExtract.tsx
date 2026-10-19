@@ -11,6 +11,7 @@ import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { stageFiles } from "@/lib/common/toolHandoff";
+import { NO_IMAGES, UserFacingError } from "@/lib/errors";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { buildExtractZip } from "@/lib/ppt/buildExtractZip";
 import type { PresentationAnalysis } from "@/lib/ppt/analyzePresentation";
@@ -21,7 +22,6 @@ import {
 import { PptExtractPreview } from "./PptExtractPreview";
 import { PptExtractResult } from "./PptExtractResult";
 import type { PptExtractLabels } from "./labels";
-import { UserFacingError } from "@/lib/errors";
 
 const PPTX_ACCEPT = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": [
@@ -61,7 +61,7 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
     processor: (processorFiles, onProgress) =>
       extractPptImages({ file: processorFiles[0], onProgress }).catch((err: unknown) => {
         // The extractors' NO_IMAGES sentinel is the user's answer, not a failure.
-        if (err instanceof Error && err.message === "NO_IMAGES") {
+        if (err instanceof Error && err.message === NO_IMAGES) {
           throw new UserFacingError(labels.errorNoImages);
         }
         throw err;

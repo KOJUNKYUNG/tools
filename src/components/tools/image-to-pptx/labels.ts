@@ -13,7 +13,7 @@ export interface ImageToPptxLabels {
   resultTitle: string; slideCountTemplate: string;
   download: string; again: string;
   alignLabel: string; alignTopLeft: string; alignCenter: string;
-  errNotImage: string; errTooLarge: string; errReadFailed: string; errNoImages: string;
+  errNotImage: string; errTooLarge: string; errNoImages: string;
   errorCorrupt: string;
   resizeHandles: Dictionary["common"]["resizeHandles"];
   fileUpload: Dictionary["common"]["fileUpload"];
@@ -38,7 +38,7 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     download: p.download, again: p.again,
     alignLabel: p.alignLabel, alignTopLeft: p.alignTopLeft, alignCenter: p.alignCenter,
     errNotImage: p.errNotImage, errTooLarge: p.errTooLarge,
-    errReadFailed: p.errReadFailed, errNoImages: p.errNoImages,
+    errNoImages: p.errNoImages,
     errorCorrupt: p.errorCorrupt,
     resizeHandles: dict.common.resizeHandles,
     fileUpload: dict.common.fileUpload,
