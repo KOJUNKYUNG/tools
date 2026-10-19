@@ -48,7 +48,7 @@ import {
 const PRESETS = Object.keys(QUALITY);
 const STEPS = [["low", "medium"], ["low", "high"], ["medium", "high"]];
 // Kodak and other lossless PNGs: the whole range where JPEGs shrink at some preset.
-const CURVE_QUALITIES = [74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98];
+const CURVE_QUALITIES = Array.from({ length: 27 }, (_, i) => 72 + i); // q72–98
 // HEIC photos (12 MP, slow): the bands the real files lack, plus a camera-like q95.
 const HEIC_QUALITIES = [76, 86, 88, 95];
 const parts = new Set((new URLSearchParams(location.search).get("parts") ?? "curve,heic,fixtures").split(","));

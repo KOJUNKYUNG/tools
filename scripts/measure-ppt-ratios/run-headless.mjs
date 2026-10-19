@@ -96,8 +96,11 @@ try {
       return null;
     }
   }, "Chrome's DevTools port");
-  const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-  const page = targets.find((t) => t.type === "page");
+  // The page target can appear a moment after the port file.
+  const page = await waitFor(async () => {
+    const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+    return targets.find((t) => t.type === "page");
+  }, "Chrome's page target");
   const cdp = await connect(page.webSocketDebuggerUrl);
   await cdp.send("Page.navigate", { url: PAGE });
 

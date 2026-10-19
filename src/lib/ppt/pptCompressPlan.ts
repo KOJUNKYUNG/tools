@@ -86,13 +86,16 @@ const PRESET_JPEG_RATIO: Record<CompressionPreset, number> = {
  * quality (byte-weighted, n=24 per point; each point's images spread within
  * ±0.08 at low, ±0.06 at medium, ±0.07 at high). The curve steps where one
  * quantization table divides into the other: iPhone photos (HEIC hold-out,
- * n=6) step the same way and land within 0.04 at q76/86/88/95.
+ * n=6) step the same way and land within 0.04 at q76/86/88/95. Odd
+ * qualities, measured too, sit between their neighbours: the straight line
+ * misses them by at most 0.033 (medium q85).
  *
  * At the presets' qualities, q70 and q82, the points are the re-run ratios
  * measured on the engine's own output (#81: real-file images, n=21, which
  * shrank like Kodak's within 0.02); that leaves high flat from q82 to q84.
  * Below the first point each curve rises to 1 where a JPEG already counts as
- * compressed (see `jpegRatioAt`).
+ * compressed (see `jpegRatioAt`). Every point was measured at the current
+ * `PRESET_QUALITY`; change a preset's quality and re-measure the whole curve.
  */
 const JPEG_RATIO_BY_QUALITY: Record<CompressionPreset, readonly (readonly [number, number])[]> = {
   low: [[86, 0.942], [88, 0.885], [90, 0.836], [92, 0.626], [94, 0.549], [96, 0.443], [98, 0.354]],

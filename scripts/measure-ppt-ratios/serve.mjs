@@ -19,7 +19,7 @@
 import { createServer } from "node:http";
 import { stripTypeScriptTypes } from "node:module";
 import { readFile, readdir } from "node:fs/promises";
-import { resolve, join, basename, relative, sep } from "node:path";
+import { resolve, join, basename, relative, sep, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -70,21 +70,25 @@ createServer(async (req, res) => {
       res.end(JSON.stringify(names));
     } else if (path.startsWith("/lossless/")) {
       const file = resolve(lossless, path.slice("/lossless/".length));
-      // Keep the request inside the lossless folder.
-      if (relative(lossless, file).startsWith("..")) return void res.writeHead(404).end();
+      // Keep the request inside the lossless folder (another drive or a UNC
+      // path comes back absolute on Windows).
+      const inside = relative(lossless, file);
+      if (inside.startsWith("..") || isAbsolute(inside)) return void res.writeHead(404).end();
+      const bytes = await readFile(file); // before the headers, so a miss can still 500
       res.writeHead(200, { "content-type": "image/png" });
-      res.end(await readFile(file));
+      res.end(bytes);
     } else if (path.startsWith("/fixtures/")) {
       // basename() keeps the request inside the fixtures folder.
       const name = basename(path.slice("/fixtures/".length));
       // Any local dev server port: next dev moves off 3000 when it is taken.
       const origin = req.headers.origin ?? "";
       const local = /^http:\/\/localhost:\d+$/.test(origin);
+      const bytes = await readFile(join(fixtures, name)); // before the headers, so a miss can still 500
       res.writeHead(200, {
         "content-type": "application/octet-stream",
         ...(local && { "access-control-allow-origin": origin }),
       });
-      res.end(await readFile(join(fixtures, name)));
+      res.end(bytes);
     } else {
       res.writeHead(404).end();
     }
