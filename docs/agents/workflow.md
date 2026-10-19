@@ -18,7 +18,7 @@ On the issue track, the GitHub issue is the source of truth for progress; auto-m
 
 ## Branch and PR unit
 
-One spec (issue track) or one tool (direct track) = one branch = one PR. Tickets land as commits on that branch; a spec too large for one reviewable PR splits into stacked PRs along ticket groups. Branch names: `chore/polish-{slug}`, `feat/{slug}`, `fix/{slug}`, `refactor/{slug}`. A PR body lists `Closes #N` for each ticket it finishes.
+One spec (issue track) or one tool (direct track) = one branch = one PR. Tickets land as commits on that branch; a spec too large for one reviewable PR splits along ticket groups into sequential PRs: merge one, then cut the next branch from the new `master`. Each ticket runs in a fresh session on the spec's branch, one at a time (tickets are sized to fit one context window). Branch names: `chore/polish-{slug}`, `feat/{slug}`, `fix/{slug}`, `refactor/{slug}`. A PR body lists `Closes #N` for each ticket it finishes.
 
 Within an approved spec, run ticket to ticket with a one-line progress note. Stop for the user at spec boundaries, open decisions, visual checks, and hard stops.
 
@@ -55,4 +55,4 @@ Two skills share the name `code-review`; always name which one.
 3. `git push -u origin <branch>`, then `gh pr create`.
 4. Merge only on the user's go, as a squash.
 
-**Stacked PRs.** Squash-merging the base rewrites its SHAs, so each child turns CONFLICTING. Merge children first when possible. Otherwise, per child: `git rebase --onto origin/master <old-base-sha> <child>`, `git push --force-with-lease` (on the user's go), retarget the PR to `master`, confirm `git diff origin/master HEAD --stat` lists only that PR's files, then squash-merge.
+**Stacked PRs** (exception: only when the next PR must start before the previous one merges). Squash-merging the base rewrites its SHAs, so each child turns CONFLICTING. Merge children first when possible. Otherwise, per child: `git rebase --onto origin/master <old-base-sha> <child>`, `git push --force-with-lease` (on the user's go), retarget the PR to `master`, confirm `git diff origin/master HEAD --stat` lists only that PR's files, then squash-merge.
