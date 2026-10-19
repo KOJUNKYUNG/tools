@@ -1,6 +1,8 @@
 import type { Dictionary } from "@/i18n/config";
 
 export interface PptCompressLabels {
+  /** Shared error copy (`common.errors`), in the page's language. */
+  errors: Dictionary["common"]["errors"];
   title: string;
   description: string;
   uploadPrompt: string;
@@ -50,6 +52,7 @@ export function getPptCompressLabels(dict: Dictionary): PptCompressLabels {
   const t = dict.tools["ppt-compress"];
   const p = t.page;
   return {
+    errors: dict.common.errors,
     title: t.title,
     description: t.description,
     uploadPrompt: p.uploadPrompt,

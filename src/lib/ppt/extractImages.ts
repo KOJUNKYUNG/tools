@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { NO_IMAGES } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { checkPptExtract } from "./extractImagesCheck";
 import { extractImagesFromPpt } from "./extractImagesFromPpt";
@@ -34,7 +35,7 @@ async function extractFromPptx(
   });
 
   if (mediaEntries.length === 0) {
-    throw new Error("NO_IMAGES");
+    throw new Error(NO_IMAGES);
   }
 
   // Inflate up to INFLATE_CONCURRENCY entries at a time. Sequential awaits

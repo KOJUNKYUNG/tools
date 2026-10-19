@@ -1,6 +1,8 @@
 import type { Dictionary } from "@/i18n/config";
 
 export interface ImageCompressLabels {
+  /** Shared error copy (`common.errors`), in the page's language. */
+  errors: Dictionary["common"]["errors"];
   title: string;
   subtitle: string;
   header: { title: string; description: string };
@@ -41,6 +43,7 @@ export interface ImageCompressLabels {
 export function getImageCompressLabels(dict: Dictionary): ImageCompressLabels {
   const page = dict.tools["image-compress"].page;
   return {
+    errors: dict.common.errors,
     title: page.title,
     subtitle: page.subtitle,
     header: page.header,

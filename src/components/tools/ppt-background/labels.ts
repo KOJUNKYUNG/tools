@@ -16,6 +16,7 @@ export function getPptBackgroundLabels(
   };
 
   return {
+    errors: dict.common.errors,
     header: p.header,
     upload: p.upload,
     conversion: {

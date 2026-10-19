@@ -1,6 +1,8 @@
 import type { Dictionary } from "@/i18n/config";
 
 export interface ImageToPptxLabels {
+  /** Shared error copy (`common.errors`), in the page's language. */
+  errors: Dictionary["common"]["errors"];
   title: string; description: string; uploadPrompt: string; uploadHint: string;
   uploadMaxSize: string; reupload: string; convertTemplate: string;
   filesOneTemplate: string; filesManyTemplate: string; addAria: string;
@@ -11,7 +13,7 @@ export interface ImageToPptxLabels {
   resultTitle: string; slideCountTemplate: string;
   download: string; again: string;
   alignLabel: string; alignTopLeft: string; alignCenter: string;
-  errNotImage: string; errTooLarge: string; errReadFailed: string; errNoImages: string;
+  errNotImage: string; errTooLarge: string; errNoImages: string;
   errorCorrupt: string;
   resizeHandles: Dictionary["common"]["resizeHandles"];
   fileUpload: Dictionary["common"]["fileUpload"];
@@ -21,6 +23,7 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
   const t = dict.tools["image-to-pptx"];
   const p = t.page;
   return {
+    errors: dict.common.errors,
     title: t.title, description: t.description, uploadPrompt: p.uploadPrompt,
     uploadHint: p.uploadHint, uploadMaxSize: p.uploadMaxSize, reupload: p.reupload,
     convertTemplate: p.convert, filesOneTemplate: p.filesOne,
@@ -35,7 +38,7 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     download: p.download, again: p.again,
     alignLabel: p.alignLabel, alignTopLeft: p.alignTopLeft, alignCenter: p.alignCenter,
     errNotImage: p.errNotImage, errTooLarge: p.errTooLarge,
-    errReadFailed: p.errReadFailed, errNoImages: p.errNoImages,
+    errNoImages: p.errNoImages,
     errorCorrupt: p.errorCorrupt,
     resizeHandles: dict.common.resizeHandles,
     fileUpload: dict.common.fileUpload,

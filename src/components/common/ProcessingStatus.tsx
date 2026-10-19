@@ -28,7 +28,6 @@ interface ProcessingStatusProps {
     doneBody?: string;
     download?: string;
     error?: string;
-    errorBody?: string;
     retry?: string;
     /** Done-state "do it again" button. Falls back to `retry` when unset. */
     tryAnother?: string;
@@ -41,7 +40,6 @@ const DEFAULTS = {
   doneBody: "파일이 준비되었습니다.",
   download: "다운로드",
   error: "오류 발생",
-  errorBody: "처리 중 문제가 발생했습니다. 다시 시도해 주세요.",
   retry: "재시도",
 } as const;
 
@@ -156,7 +154,7 @@ export function ProcessingStatus({
               className="break-keep font-body text-[11px] leading-snug [overflow-wrap:anywhere]"
               style={{ color: "var(--ink)" }}
             >
-              {errorMessage ?? L.errorBody}
+              {errorMessage}
             </div>
           </div>
           {onRetry && (

@@ -103,6 +103,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
       );
     },
     errorOptions: {
+      copy: labels.errors,
       memoryHint: labels.errorMemory,
       corruptOutputHint: labels.errorCorrupt,
     },

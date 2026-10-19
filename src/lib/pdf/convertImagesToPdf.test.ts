@@ -147,7 +147,7 @@ describe("convertImagesToPdf", () => {
     for (const dict of [ko, en] as Dictionary[]) {
       const hint = getImageToPdfLabels(dict).errorCorrupt;
       expect(hint).toBeTruthy();
-      expect(getErrorMessage(err, { corruptOutputHint: hint }).message).toBe(hint);
+      expect(getErrorMessage(err, { copy: dict.common.errors, corruptOutputHint: hint }).message).toBe(hint);
     }
   });
 });

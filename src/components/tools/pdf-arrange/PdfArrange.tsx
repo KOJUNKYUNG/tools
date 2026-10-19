@@ -163,7 +163,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
   } = useToolProcessor<ArrangeResult>({
     processor: async (_files, onProgress) => {
       const sections = splitIntoSections(items);
-      if (sections.length === 0) throw new Error("출력할 페이지가 없습니다.");
+      if (sections.length === 0) throw new Error("no pages to write"); // Apply is disabled then
       const outBytes = await arrangePdf(
         { sections, sourceBytesById },
         onProgress,
@@ -189,7 +189,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
         packaged.type === "zip" ? "application/zip" : "application/pdf",
       );
     },
-    errorOptions: { corruptOutputHint: labels.errorCorrupt },
+    errorOptions: { copy: labels.errors, corruptOutputHint: labels.errorCorrupt },
   });
 
   const handleDownloadOne = useCallback((entry: OutputEntry) => {
@@ -210,7 +210,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
         normalized = await normalizeImageFiles(incoming);
       } catch (err) {
         toast.error(
-          getErrorMessage(err, { fallbackMessage: "HEIC 파일을 변환할 수 없습니다." }).message,
+          getErrorMessage(err, { copy: labels.errors, fallbackMessage: labels.errors.heicConvertFailed }).message,
         );
         setLoadingPages(false);
         return;
@@ -222,7 +222,10 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
       for (const f of normalized) {
         if (f.size > uploadLimitFor("pdf-arrange")) {
           toast.error(
-            `${f.name}: 파일 크기가 ${formatBytes(uploadLimitFor("pdf-arrange"))}를 초과합니다.`,
+            template(labels.fileUpload.tooLargeTemplate, {
+              name: f.name,
+              size: formatBytes(uploadLimitFor("pdf-arrange")),
+            }),
           );
         }
       }
@@ -234,7 +237,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
       try {
         const built = await buildPageItems(accepted);
         for (const name of built.failed) {
-          toast.error(`${name}: 손상되었거나 암호화된 PDF입니다.`);
+          toast.error(template(labels.errors.pdfOpenFailedTemplate, { name }));
         }
         if (built.items.length === 0) return;
 
@@ -254,14 +257,15 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
       } catch (err) {
         toast.error(
           getErrorMessage(err, {
-            fallbackMessage: "파일을 읽을 수 없습니다.",
+            copy: labels.errors,
+            fallbackMessage: labels.errors.readFailed,
           }).message,
         );
       } finally {
         setLoadingPages(false);
       }
     },
-    [files, setFiles],
+    [files, setFiles, labels.errors, labels.fileUpload],
   );
 
   const handleUpload = useCallback(
@@ -490,7 +494,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
       againLabel={labels.again}
       onExecute={run}
       onAgain={retry}
-      executeDisabled={!hasFiles}
+      executeDisabled={sectionCount === 0}
       extraActions={editorActions}
     />
   );

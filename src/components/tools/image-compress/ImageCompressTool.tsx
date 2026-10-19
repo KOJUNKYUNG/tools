@@ -16,6 +16,7 @@ import {
   type CompressResult,
   type OutputFormat,
 } from "@/lib/image/compressImage";
+import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { normalizeImageFiles } from "@/lib/image/heic";
 import { computeSavings } from "@/lib/image/computeSavings";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
@@ -76,17 +77,17 @@ export function ImageCompressTool({
     download,
   } = useToolProcessor<CompressResult>({
     processor: (files, onProgress) => {
-      if (!outputFormat) throw new Error("출력 형식을 선택해 주세요.");
+      if (!outputFormat) throw new Error("no output format"); // Compress is disabled then
       return compressImages({ files, quality, outputFormat, onProgress }).catch(
         (err: unknown) => {
           if (!(err instanceof OutputFormatUnsupportedError)) throw err;
-          throw new Error(
+          throw new UserFacingError(
             template(labels.errorFormatUnsupported, { format: formatLabel(err.format) }),
           );
         },
       );
     },
-    errorOptions: { corruptOutputHint: labels.errorCorrupt },
+    errorOptions: { copy: labels.errors, corruptOutputHint: labels.errorCorrupt },
     onDownload: (res) => {
       // A "could not shrink" result offers no download.
       if (res.kind !== "compressed") return;
@@ -126,14 +127,17 @@ export function ImageCompressTool({
         const normalized = await normalizeImageFiles(newFiles);
         handleFilesChange(normalized);
       } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "HEIC 파일을 변환할 수 없습니다.";
-        toast.error(msg);
+        toast.error(
+          getErrorMessage(err, {
+            copy: labels.errors,
+            fallbackMessage: labels.errors.heicConvertFailed,
+          }).message,
+        );
       } finally {
         setNormalizing(false);
       }
     },
-    [handleFilesChange],
+    [handleFilesChange, labels.errors],
   );
 
   // Consume cross-tool handoff (e.g. files staged by image-resize). Once on mount.

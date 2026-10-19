@@ -30,7 +30,7 @@ import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
-import { getErrorMessage } from "@/lib/errors";
+import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { type PageItem } from "@/lib/pdf/pageItem";
 import { buildPptx, type BuildPptxInput } from "@/lib/pptx/assemblePptx";
 import { type Box, computeSlidePlacement, type PlacementAlign } from "@/lib/pptx/slidePlacement";
@@ -165,11 +165,11 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   } = useToolProcessor<ImageToPptxResultData>({
     processor: async (_files, onProgress) => {
       const live = items.filter((p) => !p.deleted);
-      if (live.length === 0) throw new Error(labels.errNoImages);
+      if (live.length === 0) throw new UserFacingError(labels.errNoImages);
       const orderedFiles = live
         .map((p) => fileById.get(p.sourceFileId))
         .filter((f): f is File => !!f);
-      if (orderedFiles.length === 0) throw new Error(labels.errNoImages);
+      if (orderedFiles.length === 0) throw new UserFacingError(labels.errNoImages);
       const background: BuildPptxInput["background"] =
         bg.kind === "color"
           ? { kind: "color", color: bg.color.replace("#", "") }
@@ -188,7 +188,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         }),
         res.name,
       ),
-    errorOptions: { corruptOutputHint: labels.errorCorrupt },
+    errorOptions: { copy: labels.errors, corruptOutputHint: labels.errorCorrupt },
   });
 
   // Cleanup thumbnail cache on unmount
@@ -299,7 +299,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         normalized = await normalizeImageFiles(incoming);
       } catch (err) {
         toast.error(
-          getErrorMessage(err, { fallbackMessage: "HEIC 파일을 변환할 수 없습니다." }).message,
+          getErrorMessage(err, { copy: labels.errors, fallbackMessage: labels.errors.heicConvertFailed }).message,
         );
         setLoadingPages(false);
         return;
@@ -353,7 +353,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         }
       } catch (err) {
         toast.error(
-          getErrorMessage(err, { fallbackMessage: labels.errReadFailed }).message,
+          getErrorMessage(err, { copy: labels.errors, fallbackMessage: labels.errors.readFailed }).message,
         );
       } finally {
         setLoadingPages(false);
@@ -568,7 +568,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
       againLabel={labels.again}
       onExecute={run}
       onAgain={retry}
-      executeDisabled={!hasFiles}
+      executeDisabled={liveItems.length === 0}
     />
   );
 

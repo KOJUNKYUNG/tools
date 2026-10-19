@@ -11,7 +11,8 @@ export interface UseToolProcessorConfig<TResult> {
     onProgress: (value: number) => void,
   ) => Promise<TResult>;
   onDownload: (result: TResult) => void | Promise<void>;
-  errorOptions?: GetErrorMessageOptions;
+  /** Required: the page's error copy keeps every message in its language. */
+  errorOptions: GetErrorMessageOptions;
 }
 
 export interface UseToolProcessorReturn<TResult> {

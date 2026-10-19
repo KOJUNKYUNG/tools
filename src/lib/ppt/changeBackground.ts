@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { zipCompressionMethods } from "@/lib/output-check/zipReader";
 import { checkPptBackground } from "./changeBackgroundCheck";
@@ -439,7 +440,8 @@ function loadImageSize(file: File): Promise<{ w: number; h: number }> {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("이미지 크기를 읽을 수 없습니다."));
+      // The browser cannot open it: a damaged or unsupported file.
+      reject(new Error(`${INVALID_INPUT_PREFIX}: the background image could not be decoded`));
     };
     img.src = url;
   });

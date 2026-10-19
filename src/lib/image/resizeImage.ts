@@ -1,3 +1,4 @@
+import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { checkImageResize } from "./resizeImageCheck";
 
@@ -78,7 +79,8 @@ function loadImage(file: File): Promise<HTMLImageElement> {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("이미지 로드 실패"));
+      // The browser cannot open it: a damaged or unsupported file.
+      reject(new Error(`${INVALID_INPUT_PREFIX}: the image could not be decoded`));
     };
     img.src = url;
   });

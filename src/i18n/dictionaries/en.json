@@ -32,6 +32,14 @@
     "or": "or",
     "click": "click to browse",
     "underOnePct": "under 1%",
+    "errors": {
+      "unexpected": "Something went wrong with the tool, so the job couldn't finish. Please try again.",
+      "memory": "Your browser ran out of memory. Try fewer or smaller files.",
+      "invalidFile": "This file isn't supported or is damaged.",
+      "heicConvertFailed": "Couldn't convert the HEIC file.",
+      "readFailed": "Could not read the file.",
+      "pdfOpenFailedTemplate": "{name}: This PDF is damaged or encrypted."
+    },
     "themeToggle": "Toggle theme",
     "resizeHandles": {
       "nw": "Resize (top left)",
@@ -173,7 +181,6 @@
           "doneBody": "",
           "download": "Download",
           "error": "Error",
-          "errorBody": "Something went wrong. Please try again.",
           "errorCorrupt": "Something went wrong with the tool, so the background couldn't be changed. Please try again.",
           "retry": "Retry",
           "tryAnother": "Start over"
@@ -471,7 +478,6 @@
         "alignCenter": "Center",
         "errNotImage": "{name}: only images (JPG/PNG) can be added.",
         "errTooLarge": "{name}: exceeds the {size} size limit.",
-        "errReadFailed": "Could not read the file.",
         "errNoImages": "No images to turn into slides.",
         "errorCorrupt": "Something went wrong with the tool, so the PowerPoint couldn't be made. Please try again."
       }
@@ -539,6 +545,7 @@
         "streamedTitle": "Saved",
         "streamedSummary": "Saved {n} images across {m} zip files.",
         "batchSavedToast": "Part {n} saved",
+        "errorMemory": "Your browser ran out of memory. Lower the DPI or use a PDF with fewer pages.",
         "errorCorrupt": "Page {page} could not be turned into an image, so conversion stopped. Remove that page or lower the DPI and try again.",
         "errorCorruptAfterBatches": "Page {page} could not be turned into an image, so conversion stopped. The {n} part(s) already saved hold only the pages before it. Remove that page or lower the DPI and try again."
       }

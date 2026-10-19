@@ -21,7 +21,7 @@ import {
   totalSizeWarnFor,
   uploadLimitFor,
 } from "@/lib/constants";
-import { getErrorMessage } from "@/lib/errors";
+import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { buildConversionJobs } from "@/lib/pdf/buildConversionJobs";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { deriveBatchZipName, deriveZipName } from "@/lib/pdf/pdfToImageNaming";
@@ -82,7 +82,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
   } = useToolProcessor<PdfToImageOutcome>({
     processor: async (_files, onProgress) => {
       const jobs = buildConversionJobs(items);
-      if (jobs.length === 0) throw new Error("변환할 페이지가 없습니다.");
+      if (jobs.length === 0) throw new Error("no pages to convert"); // Convert is disabled then
       const base = deriveBaseName(items[0]?.sourceFileName);
       let batchesSaved = 0;
       return pdfToImages({
@@ -109,7 +109,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
         // Name the page the run stopped at, and the parts already saved
         // (a delivered download cannot be withdrawn).
         if (!(err instanceof PageConversionError)) throw err;
-        throw new Error(
+        throw new UserFacingError(
           batchesSaved > 0
             ? template(labels.errorCorruptAfterBatches, { page: err.pageNumber, n: batchesSaved })
             : template(labels.errorCorrupt, { page: err.pageNumber }),
@@ -133,8 +133,8 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
       downloadBlobObject(zipBlob, deriveZipName(base));
     },
     errorOptions: {
-      memoryHint:
-        "브라우저 메모리가 부족합니다. DPI를 낮추거나 페이지가 적은 PDF를 사용해 주세요.",
+      copy: labels.errors,
+      memoryHint: labels.errorMemory,
     },
   });
 
@@ -144,13 +144,16 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
     async (incoming: File[], mode: "replace" | "append") => {
       const pdfs = incoming.filter(isPdf);
       for (const f of incoming) {
-        if (!isPdf(f)) toast.error(`${f.name}: PDF 파일만 추가할 수 있습니다.`);
+        if (!isPdf(f)) toast.error(template(labels.fileUpload.invalidTypeTemplate, { name: f.name }));
       }
       const accepted = pdfs.filter((f) => f.size <= uploadLimitFor("pdf-to-image"));
       for (const f of pdfs) {
         if (f.size > uploadLimitFor("pdf-to-image")) {
           toast.error(
-            `${f.name}: 파일 크기가 ${formatBytes(uploadLimitFor("pdf-to-image"))}를 초과합니다.`,
+            template(labels.fileUpload.tooLargeTemplate, {
+              name: f.name,
+              size: formatBytes(uploadLimitFor("pdf-to-image")),
+            }),
           );
         }
       }
@@ -159,7 +162,9 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
       setLoadingPages(true);
       try {
         const built = await buildPageItems(accepted);
-        for (const n of built.failed) toast.error(`${n}: 열 수 없는 PDF입니다.`);
+        for (const n of built.failed) {
+          toast.error(template(labels.errors.pdfOpenFailedTemplate, { name: n }));
+        }
         if (built.items.length === 0) return;
         if (mode === "replace") {
           clearThumbnailCache();
@@ -173,13 +178,13 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
         }
       } catch (err) {
         toast.error(
-          getErrorMessage(err, { fallbackMessage: "파일을 읽을 수 없습니다." }).message,
+          getErrorMessage(err, { copy: labels.errors, fallbackMessage: labels.errors.readFailed }).message,
         );
       } finally {
         setLoadingPages(false);
       }
     },
-    [files, setFiles],
+    [files, setFiles, labels.errors, labels.fileUpload],
   );
 
   const handleUpload = useCallback(

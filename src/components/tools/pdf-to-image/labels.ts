@@ -1,6 +1,8 @@
 import type { Dictionary } from "@/i18n/config";
 
 export interface PdfToImageLabels {
+  /** Shared error copy (`common.errors`), in the page's language. */
+  errors: Dictionary["common"]["errors"];
   title: string;
   description: string;
   uploadPrompt: string;
@@ -34,6 +36,7 @@ export interface PdfToImageLabels {
   streamedSummary: string;
   batchSavedToast: string;
   /** `{page}`: the page the run stopped at. */
+  errorMemory: string;
   errorCorrupt: string;
   /** `{page}`, and `{n}`: the parts already saved before the stop. */
   errorCorruptAfterBatches: string;
@@ -44,6 +47,7 @@ export function getPdfToImageLabels(dict: Dictionary): PdfToImageLabels {
   const t = dict.tools["pdf-to-image"];
   const p = t.page;
   return {
+    errors: dict.common.errors,
     title: t.title,
     description: t.description,
     uploadPrompt: p.uploadPrompt,
@@ -76,6 +80,7 @@ export function getPdfToImageLabels(dict: Dictionary): PdfToImageLabels {
     streamedTitle: p.streamedTitle,
     streamedSummary: p.streamedSummary,
     batchSavedToast: p.batchSavedToast,
+    errorMemory: p.errorMemory,
     errorCorrupt: p.errorCorrupt,
     errorCorruptAfterBatches: p.errorCorruptAfterBatches,
     fileUpload: dict.common.fileUpload,

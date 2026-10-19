@@ -1,6 +1,8 @@
 import type { Dictionary } from "@/i18n/config";
 
 export interface PdfArrangeLabels {
+  /** Shared error copy (`common.errors`), in the page's language. */
+  errors: Dictionary["common"]["errors"];
   title: string;
   description: string;
   uploadPrompt: string;
@@ -35,6 +37,7 @@ export function getPdfArrangeLabels(dict: Dictionary): PdfArrangeLabels {
   const tool = dict.tools["pdf-arrange"];
   const page = tool.page;
   return {
+    errors: dict.common.errors,
     title: tool.title,
     description: tool.description,
     uploadPrompt: page.uploadPrompt,

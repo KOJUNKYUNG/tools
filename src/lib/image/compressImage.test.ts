@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getErrorMessage } from "@/lib/errors";
+import en from "@/i18n/dictionaries/en.json";
 import { JPEG_3x2, solidPng, stubBrowserDecoder } from "@/lib/pdf/testImages";
 import {
   compressImages,
@@ -158,7 +159,7 @@ describe("compressImages", () => {
       const err = await run([file(solidPng(3, 2), "a.png", "image/png")], "image/jpeg", fixed).catch(
         (e: unknown) => e,
       );
-      expect(getErrorMessage(err, { corruptOutputHint: "hint" }).message).toBe("hint");
+      expect(getErrorMessage(err, { copy: en.common.errors, corruptOutputHint: "hint" }).message).toBe("hint");
     });
 
     it("says which format the browser could not write when the canvas fell back to PNG", async () => {

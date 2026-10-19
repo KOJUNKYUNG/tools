@@ -100,6 +100,7 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
         PDF_MIME,
       ),
     errorOptions: {
+      copy: labels.errors,
       memoryHint: labels.errorMemory,
       corruptOutputHint: labels.errorCorrupt,
       invalidInputHint: labels.errorOpen,

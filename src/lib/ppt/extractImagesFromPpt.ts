@@ -1,4 +1,5 @@
 import CFB from "cfb";
+import { NO_IMAGES } from "@/lib/errors";
 import type { ExtractedImage } from "./extractImages";
 import { getMime } from "./pptImageFormats";
 
@@ -133,13 +134,13 @@ export async function extractImagesFromPpt({
   }
 
   if (!picturesData || picturesData.length === 0) {
-    throw new Error("NO_IMAGES");
+    throw new Error(NO_IMAGES);
   }
 
   onProgress?.(30);
   const images = await parseBlipRecordsStreaming(picturesData, onProgress);
   if (images.length === 0) {
-    throw new Error("NO_IMAGES");
+    throw new Error(NO_IMAGES);
   }
   onProgress?.(100);
   return images;

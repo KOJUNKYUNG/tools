@@ -1,6 +1,8 @@
 import type { Dictionary } from "@/i18n/config";
 
 export interface PptExtractLabels {
+  /** Shared error copy (`common.errors`), in the page's language. */
+  errors: Dictionary["common"]["errors"];
   // Header (used by page chrome variant)
   title: string;
   description: string;
@@ -40,6 +42,7 @@ export function getPptExtractLabels(dict: Dictionary): PptExtractLabels {
   const t = dict.tools["ppt-extract"];
   const p = t.page;
   return {
+    errors: dict.common.errors,
     title: t.title,
     description: t.description,
     uploadPrompt: p.uploadPrompt,

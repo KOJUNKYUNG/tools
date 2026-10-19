@@ -89,6 +89,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
         PDF_MIME,
       ),
     errorOptions: {
+      copy: labels.errors,
       memoryHint: labels.errorMemory,
       corruptOutputHint: labels.errorCorrupt,
       wrongPasswordHint: labels.errorWrongPassword,

@@ -62,7 +62,11 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
     onDownload: () => {
       // Result component drives downloads; this is unused.
     },
-    errorOptions: { corruptOutputHint: labels.errorCorrupt },
+    errorOptions: {
+      copy: labels.errors,
+      corruptOutputHint: labels.errorCorrupt,
+      noImagesHint: labels.errorNoImages,
+    },
   });
 
   useEffect(() => {
@@ -161,10 +165,6 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
     router.push(`/${lang}/tools/image-to-pptx`);
   }, [result, router, lang]);
 
-  // Localise the NO_IMAGES sentinel from the extractors.
-  const displayError =
-    errorMessage === "NO_IMAGES" ? labels.errorNoImages : errorMessage;
-
   const header = (
     <ToolHeader
       title={labels.title}
@@ -233,7 +233,7 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
               <ProcessingStatus
                 status={status}
                 progress={progress}
-                errorMessage={displayError}
+                errorMessage={errorMessage}
                 onRetry={handleAgain}
                 labels={{ processing: labels.processing }}
               />
