@@ -171,3 +171,13 @@ export function countColors(pixels: Uint8ClampedArray, cap: number): ColorCount 
   }
   return { colors: seen.size, opaque };
 }
+
+/**
+ * How many pixels are not fully transparent. Unlike the colour count it scans
+ * every pixel: a cut-out's transparent background is what makes it cheap.
+ */
+export function countVisiblePixels(pixels: Uint8ClampedArray): number {
+  let visible = 0;
+  for (let i = 3; i < pixels.length; i += 4) if (pixels[i] !== 0) visible++;
+  return visible;
+}

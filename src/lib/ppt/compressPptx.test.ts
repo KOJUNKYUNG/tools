@@ -144,17 +144,28 @@ describe("analyzePptxForCompress", () => {
       new File([new Uint8Array(deck)], "deck.pptx"),
       async (bytes, cap) => {
         counted.push(cap);
-        return bytes.length > 0 ? { colors: 1234, opaque: true } : null;
+        return bytes.length > 0 ? { colors: 1234, opaque: true, visible: 600 } : null;
       },
     );
     const png = analysis.media.find((m) => m.kind === "png");
     const jpeg = analysis.media.find((m) => m.kind === "jpeg");
     // noisePng is RGB: no alpha channel to drop, however opaque the pixels
     expect(png).toMatchObject({ palette: false, colors: 1234, unusedAlpha: false });
+    // the pixels the canvas found not fully transparent
+    expect(png).toMatchObject({ visiblePixels: 600 });
     expect(png?.bytes).toBe((await media(deck, PNG_MEDIA)).length);
     expect(jpeg).toMatchObject({ bytes: (await media(deck, JPEG_MEDIA)).length });
     expect(jpeg?.kind === "jpeg" && jpeg.quality).toBeGreaterThan(0);
     // Counted just past the weakest preset's budget (4096 * 0.82).
     expect(counted).toEqual([3359]);
+  });
+  it("takes every pixel as visible when a PNG cannot be decoded", async () => {
+    const deck = await syntheticDeck();
+    const analysis = await analyzePptxForCompress(
+      new File([new Uint8Array(deck)], "deck.pptx"),
+      async () => null,
+    );
+    // 40 × 20 from its header: the estimate then promises the least
+    expect(analysis.media.find((m) => m.kind === "png")).toMatchObject({ visiblePixels: 800 });
   });
 });

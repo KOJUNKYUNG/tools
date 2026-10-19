@@ -1,7 +1,7 @@
 // Runs the ratio measurement page (index.html) in headless Chrome and writes
 // its results as JSON, so a measurement needs no browser window.
 //
-// Run: node scripts/measure-ppt-ratios/run-headless.mjs [--parts=curve,heic,fixtures] [--out=results.json]
+// Run: node scripts/measure-ppt-ratios/run-headless.mjs [--parts=curve,heic,png,fixtures] [--out=results.json]
 // Starts serve.mjs unless it already runs on :4310. CHROME_PATH overrides the
 // Chrome binary. Drives Chrome over the DevTools protocol with Node's own
 // WebSocket, so it needs no extra package.
