@@ -75,6 +75,15 @@ rotate pages in one editor. It **absorbed** the earlier separate `pdf-merge`,
 `pdf-split`, and `pdf-pages` tools; those slugs now survive only as aliases.
 _Avoid_: treating merge / split / pages as distinct tools.
 
+### Display size
+The pixels a picture in a deck actually needs: the largest extent it is drawn
+at across every use, crop zoom and group scaling included, at a slide width
+given in **projected pixels** (what a projector or screen shows). ppt-compress
+downsamples only pictures holding more pixels than their display size, and
+leaves a picture whose display size it cannot work out untouched (ADR-0006).
+_Avoid_: ppi of slide inches — slide sizes vary (20 × 11.25 in is common) and
+say nothing about what is shown.
+
 ### Alias
 A slug kept live for SEO / backwards compatibility that renders a different
 **canonical** tool, declared via `aliasOf` in the registry. Today: `pdf-merge`,
