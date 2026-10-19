@@ -29,7 +29,8 @@ estimator (<code>src/lib/ppt/pptCompressPlan.ts</code>, as checked out) expects.
     and re-run (a deck compressed at W, then at P). The size ignores the zip's own deflate of the
     images, which is about 1%. HEIC sets are hold-out "decks" of the HEIC photos at one quality.</li>
 </ul>
-<p>Query <code>?parts=curve,heic,fixtures</code> picks what to run (default all).</p>
+<p>Query <code>?parts=curve,heic,png,fixtures</code> picks what to run (default all). <b>png</b>
+re-encodes the lossless originals as fresh PNGs, as found and as this browser saves them.</p>
 <p id="status">Starting…</p>
 <div id="out"></div>
 <script type="module">
@@ -37,6 +38,7 @@ import {
   estimateJpegQuality,
   jpegKeepsFullChroma,
   countColors,
+  countVisiblePixels,
   readPngHeader,
 } from "/lib/alreadyCompressed.js";
 import {
@@ -51,7 +53,7 @@ const STEPS = [["low", "medium"], ["low", "high"], ["medium", "high"]];
 const CURVE_QUALITIES = Array.from({ length: 27 }, (_, i) => 72 + i); // q72–98
 // HEIC photos (12 MP, slow): the bands the real files lack, plus a camera-like q95.
 const HEIC_QUALITIES = [76, 86, 88, 95];
-const parts = new Set((new URLSearchParams(location.search).get("parts") ?? "curve,heic,fixtures").split(","));
+const parts = new Set((new URLSearchParams(location.search).get("parts") ?? "curve,heic,png,fixtures").split(","));
 const status = (text) => (document.getElementById("status").textContent = text);
 
 // Same options as recompressMedia in src/lib/ppt/compressPptx.ts; the worker
@@ -80,7 +82,7 @@ async function saveJpeg(bitmap, quality) {
 }
 
 // The MediaSample analyzePptxForCompress (src/lib/ppt/compressPptx.ts) reads.
-const COLOR_COUNT_CAP = Math.ceil(pngColorBudget("low"));
+const COLOR_COUNT_CAP = pngColorBudget("low");
 const MAX_COUNT_PIXELS = 16 * 1024 * 1024;
 async function mediaSample(kind, bytes) {
   if (kind === "jpeg") {
@@ -93,13 +95,15 @@ async function mediaSample(kind, bytes) {
     const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
     const ctx = new OffscreenCanvas(bitmap.width, bitmap.height).getContext("2d");
     ctx.drawImage(bitmap, 0, 0);
-    counted = countColors(ctx.getImageData(0, 0, bitmap.width, bitmap.height).data, COLOR_COUNT_CAP);
+    const data = ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
+    counted = { ...countColors(data, COLOR_COUNT_CAP), visible: countVisiblePixels(data) };
     bitmap.close();
   }
   const hasAlpha = header?.colorType === 4 || header?.colorType === 6;
   return {
     kind,
     bytes: bytes.length,
+    visiblePixels: counted?.visible ?? (header ? header.width * header.height : null),
     palette,
     colors: counted?.colors ?? null,
     unusedAlpha: hasAlpha && (counted?.opaque ?? false),
@@ -126,6 +130,41 @@ async function measureLossless(set, sources, qualities, decode, out) {
     }
     bitmap.close();
   }
+}
+
+// Lossless photos as fresh opaque PNGs: the file as found, and as this
+// browser's canvas saves it. A hold-out for the dense PNG ratio.
+async function measureLosslessPngs() {
+  const rows = [];
+  const names = await (await fetch("/lossless")).json();
+  for (const [i, name] of names.entries()) {
+    status(`Lossless PNGs ${i + 1}/${names.length}: ${name}`);
+    const file = new Uint8Array(await (await fetch("/lossless/" + name)).arrayBuffer());
+    const bitmap = await createImageBitmap(new Blob([file], { type: "image/png" }));
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const resaved = new Uint8Array(await (await canvas.convertToBlob({ type: "image/png" })).arrayBuffer());
+    for (const [from, bytes] of [["file", file], ["canvas", resaved]]) {
+      const img = await measureImage("png", bytes);
+      rows.push({
+        key: `${name} (${from})`,
+        from,
+        kb: Math.round(bytes.length / 1024),
+        bpp: round(img.png.bpp),
+        px: img.png.pixels,
+        visible: img.png.visible,
+        bytes: bytes.length,
+        out: Object.fromEntries(PRESETS.map((p) => [p, img.fresh[p]])),
+        opaque: img.png.opaque === null ? "" : img.png.opaque ? "y" : "n",
+        ...Object.fromEntries(PRESETS.flatMap((p) => [
+          [p, round(img.fresh[p] / bytes.length)],
+          [`${p} model`, round(modelRatio(img.sample, p))],
+        ])),
+      });
+    }
+  }
+  return rows;
 }
 
 async function hash(bytes) {
@@ -156,8 +195,39 @@ async function measureImage(kind, bytes) {
   return {
     kind,
     sample,
+    png: kind === "png" ? await pngSignals(bytes) : null,
     fresh: Object.fromEntries(PRESETS.map((p) => [p, once[p].length])),
     rerun,
+  };
+}
+
+// Candidate signals for a fresh PNG's ratio, beyond the sample: its size, how
+// many bytes each pixel takes, and its colours counted far past the budget.
+const WIDE_COLOR_CAP = 1 << 20;
+async function pngSignals(bytes) {
+  const header = readPngHeader(bytes);
+  if (!header) return null;
+  const pixels = header.width * header.height;
+  let wide = null;
+  let visible = null;
+  if (pixels <= MAX_COUNT_PIXELS) {
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+    const ctx = new OffscreenCanvas(bitmap.width, bitmap.height).getContext("2d");
+    ctx.drawImage(bitmap, 0, 0);
+    const data = ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
+    bitmap.close();
+    if (header.colorType !== 3) wide = countColors(data, WIDE_COLOR_CAP);
+    visible = countVisiblePixels(data);
+  }
+  return {
+    w: header.width,
+    h: header.height,
+    colorType: header.colorType,
+    bpp: bytes.length / pixels,
+    pixels,
+    visible,
+    wideColors: wide?.colors ?? null,
+    opaque: wide?.opaque ?? null,
   };
 }
 
@@ -270,6 +340,36 @@ function jpegTable(images) {
     }));
 }
 
+const lowOutput = (step) =>
+  !step.counted ? "" : `${step.sample.colors ?? "?"}${step.sample.unusedAlpha ? " α" : ""}`;
+
+// Each real PNG on its own, sorted by bytes per pixel: its signals and the
+// measured vs model ratio per preset, to find what splits the fresh ratios.
+function pngTable(images) {
+  return [...images.values()]
+    .filter((img) => img.kind === "png" && img.png)
+    .sort((a, b) => a.png.bpp - b.png.bpp)
+    .map((img) => ({
+      key: img.label,
+      kb: Math.round(img.sample.bytes / 1024),
+      size: `${img.png.w}×${img.png.h}`,
+      type: img.png.colorType,
+      bpp: round(img.png.bpp),
+      px: img.png.pixels,
+      visible: img.png.visible,
+      bytes: img.sample.bytes,
+      out: Object.fromEntries(PRESETS.map((p) => [p, img.fresh[p]])),
+      colors: img.png.wideColors ?? "",
+      opaque: img.png.opaque === null ? "" : img.png.opaque ? "y" : "n",
+      // What low's output reads as when re-run: colours, unused alpha, indexed.
+      "low out": lowOutput(img.rerun["low → medium"]),
+      ...Object.fromEntries(PRESETS.flatMap((p) => [
+        [p, round(img.fresh[p] / img.sample.bytes)],
+        [`${p} model`, round(modelRatio(img.sample, p))],
+      ])),
+    }));
+}
+
 // 4:4:4 JPEGs at q90+ together: measured over model bytes per preset. 1 means
 // FULL_CHROMA_FACTOR fits; a re-fit factor is the current one times this.
 function fullChromaTable(images) {
@@ -343,10 +443,12 @@ async function run() {
     }));
   }
   results.curve = curveTable([...curveRows, ...heicRows]);
+  if (parts.has("png")) results.losslessPngs = await measureLosslessPngs();
   if (parts.has("fixtures")) {
     const { images, decks } = await measureFixtures(fixtureNames);
     results.images = imageTable(images);
     results.jpegs = jpegTable(images);
+    results.pngs = pngTable(images);
     results.fullChroma = fullChromaTable(images);
     results.decks = decks.flatMap((d) => deckRows(d.name, d.totalSize, d.hashes.map((h) => images.get(h))));
   }
@@ -363,6 +465,8 @@ run().then((results) => {
     results.heicDecks && table("HEIC hold-out decks (MB)", results.heicDecks, deckCols),
     results.images && table("Real-file images", results.images.sort((a, b) => a.key.localeCompare(b.key)), cols),
     results.jpegs && table("Real-file JPEGs", results.jpegs, ["key", "q", "chroma", "kb", ...PRESETS.flatMap((p) => [p, `${p} model`])]),
+    results.losslessPngs && table("Lossless photos as PNGs", results.losslessPngs, ["key", "kb", "bpp", "opaque", ...PRESETS.flatMap((p) => [p, `${p} model`])]),
+    results.pngs && table("Real-file PNGs", results.pngs, ["key", "kb", "size", "type", "bpp", "colors", "opaque", "low out", ...PRESETS.flatMap((p) => [p, `${p} model`])]),
     results.fullChroma && table("4:4:4 JPEGs, measured ÷ model", results.fullChroma, ["key", "n", "residual"]),
     results.decks && table("Decks (MB)", results.decks, deckCols),
   ].filter(Boolean).join("");

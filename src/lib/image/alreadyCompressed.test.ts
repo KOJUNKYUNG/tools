@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   countColors,
+  countVisiblePixels,
   estimateJpegQuality,
   ijgTable,
   jpegKeepsFullChroma,
@@ -129,5 +130,12 @@ describe("countColors", () => {
 
   it("is 0 for no pixels", () => {
     expect(countColors(new Uint8ClampedArray(), 10)).toEqual({ colors: 0, opaque: true });
+  });
+});
+
+describe("countVisiblePixels", () => {
+  it("counts every pixel not fully transparent, past any colour cap", () => {
+    const px = Uint8ClampedArray.from([0, 0, 0, 255, 9, 9, 9, 0, 9, 9, 9, 1, 0, 0, 0, 0]);
+    expect(countVisiblePixels(px)).toBe(2);
   });
 });

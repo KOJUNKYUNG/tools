@@ -2,7 +2,7 @@ import type { CompressionPreset } from "@/lib/common/compressionPreset";
 
 /**
  * Re-encode quality (0..1) per preset: the JPEG quality, and for PNG the colour
- * budget (browser-image-compression quantizes to 4096 × quality colours).
+ * budget (see `pngColorBudget`).
  */
 export const PRESET_QUALITY: Record<CompressionPreset, number> = {
   low: 0.82,
@@ -143,22 +143,51 @@ function jpegRatioAt(quality: number, preset: CompressionPreset): number {
 }
 
 /**
- * Fraction of PNG bytes left after re-encoding at each preset. The re-encode
- * quantizes to 4096 × quality colours, so it is lossy and a stronger preset
- * does shrink more, but only a little: measured with browser-image-compression
- * 2.0.2 on the 31 PNGs of the real-file decks (2026-10), with each image kept
- * when its candidate is no smaller, as the engine does.
+ * How much of a fresh PNG is left after re-encoding at each preset. The
+ * re-encode quantizes to the preset's colour budget, so what comes out is set
+ * by what the image shows, not by how it was saved: the same photo saved two
+ * ways comes out the same size. So a PNG is expected to leave the smaller of
  *
- * Re-measured on 85 PNGs (2026-10-19): byte-weighted 0.50 / 0.48 / 0.46,
- * median 0.82 / 0.80 / 0.76, per image 0.22–1.00. Bimodal, so a deck's mix
- * decides how far off these are; kept as they are until a signal separates
- * the two groups.
+ * - `PNG_BYTES_PER_VISIBLE_PIXEL` per pixel that is not fully transparent:
+ *   a photo or a cut-out, which a transparent background makes cheap, and
+ * - `FLAT_PNG_RATIO` of its bytes: a flat graphic, already small, that
+ *   barely shrinks.
+ *
+ * Fit with scripts/measure-ppt-ratios (browser-image-compression 2.0.2,
+ * Chrome, 2026-10-19) on the real-file PNGs the estimate treats as fresh,
+ * byte-weighted, each kept when its candidate is no smaller as the engine
+ * does: bytes per visible pixel over the 24 above 1.2 bytes per pixel (per
+ * image 1.0–1.9 at medium), the ratio over the 57 below (per image
+ * 0.23–1.00). Taking the smaller, the per-pixel figure decides only above
+ * about 1.8 bytes per visible pixel; the PNGs between estimate as flat, which
+ * promises less. In-sample on those decks (PNGs per deck −13% to +7% at
+ * medium, through this rule).
+ * Hold-out: the 24 Kodak photos as opaque PNGs come out −4% as found and
+ * +10% saved by Chrome, per image −15% to +51%.
  */
-export const PRESET_PNG_RATIO: Record<CompressionPreset, number> = {
-  low: 0.64,
-  medium: 0.62,
-  high: 0.59,
+const PNG_BYTES_PER_VISIBLE_PIXEL: Record<CompressionPreset, number> = {
+  low: 1.55,
+  medium: 1.498,
+  high: 1.419,
 };
+const FLAT_PNG_RATIO: Record<CompressionPreset, number> = {
+  low: 0.841,
+  medium: 0.824,
+  high: 0.791,
+};
+
+/**
+ * A fresh PNG's remaining ratio. Without a pixel count, the flat ratio: the
+ * smaller promise.
+ */
+function freshPngRatio(
+  media: Extract<MediaSample, { kind: "png" }>,
+  preset: CompressionPreset,
+): number {
+  const flat = FLAT_PNG_RATIO[preset];
+  if (media.visiblePixels === null || media.bytes <= 0) return flat;
+  return Math.min(flat, (media.visiblePixels * PNG_BYTES_PER_VISIBLE_PIXEL[preset]) / media.bytes);
+}
 
 /** Whole-file [min,max] remaining range used as a static fallback estimate. */
 export const PRESET_RANGE: Record<CompressionPreset, [number, number]> = {
@@ -190,6 +219,11 @@ export type MediaSample =
   | {
       kind: "png";
       bytes: number;
+      /**
+       * Pixels not fully transparent; every pixel when it was not decoded;
+       * null if its header is unreadable.
+       */
+      visiblePixels: number | null;
       /** Indexed colour (IHDR colour type 3). */
       palette: boolean;
       /** Distinct colors, counted up to past every preset's budget; null if not counted. */
@@ -203,10 +237,12 @@ const INDEXED_MAX_COLORS = 256;
 
 /**
  * The colour budget a preset's PNG re-encode quantizes to: browser-image-
- * compression keeps at most 4096 × quality colours.
+ * compression asks UPNG for 4096 × quality colours, and UPNG splits colour
+ * groups while it has fewer than that, so it keeps up to the next whole
+ * number (low 3359). An opaque photo's output fills it exactly (#87).
  */
 export function pngColorBudget(preset: CompressionPreset): number {
-  return 4096 * PRESET_QUALITY[preset];
+  return Math.ceil(4096 * PRESET_QUALITY[preset]);
 }
 
 /**
@@ -303,7 +339,7 @@ function remainingRatio(media: MediaSample, preset: CompressionPreset): number {
       : ratio;
   }
   const weaker = savedAtWeakerPreset(media, preset);
-  return (weaker && PNG_RERUN_RATIO[preset][weaker]) ?? PRESET_PNG_RATIO[preset];
+  return (weaker && PNG_RERUN_RATIO[preset][weaker]) ?? freshPngRatio(media, preset);
 }
 
 /**
@@ -311,10 +347,11 @@ function remainingRatio(media: MediaSample, preset: CompressionPreset): number {
  * shrink for a number to mean anything (the UI says "about the original
  * size"). JPEG bytes shrink by what their save quality leaves at the preset
  * (one curve for fresh JPEGs and the engine's own output alike), PNG bytes
- * by the preset's ratio, or by the re-run ratio when saved at a weaker
- * preset; already compressed images and everything else are unchanged. The
- * result is not pulled into the static range: on a deck that is mostly not
- * images, that would promise savings the images cannot deliver (#81).
+ * by what their visible pixels or the flat-graphic ratio leave, or by the
+ * re-run ratio when saved at a weaker preset; already compressed images and
+ * everything else are unchanged. The result is not pulled into the static
+ * range: on a deck that is mostly not images, that would promise savings the
+ * images cannot deliver (#81).
  *
  * Splitting JPEG vs PNG matters: a PNG-dominated deck barely changes between
  * presets in reality, so a single blended ratio would over-promise on "high"

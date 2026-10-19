@@ -87,9 +87,10 @@ const jpegAt = (bytes: number, quality: number | null, fullChroma = false) => ({
   fullChroma,
 });
 const freshJpeg = (bytes: number) => jpegAt(bytes, 95);
-const freshPng = (bytes: number) => ({
+const freshPng = (bytes: number, visiblePixels: number | null = null) => ({
   kind: "png" as const,
   bytes,
+  visiblePixels,
   palette: false,
   colors: null,
   unusedAlpha: false,
@@ -104,11 +105,28 @@ describe("estimatePptxSize", () => {
     expect(estimatePptxSize(1000, [freshJpeg(800)], "medium")).toBeCloseTo(494);
     expect(estimatePptxSize(1000, [freshJpeg(800)], "high")).toBeCloseTo(426);
   });
-  it("shrinks PNG bytes a little more at each stronger preset", () => {
-    // png ratios low 0.64, medium 0.62, high 0.59; (1000-800) + 800*ratio
-    expect(estimatePptxSize(1000, [freshPng(800)], "low")).toBe(712);
-    expect(estimatePptxSize(1000, [freshPng(800)], "medium")).toBe(696);
-    expect(estimatePptxSize(1000, [freshPng(800)], "high")).toBe(672);
+  it("shrinks a photo PNG to about 1.5 bytes per visible pixel", () => {
+    // 800 bytes over 200 visible pixels; per visible pixel low 1.55,
+    // medium 1.498, high 1.419: 200 + 200 * that
+    const photo = freshPng(800, 200);
+    expect(estimatePptxSize(1000, [photo], "low")).toBeCloseTo(510);
+    expect(estimatePptxSize(1000, [photo], "medium")).toBeCloseTo(499.6);
+    expect(estimatePptxSize(1000, [photo], "high")).toBeCloseTo(483.8);
+  });
+  it("counts only a cut-out's visible pixels", () => {
+    // the same 800 bytes with half the pixels transparent: 200 + 100 * 1.498
+    expect(estimatePptxSize(1000, [freshPng(800, 100)], "medium")).toBeCloseTo(349.8);
+  });
+  it("shrinks a flat graphic PNG only a little", () => {
+    // 800 bytes over 8000 pixels: the per-pixel bound is far above, so the
+    // graphic ratio low 0.841, medium 0.824, high 0.791: 200 + 800 * that
+    const graphic = freshPng(800, 8000);
+    expect(estimatePptxSize(1000, [graphic], "low")).toBeCloseTo(872.8);
+    expect(estimatePptxSize(1000, [graphic], "medium")).toBeCloseTo(859.2);
+    expect(estimatePptxSize(1000, [graphic], "high")).toBeCloseTo(832.8);
+  });
+  it("shrinks a PNG of unknown size like a flat graphic, promising the least", () => {
+    expect(estimatePptxSize(1000, [freshPng(800)], "medium")).toBeCloseTo(859.2);
   });
   it("shrinks a 4:4:4 JPEG further, as re-encoding drops its full-resolution chroma", () => {
     // q95 4:4:4 at medium: 0.3675 * 0.77 (real 4:4:4 q95 photos, n=11);
@@ -147,11 +165,18 @@ describe("estimatePptxSize", () => {
       expect(looksAlreadyCompressed(freshPng(1), "high")).toBe(false);
     });
     it("is a PNG already within the preset's colour budget", () => {
-      // medium quantizes to 4096 * 0.7 ≈ 2867 colours
+      // medium quantizes to 4096 * 0.7 = 2867.2, so up to 2868 colours
       const png = (colors: number) => ({ ...freshPng(1), colors });
       expect(looksAlreadyCompressed(png(2863), "medium")).toBe(true);
-      expect(looksAlreadyCompressed(png(2868), "medium")).toBe(false);
+      expect(looksAlreadyCompressed(png(2868), "medium")).toBe(true);
+      expect(looksAlreadyCompressed(png(2869), "medium")).toBe(false);
       expect(looksAlreadyCompressed(png(2863), "high")).toBe(false);
+    });
+    it("is the engine's own PNG output, which keeps the budget rounded up", () => {
+      // low's budget is 4096 * 0.82 = 3358.72; an opaque photo's low output
+      // has 3359 colours (#87)
+      const png = { ...freshPng(1), colors: 3359 };
+      expect(looksAlreadyCompressed(png, "low")).toBe(true);
     });
     it("is not a PNG the engine could still write indexed or without its alpha", () => {
       // 256 colours or fewer: the engine writes it indexed, which shrinks it
