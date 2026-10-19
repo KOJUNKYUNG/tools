@@ -5,31 +5,53 @@
 <title>ppt-compress ratios</title>
 <style>
   body { font: 13px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #111; }
-  table { border-collapse: collapse; margin-top: 12px; }
+  table { border-collapse: collapse; margin-top: 8px; }
   th, td { border: 1px solid #ccc; padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums; }
   th:first-child, td:first-child { text-align: left; }
+  h2 { margin-top: 24px; font-size: 15px; }
 </style>
 <script src="/lib/bic.js"></script>
 <script src="/lib/jszip.js"></script>
 </head>
 <body>
 <h1>ppt-compress re-encode ratios</h1>
-<p>Each image in the real-file decks and each loose JPEG/PNG (deduplicated) is re-encoded the way the engine does it,
-keeping the original when the candidate is no smaller. A ratio is the bytes left over the
-bytes going in.</p>
+<p>Each image is re-encoded the way the engine does it, keeping the original when the candidate
+is no smaller. A ratio is the bytes left over the bytes going in; <b>model</b> is what the
+estimator (<code>src/lib/ppt/pptCompressPlan.ts</code>, as checked out) expects.</p>
 <ul>
-  <li><b>fresh → P</b>: the image as found, re-encoded at preset P. JPEGs are grouped by the quality they were saved at.</li>
-  <li><b>W → P</b>: the image after the engine compressed it at weaker preset W, re-run at P.
-    Skipped when W left the image unchanged, or (PNG) when W wrote it indexed, since both
-    already count as compressed.</li>
+  <li><b>Fresh JPEG curve</b>: lossless originals (PNGs under <code>tests/lossless</code>, and the
+    HEIC fixtures) saved by this browser as fresh JPEGs at each quality, then re-encoded at each preset.</li>
+  <li><b>Real-file images</b>: each image in the real-file decks and each loose JPEG/PNG
+    (deduplicated). <b>fresh → P</b> is the image as found, re-encoded at preset P;
+    <b>W → P</b> is the image after the engine compressed it at weaker preset W, re-run at P,
+    skipped when W left it unchanged or (PNG) wrote it indexed, since both already count as compressed.</li>
+  <li><b>Decks</b>: each real deck's estimate against the size its re-encoded images give, fresh
+    and re-run (a deck compressed at W, then at P). The size ignores the zip's own deflate of the
+    images, which is about 1%. HEIC sets are hold-out "decks" of the HEIC photos at one quality.</li>
 </ul>
+<p>Query <code>?parts=curve,heic,fixtures</code> picks what to run (default all).</p>
 <p id="status">Starting…</p>
 <div id="out"></div>
 <script type="module">
-import { estimateJpegQuality } from "/lib/alreadyCompressed.js";
-import { PRESET_QUALITY as QUALITY } from "/lib/pptCompressPlan.js";
+import {
+  estimateJpegQuality,
+  jpegKeepsFullChroma,
+  countColors,
+  readPngHeader,
+} from "/lib/alreadyCompressed.js";
+import {
+  PRESET_QUALITY as QUALITY,
+  estimatePptxSize,
+  pngColorBudget,
+} from "/lib/pptCompressPlan.js";
 
+const PRESETS = Object.keys(QUALITY);
 const STEPS = [["low", "medium"], ["low", "high"], ["medium", "high"]];
+// Kodak and other lossless PNGs: the whole range where JPEGs shrink at some preset.
+const CURVE_QUALITIES = Array.from({ length: 27 }, (_, i) => 72 + i); // q72–98
+// HEIC photos (12 MP, slow): the bands the real files lack, plus a camera-like q95.
+const HEIC_QUALITIES = [76, 86, 88, 95];
+const parts = new Set((new URLSearchParams(location.search).get("parts") ?? "curve,heic,fixtures").split(","));
 const status = (text) => (document.getElementById("status").textContent = text);
 
 // Same options as recompressMedia in src/lib/ppt/compressPptx.ts; the worker
@@ -49,31 +71,127 @@ const keepSmaller = (original, candidate) =>
   candidate.length < original.length ? candidate : original;
 const isIndexedPng = (bytes) => bytes[25] === 3; // IHDR colour type
 
-async function collectImages() {
-  const names = await (await fetch("/fixtures")).json();
-  const seen = new Map();
-  const add = async (source, path, bytes) => {
-    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-1", bytes)))
-      .map((b) => b.toString(16).padStart(2, "0")).join("");
-    if (seen.has(hash)) return;
-    const kind = /\.png$/i.test(path) ? "png" : "jpeg";
-    const quality = kind === "jpeg" ? estimateJpegQuality(bytes) : null;
-    seen.set(hash, { source, path, kind, quality, bytes });
+// A fresh JPEG of a lossless original, saved by this browser's canvas.
+async function saveJpeg(bitmap, quality) {
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  canvas.getContext("2d").drawImage(bitmap, 0, 0);
+  const blob = await canvas.convertToBlob({ type: "image/jpeg", quality: quality / 100 });
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+// The MediaSample analyzePptxForCompress (src/lib/ppt/compressPptx.ts) reads.
+const COLOR_COUNT_CAP = Math.ceil(pngColorBudget("low"));
+const MAX_COUNT_PIXELS = 16 * 1024 * 1024;
+async function mediaSample(kind, bytes) {
+  if (kind === "jpeg") {
+    return { kind, bytes: bytes.length, quality: estimateJpegQuality(bytes), fullChroma: jpegKeepsFullChroma(bytes) };
+  }
+  const header = readPngHeader(bytes);
+  const palette = header?.colorType === 3;
+  let counted = null;
+  if (header && !palette && header.width * header.height <= MAX_COUNT_PIXELS) {
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+    const ctx = new OffscreenCanvas(bitmap.width, bitmap.height).getContext("2d");
+    ctx.drawImage(bitmap, 0, 0);
+    counted = countColors(ctx.getImageData(0, 0, bitmap.width, bitmap.height).data, COLOR_COUNT_CAP);
+    bitmap.close();
+  }
+  const hasAlpha = header?.colorType === 4 || header?.colorType === 6;
+  return {
+    kind,
+    bytes: bytes.length,
+    palette,
+    colors: counted?.colors ?? null,
+    unusedAlpha: hasAlpha && (counted?.opaque ?? false),
+  };
+}
+
+// The model's ratio for one image alone: the estimate of a "deck" that is
+// only this image (null means it keeps its size).
+const modelRatio = (sample, preset) =>
+  (estimatePptxSize(sample.bytes, [sample], preset) ?? sample.bytes) / sample.bytes;
+
+// Fresh JPEGs of each lossless original at each quality, re-encoded at each preset.
+async function measureLossless(set, sources, qualities, decode, out) {
+  for (const [i, src] of sources.entries()) {
+    status(`${set} ${i + 1}/${sources.length}: ${src}`);
+    const bitmap = await decode(src);
+    for (const q of qualities) {
+      const jpeg = await saveJpeg(bitmap, q);
+      const sample = await mediaSample("jpeg", jpeg);
+      for (const preset of PRESETS) {
+        const after = keepSmaller(jpeg, await encode(jpeg, "image/jpeg", QUALITY[preset])).length;
+        out.push({ set, source: src, q, read: sample.quality, preset, before: jpeg.length, after, model: modelRatio(sample, preset) });
+      }
+    }
+    bitmap.close();
+  }
+}
+
+async function hash(bytes) {
+  return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-1", bytes)))
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// One real-file image: its sample, and what each preset (fresh and re-run) leaves.
+async function measureImage(kind, bytes) {
+  const mime = kind === "png" ? "image/png" : "image/jpeg";
+  const sample = await mediaSample(kind, bytes);
+  const once = {};
+  for (const preset of PRESETS) {
+    once[preset] = keepSmaller(bytes, await encode(bytes, mime, QUALITY[preset]));
+  }
+  const rerun = {}; // "W → P": { sample of W's output, size after P, counted in stats }
+  for (const [weak, strong] of STEPS) {
+    const first = once[weak];
+    const unchanged = first === bytes;
+    const second = unchanged ? once[strong] : keepSmaller(first, await encode(first, mime, QUALITY[strong]));
+    rerun[`${weak} → ${strong}`] = {
+      sample: unchanged ? sample : await mediaSample(kind, first),
+      before: first.length,
+      after: second.length,
+      counted: !unchanged && !(kind === "png" && isIndexedPng(first)),
+    };
+  }
+  return {
+    kind,
+    sample,
+    fresh: Object.fromEntries(PRESETS.map((p) => [p, once[p].length])),
+    rerun,
+  };
+}
+
+async function measureFixtures(names) {
+  const images = new Map(); // hash → measured image
+  const decks = []; // { name, totalSize, hashes }
+  const loose = []; // { name, hash }
+  const add = async (label, kind, bytes) => {
+    const key = await hash(bytes);
+    if (!images.has(key)) {
+      status(`Real files: ${label} (${kind}, ${Math.round(bytes.length / 1024)} KB)`);
+      images.set(key, { label, ...(await measureImage(kind, bytes)) });
+    }
+    return key;
   };
   for (const name of names) {
+    if (/\.heic$/i.test(name)) continue;
     const data = await (await fetch("/fixtures/" + encodeURIComponent(name))).arrayBuffer();
     if (!/\.pptx$/i.test(name)) {
-      await add(name, name, new Uint8Array(data));
+      const kind = /\.png$/i.test(name) ? "png" : "jpeg";
+      loose.push({ name, hash: await add(name, kind, new Uint8Array(data)) });
       continue;
     }
     const zip = await JSZip.loadAsync(data);
+    const hashes = [];
     for (const path of Object.keys(zip.files)) {
-      if (/^ppt\/media\/.+\.(png|jpe?g)$/i.test(path)) {
-        await add(name, path, await zip.files[path].async("uint8array"));
-      }
+      const m = /^ppt\/media\/.+\.(png|jpe?g)$/i.exec(path);
+      if (!m) continue;
+      const kind = /png/i.test(m[1]) ? "png" : "jpeg";
+      hashes.push(await add(`${name}:${path}`, kind, await zip.files[path].async("uint8array")));
     }
+    decks.push({ name, totalSize: data.byteLength, hashes });
   }
-  return { sources: names.length, images: [...seen.values()] };
+  return { images, decks, loose };
 }
 
 // Fresh JPEGs are grouped by the quality they were saved at.
@@ -85,68 +203,173 @@ function qualityBand(q) {
   return "q90+";
 }
 
-async function measure() {
-  const { sources, images } = await collectImages();
-  const rows = []; // { kind, step, quality, before, after, source, path }
-  const skipped = {};
-  for (const [i, img] of images.entries()) {
-    status(`Image ${i + 1}/${images.length} (${img.kind}, ${Math.round(img.bytes.length / 1024)} KB)`);
-    const mime = img.kind === "png" ? "image/png" : "image/jpeg";
-    const once = {};
-    for (const [preset, quality] of Object.entries(QUALITY)) {
-      once[preset] = keepSmaller(img.bytes, await encode(img.bytes, mime, quality));
-      const from = img.kind === "jpeg" ? `fresh ${qualityBand(img.quality)}` : "fresh";
-      rows.push({ kind: img.kind, step: `${from} → ${preset}`, quality: img.quality, before: img.bytes.length, after: once[preset].length, source: img.source, path: img.path });
-    }
-    for (const [weak, strong] of STEPS) {
-      const step = `${weak} → ${strong}`;
-      const first = once[weak];
-      if (first === img.bytes || (img.kind === "png" && isIndexedPng(first))) {
-        const key = `${img.kind} ${step}`;
-        skipped[key] = (skipped[key] ?? 0) + 1;
-        continue;
-      }
-      const second = keepSmaller(first, await encode(first, mime, QUALITY[strong]));
-      rows.push({ kind: img.kind, step, quality: img.quality, before: first.length, after: second.length, source: img.source, path: img.path });
-    }
-  }
-  return { sources, images: images.length, rows, skipped };
+const round = (x) => Math.round(x * 1000) / 1000;
+function stats(pairs) {
+  const ratios = pairs.map((r) => r.after / r.before).sort((a, b) => a - b);
+  const mid = ratios.length >> 1;
+  return {
+    n: pairs.length,
+    min: round(ratios[0]),
+    median: round(ratios.length % 2 ? ratios[mid] : (ratios[mid - 1] + ratios[mid]) / 2),
+    max: round(ratios[ratios.length - 1]),
+    weighted: round(pairs.reduce((s, r) => s + r.after, 0) / pairs.reduce((s, r) => s + r.before, 0)),
+  };
 }
-
-function summarize(rows) {
+function groupBy(rows, keyOf) {
   const groups = new Map();
   for (const r of rows) {
-    const key = `${r.kind} ${r.step}`;
+    const key = keyOf(r);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(r);
   }
-  const round = (x) => Math.round(x * 1000) / 1000;
-  return [...groups].map(([key, rs]) => {
-    const ratios = rs.map((r) => r.after / r.before).sort((a, b) => a - b);
-    const mid = ratios.length >> 1;
-    const median = ratios.length % 2 ? ratios[mid] : (ratios[mid - 1] + ratios[mid]) / 2;
-    return {
-      key,
-      n: rs.length,
-      unchanged: ratios.filter((x) => x >= 1).length,
-      min: round(ratios[0]),
-      median: round(median),
-      max: round(ratios[ratios.length - 1]),
-      weighted: round(rs.reduce((s, r) => s + r.after, 0) / rs.reduce((s, r) => s + r.before, 0)),
-    };
-  });
+  return groups;
 }
 
-measure().then((result) => {
-  const summary = summarize(result.rows);
-  window.__results = { ...result, summary };
-  status(`Done: ${result.images} unique images from ${result.sources} files. Skipped: ${JSON.stringify(result.skipped)}`);
-  const cols = ["key", "n", "unchanged", "min", "median", "max", "weighted"];
-  document.getElementById("out").innerHTML =
-    `<table><tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr>` +
-    summary.sort((a, b) => a.key.localeCompare(b.key)).map((s) => `<tr>${cols.map((c) => `<td>${s[c]}</td>`).join("")}</tr>`).join("") +
+// Fresh-JPEG curve: one row per set × quality × preset, with the model's ratio.
+function curveTable(rows) {
+  return [...groupBy(rows, (r) => `${r.set} q${r.q} → ${r.preset}`)].map(([key, rs]) => ({
+    key,
+    set: rs[0].set,
+    q: rs[0].q,
+    read: [...new Set(rs.map((r) => r.read))].join("/"),
+    preset: rs[0].preset,
+    ...stats(rs),
+    model: round(rs.reduce((s, r) => s + r.model * r.before, 0) / rs.reduce((s, r) => s + r.before, 0)),
+  }));
+}
+
+// Real-file image stats, as before: fresh by source-quality band, and re-run steps.
+function imageTable(images) {
+  const rows = [];
+  for (const img of images.values()) {
+    for (const p of PRESETS) {
+      const from = img.kind === "jpeg" ? `fresh ${qualityBand(img.sample.quality)}` : "fresh";
+      rows.push({ key: `${img.kind} ${from} → ${p}`, before: img.sample.bytes, after: img.fresh[p] });
+    }
+    for (const [step, r] of Object.entries(img.rerun)) {
+      if (r.counted) rows.push({ key: `${img.kind} ${step}`, before: r.before, after: r.after });
+    }
+  }
+  return [...groupBy(rows, (r) => r.key)].map(([key, rs]) => ({ key, ...stats(rs) }));
+}
+
+// Each real fresh JPEG on its own: measured vs model ratio per preset.
+function jpegTable(images) {
+  return [...images.values()]
+    .filter((img) => img.kind === "jpeg")
+    .sort((a, b) => (a.sample.quality ?? 0) - (b.sample.quality ?? 0))
+    .map((img) => ({
+      key: img.label,
+      q: img.sample.quality,
+      chroma: img.sample.fullChroma ? "4:4:4" : "",
+      kb: Math.round(img.sample.bytes / 1024),
+      ...Object.fromEntries(PRESETS.flatMap((p) => [
+        [p, round(img.fresh[p] / img.sample.bytes)],
+        [`${p} model`, round(modelRatio(img.sample, p))],
+      ])),
+    }));
+}
+
+// 4:4:4 JPEGs at q90+ together: measured over model bytes per preset. 1 means
+// FULL_CHROMA_FACTOR fits; a re-fit factor is the current one times this.
+function fullChromaTable(images) {
+  const jpegs = [...images.values()].filter(
+    (img) => img.kind === "jpeg" && img.sample.fullChroma && img.sample.quality >= 90,
+  );
+  if (jpegs.length === 0) return [];
+  return PRESETS.map((p) => ({
+    key: `4:4:4 q90+ → ${p}`,
+    n: jpegs.length,
+    residual: round(
+      jpegs.reduce((s, img) => s + img.fresh[p], 0) /
+        jpegs.reduce((s, img) => s + modelRatio(img.sample, p) * img.sample.bytes, 0),
+    ),
+  }));
+}
+
+// A deck's estimate against its re-encoded size, fresh and re-run.
+function deckRows(name, totalSize, members) {
+  const rows = [];
+  const add = (step, before, samples, actual) => {
+    const estimate = estimatePptxSize(before, samples, step.split(" → ")[1]);
+    rows.push({
+      key: `${name} ${step}`,
+      mb: round(before / 1e6),
+      estimate: estimate === null ? "~orig" : round(estimate / 1e6),
+      actual: round(actual / 1e6),
+      error: estimate === null ? "" : `${Math.round((estimate / actual - 1) * 100)}%`,
+    });
+  };
+  const sum = (f) => members.reduce((s, m) => s + f(m), 0);
+  for (const p of PRESETS) {
+    add(`fresh → ${p}`, totalSize, members.map((m) => m.sample), totalSize - sum((m) => m.sample.bytes - m.fresh[p]));
+  }
+  for (const [weak, strong] of STEPS) {
+    const step = `${weak} → ${strong}`;
+    const before = totalSize - sum((m) => m.sample.bytes - m.rerun[step].before);
+    add(step, before, members.map((m) => m.rerun[step].sample), before - sum((m) => m.rerun[step].before - m.rerun[step].after));
+  }
+  return rows;
+}
+
+function table(title, rows, cols) {
+  return `<h2>${title}</h2><table><tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr>` +
+    rows.map((r) => `<tr>${cols.map((c) => `<td>${r[c] ?? ""}</td>`).join("")}</tr>`).join("") +
     "</table>";
-}, (error) => status("Failed: " + error));
+}
+
+async function run() {
+  const results = {};
+  const curveRows = [];
+  if (parts.has("curve")) {
+    const names = await (await fetch("/lossless")).json();
+    await measureLossless("lossless", names, CURVE_QUALITIES, async (name) =>
+      createImageBitmap(await (await fetch("/lossless/" + name)).blob()), curveRows);
+  }
+  const fixtureNames = await (await fetch("/fixtures")).json();
+  const heicRows = [];
+  if (parts.has("heic")) {
+    const { heicTo } = await import("/lib/heic-to.js");
+    const heics = fixtureNames.filter((n) => /\.heic$/i.test(n));
+    await measureLossless("heic", heics, HEIC_QUALITIES, async (name) =>
+      heicTo({ blob: await (await fetch("/fixtures/" + encodeURIComponent(name))).blob(), type: "bitmap" }), heicRows);
+    // Hold-out decks: the HEIC photos at one quality, fresh only.
+    results.heicDecks = [...groupBy(heicRows, (r) => r.q)].flatMap(([q, rs]) => PRESETS.map((p) => {
+      const at = rs.filter((r) => r.preset === p);
+      const before = at.reduce((s, r) => s + r.before, 0);
+      const estimate = at.reduce((s, r) => s + r.model * r.before, 0);
+      const actual = at.reduce((s, r) => s + r.after, 0);
+      return { key: `heic q${q} fresh → ${p}`, mb: round(before / 1e6), estimate: round(estimate / 1e6), actual: round(actual / 1e6), error: `${Math.round((estimate / actual - 1) * 100)}%` };
+    }));
+  }
+  results.curve = curveTable([...curveRows, ...heicRows]);
+  if (parts.has("fixtures")) {
+    const { images, decks } = await measureFixtures(fixtureNames);
+    results.images = imageTable(images);
+    results.jpegs = jpegTable(images);
+    results.fullChroma = fullChromaTable(images);
+    results.decks = decks.flatMap((d) => deckRows(d.name, d.totalSize, d.hashes.map((h) => images.get(h))));
+  }
+  return results;
+}
+
+run().then((results) => {
+  window.__results = results;
+  status("Done");
+  const cols = ["key", "n", "min", "median", "max", "weighted"];
+  const deckCols = ["key", "mb", "estimate", "actual", "error"];
+  document.getElementById("out").innerHTML = [
+    results.curve.length && table("Fresh JPEG curve", results.curve, ["key", "read", ...cols.slice(1), "model"]),
+    results.heicDecks && table("HEIC hold-out decks (MB)", results.heicDecks, deckCols),
+    results.images && table("Real-file images", results.images.sort((a, b) => a.key.localeCompare(b.key)), cols),
+    results.jpegs && table("Real-file JPEGs", results.jpegs, ["key", "q", "chroma", "kb", ...PRESETS.flatMap((p) => [p, `${p} model`])]),
+    results.fullChroma && table("4:4:4 JPEGs, measured ÷ model", results.fullChroma, ["key", "n", "residual"]),
+    results.decks && table("Decks (MB)", results.decks, deckCols),
+  ].filter(Boolean).join("");
+}, (error) => {
+  window.__results = { error: String(error) };
+  status("Failed: " + error);
+});
 </script>
 </body>
 </html>

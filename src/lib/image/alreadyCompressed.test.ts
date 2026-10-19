@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { countColors, estimateJpegQuality, ijgTable, readPngHeader } from "./alreadyCompressed";
+import {
+  countColors,
+  estimateJpegQuality,
+  ijgTable,
+  jpegKeepsFullChroma,
+  readPngHeader,
+} from "./alreadyCompressed";
 
 /** A minimal JPEG head: SOI, the given DQT segments, then SOS. */
 function jpeg(...dqts: Uint8Array[]): Uint8Array {
@@ -54,6 +60,33 @@ describe("estimateJpegQuality", () => {
   it("returns null for a truncated table", () => {
     const seg = dqt([0, ijgTable("luma", 70)]).subarray(0, 30);
     expect(estimateJpegQuality(jpeg(seg))).toBeNull();
+  });
+});
+
+describe("jpegKeepsFullChroma", () => {
+  /** A frame header (SOF0, or SOF2 for progressive) with each component's sampling factors. */
+  function sof(factors: [number, number][], marker = 0xc0): Uint8Array {
+    const body = [8, 0, 16, 0, 16, factors.length];
+    factors.forEach(([h, v], i) => body.push(i + 1, (h << 4) | v, i === 0 ? 0 : 1));
+    const length = body.length + 2;
+    return Uint8Array.from([0xff, marker, length >> 8, length & 0xff, ...body]);
+  }
+  const tables = dqt([0, ijgTable("luma", 95)], [1, ijgTable("chroma", 95)]);
+
+  it("is true for a 4:4:4 colour JPEG", () => {
+    expect(jpegKeepsFullChroma(jpeg(tables, sof([[1, 1], [1, 1], [1, 1]])))).toBe(true);
+    expect(jpegKeepsFullChroma(jpeg(tables, sof([[1, 1], [1, 1], [1, 1]], 0xc2)))).toBe(true);
+  });
+
+  it("is false for subsampled chroma (4:2:0, 4:2:2)", () => {
+    expect(jpegKeepsFullChroma(jpeg(tables, sof([[2, 2], [1, 1], [1, 1]])))).toBe(false);
+    expect(jpegKeepsFullChroma(jpeg(tables, sof([[2, 1], [1, 1], [1, 1]])))).toBe(false);
+  });
+
+  it("is false for greyscale, a missing frame header, or a non-JPEG", () => {
+    expect(jpegKeepsFullChroma(jpeg(tables, sof([[1, 1]])))).toBe(false);
+    expect(jpegKeepsFullChroma(jpeg(tables))).toBe(false);
+    expect(jpegKeepsFullChroma(Uint8Array.from([0x89, 0x50, 0x4e, 0x47]))).toBe(false);
   });
 });
 

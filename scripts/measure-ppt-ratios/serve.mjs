@@ -4,21 +4,28 @@
 // (browser-image-compression, from node_modules) and reports how much each
 // preset step leaves.
 //
+// It also encodes lossless originals (PNGs under tests/lossless, e.g. the
+// Kodak suite, and the HEIC fixtures) as fresh JPEGs at a range of qualities,
+// to measure how much a fresh JPEG of each source quality leaves.
+//
 // Run: preview_start "measure-ppt-ratios" (.claude/launch.json), or
-//      node scripts/measure-ppt-ratios/serve.mjs
-// Decks come from tests/fixtures (REAL_FIXTURES_DIR overrides), local-only.
+//      node scripts/measure-ppt-ratios/serve.mjs, or headless with
+//      node scripts/measure-ppt-ratios/run-headless.mjs
+// Decks come from tests/fixtures (REAL_FIXTURES_DIR overrides), lossless
+// originals from tests/lossless (LOSSLESS_DIR overrides); both local-only.
 // The dev server's tool pages (localhost, any port) may also fetch a deck from
 // /fixtures/<name> to check an estimate against a real compression.
 
 import { createServer } from "node:http";
 import { stripTypeScriptTypes } from "node:module";
 import { readFile, readdir } from "node:fs/promises";
-import { resolve, join, basename } from "node:path";
+import { resolve, join, basename, relative, sep, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const root = resolve(here, "../..");
 const fixtures = process.env.REAL_FIXTURES_DIR ?? join(root, "tests/fixtures");
+const lossless = resolve(process.env.LOSSLESS_DIR ?? join(root, "tests/lossless"));
 const PORT = 4310;
 
 const files = {
@@ -28,6 +35,7 @@ const files = {
     "text/javascript",
   ],
   "/lib/jszip.js": [join(root, "node_modules/jszip/dist/jszip.min.js"), "text/javascript"],
+  "/lib/heic-to.js": [join(root, "node_modules/heic-to/dist/heic-to.js"), "text/javascript"],
 };
 
 // The page reads JPEG quality and the preset qualities from the estimator's
@@ -48,21 +56,39 @@ createServer(async (req, res) => {
       res.writeHead(200, { "content-type": "text/javascript" });
       res.end(stripTypeScriptTypes(await readFile(modules[path], "utf8")));
     } else if (path === "/fixtures") {
-      // Decks, plus loose images as they would sit in a deck.
-      const names = (await readdir(fixtures)).filter((n) => /\.(pptx|png|jpe?g)$/i.test(n));
+      // Decks, loose images as they would sit in a deck, and HEIC originals.
+      const names = (await readdir(fixtures)).filter((n) => /\.(pptx|png|jpe?g|heic)$/i.test(n));
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(names));
+    } else if (path === "/lossless") {
+      // Lossless PNG originals, nested folders included (one per set).
+      const names = (await readdir(lossless, { recursive: true }))
+        .filter((n) => /\.png$/i.test(n))
+        .map((n) => n.split(sep).join("/"))
+        .sort();
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(names));
+    } else if (path.startsWith("/lossless/")) {
+      const file = resolve(lossless, path.slice("/lossless/".length));
+      // Keep the request inside the lossless folder (another drive or a UNC
+      // path comes back absolute on Windows).
+      const inside = relative(lossless, file);
+      if (inside.startsWith("..") || isAbsolute(inside)) return void res.writeHead(404).end();
+      const bytes = await readFile(file); // before the headers, so a miss can still 500
+      res.writeHead(200, { "content-type": "image/png" });
+      res.end(bytes);
     } else if (path.startsWith("/fixtures/")) {
       // basename() keeps the request inside the fixtures folder.
       const name = basename(path.slice("/fixtures/".length));
       // Any local dev server port: next dev moves off 3000 when it is taken.
       const origin = req.headers.origin ?? "";
       const local = /^http:\/\/localhost:\d+$/.test(origin);
+      const bytes = await readFile(join(fixtures, name)); // before the headers, so a miss can still 500
       res.writeHead(200, {
         "content-type": "application/octet-stream",
         ...(local && { "access-control-allow-origin": origin }),
       });
-      res.end(await readFile(join(fixtures, name)));
+      res.end(bytes);
     } else {
       res.writeHead(404).end();
     }

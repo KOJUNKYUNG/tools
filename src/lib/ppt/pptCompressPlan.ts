@@ -67,14 +67,80 @@ export function deriveCompressedName(originalName: string): string {
 }
 
 /**
- * Fraction of JPEG bytes left after re-encoding at each preset. Lossy, so the
- * quality knob (preset) has a real effect here.
+ * Fraction of JPEG bytes left after re-encoding at each preset, for a JPEG
+ * whose save quality cannot be read. Otherwise `JPEG_RATIO_BY_QUALITY`
+ * decides.
  */
-export const PRESET_JPEG_RATIO: Record<CompressionPreset, number> = {
+const PRESET_JPEG_RATIO: Record<CompressionPreset, number> = {
   low: 0.78,
   medium: 0.58,
   high: 0.42,
 };
+
+/**
+ * Fraction of a JPEG's bytes left after re-encoding at each preset, by the
+ * quality it was saved at, whether a fresh JPEG or the engine's own output:
+ * [quality, ratio] points, joined by straight lines and held flat past the
+ * last. Measured with scripts/measure-ppt-ratios (browser-image-compression
+ * 2.0.2, Chrome, 2026-10-19) on the 24 Kodak photos saved by Chrome at each
+ * quality (byte-weighted, n=24 per point; each point's images spread within
+ * ±0.08 at low, ±0.06 at medium, ±0.07 at high). The curve steps where one
+ * quantization table divides into the other: iPhone photos (HEIC hold-out,
+ * n=6) step the same way and land within 0.04 at q76/86/88/95. Odd
+ * qualities, measured too, sit between their neighbours: the straight line
+ * misses them by at most 0.033 (medium q85).
+ *
+ * At the presets' qualities, q70 and q82, the points are the re-run ratios
+ * measured on the engine's own output (#81: real-file images, n=21, which
+ * shrank like Kodak's within 0.02); that leaves high flat from q82 to q84.
+ * Below the first point each curve rises to 1 where a JPEG already counts as
+ * compressed (see `jpegRatioAt`). Every point was measured at the current
+ * `PRESET_QUALITY`; change a preset's quality and re-measure the whole curve.
+ */
+const JPEG_RATIO_BY_QUALITY: Record<CompressionPreset, readonly (readonly [number, number])[]> = {
+  low: [[86, 0.942], [88, 0.885], [90, 0.836], [92, 0.626], [94, 0.549], [96, 0.443], [98, 0.354]],
+  medium: [
+    [74, 0.97], [76, 0.96], [78, 0.919], [80, 0.888], [82, 0.86], [84, 0.823], [86, 0.609],
+    [88, 0.55], [90, 0.525], [92, 0.501], [94, 0.404], [96, 0.331], [98, 0.26],
+  ],
+  high: [
+    [70, 0.89], [74, 0.85], [76, 0.835], [78, 0.645], [80, 0.546], [82, 0.51], [84, 0.514],
+    [86, 0.501], [88, 0.471], [90, 0.394], [92, 0.373], [94, 0.312], [96, 0.253], [98, 0.2],
+  ],
+};
+
+/**
+ * What a 4:4:4 JPEG leaves against the curve, which was measured on 4:2:0
+ * sources: the engine writes 4:2:0, so it also drops three quarters of the
+ * chroma. Byte-weighted over the real-file 4:4:4 JPEGs, all saved at q95
+ * (n=11: ten photos from one deck and one download; per image 0.53–0.95 at
+ * low, 0.40–0.96 at medium, 0.32–0.98 at high), so it applies from q90 up
+ * only. Below that a 4:4:4 JPEG gets the curve alone, which can only
+ * under-promise. The measurement page lists these JPEGs with their ratios.
+ */
+const FULL_CHROMA_FACTOR: Record<CompressionPreset, number> = {
+  low: 0.81,
+  medium: 0.77,
+  high: 0.74,
+};
+const FULL_CHROMA_MIN_QUALITY = 90;
+
+/**
+ * The curve's ratio at `quality`: 1 up to where a JPEG already counts as
+ * compressed at `preset`, then linear between points, flat past the last.
+ */
+function jpegRatioAt(quality: number, preset: CompressionPreset): number {
+  const curve: readonly (readonly [number, number])[] = [
+    [PRESET_QUALITY[preset] * 100 + JPEG_QUALITY_MARGIN, 1],
+    ...JPEG_RATIO_BY_QUALITY[preset],
+  ];
+  const next = curve.findIndex(([q]) => q >= quality);
+  if (next === -1) return curve[curve.length - 1][1];
+  if (next === 0) return curve[0][1];
+  const [q0, r0] = curve[next - 1];
+  const [q1, r1] = curve[next];
+  return r0 + ((r1 - r0) * (quality - q0)) / (q1 - q0);
+}
 
 /**
  * Fraction of PNG bytes left after re-encoding at each preset. The re-encode
@@ -82,6 +148,11 @@ export const PRESET_JPEG_RATIO: Record<CompressionPreset, number> = {
  * does shrink more, but only a little: measured with browser-image-compression
  * 2.0.2 on the 31 PNGs of the real-file decks (2026-10), with each image kept
  * when its candidate is no smaller, as the engine does.
+ *
+ * Re-measured on 85 PNGs (2026-10-19): byte-weighted 0.50 / 0.48 / 0.46,
+ * median 0.82 / 0.80 / 0.76, per image 0.22–1.00. Bimodal, so a deck's mix
+ * decides how far off these are; kept as they are until a signal separates
+ * the two groups.
  */
 export const PRESET_PNG_RATIO: Record<CompressionPreset, number> = {
   low: 0.64,
@@ -113,6 +184,8 @@ export type MediaSample =
       bytes: number;
       /** Estimated save quality (1–100) from its quantization tables; null if unreadable. */
       quality: number | null;
+      /** Colour stored without chroma subsampling (4:4:4). */
+      fullChroma: boolean;
     }
   | {
       kind: "png";
@@ -149,8 +222,9 @@ const JPEG_QUALITY_MARGIN = 2;
  * indexed, or already within the preset's colour budget (the engine's own
  * output has at most that many colours but stays truecolour). Such an image
  * is expected to keep its size, since the engine keeps the original when the
- * re-encode is no smaller (#78). Compared against the chosen preset only; an
- * image saved at a weaker preset is `savedAtWeakerPreset`.
+ * re-encode is no smaller (#78). Compared against the chosen preset only: a
+ * JPEG saved at a weaker preset follows `JPEG_RATIO_BY_QUALITY`, and a PNG
+ * within a weaker preset's budget is `savedAtWeakerPreset`.
  */
 export function looksAlreadyCompressed(media: MediaSample, preset: CompressionPreset): boolean {
   if (media.kind === "png") return media.palette || pngWithinBudget(media, preset);
@@ -185,71 +259,62 @@ const WEAKER_PRESETS: Record<CompressionPreset, readonly CompressionPreset[]> = 
 };
 
 /**
- * Fraction of bytes left when an image saved at a weaker preset (the inner
- * key) is re-run at a stronger one (the outer key). Re-encoding an image
- * already quantized at a nearby quality saves far less than the fresh ratio
- * (#81). Byte-weighted means over the real-file images, measured with
+ * Fraction of a PNG's bytes left when a PNG saved at a weaker preset (the
+ * inner key) is re-run at a stronger one (the outer key). Re-quantizing a PNG
+ * already within a nearby colour budget saves far less than the fresh ratio
+ * (#81). Byte-weighted means over the real-file PNGs (n=72), measured with
  * scripts/measure-ppt-ratios (browser-image-compression 2.0.2, Chrome,
  * 2026-10-19); re-run it when the fixtures change:
  *
- *   step            JPEG (n=21)          PNG (n=72)
- *   low → medium    0.86 (0.82–0.98)     0.97 (0.95–1.00)
- *   low → high      0.51 (0.25–0.87)     0.92 (0.89–1.00)
- *   medium → high   0.89 (0.86–0.93)     0.95 (0.93–1.00)
+ *   low → medium    0.97 (0.95–1.00)
+ *   low → high      0.92 (0.89–1.00)
+ *   medium → high   0.95 (0.93–1.00)
  *
- * JPEG low → high spreads widely, so a deck of mostly small images can still
- * miss it. Fresh JPEGs saved at q80–84 shrank like the engine's own low
- * output (0.855 vs 0.864 at medium, n=4), so a JPEG near a preset's quality
- * counts as that preset's output whatever made it.
+ * A JPEG needs no such table: `JPEG_RATIO_BY_QUALITY` covers the engine's own
+ * output at each preset's quality.
  */
-const RERUN_RATIO: Record<
-  MediaSample["kind"],
-  Record<CompressionPreset, Partial<Record<CompressionPreset, number>>>
-> = {
-  jpeg: { low: {}, medium: { low: 0.86 }, high: { low: 0.51, medium: 0.89 } },
-  png: { low: {}, medium: { low: 0.97 }, high: { low: 0.92, medium: 0.95 } },
+const PNG_RERUN_RATIO: Record<CompressionPreset, Partial<Record<CompressionPreset, number>>> = {
+  low: {},
+  medium: { low: 0.97 },
+  high: { low: 0.92, medium: 0.95 },
 };
 
 /**
- * The weaker preset whose output `media` looks like, or null: a JPEG saved
- * within the margin of that preset's quality, or a PNG within that preset's
- * colour budget. Only meaningful for an image that does not already look
- * compressed at `preset`, so the PNG is over `preset`'s budget and not indexed.
+ * The strongest weaker preset (the tightest budget) whose colour budget
+ * `media` already fits, or null. Only meaningful for a PNG that does not
+ * already look compressed at `preset`, so it is over `preset`'s budget and
+ * not indexed.
  */
 function savedAtWeakerPreset(
-  media: MediaSample,
+  media: Extract<MediaSample, { kind: "png" }>,
   preset: CompressionPreset,
 ): CompressionPreset | null {
-  for (const weaker of WEAKER_PRESETS[preset]) {
-    if (media.kind === "jpeg") {
-      const quality = PRESET_QUALITY[weaker] * 100;
-      if (media.quality !== null && Math.abs(media.quality - quality) <= JPEG_QUALITY_MARGIN) {
-        return weaker;
-      }
-    } else if (pngWithinBudget(media, weaker)) {
-      return weaker;
-    }
-  }
-  return null;
+  return WEAKER_PRESETS[preset].find((weaker) => pngWithinBudget(media, weaker)) ?? null;
 }
 
 /** Fraction of `media`'s bytes expected to be left after compressing at `preset`. */
 function remainingRatio(media: MediaSample, preset: CompressionPreset): number {
   if (looksAlreadyCompressed(media, preset)) return 1;
+  if (media.kind === "jpeg") {
+    if (media.quality === null) return PRESET_JPEG_RATIO[preset];
+    const ratio = jpegRatioAt(media.quality, preset);
+    return media.fullChroma && media.quality >= FULL_CHROMA_MIN_QUALITY
+      ? ratio * FULL_CHROMA_FACTOR[preset]
+      : ratio;
+  }
   const weaker = savedAtWeakerPreset(media, preset);
-  const rerun = weaker === null ? undefined : RERUN_RATIO[media.kind][preset][weaker];
-  if (rerun !== undefined) return rerun;
-  return media.kind === "jpeg" ? PRESET_JPEG_RATIO[preset] : PRESET_PNG_RATIO[preset];
+  return (weaker && PNG_RERUN_RATIO[preset][weaker]) ?? PRESET_PNG_RATIO[preset];
 }
 
 /**
  * Estimate the compressed file size, or null when too little of the deck can
  * shrink for a number to mean anything (the UI says "about the original
- * size"). Fresh JPEG and PNG bytes each shrink by their own preset ratio,
- * images saved at a weaker preset by their re-run ratio; already compressed
- * images and everything else are unchanged. The result is not
- * pulled into the static range: on a deck that is mostly not images, that
- * would promise savings the images cannot deliver (#81).
+ * size"). JPEG bytes shrink by what their save quality leaves at the preset
+ * (one curve for fresh JPEGs and the engine's own output alike), PNG bytes
+ * by the preset's ratio, or by the re-run ratio when saved at a weaker
+ * preset; already compressed images and everything else are unchanged. The
+ * result is not pulled into the static range: on a deck that is mostly not
+ * images, that would promise savings the images cannot deliver (#81).
  *
  * Splitting JPEG vs PNG matters: a PNG-dominated deck barely changes between
  * presets in reality, so a single blended ratio would over-promise on "high"

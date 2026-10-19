@@ -80,7 +80,13 @@ describe("deriveCompressedName", () => {
   });
 });
 
-const freshJpeg = (bytes: number) => ({ kind: "jpeg" as const, bytes, quality: 95 });
+const jpegAt = (bytes: number, quality: number | null, fullChroma = false) => ({
+  kind: "jpeg" as const,
+  bytes,
+  quality,
+  fullChroma,
+});
+const freshJpeg = (bytes: number) => jpegAt(bytes, 95);
 const freshPng = (bytes: number) => ({
   kind: "png" as const,
   bytes,
@@ -90,10 +96,13 @@ const freshPng = (bytes: number) => ({
 });
 
 describe("estimatePptxSize", () => {
-  it("shrinks JPEG bytes by the preset-dependent ratio", () => {
-    // 1000 total, 800 jpeg, 0 png, medium jpeg ratio 0.58
-    // (1000-800) + 800*0.58 = 200 + 464 = 664, under static upper (900)
-    expect(estimatePptxSize(1000, [freshJpeg(800)], "medium")).toBe(664);
+  it("shrinks a fresh JPEG by what its source quality leaves at the preset", () => {
+    // q95 sits midway between the measured q94 and q96 points:
+    // low (0.549+0.443)/2 = 0.496, medium (0.404+0.331)/2 = 0.3675,
+    // high (0.312+0.253)/2 = 0.2825; 200 untouched + 800 * ratio
+    expect(estimatePptxSize(1000, [freshJpeg(800)], "low")).toBeCloseTo(596.8);
+    expect(estimatePptxSize(1000, [freshJpeg(800)], "medium")).toBeCloseTo(494);
+    expect(estimatePptxSize(1000, [freshJpeg(800)], "high")).toBeCloseTo(426);
   });
   it("shrinks PNG bytes a little more at each stronger preset", () => {
     // png ratios low 0.64, medium 0.62, high 0.59; (1000-800) + 800*ratio
@@ -101,10 +110,17 @@ describe("estimatePptxSize", () => {
     expect(estimatePptxSize(1000, [freshPng(800)], "medium")).toBe(696);
     expect(estimatePptxSize(1000, [freshPng(800)], "high")).toBe(672);
   });
+  it("shrinks a 4:4:4 JPEG further, as re-encoding drops its full-resolution chroma", () => {
+    // q95 4:4:4 at medium: 0.3675 * 0.77 (real 4:4:4 q95 photos, n=11);
+    // 200 + 800 * 0.282975
+    expect(estimatePptxSize(1000, [jpegAt(800, 95, true)], "medium")).toBeCloseTo(426.38);
+    // below q90 nothing was measured, so the curve alone: q86 at medium 0.609
+    expect(estimatePptxSize(1000, [jpegAt(800, 86, true)], "medium")).toBeCloseTo(687.2);
+  });
   it("promises no more than the images can shrink when they are a small share", () => {
-    // 5% jpeg share at high: 950 untouched + 50*0.42 = 971 (not the 800 the
-    // static range would suggest)
-    expect(estimatePptxSize(1000, [freshJpeg(50)], "high")).toBe(971);
+    // 5% jpeg share at high: 950 untouched + 50*0.2825 ≈ 964 (not the 800
+    // the static range would suggest)
+    expect(estimatePptxSize(1000, [freshJpeg(50)], "high")).toBeCloseTo(964.125);
   });
   it("gives no number when too little of the deck can shrink", () => {
     // 1% image share is under every preset's cutoff
@@ -116,14 +132,14 @@ describe("estimatePptxSize", () => {
   describe("an already compressed image", () => {
     it("is a JPEG saved at or near the preset's quality or lower", () => {
       // medium re-encodes at 70; within the 2-point margin counts
-      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 70 }, "medium")).toBe(true);
-      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 72 }, "medium")).toBe(true);
-      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 73 }, "medium")).toBe(false);
+      expect(looksAlreadyCompressed(jpegAt(1, 70), "medium")).toBe(true);
+      expect(looksAlreadyCompressed(jpegAt(1, 72), "medium")).toBe(true);
+      expect(looksAlreadyCompressed(jpegAt(1, 73), "medium")).toBe(false);
       // a fresh q85 export still shrinks at light (82)
-      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: 85 }, "low")).toBe(false);
+      expect(looksAlreadyCompressed(jpegAt(1, 85), "low")).toBe(false);
     });
     it("is not assumed when a JPEG's quality cannot be read", () => {
-      expect(looksAlreadyCompressed({ kind: "jpeg", bytes: 1, quality: null }, "high")).toBe(false);
+      expect(looksAlreadyCompressed(jpegAt(1, null), "high")).toBe(false);
     });
     it("is an indexed (palette) PNG", () => {
       const png = { ...freshPng(1), palette: true };
@@ -147,21 +163,27 @@ describe("estimatePptxSize", () => {
     });
 
     it("is expected to keep its size", () => {
-      // 600 fresh jpeg + 300 jpeg already at q70: 100 + 600*0.58 + 300 = 748
-      const media = [freshJpeg(600), { kind: "jpeg" as const, bytes: 300, quality: 70 }];
-      expect(estimatePptxSize(1000, media, "medium")).toBe(748);
+      // 600 fresh q95 jpeg + 300 jpeg already at q70: 100 + 600*0.3675 + 300 = 620.5
+      const media = [freshJpeg(600), jpegAt(300, 70)];
+      expect(estimatePptxSize(1000, media, "medium")).toBeCloseTo(620.5);
     });
     it("shrinks only a little when it was saved at a weaker preset and re-run stronger", () => {
       // a deck compressed at medium (JPEGs at q70), re-run at high:
       // 900 * 0.89 + 100 = 901, not 900 * 0.42 + 100 = 478
-      const media = [{ kind: "jpeg" as const, bytes: 900, quality: 70 }];
+      const media = [jpegAt(900, 70)];
       expect(estimatePptxSize(1000, media, "high")).toBeCloseTo(901);
     });
     it("re-run from low shrinks by the measured step to the chosen preset", () => {
-      // JPEGs at q82 (low, or any q80–84 export): medium 0.86, high 0.51
-      const media = [{ kind: "jpeg" as const, bytes: 900, quality: 83 }];
+      // JPEGs at q82 (low's own output): medium 0.86, high 0.51
+      const media = [jpegAt(900, 82)];
       expect(estimatePptxSize(1000, media, "medium")).toBeCloseTo(874);
       expect(estimatePptxSize(1000, media, "high")).toBeCloseTo(559);
+    });
+    it("a JPEG near a preset's quality follows the same curve, not a band", () => {
+      // q80 leaves high 0.546 (measured), not low's re-run 0.51:
+      // 100 + 900*0.546
+      const media = [jpegAt(900, 80)];
+      expect(estimatePptxSize(1000, media, "high")).toBeCloseTo(591.4);
     });
     it("re-run PNG shrinks by the step from the tightest weaker budget it fits", () => {
       // budgets: low 3359, medium 2867; high re-runs at 2252
@@ -170,13 +192,16 @@ describe("estimatePptxSize", () => {
       expect(estimatePptxSize(1000, png(3000), "high")).toBeCloseTo(928); // low → high 0.92
       expect(estimatePptxSize(1000, png(2500), "high")).toBeCloseTo(955); // medium → high 0.95
     });
-    it("a JPEG between presets' qualities still gets the fresh ratio", () => {
-      // q76 is neither medium's 70 nor low's 82: 100 + 900*0.42 = 478
-      const media = [{ kind: "jpeg" as const, bytes: 900, quality: 76 }];
-      expect(estimatePptxSize(1000, media, "high")).toBeCloseTo(478);
+    it("a JPEG between presets' qualities shrinks only as far as its quality allows", () => {
+      // q76 is neither medium's 70 nor low's 82, and leaves medium 0.96,
+      // high 0.835 (a KakaoTalk q75 photo kept 0.91 / 0.75), not the 0.58 /
+      // 0.42 a q95 photo would: 100 + 900 * ratio
+      const media = [jpegAt(900, 76)];
+      expect(estimatePptxSize(1000, media, "medium")).toBeCloseTo(964);
+      expect(estimatePptxSize(1000, media, "high")).toBeCloseTo(851.5);
     });
     it("gives no number when every image is already compressed", () => {
-      const media = [{ kind: "jpeg" as const, bytes: 900, quality: 70 }];
+      const media = [jpegAt(900, 70)];
       expect(estimatePptxSize(1000, media, "medium")).toBeNull();
     });
   });

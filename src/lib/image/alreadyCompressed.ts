@@ -34,10 +34,17 @@ const IJG_SUMS = Array.from({ length: 100 }, (_, i) => {
   return { quality: i + 1, luma, lumaPlusChroma: luma + sum(ijgTable("chroma", i + 1)) };
 });
 
-/** The quantization tables (id → 64 values) defined before the first scan. */
-function readQuantTables(bytes: Uint8Array): Map<number, number[]> | null {
+interface Segment {
+  marker: number;
+  /** First byte after the length field. */
+  start: number;
+  end: number;
+}
+
+/** The marker segments before the first scan; null when the bytes break off or are not a JPEG. */
+function readSegments(bytes: Uint8Array): Segment[] | null {
   if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
-  const tables = new Map<number, number[]>();
+  const segments: Segment[] = [];
   let at = 2;
   while (at + 1 < bytes.length) {
     if (bytes[at] !== 0xff) return null;
@@ -53,23 +60,51 @@ function readQuantTables(bytes: Uint8Array): Map<number, number[]> | null {
     if (marker === 0xda || at + 4 > bytes.length) break; // start of scan
     const end = at + 2 + ((bytes[at + 2] << 8) | bytes[at + 3]);
     if (end > bytes.length) return null;
-    if (marker === 0xdb) {
-      // DQT: one or more tables, each Pq/Tq then 64 values of 1 or 2 bytes.
-      for (let p = at + 4; p < end; ) {
-        const wide = bytes[p] >> 4 === 1;
-        const id = bytes[p] & 0x0f;
-        const size = wide ? 128 : 64;
-        if (p + 1 + size > end) return null;
-        const values = Array.from({ length: 64 }, (_, i) =>
-          wide ? (bytes[p + 1 + 2 * i] << 8) | bytes[p + 2 + 2 * i] : bytes[p + 1 + i],
-        );
-        tables.set(id, values);
-        p += 1 + size;
-      }
-    }
+    segments.push({ marker, start: at + 4, end });
     at = end;
   }
+  return segments;
+}
+
+/** The quantization tables (id → 64 values) defined before the first scan. */
+function readQuantTables(bytes: Uint8Array): Map<number, number[]> | null {
+  const segments = readSegments(bytes);
+  if (!segments) return null;
+  const tables = new Map<number, number[]>();
+  for (const { start, end } of segments.filter((s) => s.marker === 0xdb)) {
+    // DQT: one or more tables, each Pq/Tq then 64 values of 1 or 2 bytes.
+    for (let p = start; p < end; ) {
+      const wide = bytes[p] >> 4 === 1;
+      const id = bytes[p] & 0x0f;
+      const size = wide ? 128 : 64;
+      if (p + 1 + size > end) return null;
+      const values = Array.from({ length: 64 }, (_, i) =>
+        wide ? (bytes[p + 1 + 2 * i] << 8) | bytes[p + 2 + 2 * i] : bytes[p + 1 + i],
+      );
+      tables.set(id, values);
+      p += 1 + size;
+    }
+  }
   return tables;
+}
+
+/**
+ * Whether a colour JPEG stores its chroma at full resolution (4:4:4): every
+ * component has the same sampling factors. The engine's re-encoder (Chrome's
+ * canvas) always writes 4:2:0, so such a JPEG loses three quarters of its
+ * chroma and shrinks further than its quality alone says. False for
+ * subsampled or greyscale JPEGs, and when no frame header can be read.
+ */
+export function jpegKeepsFullChroma(bytes: Uint8Array): boolean {
+  // SOF0–SOF15, less DHT (c4), JPG (c8) and DAC (cc), which share the range.
+  const frame = readSegments(bytes)?.find(
+    (s) => s.marker >= 0xc0 && s.marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(s.marker),
+  );
+  if (!frame) return false;
+  const components = bytes[frame.start + 5];
+  if (components !== 3 || frame.start + 6 + components * 3 > frame.end) return false;
+  const factors = Array.from({ length: components }, (_, i) => bytes[frame.start + 7 + i * 3]);
+  return factors.every((f) => f === factors[0]);
 }
 
 /**
