@@ -349,8 +349,9 @@ function remainingRatio(media: MediaSample, preset: CompressionPreset): number {
  * (one curve for fresh JPEGs and the engine's own output alike), PNG bytes
  * by what their visible pixels or the flat-graphic ratio leave, or by the
  * re-run ratio when saved at a weaker preset; already compressed images and
- * everything else are unchanged. The result is not pulled into the static range: on a deck that is mostly not
- * images, that would promise savings the images cannot deliver (#81).
+ * everything else are unchanged. The result is not pulled into the static
+ * range: on a deck that is mostly not images, that would promise savings the
+ * images cannot deliver (#81).
  *
  * Splitting JPEG vs PNG matters: a PNG-dominated deck barely changes between
  * presets in reality, so a single blended ratio would over-promise on "high"
