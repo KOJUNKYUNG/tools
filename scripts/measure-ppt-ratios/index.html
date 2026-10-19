@@ -36,7 +36,8 @@ estimator (<code>src/lib/ppt/pptCompressPlan.ts</code>, as checked out) expects.
     free to use and redistribute, not to sell; altered versions marked as such; origin not
     misrepresented; the notice kept with any copy (saved as <code>LICENSE.txt</code> beside the files).</li>
 </ul>
-<p>Query <code>?parts=curve,heic,png,fixtures,hires</code> picks what to run (default all). <b>png</b>
+<p>Query <code>?parts=curve,heic,png,fixtures,hires</code> picks what to run (default all but
+<b>hires</b>, which runs only when named). <b>png</b>
 re-encodes the lossless originals as fresh PNGs, as found and as this browser saves them.</p>
 <p id="status">Starting…</p>
 <div id="out"></div>
@@ -60,7 +61,7 @@ const STEPS = [["low", "medium"], ["low", "high"], ["medium", "high"]];
 const CURVE_QUALITIES = Array.from({ length: 27 }, (_, i) => 72 + i); // q72–98
 // HEIC photos (12 MP, slow): the bands the real files lack, plus a camera-like q95.
 const HEIC_QUALITIES = [76, 86, 88, 95];
-const parts = new Set((new URLSearchParams(location.search).get("parts") ?? "curve,heic,png,fixtures,hires").split(","));
+const parts = new Set((new URLSearchParams(location.search).get("parts") ?? "curve,heic,png,fixtures").split(","));
 const status = (text) => (document.getElementById("status").textContent = text);
 
 // A folder listing from serve.mjs; a missing folder fails with the server's reason.
@@ -108,9 +109,12 @@ async function decode(bytes, mime) {
 
 // A PNG's pixels are counted only when its header reads and it is small enough.
 const MAX_COUNT_PIXELS = 16 * 1024 * 1024;
-const countable = (header) => !!header && header.width * header.height <= MAX_COUNT_PIXELS;
+function countable(bytes) {
+  const header = readPngHeader(bytes);
+  return !!header && header.width * header.height <= MAX_COUNT_PIXELS;
+}
 async function pngPixels(bytes) {
-  return countable(readPngHeader(bytes)) ? (await decode(bytes, "image/png")).data : null;
+  return countable(bytes) ? (await decode(bytes, "image/png")).data : null;
 }
 
 // The MediaSample analyzePptxForCompress (src/lib/ppt/compressPptx.ts) reads.
@@ -145,10 +149,10 @@ const modelRatio = (sample, preset) =>
   (estimatePptxSize(sample.bytes, [sample], preset) ?? sample.bytes) / sample.bytes;
 
 // Fresh JPEGs of each lossless original at each quality, re-encoded at each preset.
-async function measureLossless(set, sources, qualities, decode, out) {
+async function measureLossless(set, sources, qualities, load, out) {
   for (const [i, src] of sources.entries()) {
     status(`${set} ${i + 1}/${sources.length}: ${src}`);
-    const bitmap = await decode(src);
+    const bitmap = await load(src);
     for (const q of qualities) {
       const jpeg = await saveJpeg(bitmap, q);
       const sample = await mediaSample("jpeg", jpeg);
@@ -171,7 +175,7 @@ async function measureLosslessPngs() {
     const file = new Uint8Array(await (await fetch("/lossless/" + name)).arrayBuffer());
     const { canvas, data } = await decode(file, "image/png");
     const resaved = new Uint8Array(await (await canvas.convertToBlob({ type: "image/png" })).arrayBuffer());
-    const filePixels = countable(readPngHeader(file)) ? data : null;
+    const filePixels = countable(file) ? data : null;
     for (const [from, bytes, pixels] of [["file", file, filePixels], ["canvas", resaved, undefined]]) {
       const img = await measureImage("png", bytes, pixels);
       rows.push({
@@ -201,14 +205,13 @@ async function measureHires() {
   for (const [i, name] of names.entries()) {
     status(`High-resolution set ${i + 1}/${names.length}: ${name}`);
     const file = new Uint8Array(await (await fetch("/hires/" + name)).arrayBuffer());
-    const bitmap = await createImageBitmap(new Blob([file], { type: "image/png" }));
+    const { width, height } = readPngHeader(file);
     rows.push({
       key: name,
-      size: `${bitmap.width}×${bitmap.height}`,
-      mp: round((bitmap.width * bitmap.height) / 1e6),
+      size: `${width}×${height}`,
+      mp: round((width * height) / 1e6),
       kb: Math.round(file.length / 1024),
     });
-    bitmap.close();
   }
   return rows;
 }
