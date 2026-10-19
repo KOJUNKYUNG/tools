@@ -270,6 +270,23 @@ function jpegTable(images) {
     }));
 }
 
+// 4:4:4 JPEGs at q90+ together: measured over model bytes per preset. 1 means
+// FULL_CHROMA_FACTOR fits; a re-fit factor is the current one times this.
+function fullChromaTable(images) {
+  const jpegs = [...images.values()].filter(
+    (img) => img.kind === "jpeg" && img.sample.fullChroma && img.sample.quality >= 90,
+  );
+  if (jpegs.length === 0) return [];
+  return PRESETS.map((p) => ({
+    key: `4:4:4 q90+ → ${p}`,
+    n: jpegs.length,
+    residual: round(
+      jpegs.reduce((s, img) => s + img.fresh[p], 0) /
+        jpegs.reduce((s, img) => s + modelRatio(img.sample, p) * img.sample.bytes, 0),
+    ),
+  }));
+}
+
 // A deck's estimate against its re-encoded size, fresh and re-run.
 function deckRows(name, totalSize, members) {
   const rows = [];
@@ -330,6 +347,7 @@ async function run() {
     const { images, decks } = await measureFixtures(fixtureNames);
     results.images = imageTable(images);
     results.jpegs = jpegTable(images);
+    results.fullChroma = fullChromaTable(images);
     results.decks = decks.flatMap((d) => deckRows(d.name, d.totalSize, d.hashes.map((h) => images.get(h))));
   }
   return results;
@@ -345,6 +363,7 @@ run().then((results) => {
     results.heicDecks && table("HEIC hold-out decks (MB)", results.heicDecks, deckCols),
     results.images && table("Real-file images", results.images.sort((a, b) => a.key.localeCompare(b.key)), cols),
     results.jpegs && table("Real-file JPEGs", results.jpegs, ["key", "q", "chroma", "kb", ...PRESETS.flatMap((p) => [p, `${p} model`])]),
+    results.fullChroma && table("4:4:4 JPEGs, measured ÷ model", results.fullChroma, ["key", "n", "residual"]),
     results.decks && table("Decks (MB)", results.decks, deckCols),
   ].filter(Boolean).join("");
 }, (error) => {
