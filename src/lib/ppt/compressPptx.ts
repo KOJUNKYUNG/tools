@@ -4,6 +4,7 @@ import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import {
   countColors,
   estimateJpegQuality,
+  jpegKeepsFullChroma,
   readPngHeader,
   type ColorCount,
 } from "@/lib/image/alreadyCompressed";
@@ -183,7 +184,12 @@ export async function analyzePptxForCompress(
         unusedAlpha: hasAlpha && (counted?.opaque ?? false),
       });
     } else {
-      media.push({ kind: "jpeg", bytes: bytes.length, quality: estimateJpegQuality(bytes) });
+      media.push({
+        kind: "jpeg",
+        bytes: bytes.length,
+        quality: estimateJpegQuality(bytes),
+        fullChroma: jpegKeepsFullChroma(bytes),
+      });
     }
     if (!largestBytes || bytes.length > largestBytes.length) {
       largestBytes = bytes;
