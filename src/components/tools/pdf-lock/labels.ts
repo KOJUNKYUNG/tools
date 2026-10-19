@@ -1,6 +1,8 @@
 import type { Dictionary } from "@/i18n/config";
 
 export interface PdfLockLabels {
+  /** Shared error copy (`common.errors`), in the page's language. */
+  errors: Dictionary["common"]["errors"];
   title: string;
   description: string;
   uploadPrompt: string;
@@ -50,6 +52,7 @@ export function getPdfLockLabels(dict: Dictionary): PdfLockLabels {
   const t = dict.tools["pdf-lock"];
   const p = t.page;
   return {
+    errors: dict.common.errors,
     title: t.title,
     description: t.description,
     uploadPrompt: p.uploadPrompt,

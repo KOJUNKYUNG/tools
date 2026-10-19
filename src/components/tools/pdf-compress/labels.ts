@@ -1,6 +1,8 @@
 import type { Dictionary } from "@/i18n/config";
 
 export interface PdfCompressLabels {
+  /** Shared error copy (`common.errors`), in the page's language. */
+  errors: Dictionary["common"]["errors"];
   // Header (used by page chrome variant)
   title: string;
   description: string;
@@ -62,6 +64,7 @@ export function getPdfCompressLabels(dict: Dictionary): PdfCompressLabels {
   const t = dict.tools["pdf-compress"];
   const p = t.page;
   return {
+    errors: dict.common.errors,
     title: t.title,
     description: t.description,
     uploadPrompt: p.uploadPrompt,

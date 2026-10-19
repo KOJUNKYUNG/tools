@@ -32,6 +32,13 @@
     "or": "or",
     "click": "click to browse",
     "underOnePct": "under 1%",
+    "errors": {
+      "unexpected": "Something went wrong with the tool, so the job couldn't finish. Please try again.",
+      "memory": "Your browser ran out of memory. Try fewer or smaller files.",
+      "invalidFile": "This file isn't supported or is damaged.",
+      "heicConvertFailed": "Couldn't convert the HEIC file.",
+      "readFailed": "Could not read the file."
+    },
     "themeToggle": "Toggle theme",
     "resizeHandles": {
       "nw": "Resize (top left)",
@@ -173,7 +180,6 @@
           "doneBody": "",
           "download": "Download",
           "error": "Error",
-          "errorBody": "Something went wrong. Please try again.",
           "errorCorrupt": "Something went wrong with the tool, so the background couldn't be changed. Please try again.",
           "retry": "Retry",
           "tryAnother": "Start over"

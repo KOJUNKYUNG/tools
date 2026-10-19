@@ -73,6 +73,8 @@ async function galleryImageToPngFile(url: string, id: string): Promise<File> {
 }
 
 export interface PptBackgroundToolLabels {
+  /** Shared error copy (`common.errors`), in the page's language. */
+  errors: Dictionary["common"]["errors"];
   header: { title: string; description: string };
   upload: { dropzoneLabel: string; dropzoneHint: string };
   conversion: { heading: string; note: string; methods: ConversionMethodLabels[] };
@@ -124,7 +126,6 @@ export interface PptBackgroundToolLabels {
     doneBody: string;
     download: string;
     error: string;
-    errorBody: string;
     /** Shown when the output check blocks a broken deck. */
     errorCorrupt: string;
     retry: string;
@@ -220,7 +221,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       );
     },
-    errorOptions: { corruptOutputHint: labels.processing.errorCorrupt },
+    errorOptions: { copy: labels.errors, corruptOutputHint: labels.processing.errorCorrupt },
   });
 
   const pptxFile = pptxFiles[0] ?? null;

@@ -189,7 +189,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
         packaged.type === "zip" ? "application/zip" : "application/pdf",
       );
     },
-    errorOptions: { corruptOutputHint: labels.errorCorrupt },
+    errorOptions: { copy: labels.errors, corruptOutputHint: labels.errorCorrupt },
   });
 
   const handleDownloadOne = useCallback((entry: OutputEntry) => {
@@ -210,7 +210,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
         normalized = await normalizeImageFiles(incoming);
       } catch (err) {
         toast.error(
-          getErrorMessage(err, { fallbackMessage: "HEIC 파일을 변환할 수 없습니다." }).message,
+          getErrorMessage(err, { copy: labels.errors, fallbackMessage: labels.errors.heicConvertFailed }).message,
         );
         setLoadingPages(false);
         return;
@@ -254,14 +254,15 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
       } catch (err) {
         toast.error(
           getErrorMessage(err, {
-            fallbackMessage: "파일을 읽을 수 없습니다.",
+            copy: labels.errors,
+            fallbackMessage: labels.errors.readFailed,
           }).message,
         );
       } finally {
         setLoadingPages(false);
       }
     },
-    [files, setFiles],
+    [files, setFiles, labels.errors],
   );
 
   const handleUpload = useCallback(
@@ -490,7 +491,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
       againLabel={labels.again}
       onExecute={run}
       onAgain={retry}
-      executeDisabled={!hasFiles}
+      executeDisabled={sectionCount === 0}
       extraActions={editorActions}
     />
   );

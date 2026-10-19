@@ -73,6 +73,7 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
       );
     },
     errorOptions: {
+      copy: labels.errors,
       memoryHint: labels.errorMemory,
       corruptOutputHint: labels.errorCorrupt,
     },

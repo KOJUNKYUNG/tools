@@ -1,6 +1,8 @@
 import type { Dictionary } from "@/i18n/config";
 
 export interface ImageToPdfLabels {
+  /** Shared error copy (`common.errors`), in the page's language. */
+  errors: Dictionary["common"]["errors"];
   title: string;
   description: string;
   uploadPrompt: string;
@@ -34,6 +36,7 @@ export function getImageToPdfLabels(dict: Dictionary): ImageToPdfLabels {
   const t = dict.tools["image-to-pdf"];
   const p = t.page;
   return {
+    errors: dict.common.errors,
     title: t.title,
     description: t.description,
     uploadPrompt: p.uploadPrompt,

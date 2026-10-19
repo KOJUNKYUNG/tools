@@ -1,12 +1,24 @@
 import { ToolErrorCode, type ToolError } from "@/types";
 
-const ERROR_MESSAGES: Record<ToolErrorCode, string> = {
-  [ToolErrorCode.MEMORY]:
-    "브라우저 메모리가 부족합니다. 파일 크기나 개수를 줄여 다시 시도해 주세요.",
-  [ToolErrorCode.INVALID_FILE]: "지원하지 않거나 손상된 파일입니다.",
-  [ToolErrorCode.PROCESSING_FAILED]: "처리 중 문제가 발생했습니다. 다시 시도해 주세요.",
-  [ToolErrorCode.UNKNOWN]: "알 수 없는 오류가 발생했습니다.",
-};
+/**
+ * The page's shared error copy, from the dictionary (`common.errors`), so
+ * every message is in the page's language.
+ */
+export interface ErrorCopy {
+  /** An error nothing more specific explains: the tool's problem (#75). */
+  unexpected: string;
+  memory: string;
+  invalidFile: string;
+}
+
+/**
+ * An error whose message was written for the user, in the page's language.
+ * Shown as it is; any other error's message is an engine's or library's and
+ * never reaches the user (#83).
+ */
+export class UserFacingError extends Error {
+  override name = "UserFacingError";
+}
 
 /**
  * Sentinel prefix thrown by qpdfCrypto.decryptPdf when qpdf reports an invalid
@@ -30,6 +42,8 @@ export const INVALID_INPUT_PREFIX = "INVALID_INPUT";
 export const CORRUPT_OUTPUT_PREFIX = "CORRUPT_OUTPUT";
 
 export interface GetErrorMessageOptions {
+  copy: ErrorCopy;
+  /** Replaces `copy.unexpected` where the caller knows what was being done. */
   fallbackMessage?: string;
   memoryHint?: string;
   /**
@@ -52,15 +66,16 @@ export interface GetErrorMessageOptions {
 
 export function getErrorMessage(
   err: unknown,
-  options: GetErrorMessageOptions = {},
+  options: GetErrorMessageOptions,
 ): ToolError {
+  const { copy } = options;
   const rawMessage = err instanceof Error ? err.message : "";
 
   if (rawMessage.startsWith(WRONG_PASSWORD_PREFIX)) {
     return {
       code: ToolErrorCode.INVALID_FILE,
       message:
-        options.wrongPasswordHint ?? ERROR_MESSAGES[ToolErrorCode.INVALID_FILE],
+        options.wrongPasswordHint ?? copy.invalidFile,
     };
   }
 
@@ -68,7 +83,7 @@ export function getErrorMessage(
     return {
       code: ToolErrorCode.INVALID_FILE,
       message:
-        options.invalidInputHint ?? ERROR_MESSAGES[ToolErrorCode.INVALID_FILE],
+        options.invalidInputHint ?? copy.invalidFile,
     };
   }
 
@@ -76,26 +91,25 @@ export function getErrorMessage(
     return {
       code: ToolErrorCode.INVALID_FILE,
       message:
-        options.corruptOutputHint ?? ERROR_MESSAGES[ToolErrorCode.INVALID_FILE],
+        options.corruptOutputHint ?? copy.invalidFile,
     };
   }
 
   if (rawMessage.includes("memory") || rawMessage.includes("OOM")) {
     return {
       code: ToolErrorCode.MEMORY,
-      message: options.memoryHint ?? ERROR_MESSAGES[ToolErrorCode.MEMORY],
+      message: options.memoryHint ?? copy.memory,
     };
   }
 
-  if (rawMessage) {
-    return {
-      code: ToolErrorCode.PROCESSING_FAILED,
-      message: rawMessage,
-    };
+  if (err instanceof UserFacingError) {
+    return { code: ToolErrorCode.PROCESSING_FAILED, message: err.message };
   }
 
+  // An engine's or library's own message: for the developer log, not the user.
+  console.error("Unexpected tool error:", err);
   return {
-    code: ToolErrorCode.UNKNOWN,
-    message: options.fallbackMessage ?? ERROR_MESSAGES[ToolErrorCode.UNKNOWN],
+    code: rawMessage ? ToolErrorCode.PROCESSING_FAILED : ToolErrorCode.UNKNOWN,
+    message: options.fallbackMessage ?? copy.unexpected,
   };
 }

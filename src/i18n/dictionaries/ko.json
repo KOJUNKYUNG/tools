@@ -32,6 +32,13 @@
     "or": "또는",
     "click": "클릭해서 찾아보기",
     "underOnePct": "1% 미만",
+    "errors": {
+      "unexpected": "도구에 문제가 생겨 작업을 마치지 못했습니다. 다시 시도해 주세요.",
+      "memory": "브라우저 메모리가 부족합니다. 파일 크기나 개수를 줄여 다시 시도해 주세요.",
+      "invalidFile": "지원하지 않거나 손상된 파일입니다.",
+      "heicConvertFailed": "HEIC 파일을 변환할 수 없습니다.",
+      "readFailed": "파일을 읽을 수 없습니다."
+    },
     "themeToggle": "테마 바꾸기",
     "resizeHandles": {
       "nw": "크기 조절 (왼쪽 위)",
@@ -173,7 +180,6 @@
           "doneBody": "",
           "download": "다운로드",
           "error": "오류 발생",
-          "errorBody": "처리 중 문제가 발생했습니다. 다시 시도해 주세요.",
           "errorCorrupt": "도구에 문제가 생겨 배경을 바꾸지 못했습니다. 다시 시도해 주세요.",
           "retry": "재시도",
           "tryAnother": "다시 하기"

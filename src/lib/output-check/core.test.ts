@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { OutputCheckError, runOutputCheck, type Violation } from "./core";
 import { getErrorMessage } from "@/lib/errors";
+import en from "@/i18n/dictionaries/en.json";
 
 const broken: Violation[] = [{ property: "slide-count", detail: "3 → 2" }];
 const pass = async () => [];
@@ -23,7 +24,7 @@ describe("runOutputCheck", () => {
       output: "bad",
       check: async () => broken,
     }).catch((e: unknown) => e);
-    expect(getErrorMessage(err, { corruptOutputHint: "tool hint" }).message).toBe(
+    expect(getErrorMessage(err, { copy: en.common.errors, corruptOutputHint: "tool hint" }).message).toBe(
       "tool hint",
     );
   });

@@ -28,6 +28,7 @@ import { ImageResizeControls } from "./ImageResizeControls";
 import { ImageResizePresets, type ActivePreset } from "./ImageResizePresets";
 import { ImageResizePreview } from "./ImageResizePreview";
 import { ImageResizeResult } from "./ImageResizeResult";
+import { getErrorMessage } from "@/lib/errors";
 
 const IMAGE_ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
@@ -134,7 +135,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
         res.blob.type,
       );
     },
-    errorOptions: { corruptOutputHint: labels.errorCorrupt },
+    errorOptions: { copy: labels.errors, corruptOutputHint: labels.errorCorrupt },
   });
 
   const handleFilesChange = useCallback(
@@ -195,14 +196,17 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
         const normalized = await normalizeImageFile(newFiles[0]);
         handleFilesChange([normalized]);
       } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "HEIC 파일을 변환할 수 없습니다.";
-        toast.error(msg);
+        toast.error(
+          getErrorMessage(err, {
+            copy: labels.errors,
+            fallbackMessage: labels.errors.heicConvertFailed,
+          }).message,
+        );
       } finally {
         setNormalizing(false);
       }
     },
-    [handleFilesChange],
+    [handleFilesChange, labels.errors],
   );
 
   const wNum = parseInt(targetW || "0", 10) || 0;

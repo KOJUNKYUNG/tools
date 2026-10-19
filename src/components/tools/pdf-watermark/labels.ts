@@ -1,6 +1,8 @@
 import type { Dictionary } from "@/i18n/config";
 
 export interface PdfWatermarkLabels {
+  /** Shared error copy (`common.errors`), in the page's language. */
+  errors: Dictionary["common"]["errors"];
   title: string;
   description: string;
   uploadPrompt: string;
@@ -59,6 +61,7 @@ export function getPdfWatermarkLabels(dict: Dictionary): PdfWatermarkLabels {
   const t = dict.tools["pdf-watermark"];
   const p = t.page;
   return {
+    errors: dict.common.errors,
     title: t.title,
     description: t.description,
     uploadPrompt: p.uploadPrompt,

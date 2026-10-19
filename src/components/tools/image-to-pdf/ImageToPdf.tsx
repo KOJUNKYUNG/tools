@@ -185,7 +185,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       return { bytes, name, pageCount: live.length };
     },
     onDownload: (res) => downloadBlob(res.bytes, res.name, "application/pdf"),
-    errorOptions: { corruptOutputHint: labels.errorCorrupt },
+    errorOptions: { copy: labels.errors, corruptOutputHint: labels.errorCorrupt },
   });
 
   useEffect(() => () => clearThumbnailCache(), []);
@@ -199,7 +199,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         normalized = await normalizeImageFiles(incoming);
       } catch (err) {
         toast.error(
-          getErrorMessage(err, { fallbackMessage: "HEIC 파일을 변환할 수 없습니다." }).message,
+          getErrorMessage(err, { copy: labels.errors, fallbackMessage: labels.errors.heicConvertFailed }).message,
         );
         setLoadingPages(false);
         return;
@@ -244,13 +244,13 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         }
       } catch (err) {
         toast.error(
-          getErrorMessage(err, { fallbackMessage: "파일을 읽을 수 없습니다." }).message,
+          getErrorMessage(err, { copy: labels.errors, fallbackMessage: labels.errors.readFailed }).message,
         );
       } finally {
         setLoadingPages(false);
       }
     },
-    [files, setFiles],
+    [files, setFiles, labels.errors],
   );
 
   const handleUpload = useCallback(
@@ -319,6 +319,8 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
   }, []);
 
   const hasFiles = items.length > 0;
+  // Deleted pages stay in `items`; only the rest are converted.
+  const liveCount = items.filter((p) => !p.deleted).length;
   const busy = status === "processing";
 
   const [oversizeDismissed, setOversizeDismissed] = useState(false);
@@ -422,12 +424,12 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       reuploadLabel={labels.reupload}
       busy={busy || loadingPages}
       busyReuploadLabel={labels.fileUpload.busy}
-      executeLabel={template(labels.convertTemplate, { n: items.length })}
+      executeLabel={template(labels.convertTemplate, { n: liveCount })}
       processingLabel={labels.processing}
       againLabel={labels.again}
       onExecute={run}
       onAgain={retry}
-      executeDisabled={!hasFiles}
+      executeDisabled={liveCount === 0}
     />
   );
 

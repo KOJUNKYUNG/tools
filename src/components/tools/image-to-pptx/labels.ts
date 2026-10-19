@@ -1,6 +1,8 @@
 import type { Dictionary } from "@/i18n/config";
 
 export interface ImageToPptxLabels {
+  /** Shared error copy (`common.errors`), in the page's language. */
+  errors: Dictionary["common"]["errors"];
   title: string; description: string; uploadPrompt: string; uploadHint: string;
   uploadMaxSize: string; reupload: string; convertTemplate: string;
   filesOneTemplate: string; filesManyTemplate: string; addAria: string;
@@ -21,6 +23,7 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
   const t = dict.tools["image-to-pptx"];
   const p = t.page;
   return {
+    errors: dict.common.errors,
     title: t.title, description: t.description, uploadPrompt: p.uploadPrompt,
     uploadHint: p.uploadHint, uploadMaxSize: p.uploadMaxSize, reupload: p.reupload,
     convertTemplate: p.convert, filesOneTemplate: p.filesOne,
