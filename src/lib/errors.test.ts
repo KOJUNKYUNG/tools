@@ -4,6 +4,7 @@ import {
   UserFacingError,
   WRONG_PASSWORD_PREFIX,
   INVALID_INPUT_PREFIX,
+  NO_IMAGES,
   type ErrorCopy,
 } from "./errors";
 import { ToolErrorCode } from "@/types";
@@ -106,5 +107,12 @@ describe("getErrorMessage — other branches", () => {
     expect(res.code).toBe(ToolErrorCode.UNKNOWN);
     expect(res.message).toBe("UNEXPECTED");
     vi.restoreAllMocks();
+  });
+});
+
+describe("getErrorMessage NO_IMAGES", () => {
+  it("maps ppt-extract's no-images sentinel to the tool's answer", () => {
+    const res = getErrorMessage(new Error(NO_IMAGES), { copy, noImagesHint: "No images in this deck." });
+    expect(res.message).toBe("No images in this deck.");
   });
 });

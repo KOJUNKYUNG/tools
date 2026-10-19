@@ -11,7 +11,6 @@ import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { stageFiles } from "@/lib/common/toolHandoff";
-import { NO_IMAGES, UserFacingError } from "@/lib/errors";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { buildExtractZip } from "@/lib/ppt/buildExtractZip";
 import type { PresentationAnalysis } from "@/lib/ppt/analyzePresentation";
@@ -59,17 +58,15 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
     retry,
   } = useToolProcessor<ExtractedImage[]>({
     processor: (processorFiles, onProgress) =>
-      extractPptImages({ file: processorFiles[0], onProgress }).catch((err: unknown) => {
-        // The extractors' NO_IMAGES sentinel is the user's answer, not a failure.
-        if (err instanceof Error && err.message === NO_IMAGES) {
-          throw new UserFacingError(labels.errorNoImages);
-        }
-        throw err;
-      }),
+      extractPptImages({ file: processorFiles[0], onProgress }),
     onDownload: () => {
       // Result component drives downloads; this is unused.
     },
-    errorOptions: { copy: labels.errors, corruptOutputHint: labels.errorCorrupt },
+    errorOptions: {
+      copy: labels.errors,
+      corruptOutputHint: labels.errorCorrupt,
+      noImagesHint: labels.errorNoImages,
+    },
   });
 
   useEffect(() => {

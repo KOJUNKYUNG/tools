@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { resizeTarget } from "./resizeImage";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import en from "@/i18n/dictionaries/en.json";
+import { getErrorMessage } from "@/lib/errors";
+import { resizeImage, resizeTarget } from "./resizeImage";
 
 describe("resizeTarget: the size the canvas is made, rounded once", () => {
   it.each([
@@ -21,5 +23,28 @@ describe("resizeTarget: the size the canvas is made, rounded once", () => {
     ["a preset", { width: 4000, height: 3000 }, { mode: "preset", width: 1920, height: 1080 }, [1920, 1080]],
   ] as const)("%s", (_, original, options, [width, height]) => {
     expect(resizeTarget(original, options)).toEqual({ width, height });
+  });
+});
+
+describe("resizeImage: an image the browser cannot open", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("is the user's file, not the tool's problem (#83)", async () => {
+    // A browser image that fails to decode, as a damaged file does.
+    vi.stubGlobal(
+      "Image",
+      class {
+        onerror: (() => void) | null = null;
+        set src(_: string) {
+          queueMicrotask(() => this.onerror?.());
+        }
+      },
+    );
+    vi.stubGlobal("URL", { ...URL, createObjectURL: () => "blob:x", revokeObjectURL: () => {} });
+    const file = new File([new Uint8Array([1, 2, 3])], "broken.jpg", { type: "image/jpeg" });
+    const err = await resizeImage({ file, mode: "percent", percent: 50 }).catch((e: unknown) => e);
+    expect(getErrorMessage(err, { copy: en.common.errors }).message).toBe(
+      en.common.errors.invalidFile,
+    );
   });
 });

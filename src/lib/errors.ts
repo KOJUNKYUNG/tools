@@ -68,6 +68,8 @@ export interface GetErrorMessageOptions {
    * Detected by the `INVALID_INPUT` prefix on the thrown error message.
    */
   invalidInputHint?: string;
+  /** ppt-extract's answer for a deck without images (`NO_IMAGES`). */
+  noImagesHint?: string;
 }
 
 export function getErrorMessage(
@@ -79,6 +81,13 @@ export function getErrorMessage(
 
   if (err instanceof UserFacingError) {
     return { code: ToolErrorCode.PROCESSING_FAILED, message: err.message };
+  }
+
+  if (rawMessage === NO_IMAGES) {
+    return {
+      code: ToolErrorCode.INVALID_FILE,
+      message: options.noImagesHint ?? copy.invalidFile,
+    };
   }
 
   if (rawMessage.startsWith(WRONG_PASSWORD_PREFIX)) {
