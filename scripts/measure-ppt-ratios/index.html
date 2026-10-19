@@ -28,8 +28,15 @@ estimator (<code>src/lib/ppt/pptCompressPlan.ts</code>, as checked out) expects.
   <li><b>Decks</b>: each real deck's estimate against the size its re-encoded images give, fresh
     and re-run (a deck compressed at W, then at P). The size ignores the zip's own deflate of the
     images, which is about 1%. HEIC sets are hold-out "decks" of the HEIC photos at one quality.</li>
+  <li><b>High-resolution set</b>: lossless photos larger than any downsampling target, under
+    <code>tests/hires</code> (local only, never committed), to calibrate and hold out the
+    downsampled path. Source: the 8-bit RGB set of
+    <a href="https://imagecompression.info/test_images/">imagecompression.info test images</a>
+    (PPM, converted to PNG by <code>ppm-to-png.mjs</code>). Licence: © their respective owners;
+    free to use and redistribute, not to sell; altered versions marked as such; origin not
+    misrepresented; the notice kept with any copy (saved as <code>LICENSE.txt</code> beside the files).</li>
 </ul>
-<p>Query <code>?parts=curve,heic,png,fixtures</code> picks what to run (default all). <b>png</b>
+<p>Query <code>?parts=curve,heic,png,fixtures,hires</code> picks what to run (default all). <b>png</b>
 re-encodes the lossless originals as fresh PNGs, as found and as this browser saves them.</p>
 <p id="status">Starting…</p>
 <div id="out"></div>
@@ -53,8 +60,15 @@ const STEPS = [["low", "medium"], ["low", "high"], ["medium", "high"]];
 const CURVE_QUALITIES = Array.from({ length: 27 }, (_, i) => 72 + i); // q72–98
 // HEIC photos (12 MP, slow): the bands the real files lack, plus a camera-like q95.
 const HEIC_QUALITIES = [76, 86, 88, 95];
-const parts = new Set((new URLSearchParams(location.search).get("parts") ?? "curve,heic,png,fixtures").split(","));
+const parts = new Set((new URLSearchParams(location.search).get("parts") ?? "curve,heic,png,fixtures,hires").split(","));
 const status = (text) => (document.getElementById("status").textContent = text);
+
+// A folder listing from serve.mjs; a missing folder fails with the server's reason.
+async function list(route) {
+  const res = await fetch(route);
+  if (!res.ok) throw new Error(`${route}: ${await res.text()}`);
+  return res.json();
+}
 
 // Same options as recompressMedia in src/lib/ppt/compressPptx.ts; the worker
 // loads the library from this server instead of the CDN.
@@ -81,23 +95,38 @@ async function saveJpeg(bitmap, quality) {
   return new Uint8Array(await blob.arrayBuffer());
 }
 
-// The MediaSample analyzePptxForCompress (src/lib/ppt/compressPptx.ts) reads.
-const COLOR_COUNT_CAP = pngColorBudget("low");
+// One decode serves every reader of an image's pixels: the canvas it is drawn
+// on (to save it again) and its RGBA data.
+async function decode(bytes, mime) {
+  const bitmap = await createImageBitmap(new Blob([bytes], { type: mime }));
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  return { canvas, data: ctx.getImageData(0, 0, canvas.width, canvas.height).data };
+}
+
+// A PNG's pixels are counted only when its header reads and it is small enough.
 const MAX_COUNT_PIXELS = 16 * 1024 * 1024;
-async function mediaSample(kind, bytes) {
+const countable = (header) => !!header && header.width * header.height <= MAX_COUNT_PIXELS;
+async function pngPixels(bytes) {
+  return countable(readPngHeader(bytes)) ? (await decode(bytes, "image/png")).data : null;
+}
+
+// The MediaSample analyzePptxForCompress (src/lib/ppt/compressPptx.ts) reads.
+// `pixels` is the PNG's decoded data (null: not counted); left out, the
+// sample decodes the PNG itself when it needs the pixels.
+const COLOR_COUNT_CAP = pngColorBudget("low");
+async function mediaSample(kind, bytes, pixels) {
   if (kind === "jpeg") {
     return { kind, bytes: bytes.length, quality: estimateJpegQuality(bytes), fullChroma: jpegKeepsFullChroma(bytes) };
   }
   const header = readPngHeader(bytes);
   const palette = header?.colorType === 3;
   let counted = null;
-  if (header && !palette && header.width * header.height <= MAX_COUNT_PIXELS) {
-    const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
-    const ctx = new OffscreenCanvas(bitmap.width, bitmap.height).getContext("2d");
-    ctx.drawImage(bitmap, 0, 0);
-    const data = ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
-    counted = { ...countColors(data, COLOR_COUNT_CAP), visible: countVisiblePixels(data) };
-    bitmap.close();
+  if (header && !palette) {
+    const data = pixels === undefined ? await pngPixels(bytes) : pixels;
+    if (data) counted = { ...countColors(data, COLOR_COUNT_CAP), visible: countVisiblePixels(data) };
   }
   const hasAlpha = header?.colorType === 4 || header?.colorType === 6;
   return {
@@ -136,17 +165,15 @@ async function measureLossless(set, sources, qualities, decode, out) {
 // browser's canvas saves it. A hold-out for the dense PNG ratio.
 async function measureLosslessPngs() {
   const rows = [];
-  const names = await (await fetch("/lossless")).json();
+  const names = await list("/lossless");
   for (const [i, name] of names.entries()) {
     status(`Lossless PNGs ${i + 1}/${names.length}: ${name}`);
     const file = new Uint8Array(await (await fetch("/lossless/" + name)).arrayBuffer());
-    const bitmap = await createImageBitmap(new Blob([file], { type: "image/png" }));
-    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-    canvas.getContext("2d").drawImage(bitmap, 0, 0);
-    bitmap.close();
+    const { canvas, data } = await decode(file, "image/png");
     const resaved = new Uint8Array(await (await canvas.convertToBlob({ type: "image/png" })).arrayBuffer());
-    for (const [from, bytes] of [["file", file], ["canvas", resaved]]) {
-      const img = await measureImage("png", bytes);
+    const filePixels = countable(readPngHeader(file)) ? data : null;
+    for (const [from, bytes, pixels] of [["file", file, filePixels], ["canvas", resaved, undefined]]) {
+      const img = await measureImage("png", bytes, pixels);
       rows.push({
         key: `${name} (${from})`,
         from,
@@ -167,15 +194,36 @@ async function measureLosslessPngs() {
   return rows;
 }
 
+// The high-resolution set as found: each picture's pixel size and bytes.
+async function measureHires() {
+  const rows = [];
+  const names = await list("/hires");
+  for (const [i, name] of names.entries()) {
+    status(`High-resolution set ${i + 1}/${names.length}: ${name}`);
+    const file = new Uint8Array(await (await fetch("/hires/" + name)).arrayBuffer());
+    const bitmap = await createImageBitmap(new Blob([file], { type: "image/png" }));
+    rows.push({
+      key: name,
+      size: `${bitmap.width}×${bitmap.height}`,
+      mp: round((bitmap.width * bitmap.height) / 1e6),
+      kb: Math.round(file.length / 1024),
+    });
+    bitmap.close();
+  }
+  return rows;
+}
+
 async function hash(bytes) {
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-1", bytes)))
     .map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// One real-file image: its sample, and what each preset (fresh and re-run) leaves.
-async function measureImage(kind, bytes) {
+// One real-file image: its sample, and what each preset (fresh and re-run)
+// leaves. A PNG is decoded once (or `pixels` passes its decoded data).
+async function measureImage(kind, bytes, pixels) {
   const mime = kind === "png" ? "image/png" : "image/jpeg";
-  const sample = await mediaSample(kind, bytes);
+  if (kind === "png" && pixels === undefined) pixels = await pngPixels(bytes);
+  const sample = await mediaSample(kind, bytes, pixels);
   const once = {};
   for (const preset of PRESETS) {
     once[preset] = keepSmaller(bytes, await encode(bytes, mime, QUALITY[preset]));
@@ -195,7 +243,7 @@ async function measureImage(kind, bytes) {
   return {
     kind,
     sample,
-    png: kind === "png" ? await pngSignals(bytes) : null,
+    png: kind === "png" ? pngSignals(bytes, pixels) : null,
     fresh: Object.fromEntries(PRESETS.map((p) => [p, once[p].length])),
     rerun,
   };
@@ -203,29 +251,20 @@ async function measureImage(kind, bytes) {
 
 // Candidate signals for a fresh PNG's ratio, beyond the sample: its size, how
 // many bytes each pixel takes, and its colours counted far past the budget.
+// `data` is its decoded pixels, null when they are not counted.
 const WIDE_COLOR_CAP = 1 << 20;
-async function pngSignals(bytes) {
+function pngSignals(bytes, data) {
   const header = readPngHeader(bytes);
   if (!header) return null;
   const pixels = header.width * header.height;
-  let wide = null;
-  let visible = null;
-  if (pixels <= MAX_COUNT_PIXELS) {
-    const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
-    const ctx = new OffscreenCanvas(bitmap.width, bitmap.height).getContext("2d");
-    ctx.drawImage(bitmap, 0, 0);
-    const data = ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
-    bitmap.close();
-    if (header.colorType !== 3) wide = countColors(data, WIDE_COLOR_CAP);
-    visible = countVisiblePixels(data);
-  }
+  const wide = data && header.colorType !== 3 ? countColors(data, WIDE_COLOR_CAP) : null;
   return {
     w: header.width,
     h: header.height,
     colorType: header.colorType,
     bpp: bytes.length / pixels,
     pixels,
-    visible,
+    visible: data ? countVisiblePixels(data) : null,
     wideColors: wide?.colors ?? null,
     opaque: wide?.opaque ?? null,
   };
@@ -422,11 +461,11 @@ async function run() {
   const results = {};
   const curveRows = [];
   if (parts.has("curve")) {
-    const names = await (await fetch("/lossless")).json();
+    const names = await list("/lossless");
     await measureLossless("lossless", names, CURVE_QUALITIES, async (name) =>
       createImageBitmap(await (await fetch("/lossless/" + name)).blob()), curveRows);
   }
-  const fixtureNames = await (await fetch("/fixtures")).json();
+  const fixtureNames = await list("/fixtures");
   const heicRows = [];
   if (parts.has("heic")) {
     const { heicTo } = await import("/lib/heic-to.js");
@@ -452,6 +491,7 @@ async function run() {
     results.fullChroma = fullChromaTable(images);
     results.decks = decks.flatMap((d) => deckRows(d.name, d.totalSize, d.hashes.map((h) => images.get(h))));
   }
+  if (parts.has("hires")) results.hires = await measureHires();
   return results;
 }
 
@@ -469,6 +509,7 @@ run().then((results) => {
     results.pngs && table("Real-file PNGs", results.pngs, ["key", "kb", "size", "type", "bpp", "colors", "opaque", "low out", ...PRESETS.flatMap((p) => [p, `${p} model`])]),
     results.fullChroma && table("4:4:4 JPEGs, measured ÷ model", results.fullChroma, ["key", "n", "residual"]),
     results.decks && table("Decks (MB)", results.decks, deckCols),
+    results.hires && table("High-resolution set", results.hires, ["key", "size", "mp", "kb"]),
   ].filter(Boolean).join("");
 }, (error) => {
   window.__results = { error: String(error) };
