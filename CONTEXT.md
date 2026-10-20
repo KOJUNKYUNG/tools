@@ -34,6 +34,7 @@ wins.
 | The spec and tickets for multi-PR work | **GitHub issues** (`/to-spec`, `/to-tickets`) | Issue track only, once scope settles — see `docs/agents/workflow.md` |
 | Pre-2026-10 specs and plans (historical) | **`docs/superpowers/`** | Frozen archive — read for history and prior art, add nothing |
 | How work moves from idea to merged PR | **`docs/agents/workflow.md`** | The workflow changes |
+| Cross-tool improvement ranking (shared causes, tool order) | **`docs/research/tool-backlog.md`** | Step 1 of the re-check order; re-ranked when a spec ships or new evidence lands |
 | How agents consume these docs + the detailed authoring rules | **`docs/agents/domain.md`** | Doc conventions change |
 | Issue-tracker mapping (= GitHub Issues) | **`docs/agents/issue-tracker.md`** | The tracker changes |
 | Triage role → label mapping | **`docs/agents/triage-labels.md`** | The label scheme changes |

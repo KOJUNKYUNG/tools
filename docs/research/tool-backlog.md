@@ -1,0 +1,62 @@
+# Tool backlog: ranked improvements across tools
+
+- **Updated:** 2026-10-21 (re-rank of [`tool-methods-review.md`](tool-methods-review.md) §4, plus ideas from the CONTEXT "Target users" table).
+- **Role:** step 1 ("diagnose across tools") of the re-check order in [`docs/agents/workflow.md`](../agents/workflow.md). It sets which shared causes to fix and the order tools take their turn. Once an item becomes a spec, its GitHub issue tracks progress; this file only keeps the ranking.
+- **Ideas are not plans.** Items marked _idea_ come from the target-users review and still need their tool's feature-scope check before they become work.
+
+## Lenses
+
+1. **Fix weight where it enters.** A tool that puts content into a file (ppt-background, image-to-pptx, image-to-pdf) should write it at the right size and format. Compressors are the second line, not the fix.
+2. **Reach.** Which [target users](../../CONTEXT.md#target-users) hit it, and how often.
+3. **Gain, risk, effort** (S / M / L), as in the review.
+4. **Step.** A shared cause is fixed once (step 2); everything else waits for its tool's turn (step 3).
+
+Review numbers (R1–R15) refer to the review's §4 table.
+
+## Done
+
+| Review | Item | Where |
+|---|---|---|
+| R2, R7 | Downscale pictures to their display size (crop-aware, groups, projected pixels) | spec #91, PR #96. Deleting cropped-away areas stayed out of scope. |
+| R10 (part) | High-quality resampler that halves in steps | `src/lib/image/downscale.ts` (#91). ppt-compress uses it; image-resize and image-to-pptx still resize in one step (S4). |
+
+## Step 2: shared causes
+
+| # | Item | Tools | Reach | Gain | Risk | Effort | Notes |
+|---|---|---|---|---|---|---|---|
+| S1 | Self-host the browser-image-compression worker (R1) | ppt-compress, image-compress | All targets | Works offline and behind filters; no third-party fetch at run time | Low | S | `useWebWorker: true` with no `libURL` today: the worker comes from cdn.jsdelivr.net. |
+| S2 | Pass `wasmUrl` / `iccUrl` to pdf.js and copy its `wasm/` + `iccs/` (R5) | pdf-to-image, PDF checks, thumbnails | Pastors (scanned sheet music), teachers, office workers (scans) | JPEG 2000 images render instead of blank; correct ICC colour | Low | S | |
+| S3 | Each compress preset states its result in user terms | ppt-compress, pdf-compress, image-compress | All targets | Users can predict the result before choosing | Low | S | ppt-compress [임시] 약하게 원본 해상도·4K / 보통 QHD 2560 / 강하게 FHD 1920; pdf-compress 강하게 = screen reading. Final copy is the user's. |
+| S4 | Adopt the shared image prep module (crop → fit inside a screen box → JPEG/PNG choice) and the stepped resampler | image-to-pptx, image-resize, later ppt-compress PNG→JPEG | All targets | One size and format policy instead of three | Medium (outputs change; checks must follow) | M | Blocked by spec A, which builds the module. image-to-pptx today: 1920 px long edge, PNG always PNG, JPEG 0.9, one-step resize. |
+| S5 | _idea_: "Under N MB" target-size option | ppt-compress, pdf-compress, image-compress | Teachers, students, office workers, small-business owners: the widest shared need | Users hit an upload limit in one try | Medium | M–L | Needs its own grill: search over presets vs quality, honest failure when unreachable. |
+
+## Step 3: tool queue
+
+In order. Each turn opens with the feature-scope check.
+
+| Order | Tool | Work | Reach | Notes |
+|---|---|---|---|---|
+| 1 | **ppt-background** | **Spec A** (next): Background crop, fit inside 3840×2160, JPEG when opaque, gallery picks no longer turned into PNG (covers R3). **Spec B-1**: detect slide-covering picture backgrounds and offer to remove them (relates to R15). Then: gallery from local assets (content picked by the user; picsum today contradicts the local-only gallery). | Pastors weekly | Entry point of the largest measured waste (47–57% of affected decks). HEIC input is missing here only (every other image-input tool takes it): fold into A at `/to-spec` if it stays small. |
+| 2 | **image-to-pptx** | Adopt S4; a screen-size option (FHD default, 4K on request) | Pastors, teachers | Entry point; many photos per deck, so a 4K default would multiply deck size. |
+| 3 | **image-to-pdf** | _idea_: a size option for phone photos (embedded unchanged today, so a page of 12 MP photos stays 12 MP); PNG with predictor (R14) | Teachers (submissions), office workers (receipts), students | Entry point for PDFs. |
+| 4 | **image-resize** | _idea_: purpose-named presets (YouTube thumbnail, Instagram carousel), print sizes for posters (A4 / A3), marketplace product sizes; adopt S4 resampler | Small-business owners, pastors and teachers (promotion material) | Pixel presets exist (4K, FHD, 1280×720, 1080², 1080×1350, mobile) but are named by resolution. Take sizes from each platform's current spec. |
+| 5 | **image-compress** | Resize option "long edge ≤ N px" (R8); palette PNG (R6); S5 | Students, small-business owners | |
+| 6 | **ppt-compress** | Palette PNG with a quality floor (R6); PNG→JPEG stays parked (below) | Pastors | Second line once ppt-background and image-to-pptx write right-sized images. |
+| 7 | **pdf-compress** | qpdf lossless pass as Light or a safety net (R9) | Office workers, teachers | |
+| 8 | **pdf-watermark** | _idea_: "for submission to …" mark for document copies | Office workers, small-business owners | |
+| 9 | **pdf-to-image / image-to-pptx handoff** | _idea_: sheet-music PDF → slides in one step (two tools today) | Pastors | |
+| 10 | **pdf-arrange** | Keep bookmarks and forms on merge via qpdf `--pages` (R13) | Office workers | |
+| 11 | **ppt-extract** | Legacy .ppt metafiles: inflate EMF/WMF, add BMP headers (R12) | Pastors (old decks) | |
+| 12 | **Image inputs (all)** | HEIC colour: P3 → sRGB or tag ICC (R11) | All targets (iPhone photos) | Could become a step-2 item once more tools resize. |
+
+## Parked (waiting for a trigger)
+
+| Item | Trigger to reopen |
+|---|---|
+| ppt-compress opaque PNG → JPEG at 강하게 (R4) | Real decks with many opaque photo PNGs not made by ppt-background, or soft-alpha work. After spec A only 1 such image was found in decks people made (6–9% of the compressed deck). |
+| Deleting cropped-away picture areas in ppt-compress | A real deck where it matters. |
+
+## Out of reach
+
+- **HWP** (common in Korean schools): no tool reads it. In-browser HWP support is not researched; do not promise it.
+- **Word / Excel conversions**: need a server (CONTEXT non-goal).
