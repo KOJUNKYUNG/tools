@@ -106,6 +106,20 @@ describe("checkPdfWatermark", () => {
     }
   });
 
+  it("passes an untouched input that ends in an EOL after %%EOF, and flags it cut off", async () => {
+    // With no page selected the engine returns the input as-is, and most real
+    // PDFs end in `%%EOF\n` or `%%EOF\r\n`, not pdf-lib's bare `%%EOF`.
+    const saved = await input(1);
+    for (const eol of ["\n", "\r\n"]) {
+      const bytes = new Uint8Array([...saved, ...new TextEncoder().encode(eol)]);
+      expect(await checkPdfWatermark(bytes, watermark([]), bytes, "full")).toEqual([]);
+      const cut = bytes.slice(0, bytes.byteLength - eol.length - 3);
+      expect(props(await checkPdfWatermark(bytes, watermark([]), cut, "quick"))).toEqual([
+        "pdf-opens",
+      ]);
+    }
+  });
+
   it("flags a first page that does not load (quick) or render (full)", async () => {
     const bytes = await input();
     const doc = await marked(bytes, [1]);

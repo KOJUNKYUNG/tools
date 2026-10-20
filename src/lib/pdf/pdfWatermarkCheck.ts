@@ -5,14 +5,21 @@ import type { OverlayOptions } from "./applyPdfOverlay";
 const PDF_HEADER = new TextEncoder().encode("%PDF");
 const EOF_MARKER = new TextEncoder().encode("%%EOF");
 
+/** PDF white-space bytes (NUL, HT, LF, FF, CR, SP; ISO 32000-1 §7.2.2). */
+const WHITE_SPACE = new Set([0x00, 0x09, 0x0a, 0x0c, 0x0d, 0x20]);
+
 /**
- * Whether `bytes` look like a whole file as pdf-lib writes it: `%PDF` first
- * and `%%EOF` last. Empty or cut-off bytes fail, whatever the input is.
+ * Whether `bytes` look like a whole file: `%PDF` first and `%%EOF` last,
+ * give or take trailing white space. pdf-lib ends on a bare `%%EOF`, but the
+ * input, returned as-is when no page is selected, usually ends in an EOL.
+ * Empty or cut-off bytes fail, whatever the input is.
  */
 function isWholePdf(bytes: Uint8Array): boolean {
-  const tail = bytes.subarray(bytes.byteLength - EOF_MARKER.byteLength);
+  let end = bytes.byteLength;
+  while (end > 0 && WHITE_SPACE.has(bytes[end - 1])) end--;
+  const tail = bytes.subarray(end - EOF_MARKER.byteLength, end);
   return (
-    bytes.byteLength > PDF_HEADER.byteLength + EOF_MARKER.byteLength &&
+    end > PDF_HEADER.byteLength + EOF_MARKER.byteLength &&
     PDF_HEADER.every((byte, i) => bytes[i] === byte) &&
     EOF_MARKER.every((byte, i) => tail[i] === byte)
   );
@@ -109,7 +116,7 @@ async function comparePages(
  * modes (watermark and page numbers). pdf-lib wrote the output; pdfjs reads
  * it, so the checks are cross-engine. ⚡ = also at `quick`.
  *
- * - ⚡ `pdf-opens`: the output is whole (`%PDF` … `%%EOF`, checked even when
+ * - ⚡ `pdf-opens`: the output is whole (`%PDF` … `%%EOF` (+ EOL), checked even when
  *   pdfjs cannot open the input) and opens in pdfjs without a password
  * - ⚡ `page-count`: it has the input's page count
  * - ⚡ `first-page-renders`: its page 1 renders at `full`; `quick` only loads
