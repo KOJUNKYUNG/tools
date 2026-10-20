@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { standInPrepare } from "@/lib/image/slideImageStandIn";
 import { zipCompressionMethods } from "@/lib/output-check/zipReader";
 import { changeBackground } from "./changeBackground";
 
@@ -54,6 +55,7 @@ describe("changeBackground keeps the deck's compression", () => {
       pptxFile: new File([new Uint8Array(input)], "deck.pptx"),
       bgImage: new File([BG], "bg.png"),
       mode: "all-slides",
+      prepare: standInPrepare,
     });
 
     expect(output.byteLength).toBeLessThan(input.byteLength + BG.byteLength + 4096);
@@ -65,6 +67,7 @@ describe("changeBackground keeps the deck's compression", () => {
       pptxFile: new File([new Uint8Array(input)], "deck.pptx"),
       bgImage: new File([BG], "bg.png"),
       mode: "all-slides",
+      prepare: standInPrepare,
     });
 
     const before = zipCompressionMethods(input)!;

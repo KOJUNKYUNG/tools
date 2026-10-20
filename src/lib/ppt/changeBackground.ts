@@ -2,6 +2,8 @@ import JSZip from "jszip";
 import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { zipCompressionMethods } from "@/lib/output-check/zipReader";
+import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
+import { prepareSlideImage, type PrepareSlideImage } from "@/lib/image/slideImage";
 import { checkPptBackground } from "./changeBackgroundCheck";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
@@ -12,7 +14,11 @@ export interface ChangeBackgroundOptions {
   mode: BgMode;
   /** 1-based slide indices. Required when mode === "specific-slides". */
   targetSlides?: number[];
+  /** The Background crop, in the picture's upright pixels; centred and as large as possible when absent. */
+  crop?: CropRect;
   onProgress?: (pct: number) => void;
+  /** The picture preparer; tests and Node stand one in for the canvas. */
+  prepare?: PrepareSlideImage;
 }
 
 /**
@@ -31,13 +37,6 @@ export function uniqueMediaName(zip: JSZip, ext: string): string {
     i++;
   }
   return candidate;
-}
-
-function getExtension(file: File): string {
-  const name = file.name.toLowerCase();
-  if (name.endsWith(".png")) return "png";
-  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "jpeg";
-  return "png";
 }
 
 function getContentType(ext: string): string {
@@ -170,64 +169,16 @@ function ensureRelsFile(
   return { path: relsPath, xml: emptyRels };
 }
 
-interface FillRectOffsets {
-  l: number;
-  t: number;
-  r: number;
-  b: number;
-}
-
 /**
- * Calculate fillRect offsets for "cover" behavior (aspect-ratio preserving).
- * Offsets are in OOXML percentage units (100000 = 100%).
- * Negative values extend the fill beyond the shape boundary → crop effect.
+ * Insert or replace <p:bg> inside <p:cSld>. The picture already has the
+ * slide's aspect, so it fills the slide exactly, with no fill offsets.
  */
-function calcCoverOffsets(
-  imgW: number,
-  imgH: number,
-  slideW: number,
-  slideH: number,
-): FillRectOffsets {
-  const imgRatio = imgW / imgH;
-  const slideRatio = slideW / slideH;
-
-  if (Math.abs(imgRatio - slideRatio) < 0.001) {
-    return { l: 0, t: 0, r: 0, b: 0 };
-  }
-
-  if (imgRatio > slideRatio) {
-    const offset = Math.round(((imgRatio / slideRatio - 1) / 2) * 100000);
-    return { l: -offset, t: 0, r: -offset, b: 0 };
-  }
-
-  const offset = Math.round(((slideRatio / imgRatio - 1) / 2) * 100000);
-  return { l: 0, t: -offset, r: 0, b: -offset };
-}
-
-function buildFillRectAttr(offsets: FillRectOffsets): string {
-  const parts: string[] = [];
-  if (offsets.l !== 0) parts.push(`l="${offsets.l}"`);
-  if (offsets.t !== 0) parts.push(`t="${offsets.t}"`);
-  if (offsets.r !== 0) parts.push(`r="${offsets.r}"`);
-  if (offsets.b !== 0) parts.push(`b="${offsets.b}"`);
-  if (parts.length === 0) return "<a:fillRect/>";
-  return `<a:fillRect ${parts.join(" ")}/>`;
-}
-
-/**
- * Insert or replace <p:bg> inside <p:cSld>.
- */
-function setBackground(
-  slideXml: string,
-  relId: string,
-  fillOffsets: FillRectOffsets,
-): string {
-  const fillRect = buildFillRectAttr(fillOffsets);
+function setBackground(slideXml: string, relId: string): string {
   const bgXml =
     `<p:bg><p:bgPr>` +
     `<a:blipFill dpi="0" rotWithShape="1">` +
     `<a:blip r:embed="${relId}"/>` +
-    `<a:stretch>${fillRect}</a:stretch>` +
+    `<a:stretch><a:fillRect/></a:stretch>` +
     `</a:blipFill>` +
     `<a:effectLst/>` +
     `</p:bgPr></p:bg>`;
@@ -286,7 +237,6 @@ async function processSlideGroup(
   zip: JSZip,
   dir: string,
   mediaTarget: string,
-  fillOffsets: FillRectOffsets,
   onEach?: (done: number, total: number) => void,
   /** 1-based whitelist over the slide order (sorted by trailing integer in the
    *  filename — matches extractCurrentBackgrounds). Undefined = all. */
@@ -330,7 +280,7 @@ async function processSlideGroup(
     relsXml = addRelationship(relsXml, relId, mediaTarget);
 
     const oldIds = backgroundValues(slideXml);
-    slideXml = setBackground(slideXml, relId, fillOffsets);
+    slideXml = setBackground(slideXml, relId);
 
     // Drop the replaced background's relationships (its picture, plus any
     // SVG or linked variant), or their images stay embedded and the deck
@@ -465,30 +415,30 @@ export async function changeBackground({
   bgImage,
   mode,
   targetSlides,
+  crop,
   onProgress,
+  prepare = prepareSlideImage,
 }: ChangeBackgroundOptions): Promise<Uint8Array> {
   const arrayBuffer = await pptxFile.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
-
-  const ext = getExtension(bgImage);
-  const mediaName = uniqueMediaName(zip, ext);
-  const mediaPath = `ppt/media/${mediaName}`;
-  const bgImageData = new Uint8Array(await bgImage.arrayBuffer());
-  // PNG and JPEG are already compressed; deflating them again buys little.
-  zip.file(mediaPath, bgImageData, { compression: "STORE" });
-
-  await ensureContentType(zip, ext);
 
   const [imgSize, slideSize] = await Promise.all([
     loadImageSize(bgImage),
     getSlideSize(zip),
   ]);
-  const fillOffsets = calcCoverOffsets(
-    imgSize.w,
-    imgSize.h,
-    slideSize.w,
-    slideSize.h,
+  const source = new Uint8Array(await bgImage.arrayBuffer());
+  const prepared = await prepare(
+    bgImage,
+    crop ?? maxFitCrop(imgSize, slideSize.w, slideSize.h),
+    slideSize,
   );
+
+  const ext = prepared.format;
+  const mediaName = uniqueMediaName(zip, ext);
+  // PNG and JPEG are already compressed; deflating them again buys little.
+  zip.file(`ppt/media/${mediaName}`, prepared.bytes, { compression: "STORE" });
+
+  await ensureContentType(zip, ext);
 
   let replaced: Set<string>;
   if (mode === "master") {
@@ -497,7 +447,6 @@ export async function changeBackground({
       zip,
       "ppt/slideMasters",
       mediaTarget,
-      fillOffsets,
       (done, total) => {
         onProgress?.(Math.round((done / total) * 100));
       },
@@ -515,7 +464,6 @@ export async function changeBackground({
       zip,
       "ppt/slides",
       mediaTarget,
-      fillOffsets,
       (done, total) => {
         onProgress?.(Math.round((done / total) * 100));
       },
@@ -548,7 +496,13 @@ export async function changeBackground({
     check: (out) =>
       checkPptBackground(
         input,
-        { bgImage: bgImageData, mode, targetSlides },
+        {
+          source,
+          crop,
+          background: prepared.bytes,
+          mode,
+          targetSlides,
+        },
         out,
         "quick",
       ),

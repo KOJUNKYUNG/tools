@@ -1,10 +1,17 @@
 import { notInherited, type OutputChecker, type Violation } from "@/lib/output-check/core";
-import { openPptxPackage, relsPartOf } from "@/lib/output-check/pptxPackage";
+import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
+import { openPptxPackage, relsPartOf, type PptxPackage } from "@/lib/output-check/pptxPackage";
 import { sameBytes } from "@/lib/output-check/sameBytes";
+import type { CropRect } from "@/lib/image/maxFitCrop";
 import type { BgMode } from "./changeBackground";
 
 export interface PptBackgroundRequest {
-  bgImage: Uint8Array;
+  /** The picture the user picked, as uploaded. */
+  source: Uint8Array;
+  /** The Background crop in the source's upright pixels; absent = centred, as large as possible. */
+  crop?: CropRect;
+  /** The prepared picture the engine embedded. */
+  background: Uint8Array;
   mode: BgMode;
   /** 1-based slide indices, for `specific-slides`. */
   targetSlides?: number[];
@@ -31,6 +38,15 @@ export interface PptBackgroundRequest {
  * - `size-bound`: output ≤ input + new image − removed parts + a margin for
  *   the rewritten XML, so re-applying never grows the deck
  *
+ * The prepared picture (spec #98), re-derived from the source picture, the
+ * crop and the input's slide size, never from the engine's numbers:
+ *
+ * - ⚡ `background-aspect`: the slide's aspect, within 1 px on either side
+ * - ⚡ `background-cap`: within a 4K screen in the slide's orientation,
+ *   3840 × 2160 (landscape or square) or 2160 × 3840 (portrait)
+ * - ⚡ `background-not-upscaled`: no larger than the crop on either side
+ * - ⚡ `background-format`: a PNG or JPEG header the checks can read
+ *
  * Structural defects the input already had are not the tool's doing and are
  * not reported: the user's deck opened before, so blocking it would be a
  * false positive. Slide N means the N-th slide part by file number, the
@@ -48,7 +64,7 @@ export const checkPptBackground: OutputChecker<
   if (!after) return [{ property: "zip", detail: "output is not a readable zip" }];
   if (!before) return [];
 
-  const violations: Violation[] = [];
+  const violations: Violation[] = await preparationViolations(before, request);
 
   const defects = await after.structuralDefects(before);
   if (defects.length > 0) {
@@ -76,7 +92,7 @@ export const checkPptBackground: OutputChecker<
   for (const part of targets) {
     const media = backgrounds.get(part) ?? null;
     if (media !== null && !isNewImage.has(media)) {
-      isNewImage.set(media, sameBytes(await after.read(media), request.bgImage));
+      isNewImage.set(media, sameBytes(await after.read(media), request.background));
     }
     if (media === null || !isNewImage.get(media)) {
       violations.push({ property: "target-background", detail: part });
@@ -111,7 +127,7 @@ export const checkPptBackground: OutputChecker<
     // adds zip headers: 4 KiB plus 1% of the input covers both (real decks
     // land within +0.02%), while a replaced image left behind exceeds it.
     const margin = 4096 + input.byteLength / 100;
-    const bound = input.byteLength + request.bgImage.byteLength - removed + margin;
+    const bound = input.byteLength + request.background.byteLength - removed + margin;
     if (output.byteLength > bound) {
       violations.push({
         property: "size-bound",
@@ -134,3 +150,63 @@ export const checkPptBackground: OutputChecker<
 
   return violations;
 };
+
+/** PowerPoint's default slide (16:9) when the deck does not declare one. */
+const DEFAULT_SLIDE = { w: 12192000, h: 6858000 };
+
+async function slideSize(pkg: PptxPackage): Promise<{ w: number; h: number }> {
+  const bytes = await pkg.read("ppt/presentation.xml");
+  const xml = bytes ? new TextDecoder().decode(bytes) : "";
+  const sldSz = xml.match(/<p:sldSz\b[^>]*>/)?.[0] ?? "";
+  const attr = (name: string) => Number(sldSz.match(new RegExp(`\\b${name}="(\\d+)"`))?.[1]);
+  const [w, h] = [attr("cx"), attr("cy")];
+  return w > 0 && h > 0 ? { w, h } : DEFAULT_SLIDE;
+}
+
+async function preparationViolations(
+  before: PptxPackage,
+  request: PptBackgroundRequest,
+): Promise<Violation[]> {
+  const header = readImageHeader(request.background);
+  if (!header || header.format === "webp") {
+    return [{ property: "background-format", detail: header ? header.format : "unreadable" }];
+  }
+  const [width, height] = displayedSize(header);
+  const slide = await slideSize(before);
+  const ratio = slide.w / slide.h;
+  const violations: Violation[] = [];
+
+  if (Math.abs(width - height * ratio) > 1 && Math.abs(height - width / ratio) > 1) {
+    violations.push({
+      property: "background-aspect",
+      detail: `${width} × ${height} for a ${slide.w} × ${slide.h} slide`,
+    });
+  }
+
+  const [maxW, maxH] = slide.h > slide.w ? [2160, 3840] : [3840, 2160];
+  if (width > maxW || height > maxH) {
+    violations.push({ property: "background-cap", detail: `${width} × ${height} > ${maxW} × ${maxH}` });
+  }
+
+  // The crop the picture came from: the one given, or the centred, largest
+  // rectangle of the slide's aspect, which may round by half a pixel.
+  let crop: { width: number; height: number } | null = request.crop ?? null;
+  let slack = 0;
+  if (!crop) {
+    const source = readImageHeader(request.source);
+    if (source) {
+      const [w, h] = displayedSize(source);
+      crop = { width: Math.min(w, h * ratio), height: Math.min(h, w / ratio) };
+      slack = 0.5;
+    }
+  }
+  if (!crop) {
+    violations.push({ property: "background-not-upscaled", detail: "source size unreadable" });
+  } else if (width > crop.width + slack || height > crop.height + slack) {
+    violations.push({
+      property: "background-not-upscaled",
+      detail: `${width} × ${height} > crop ${crop.width} × ${crop.height}`,
+    });
+  }
+  return violations;
+}

@@ -1,6 +1,10 @@
+import { resolveObjectURL } from "node:buffer";
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
+import { maxFitCrop } from "@/lib/image/maxFitCrop";
+import { headerOnlyImage, standInPrepare } from "@/lib/image/slideImageStandIn";
+import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { changeBackground } from "./changeBackground";
 import {
@@ -17,9 +21,13 @@ const NEW_BG =
 
 const newBgBytes = Uint8Array.from(Buffer.from(NEW_BG, "base64"));
 
-/** A 3-slide deck; slide 2 carries its own picture background. */
-async function syntheticDeck(): Promise<Uint8Array> {
+/** A 3-slide deck, 16:9 or 9:16; slide 2 carries its own picture background. */
+async function syntheticDeck(portrait = false): Promise<Uint8Array> {
   const pptx = new PptxGenJS();
+  if (portrait) {
+    pptx.defineLayout({ name: "PORTRAIT", width: 5.625, height: 10 });
+    pptx.layout = "PORTRAIT";
+  }
   for (let i = 1; i <= 3; i++) {
     const slide = pptx.addSlide();
     if (i === 2) slide.background = { data: `image/png;base64,${OLD_BG}` };
@@ -29,16 +37,32 @@ async function syntheticDeck(): Promise<Uint8Array> {
   return (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
 }
 
-async function apply(
-  deck: Uint8Array,
-  request: PptBackgroundRequest,
-): Promise<Uint8Array> {
+/** What the user asks for; the engine adds the prepared picture. */
+type Intent = Omit<PptBackgroundRequest, "background">;
+
+async function apply(deck: Uint8Array, intent: Intent): Promise<Uint8Array> {
   return changeBackground({
     pptxFile: new File([new Uint8Array(deck)], "deck.pptx"),
-    bgImage: new File([new Uint8Array(request.bgImage)], "bg.png"),
-    mode: request.mode,
-    targetSlides: request.targetSlides,
+    bgImage: new File([new Uint8Array(intent.source)], "bg.png"),
+    mode: intent.mode,
+    targetSlides: intent.targetSlides,
+    crop: intent.crop,
+    prepare: standInPrepare,
   });
+}
+
+/** The 16:9 slide of every `syntheticDeck`, in EMU. */
+const SLIDE = { w: 9144000, h: 5143500 };
+
+/**
+ * The full request for `intent` on a 16:9 deck: the picture the engine should
+ * have embedded, as the stand-in prepares it from the default (or given) crop.
+ */
+async function requestFor(intent: Intent): Promise<PptBackgroundRequest> {
+  const [w, h] = displayedSize(readImageHeader(intent.source)!);
+  const crop = intent.crop ?? maxFitCrop({ w, h }, SLIDE.w, SLIDE.h);
+  const { bytes } = await standInPrepare(new Blob([new Uint8Array(intent.source)]), crop, SLIDE);
+  return { ...intent, background: bytes };
 }
 
 /**
@@ -109,26 +133,37 @@ async function mediaParts(deck: Uint8Array): Promise<string[]> {
 
 async function properties(
   input: Uint8Array,
-  request: PptBackgroundRequest,
+  intent: Intent,
   output: Uint8Array,
 ): Promise<string[]> {
-  const violations = await checkPptBackground(input, request, output, "full");
+  const violations = await checkPptBackground(input, await requestFor(intent), output, "full");
   return violations.map((v) => v.property);
 }
 
+async function quick(input: Uint8Array, intent: Intent, output: Uint8Array) {
+  return checkPptBackground(input, await requestFor(intent), output, "quick");
+}
+
 // The engine measures the background image with the browser's Image element;
-// Node has none, so stand in a decoder that reports a fixed size. Everything
-// else in the engine runs for real.
+// Node has none, so stand in a decoder that reads the size from the PNG
+// header behind the object URL. Everything else in the engine runs for real.
 beforeAll(() => {
   vi.stubGlobal(
     "Image",
     class {
-      naturalWidth = 1920;
-      naturalHeight = 1080;
+      naturalWidth = 0;
+      naturalHeight = 0;
       onload: (() => void) | null = null;
       onerror: (() => void) | null = null;
-      set src(_: string) {
-        queueMicrotask(() => this.onload?.());
+      set src(url: string) {
+        void (async () => {
+          const blob = resolveObjectURL(url);
+          if (!blob) throw new Error(`no blob behind ${url}`);
+          const bytes = new DataView(await blob.arrayBuffer());
+          this.naturalWidth = bytes.getUint32(16);
+          this.naturalHeight = bytes.getUint32(20);
+          this.onload?.();
+        })().catch(() => this.onerror?.());
       }
     },
   );
@@ -137,7 +172,7 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-const allSlides: PptBackgroundRequest = { bgImage: newBgBytes, mode: "all-slides" };
+const allSlides: Intent = { source: newBgBytes, mode: "all-slides" };
 
 describe("checkPptBackground flags broken output", () => {
   it("flags a deck that lost a slide", async () => {
@@ -192,7 +227,7 @@ describe("checkPptBackground flags broken output", () => {
         zip.file(p, await original.file(p)!.async("uint8array"));
       }
     });
-    expect(await checkPptBackground(input, allSlides, broken, "quick")).toEqual([
+    expect(await quick(input, allSlides, broken)).toEqual([
       { property: "target-background", detail: "ppt/slides/slide2.xml" },
     ]);
   });
@@ -208,8 +243,8 @@ describe("checkPptBackground flags broken output", () => {
   });
 
   it("flags a slide the user did not target that changed, at full depth only", async () => {
-    const request: PptBackgroundRequest = {
-      bgImage: newBgBytes,
+    const request: Intent = {
+      source: newBgBytes,
       mode: "specific-slides",
       targetSlides: [1],
     };
@@ -221,7 +256,7 @@ describe("checkPptBackground flags broken output", () => {
     });
     expect(await properties(input, request, broken)).toEqual(["non-target-unchanged"]);
     // Byte identity is a regression-set property, not a run-time one.
-    expect(await checkPptBackground(input, request, broken, "quick")).toEqual([]);
+    expect(await quick(input, request, broken)).toEqual([]);
   });
 
   it("flags a compressed part whose data is corrupt (reading it throws)", async () => {
@@ -251,7 +286,7 @@ describe("checkPptBackground flags broken output", () => {
     const good = await apply(input, allSlides);
     const broken = await mutate(good, (zip) => restoreOldBackground(zip, input));
     // Run time: the old image would stay embedded and grow the deck.
-    expect(await checkPptBackground(input, allSlides, broken, "quick")).toEqual([
+    expect(await quick(input, allSlides, broken)).toEqual([
       {
         property: "replaced-background-kept",
         detail: `${SLIDE2_RELS} ${OLD_BG_REL} → ${OLD_BG_MEDIA}`,
@@ -266,12 +301,12 @@ describe("checkPptBackground flags broken output", () => {
       zip.file(OLD_BG_MEDIA, Buffer.from(OLD_BG, "base64"));
     });
     expect(await properties(input, allSlides, broken)).toEqual(["media-unreferenced"]);
-    expect(await checkPptBackground(input, allSlides, broken, "quick")).toEqual([]);
+    expect(await quick(input, allSlides, broken)).toEqual([]);
   });
 
   it("flags an unused image relationship in any part, at full depth only", async () => {
-    const request: PptBackgroundRequest = {
-      bgImage: newBgBytes,
+    const request: Intent = {
+      source: newBgBytes,
       mode: "specific-slides",
       targetSlides: [1],
     };
@@ -290,7 +325,7 @@ describe("checkPptBackground flags broken output", () => {
       );
     });
     expect(await properties(input, request, broken)).toEqual(["relationship-unused"]);
-    expect(await checkPptBackground(input, request, broken, "quick")).toEqual([]);
+    expect(await quick(input, request, broken)).toEqual([]);
   });
 
   it("flags output larger than input + new image − removed media, at full depth only", async () => {
@@ -306,7 +341,7 @@ describe("checkPptBackground flags broken output", () => {
       );
     });
     expect(await properties(input, allSlides, broken)).toEqual(["size-bound"]);
-    expect(await checkPptBackground(input, allSlides, broken, "quick")).toEqual([]);
+    expect(await quick(input, allSlides, broken)).toEqual([]);
   });
 
   it("flags output that is not a zip at all", async () => {
@@ -316,11 +351,80 @@ describe("checkPptBackground flags broken output", () => {
   });
 });
 
+describe("checkPptBackground checks the prepared picture", () => {
+  /** A picture's header at `width`×`height`; the tag keeps sizes apart. */
+  const picture = (width: number, height: number) =>
+    headerOnlyImage("png", { width, height }, new Uint8Array([width % 256, height % 256]));
+
+  /**
+   * The quick-depth properties when the preparer had produced `prepared`:
+   * the deck embeds it and the request claims it, so only the picture is off.
+   */
+  async function preparedAs(intent: Intent, prepared: Uint8Array, portrait = false) {
+    const input = await syntheticDeck(portrait);
+    const output = await mutate(await apply(input, intent), (zip) => {
+      const media = Object.keys(zip.files).find((p) => p.includes("background_custom"))!;
+      zip.file(media, prepared);
+    });
+    const request: PptBackgroundRequest = { ...intent, background: prepared };
+    const violations = await checkPptBackground(input, request, output, "quick");
+    return violations.map((v) => v.property);
+  }
+
+  it("passes a phone photo cut and fitted for a 16:9 slide", async () => {
+    const intent: Intent = { source: picture(4032, 3024), mode: "all-slides" };
+    const input = await syntheticDeck();
+    expect(await properties(input, intent, await apply(input, intent))).toEqual([]);
+  });
+
+  it("passes a given crop smaller than the box, kept at its own size", async () => {
+    const intent: Intent = {
+      source: picture(4032, 3024),
+      crop: { x: 1000, y: 500, width: 1600, height: 900 },
+      mode: "all-slides",
+    };
+    const input = await syntheticDeck();
+    expect(await properties(input, intent, await apply(input, intent))).toEqual([]);
+  });
+
+  it("flags a picture of another aspect than the slide", async () => {
+    const intent: Intent = { source: picture(4032, 3024), mode: "all-slides" };
+    expect(await preparedAs(intent, picture(2880, 2160))).toEqual(["background-aspect"]);
+  });
+
+  it("flags a picture larger than a 4K screen needs", async () => {
+    const intent: Intent = { source: picture(8000, 4500), mode: "all-slides" };
+    expect(await preparedAs(intent, picture(4000, 2250))).toEqual(["background-cap"]);
+  });
+
+  it("holds a portrait slide's picture to 2160 × 3840", async () => {
+    const intent: Intent = { source: picture(4500, 8000), mode: "all-slides" };
+    expect(await preparedAs(intent, picture(2160, 3840), true)).toEqual([]);
+    expect(await preparedAs(intent, picture(2250, 4000), true)).toEqual(["background-cap"]);
+  });
+
+  it("flags a picture enlarged past the default crop", async () => {
+    const intent: Intent = { source: picture(1600, 1200), mode: "all-slides" };
+    // The centred 16:9 crop of 1600 × 1200 is 1600 × 900.
+    expect(await preparedAs(intent, picture(1600, 900))).toEqual([]);
+    expect(await preparedAs(intent, picture(1920, 1080))).toEqual(["background-not-upscaled"]);
+  });
+
+  it("flags a picture enlarged past the crop it was given", async () => {
+    const intent: Intent = {
+      source: picture(4032, 3024),
+      crop: { x: 0, y: 0, width: 800, height: 450 },
+      mode: "all-slides",
+    };
+    expect(await preparedAs(intent, picture(1600, 900))).toEqual(["background-not-upscaled"]);
+  });
+});
+
 describe("checkPptBackground passes good output", () => {
-  const modes: [string, PptBackgroundRequest][] = [
+  const modes: [string, Intent][] = [
     ["all slides", allSlides],
-    ["the master", { bgImage: newBgBytes, mode: "master" }],
-    ["specific slides", { bgImage: newBgBytes, mode: "specific-slides", targetSlides: [1, 3] }],
+    ["the master", { source: newBgBytes, mode: "master" }],
+    ["specific slides", { source: newBgBytes, mode: "specific-slides", targetSlides: [1, 3] }],
   ];
   it.each(modes)("reports nothing when applied to %s", async (_, request) => {
     const input = await syntheticDeck();
@@ -392,8 +496,8 @@ describe("ppt-background removes the replaced background", () => {
       zip.file(leftover, Buffer.from(OLD_BG, "base64"));
       for (const n of [1, 3]) await addImageRelationship(zip, `ppt/slides/_rels/slide${n}.xml.rels`, "rId97", "../media/leftover.png");
     });
-    const firstOnly: PptBackgroundRequest = {
-      bgImage: newBgBytes,
+    const firstOnly: Intent = {
+      source: newBgBytes,
       mode: "specific-slides",
       targetSlides: [1],
     };
@@ -431,7 +535,7 @@ describe("ppt-background removes the replaced background", () => {
   it("leaves one background media per distinct background after re-applying", async () => {
     const input = await syntheticDeck();
     const once = await apply(input, allSlides);
-    const again: PptBackgroundRequest = { bgImage: oldBgBytes, mode: "all-slides" };
+    const again: Intent = { source: oldBgBytes, mode: "all-slides" };
     const twice = await apply(once, again);
 
     const inUse = [...new Set(await slideBackgrounds(twice))];
@@ -445,8 +549,8 @@ describe("ppt-background removes the replaced background", () => {
     const shared = await apply(input, allSlides);
     const [sharedMedia] = await slideBackgrounds(shared);
 
-    const first: PptBackgroundRequest = {
-      bgImage: oldBgBytes,
+    const first: Intent = {
+      source: oldBgBytes,
       mode: "specific-slides",
       targetSlides: [1],
     };
@@ -458,7 +562,7 @@ describe("ppt-background removes the replaced background", () => {
     expect(await properties(shared, first, partly)).toEqual([]);
 
     // Once the last slide using it is changed, the shared image goes too.
-    const rest: PptBackgroundRequest = { ...first, targetSlides: [2, 3] };
+    const rest: Intent = { ...first, targetSlides: [2, 3] };
     const done = await apply(partly, rest);
     expect(await mediaParts(done)).not.toContain(sharedMedia);
     expect(await properties(partly, rest, done)).toEqual([]);
@@ -507,7 +611,7 @@ describe("checkPptBackground does not blame the tool for the input", () => {
     });
     const output = await apply(input, allSlides);
     expect(await properties(input, allSlides, output)).toEqual([]);
-    expect(await checkPptBackground(input, allSlides, output, "quick")).toEqual([]);
+    expect(await quick(input, allSlides, output)).toEqual([]);
   });
 
   it("ignores a malformed part the input already had, whether copied or rewritten", async () => {
