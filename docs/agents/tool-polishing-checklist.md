@@ -42,6 +42,7 @@
 - [ ] **완료 상태**는 공통 `ResultCard` + `ResultActions`(다운로드→핸드오프→다시 하기 순). 자체 결과 마크업 금지. 2컬럼 레이아웃에서 결과 카드는 **우측 컬럼 가로 폭을 채운다**(`self-start` 등으로 hug 금지 — ppt-background·pdf-watermark·pdf-compress canon).
 - [ ] **단일 파일 도구**는 헤더 오른쪽 되돌리기(reset) 버튼을 두지 않는다(다시 업로드로 대체).
 - [ ] 공통 요소를 손봐야 하면 그 도구가 아니라 **공유 컴포넌트/토큰 출처에서** 고쳐 전 도구에 반영([[common-component-unification]]).
+- [ ] **재사용 검토**: 이번에 새로 도입·구현한 기능(선택 UI·인코딩 규칙·크기 기준 등)을 다른 도구도 쓸 수 있는가? 쓸 수 있으면 공유 모듈로 만들고 도입할 도구를 백로그에 남긴다(`workflow.md` "Re-check and polish order").
 - [ ] **2컬럼 워크스페이스 구분선**: 좌 프리뷰 / 우 컨트롤 레이아웃은 우측 컬럼에 `md:border-l md:pl-5`(토큰 `--border`)로 세로 구분선을 둔다(ppt-background·pdf-watermark·pdf-compress canon). 공통 컴포넌트로 빼지 않고 이 유틸 클래스를 그대로 사용.
 
 ---

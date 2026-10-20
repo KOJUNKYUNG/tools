@@ -3,7 +3,7 @@
 **Ontab** is a free, no-login, no-payment web toolbox of file utilities (PPT,
 PDF, image) that runs in the browser tab — "on tab". It serves non-expert
 global users (Korean and English) — pastors preparing weekly church PPTs,
-lecturers, students, office workers — who need to fix a file fast without
+teachers, students, office workers, small-business owners — who need to fix a file fast without
 learning jargon, creating an account, or installing software. Files are
 uploaded, processed, and downloaded inline on the landing page — an in-browser
 alternative to server-upload tools (iLovePDF, ppt.ai) with no daily limits and
@@ -84,6 +84,16 @@ leaves a picture whose display size it cannot work out untouched (spec #91).
 _Avoid_: ppi of slide inches — slide sizes vary (20 × 11.25 in is common) and
 say nothing about what is shown.
 
+### Background crop
+The part of an image that becomes a slide background: a rectangle of the
+slide's aspect that the user places on the image (moved, or shrunk to zoom
+in; centred and as large as possible by default). ppt-background keeps only
+those pixels and discards the rest, so the background cannot be repositioned
+in PowerPoint afterwards; the user re-runs the tool with the original image.
+Gallery backgrounds are cropped the same way.
+_Avoid_: "cover" or fill offsets: the earlier XML-only approach that kept the
+whole image in the deck.
+
 ### Alias
 A slug kept live for SEO / backwards compatibility that renders a different
 **canonical** tool, declared via `aliasOf` in the registry. Today: `pdf-merge`,
@@ -91,9 +101,31 @@ A slug kept live for SEO / backwards compatibility that renders a different
 An alias is **not** a separate tool — don't count it as one.
 
 ### Non-expert user
-The target audience. Pastors preparing weekly church PPTs, lecturers,
-students, office workers. They do not know what "rasterize" means and will
-not read a tutorial. UI text and defaults assume zero domain literacy.
+The target audience: the five [target users](#target-users). They do not
+know what "rasterize" means and will not read a tutorial. UI text and
+defaults assume zero domain literacy.
+
+### Target users
+Who Ontab is for, and the work each brings. A tool's **feature-scope check**
+(`docs/agents/workflow.md`) and backlog ranking test ideas against this table,
+not against church work alone.
+
+| Target | Typical work | Documents | Formats |
+| ------ | ------------ | --------- | ------- |
+| Pastors and church staff | Weekly worship decks (song lyrics, sermon), bulletins, sheet music, event promotion | Decks, bulletin and sheet-music PDFs, posters and notice images, phone photos | PPTX, PDF, JPG / PNG / HEIC |
+| Teachers (school, Sunday school, academy and university lecturers) | Lesson materials and worksheets, exams, collecting students' photo submissions, notices to parents | Decks, worksheet and exam PDFs, notice images and posters, phone photos | PPTX, PDF, JPG / HEIC; HWP (no tool reads it) |
+| Students | Assignments under upload limits, presentations, photos of notes and boards | Decks, PDFs, scans, phone photos | PPTX, PDF, JPG / HEIC |
+| Office workers | Merging and splitting reports and contracts, fitting attachment limits, confidentiality marks, passwords, receipts to PDF, notices | PDFs, decks, photos, notice images | PDF, PPTX, JPG; Word / Excel need a server (non-goal) |
+| Small-business owners | Menus, flyers, print posters, social-media images, product photos sized for marketplaces, copies of documents for submission | Images, posters, PDFs | JPG / PNG / HEIC / WebP, PDF |
+
+Work shared across targets:
+- **Promotion material**: print posters, notice images, and social-media
+  formats such as an Instagram carousel or a YouTube thumbnail. Users name
+  these by purpose, not by pixels; take the pixel sizes from the platform's
+  current spec when building, since platforms change them.
+- **Upload and attachment limits**: most targets shrink a file to fit a
+  submission, a mail, or a messenger.
+- **Phone photos** (HEIC on iPhones) arrive as input everywhere.
 
 ### Non-goals
 Deliberate exclusions — these are out of scope by decision, not by omission.

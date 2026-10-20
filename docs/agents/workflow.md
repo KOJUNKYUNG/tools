@@ -22,6 +22,17 @@ One spec (issue track) or one tool (direct track) = one branch = one PR. Tickets
 
 Within an approved spec, run ticket to ticket with a one-line progress note. Stop for the user at spec boundaries, open decisions, visual checks, and hard stops.
 
+## Re-check and polish order
+
+Re-checking or polishing many tools runs in four steps: diagnose across tools, fix within one tool.
+
+1. **Diagnose across tools.** Compare all tools side by side; inconsistencies show only there (one tool caps images at 1920 px, another embeds them as-is). Reuse an existing review and re-rank it instead of auditing again. Output: the tool order.
+2. **Fix shared causes once.** A problem with one cause in several tools is fixed at the shared source in one change.
+3. **One tool at a time**, in that order: logic first, then its UI, as one PR. A logic change often reshapes the UI, so polishing UI first is wasted work. Open each tool's turn with a short **feature-scope check** (competitors' published feature lists, and the work of each target user in `CONTEXT.md` "Target users", not church work alone); ideas found go to their own spec or the backlog, not into the fix in progress.
+4. **Site-wide visual check last**: phone, tablet, dark, English, across all tools. These defects mostly live in shared chrome, and checking earlier gets re-broken by later changes.
+
+**Reuse check.** Whenever a tool gains a capability (a picker, an encoder rule, a size policy), ask which other tools could use it. If any could, build it as a shared module and note the tools that should adopt it; each adopts it in step 2 or on its own turn.
+
 ## Verify gate
 
 `pnpm verify` runs typecheck, lint, tests, `design:check`, and build. It is green before any visual check and before any PR. CI (`.github/workflows/ci.yml`) runs the same gate on every PR to `master` and every push to `master`.
