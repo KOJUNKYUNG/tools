@@ -1,10 +1,10 @@
 // Runs the ratio measurement page (index.html) in headless Chrome and writes
 // its results as JSON, so a measurement needs no browser window.
 //
-// Run: node scripts/measure-ppt-ratios/run-headless.mjs [--parts=curve,heic,png,fixtures,hires] [--out=results.json]
-// Starts serve.mjs unless it already runs on :4310. CHROME_PATH overrides the
-// Chrome binary. Drives Chrome over the DevTools protocol with Node's own
-// WebSocket, so it needs no extra package.
+// Run: node scripts/measure-ppt-ratios/run-headless.mjs [--parts=curve,heic,png,fixtures,hires,analysis] [--out=results.json]
+// Starts serve.mjs unless it already runs on :4310 (MEASURE_PORT overrides
+// the port). CHROME_PATH overrides the Chrome binary. Drives Chrome over the
+// DevTools protocol with Node's own WebSocket, so it needs no extra package.
 
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -18,7 +18,8 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => a.replace(/^--/, "").split("=")),
 );
-const PAGE = "http://localhost:4310/" + (args.parts ? `?parts=${args.parts}` : "");
+const ORIGIN = `http://localhost:${process.env.MEASURE_PORT ?? 4310}`;
+const PAGE = ORIGIN + "/" + (args.parts ? `?parts=${args.parts}` : "");
 
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
@@ -30,7 +31,7 @@ const CHROME_CANDIDATES = [
 
 async function serverUp() {
   try {
-    return (await fetch("http://localhost:4310/")).ok;
+    return (await fetch(ORIGIN + "/")).ok;
   } catch {
     return false;
   }

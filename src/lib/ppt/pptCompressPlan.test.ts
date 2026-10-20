@@ -80,7 +80,10 @@ describe("deriveCompressedName", () => {
   });
 });
 
+// Pictures of unknown display size: no preset resizes them.
+const unsized = { size: null, display: null };
 const jpegAt = (bytes: number, quality: number | null, fullChroma = false) => ({
+  ...unsized,
   kind: "jpeg" as const,
   bytes,
   quality,
@@ -88,6 +91,7 @@ const jpegAt = (bytes: number, quality: number | null, fullChroma = false) => ({
 });
 const freshJpeg = (bytes: number) => jpegAt(bytes, 95);
 const freshPng = (bytes: number, visiblePixels: number | null = null) => ({
+  ...unsized,
   kind: "png" as const,
   bytes,
   visiblePixels,
@@ -145,6 +149,55 @@ describe("estimatePptxSize", () => {
     expect(estimatePptxSize(1000, [freshJpeg(5), freshPng(5)], "high")).toBeNull();
     expect(estimatePptxSize(1000, [], "medium")).toBeNull();
     expect(estimatePptxSize(0, [], "medium")).toBeNull();
+  });
+
+  describe("a picture shown smaller than its pixels", () => {
+    // 4000 × 3000 across a full slide: medium keeps 2560 × 1920 (0.4096 of
+    // its pixels), high 1920 × 1440 (0.2304)
+    const photo = { size: { width: 4000, height: 3000 }, display: { width: 1, height: 0.75 } };
+
+    it("shrinks a resized JPEG by the pixels it keeps", () => {
+      // q95: medium 0.3675 × 0.4096, high 0.2825 × 0.2304; 200 + 800 * that
+      const jpeg = { ...freshJpeg(800), ...photo };
+      expect(estimatePptxSize(1000, [jpeg], "medium")).toBeCloseTo(320.42);
+      expect(estimatePptxSize(1000, [jpeg], "high")).toBeCloseTo(252.07);
+    });
+    it("shrinks a resized photo PNG's visible pixels by the pixels it keeps", () => {
+      // 24 MB over 12 M visible pixels: 1.498 per pixel kept at medium;
+      // 6 MB untouched + 12e6 * 0.4096 * 1.498
+      const png = { ...freshPng(24e6, 12e6), ...photo };
+      expect(estimatePptxSize(30e6, [png], "medium")).toBeCloseTo(13_362_969.6);
+    });
+    it("shrinks a resized flat graphic far less than its pixels", () => {
+      // 1 MB over 12 M pixels: the flat ratio, 0.824 * 0.4096^0.34 at medium;
+      // 1 MB untouched + 1e6 * that
+      const png = { ...freshPng(1e6, 12e6), ...photo };
+      expect(estimatePptxSize(2e6, [png], "medium")).toBeCloseTo(1_608_316.5);
+    });
+    it("shrinks a resized PNG like a fresh one, even when saved at a weaker preset", () => {
+      // within low's colour budget: resampling makes new colours, so the
+      // re-run ratio (0.97) no longer applies; the photo figure above does
+      const png = { ...freshPng(24e6, 12e6), ...photo, colors: 3000 };
+      expect(estimatePptxSize(30e6, [png], "medium")).toBeCloseTo(13_362_969.6);
+    });
+    it("keeps today's numbers for a picture at or near its target", () => {
+      // high needs 1920 px across: 1920 is at it, 2000 within the 0.9 threshold
+      for (const width of [1920, 2000]) {
+        const sized = { size: { width, height: width * 0.75 }, display: photo.display };
+        expect(estimatePptxSize(1000, [{ ...freshJpeg(800), ...sized }], "high")).toBeCloseTo(426);
+        expect(estimatePptxSize(1000, [{ ...freshPng(800, 200), ...sized }], "high")).toBeCloseTo(483.8);
+      }
+    });
+    it("resizes again when a deck compressed at medium is re-run at high", () => {
+      // medium's output: 2560 × 1920 at q70; high keeps 0.5625 of it:
+      // 100 + 900 * 0.89 * 0.5625, not today's 901
+      const resized = { ...jpegAt(900, 70), size: { width: 2560, height: 1920 }, display: photo.display };
+      expect(estimatePptxSize(1000, [resized], "high")).toBeCloseTo(550.56);
+    });
+    it("keeps every picture's estimate at low, which does not resize", () => {
+      expect(estimatePptxSize(1000, [{ ...freshJpeg(800), ...photo }], "low")).toBeCloseTo(596.8);
+      expect(estimatePptxSize(1000, [{ ...freshPng(800, 200), ...photo }], "low")).toBeCloseTo(510);
+    });
   });
 
   describe("an already compressed image", () => {

@@ -146,10 +146,22 @@ const countPngPixelsInBrowser: CountPngPixels = async (bytes, cap) => {
   }
 };
 
+/** A picture's upright pixel size (EXIF orientation applied); null if its header is unreadable. */
+function uprightSize(bytes: Uint8Array): PixelSize | null {
+  const header = readImageHeader(bytes);
+  if (!header) return null;
+  const [width, height] = displayedSize(header);
+  return { width, height };
+}
+
 /**
  * Idle-time analysis: pull the embedded thumbnail, count images, and read
- * each recompressible image's size and signs of earlier compression for the
- * size estimate. One unzip per file.
+ * each recompressible image's size, signs of earlier compression, pixel size
+ * and display size for the size estimate. One unzip per file, plus reading
+ * the slides for display sizes. No fixed idle-time budget exists, so its cost
+ * is measured against the analysis itself: on the eight real decks it adds
+ * 2–73 ms to an analysis of 0.08–1.9 s (1–24% of it; scripts/measure-ppt-ratios
+ * ?parts=analysis, Chrome, 2026-10-20).
  */
 export async function analyzePptxForCompress(
   file: File,
@@ -174,6 +186,7 @@ export async function analyzePptxForCompress(
   });
 
   const { imageCount, formatCounts } = aggregateFormats(imageBaseNames);
+  const displaySizes = await readDisplaySizes(new Uint8Array(ab));
 
   const media: MediaSample[] = [];
   // Track the largest recompressible image to use as the preview.
@@ -184,25 +197,28 @@ export async function analyzePptxForCompress(
     if (!entry) continue;
     const bytes = await entry.async("uint8array");
     const ext = getExt(p);
+    const pictureSize = { size: uprightSize(bytes), display: displaySizes.get(p) ?? null };
     if (ext === "png") {
-      const header = readPngHeader(bytes);
-      const palette = header?.colorType === 3;
+      const png = readPngHeader(bytes);
+      const palette = png?.colorType === 3;
       // A palette PNG already counts as compressed; no need to decode it.
       const counted =
-        header && !palette && header.width * header.height <= MAX_COUNT_PIXELS
+        png && !palette && png.width * png.height <= MAX_COUNT_PIXELS
           ? await countPngPixels(bytes, COLOR_COUNT_CAP)
           : null;
-      const hasAlpha = header?.colorType === 4 || header?.colorType === 6;
+      const hasAlpha = png?.colorType === 4 || png?.colorType === 6;
       media.push({
+        ...pictureSize,
         kind: "png",
         bytes: bytes.length,
-        visiblePixels: counted?.visible ?? (header ? header.width * header.height : null),
+        visiblePixels: counted?.visible ?? (png ? png.width * png.height : null),
         palette,
         colors: counted?.colors ?? null,
         unusedAlpha: hasAlpha && (counted?.opaque ?? false),
       });
     } else {
       media.push({
+        ...pictureSize,
         kind: "jpeg",
         bytes: bytes.length,
         quality: estimateJpegQuality(bytes),
@@ -338,11 +354,8 @@ export async function compressPptxFromBytes({
       const original = await entry.async("uint8array");
       const action = classifyMedia(getExt(path), preset);
       if (action.kind !== "passthrough") {
-        const header = readImageHeader(original);
-        const shown = header && displayedSize(header);
-        const target = shown
-          ? downsampleTarget({ width: shown[0], height: shown[1] }, displaySizes.get(path) ?? null, preset)
-          : null;
+        const size = uprightSize(original);
+        const target = size && downsampleTarget(size, displaySizes.get(path) ?? null, preset);
         let candidate: Uint8Array | null = null;
         try {
           candidate = await recompress(original, target ? { ...action, target } : action);

@@ -280,6 +280,23 @@ describe("analyzePptxForCompress", () => {
     // Counted just past the weakest preset's budget (4096 * 0.82).
     expect(counted).toEqual([3359]);
   });
+  it("reads each picture's upright pixel size and its display size", async () => {
+    const deck = await syntheticDeck();
+    const analysis = await analyzePptxForCompress(
+      new File([new Uint8Array(deck)], "deck.pptx"),
+      async () => null,
+    );
+    // pptxgenjs's slide is 10 in wide: a 4 × 2 in frame spans 0.4 × 0.2 of it
+    expect(analysis.media.find((m) => m.kind === "png")).toMatchObject({
+      size: { width: 40, height: 20 },
+      display: { width: expect.closeTo(0.4), height: expect.closeTo(0.2) },
+    });
+    // the phone photo is stored 3 × 2 and shown 2 × 3, in a 2 × 3 in frame
+    expect(analysis.media.find((m) => m.kind === "jpeg")).toMatchObject({
+      size: { width: 2, height: 3 },
+      display: { width: expect.closeTo(0.2), height: expect.closeTo(0.3) },
+    });
+  });
   it("takes every pixel as visible when a PNG cannot be decoded", async () => {
     const deck = await syntheticDeck();
     const analysis = await analyzePptxForCompress(

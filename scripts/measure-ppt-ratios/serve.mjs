@@ -1,8 +1,8 @@
 // Serves the ppt-compress ratio measurement page (index.html) on
-// http://localhost:4310. The page re-encodes every image in the real-file
-// decks, and each loose JPEG/PNG, with the engine's own encoder
-// (browser-image-compression, from node_modules) and reports how much each
-// preset step leaves.
+// http://localhost:4310 (MEASURE_PORT overrides). The page re-encodes every
+// image in the real-file decks, and each loose JPEG/PNG, with the engine's own
+// encoder (browser-image-compression, from node_modules) and resizer, and
+// reports how much each preset step leaves.
 //
 // It also encodes lossless originals (PNGs under tests/lossless, e.g. the
 // Kodak suite, and the HEIC fixtures) as fresh JPEGs at a range of qualities,
@@ -23,6 +23,7 @@
 
 import { createServer } from "node:http";
 import { stripTypeScriptTypes } from "node:module";
+import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { resolve, join, basename, relative, sep, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,7 +31,7 @@ import { fileURLToPath } from "node:url";
 const here = fileURLToPath(new URL(".", import.meta.url));
 const root = resolve(here, "../..");
 const fixtures = process.env.REAL_FIXTURES_DIR ?? join(root, "tests/fixtures");
-const PORT = 4310;
+const PORT = Number(process.env.MEASURE_PORT ?? 4310);
 
 // Folders of lossless PNG originals, each listed at its route and served
 // below it.
@@ -46,27 +47,51 @@ const files = {
     "text/javascript",
   ],
   "/lib/jszip.js": [join(root, "node_modules/jszip/dist/jszip.min.js"), "text/javascript"],
+  "/lib/cfb.js": [join(root, "node_modules/cfb/dist/cfb.min.js"), "text/javascript"],
   "/lib/heic-to.js": [join(root, "node_modules/heic-to/dist/heic-to.js"), "text/javascript"],
 };
 
-// The page reads JPEG quality and the preset qualities from the estimator's
-// own code, served with its types stripped.
-const modules = {
-  "/lib/alreadyCompressed.js": join(root, "src/lib/image/alreadyCompressed.ts"),
-  "/lib/pptCompressPlan.js": join(root, "src/lib/ppt/pptCompressPlan.ts"),
-};
+// The page runs the app's own code: any module under src/ is served from
+// /src/<path>.ts with its types stripped (transform mode, so parameter
+// properties work), its "@/" and extensionless relative imports pointed back
+// at this route, and each package at the global its script tag on the page
+// defines (served as /lib/global/<package>.js).
+const PAGE_GLOBALS = { jszip: "JSZip", "browser-image-compression": "imageCompression", cfb: "CFB" };
+const GLOBAL_ROUTE = /^\/lib\/global\/(.+)\.js$/;
+const IMPORT = /(\bfrom\s*|\bimport\s*\(?\s*)(["'])([^"']+)\2/g;
+function browserImports(code) {
+  return code.replace(IMPORT, (all, lead, quote, spec) => {
+    if (PAGE_GLOBALS[spec]) return `${lead}${quote}/lib/global/${spec}.js${quote}`;
+    if (spec.startsWith("@/")) spec = "/src/" + spec.slice(2);
+    else if (!spec.startsWith(".")) return all;
+    return `${lead}${quote}${/\.[cm]?[jt]s$/.test(spec) ? spec : spec + ".ts"}${quote}`;
+  });
+}
 
 createServer(async (req, res) => {
   try {
     const path = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname);
     const inFolder = /^(\/[^/]+)\/(.+)$/.exec(path); // [, route, file inside it]
+    const pageGlobal = PAGE_GLOBALS[GLOBAL_ROUTE.exec(path)?.[1]];
     if (files[path]) {
       const [file, type] = files[path];
       res.writeHead(200, { "content-type": type });
       res.end(await readFile(file));
-    } else if (modules[path]) {
+    } else if (pageGlobal) {
       res.writeHead(200, { "content-type": "text/javascript" });
-      res.end(stripTypeScriptTypes(await readFile(modules[path], "utf8")));
+      res.end(`export default globalThis.${pageGlobal};`);
+    } else if (path.startsWith("/src/") && path.endsWith(".ts")) {
+      const file = resolve(root, path.slice(1));
+      const inside = relative(join(root, "src"), file);
+      if (inside.startsWith("..") || isAbsolute(inside)) return void res.writeHead(404).end();
+      // A folder import ("@/types") means its index, at its own URL so the
+      // index's relative imports resolve inside the folder.
+      if (!existsSync(file) && existsSync(file.slice(0, -3) + "/index.ts")) {
+        return void res.writeHead(302, { location: path.slice(0, -3) + "/index.ts" }).end();
+      }
+      const code = stripTypeScriptTypes(await readFile(file, "utf8"), { mode: "transform" });
+      res.writeHead(200, { "content-type": "text/javascript" });
+      res.end(browserImports(code));
     } else if (path === "/fixtures") {
       // Decks, loose images as they would sit in a deck, and HEIC originals.
       const names = (await readdir(fixtures)).filter((n) => /\.(pptx|png|jpe?g|heic)$/i.test(n));

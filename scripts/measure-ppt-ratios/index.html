@@ -12,6 +12,7 @@
 </style>
 <script src="/lib/bic.js"></script>
 <script src="/lib/jszip.js"></script>
+<script src="/lib/cfb.js"></script>
 </head>
 <body>
 <h1>ppt-compress re-encode ratios</h1>
@@ -22,23 +23,34 @@ estimator (<code>src/lib/ppt/pptCompressPlan.ts</code>, as checked out) expects.
   <li><b>Fresh JPEG curve</b>: lossless originals (PNGs under <code>tests/lossless</code>, and the
     HEIC fixtures) saved by this browser as fresh JPEGs at each quality, then re-encoded at each preset.</li>
   <li><b>Real-file images</b>: each image in the real-file decks and each loose JPEG/PNG
-    (deduplicated). <b>fresh → P</b> is the image as found, re-encoded at preset P;
+    (deduplicated by bytes and display size). Like the engine, a preset that downsamples first
+    shrinks a picture to its display size (read by <code>src/lib/ppt/displaySize.ts</code>) with
+    the engine's resizer (<code>src/lib/image/downscale.ts</code>); a loose image has no display
+    size and keeps its pixels. <b>fresh → P</b> is the image as found, re-encoded at preset P;
     <b>W → P</b> is the image after the engine compressed it at weaker preset W, re-run at P,
     skipped when W left it unchanged or (PNG) wrote it indexed, since both already count as compressed.</li>
   <li><b>Decks</b>: each real deck's estimate against the size its re-encoded images give, fresh
     and re-run (a deck compressed at W, then at P). The size ignores the zip's own deflate of the
     images, which is about 1%. HEIC sets are hold-out "decks" of the HEIC photos at one quality.</li>
+  <li><b>Resized pictures</b>: each step that resized a picture, its ratio against the
+    <b>model</b> and against <b>today</b>'s model for the same picture not resized;
+    <b>kept</b> is the share of its pixels it keeps.</li>
   <li><b>High-resolution set</b>: lossless photos larger than any downsampling target, under
     <code>tests/hires</code> (local only, never committed), to calibrate and hold out the
-    downsampled path. Source: the 8-bit RGB set of
+    downsampled path: each saved as a fresh q95 and q86 JPEG and kept as its lossless PNG, placed
+    across the full slide width and half of it, beside the loose real-file photos placed the same
+    way, then run through every step. Source: the 8-bit RGB set of
     <a href="https://imagecompression.info/test_images/">imagecompression.info test images</a>
     (PPM, converted to PNG by <code>ppm-to-png.mjs</code>). Licence: © their respective owners;
     free to use and redistribute, not to sell; altered versions marked as such; origin not
     misrepresented; the notice kept with any copy (saved as <code>LICENSE.txt</code> beside the files).</li>
 </ul>
-<p>Query <code>?parts=curve,heic,png,fixtures,hires</code> picks what to run (default all but
-<b>hires</b>, which runs only when named). <b>png</b>
-re-encodes the lossless originals as fresh PNGs, as found and as this browser saves them.</p>
+<p>Query <code>?parts=curve,heic,png,fixtures,hires,analysis</code> picks what to run (default all
+but <b>hires</b> and <b>analysis</b>, which run only when named). <b>png</b>
+re-encodes the lossless originals as fresh PNGs, as found and as this browser saves them.
+<b>analysis</b> times the tool's idle-time analysis of each real deck (<code>analyzePptxForCompress</code>)
+against the part of it that reads the slides for display sizes, and shows how each deck's picture
+bytes spread over the scale each preset would resize them to.</p>
 <p id="status">Starting…</p>
 <div id="out"></div>
 <script type="module">
@@ -48,15 +60,22 @@ import {
   countColors,
   countVisiblePixels,
   readPngHeader,
-} from "/lib/alreadyCompressed.js";
+} from "/src/lib/image/alreadyCompressed.ts";
 import {
   PRESET_QUALITY as QUALITY,
+  PRESET_SLIDE_WIDTH_PX,
+  downsampleTarget,
   estimatePptxSize,
+  keptPixelShare,
   pngColorBudget,
-} from "/lib/pptCompressPlan.js";
+} from "/src/lib/ppt/pptCompressPlan.ts";
+import { downscaleImage } from "/src/lib/image/downscale.ts";
+import { displayedSize, readImageHeader } from "/src/lib/output-check/imageHeader.ts";
+import { readDisplaySizes } from "/src/lib/ppt/displaySize.ts";
 
 const PRESETS = Object.keys(QUALITY);
 const STEPS = [["low", "medium"], ["low", "high"], ["medium", "high"]];
+const DOWNSAMPLING = PRESETS.filter((p) => PRESET_SLIDE_WIDTH_PX[p] !== null);
 // Kodak and other lossless PNGs: the whole range where JPEGs shrink at some preset.
 const CURVE_QUALITIES = Array.from({ length: 27 }, (_, i) => 72 + i); // q72–98
 // HEIC photos (12 MP, slow): the bands the real files lack, plus a camera-like q95.
@@ -70,11 +89,17 @@ async function list(route) {
   if (!res.ok) throw new Error(`${route}: ${await res.text()}`);
   return res.json();
 }
+// A real file from the fixtures folder, and the names that are decks.
+const fixture = async (name) => (await fetch("/fixtures/" + encodeURIComponent(name))).arrayBuffer();
+const isDeck = (name) => /\.pptx$/i.test(name);
+// A recompressible picture part of a deck; group 1 is its extension.
+const MEDIA_PART = /^ppt\/media\/.+\.(png|jpe?g)$/i;
 
 // Same options as recompressMedia in src/lib/ppt/compressPptx.ts; the worker
-// loads the library from this server instead of the CDN.
-async function encode(bytes, mime, quality) {
-  const file = new File([bytes], "m", { type: mime });
+// loads the library from this server instead of the CDN. `input` is the
+// picture's bytes, or a resized Blob of its own type, encoded as `mime`.
+async function encode(input, mime, quality) {
+  const file = new File([input], "m", { type: input.type || mime });
   const out = await imageCompression(file, {
     maxSizeMB: Number.POSITIVE_INFINITY,
     initialQuality: quality,
@@ -87,6 +112,32 @@ async function encode(bytes, mime, quality) {
 const keepSmaller = (original, candidate) =>
   candidate.length < original.length ? candidate : original;
 const isIndexedPng = (bytes) => bytes[25] === 3; // IHDR colour type
+const MIME = { jpeg: "image/jpeg", png: "image/png" };
+
+// A picture's upright pixel size (EXIF orientation applied), as the engine reads it.
+function uprightSize(bytes) {
+  const header = readImageHeader(bytes);
+  if (!header) return null;
+  const [width, height] = displayedSize(header);
+  return { width, height };
+}
+
+// What the engine writes for one picture at `preset`: shrunk to its target
+// with the engine's resizer when its display size calls for it (as
+// resizedForEncoder in compressPptx.ts), re-encoded in its own format, and
+// kept only when smaller. `display` null: no resize.
+async function compressAt(kind, bytes, preset, display) {
+  const mime = MIME[kind];
+  const size = uprightSize(bytes);
+  const target = size && downsampleTarget(size, display, preset);
+  let input = bytes;
+  if (target) {
+    const canvas = await downscaleImage(new Blob([bytes], { type: mime }), target.width, target.height);
+    input = await canvas.convertToBlob({ type: "image/png" });
+    canvas.width = canvas.height = 0;
+  }
+  return keepSmaller(bytes, await encode(input, mime, QUALITY[preset]));
+}
 
 // A fresh JPEG of a lossless original, saved by this browser's canvas.
 async function saveJpeg(bitmap, quality) {
@@ -119,11 +170,13 @@ async function pngPixels(bytes) {
 
 // The MediaSample analyzePptxForCompress (src/lib/ppt/compressPptx.ts) reads.
 // `pixels` is the PNG's decoded data (null: not counted); left out, the
-// sample decodes the PNG itself when it needs the pixels.
+// sample decodes the PNG itself when it needs the pixels. `display` is its
+// display size (null: unknown).
 const COLOR_COUNT_CAP = pngColorBudget("low");
-async function mediaSample(kind, bytes, pixels) {
+async function mediaSample(kind, bytes, pixels, display = null) {
+  const sized = { size: uprightSize(bytes), display };
   if (kind === "jpeg") {
-    return { kind, bytes: bytes.length, quality: estimateJpegQuality(bytes), fullChroma: jpegKeepsFullChroma(bytes) };
+    return { ...sized, kind, bytes: bytes.length, quality: estimateJpegQuality(bytes), fullChroma: jpegKeepsFullChroma(bytes) };
   }
   const header = readPngHeader(bytes);
   const palette = header?.colorType === 3;
@@ -134,6 +187,7 @@ async function mediaSample(kind, bytes, pixels) {
   }
   const hasAlpha = header?.colorType === 4 || header?.colorType === 6;
   return {
+    ...sized,
     kind,
     bytes: bytes.length,
     visiblePixels: counted?.visible ?? (header ? header.width * header.height : null),
@@ -198,20 +252,43 @@ async function measureLosslessPngs() {
   return rows;
 }
 
-// The high-resolution set as found: each picture's pixel size and bytes.
-async function measureHires() {
-  const rows = [];
-  const names = await list("/hires");
-  for (const [i, name] of names.entries()) {
-    status(`High-resolution set ${i + 1}/${names.length}: ${name}`);
+// Where a placed picture is shown: across the full slide width, and half of it.
+const PLACEMENTS = [1, 0.5];
+const placedAt = (bytes, share) => {
+  const { width, height } = uprightSize(bytes);
+  return { width: share, height: (share * height) / width };
+};
+// Placed PNGs this large are not re-encoded at low: quantizing tens of
+// megapixels takes minutes, and low does not resize.
+const MAX_LOW_PNG_PIXELS = 16 * 1024 * 1024;
+
+// Pictures larger than any target, placed on a slide (PLACEMENTS) and run
+// through every step: the high-resolution set as a fresh q95 and q86 JPEG and
+// as the lossless PNG it is, and the loose real-file photos as found.
+async function measurePlaced(fixtureNames) {
+  const sources = []; // [label, kind, bytes]
+  for (const name of await list("/hires")) {
+    status(`High-resolution set: saving ${name}`);
     const file = new Uint8Array(await (await fetch("/hires/" + name)).arrayBuffer());
-    const { width, height } = readPngHeader(file);
-    rows.push({
-      key: name,
-      size: `${width}×${height}`,
-      mp: round((width * height) / 1e6),
-      kb: Math.round(file.length / 1024),
-    });
+    const bitmap = await createImageBitmap(new Blob([file], { type: "image/png" }));
+    for (const q of [95, 86]) sources.push([`hires ${name} q${q}`, "jpeg", await saveJpeg(bitmap, q)]);
+    bitmap.close();
+    sources.push([`hires ${name} png`, "png", file]);
+  }
+  for (const name of fixtureNames.filter((n) => /\.(png|jpe?g)$/i.test(n))) {
+    const kind = /\.png$/i.test(name) ? "png" : "jpeg";
+    const bytes = new Uint8Array(await fixture(name));
+    sources.push([`loose ${name}`, kind, bytes]);
+  }
+  const rows = [];
+  for (const [i, [label, kind, bytes]] of sources.entries()) {
+    const { width, height } = uprightSize(bytes);
+    const presets = kind === "png" && width * height > MAX_LOW_PNG_PIXELS ? DOWNSAMPLING : PRESETS;
+    for (const share of PLACEMENTS) {
+      status(`Placed ${i + 1}/${sources.length}: ${label} at ${share} slide width`);
+      const img = await measureImage(kind, bytes, undefined, placedAt(bytes, share), presets);
+      rows.push(...resizedRows(`${label} @${share}`, img));
+    }
   }
   return rows;
 }
@@ -221,23 +298,21 @@ async function hash(bytes) {
     .map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// One real-file image: its sample, and what each preset (fresh and re-run)
-// leaves. A PNG is decoded once (or `pixels` passes its decoded data).
-async function measureImage(kind, bytes, pixels) {
-  const mime = kind === "png" ? "image/png" : "image/jpeg";
+// One real-file image at its display size (null: unknown): its sample, and
+// what each of `presets` (fresh and re-run) leaves, resized where the engine
+// would. A PNG is decoded once (or `pixels` passes its decoded data).
+async function measureImage(kind, bytes, pixels, display = null, presets = PRESETS) {
   if (kind === "png" && pixels === undefined) pixels = await pngPixels(bytes);
-  const sample = await mediaSample(kind, bytes, pixels);
+  const sample = await mediaSample(kind, bytes, pixels, display);
   const once = {};
-  for (const preset of PRESETS) {
-    once[preset] = keepSmaller(bytes, await encode(bytes, mime, QUALITY[preset]));
-  }
+  for (const preset of presets) once[preset] = await compressAt(kind, bytes, preset, display);
   const rerun = {}; // "W → P": { sample of W's output, size after P, counted in stats }
-  for (const [weak, strong] of STEPS) {
+  for (const [weak, strong] of STEPS.filter((step) => step.every((p) => presets.includes(p)))) {
     const first = once[weak];
     const unchanged = first === bytes;
-    const second = unchanged ? once[strong] : keepSmaller(first, await encode(first, mime, QUALITY[strong]));
+    const second = unchanged ? once[strong] : await compressAt(kind, first, strong, display);
     rerun[`${weak} → ${strong}`] = {
-      sample: unchanged ? sample : await mediaSample(kind, first),
+      sample: unchanged ? sample : await mediaSample(kind, first, undefined, display),
       before: first.length,
       after: second.length,
       counted: !unchanged && !(kind === "png" && isIndexedPng(first)),
@@ -247,9 +322,40 @@ async function measureImage(kind, bytes, pixels) {
     kind,
     sample,
     png: kind === "png" ? pngSignals(bytes, pixels) : null,
-    fresh: Object.fromEntries(PRESETS.map((p) => [p, once[p].length])),
+    fresh: Object.fromEntries(presets.map((p) => [p, once[p].length])),
     rerun,
   };
+}
+
+// Each step of a measured image that resized it: what it left against the
+// model, and against today's model for the same picture not resized.
+function resizedRows(label, img) {
+  const steps = [
+    ...Object.entries(img.fresh).map(([p, after]) => [`fresh → ${p}`, p, img.sample, img.sample.bytes, after]),
+    ...Object.entries(img.rerun).filter(([, r]) => r.counted)
+      .map(([step, r]) => [step, step.split(" → ")[1], r.sample, r.before, r.after]),
+  ];
+  return steps.flatMap(([step, preset, sample, before, after]) => {
+    const kept = keptPixelShare(sample, preset);
+    if (kept === null) return [];
+    return [{
+      key: `${label} ${step}`,
+      kind: img.kind,
+      step,
+      q: sample.quality ?? "",
+      size: `${sample.size.width}×${sample.size.height}`,
+      kept: round(kept),
+      bpvp: sample.kind === "png" && sample.visiblePixels ? round(sample.bytes / sample.visiblePixels) : "",
+      visible: sample.kind === "png" ? sample.visiblePixels : "",
+      before,
+      after,
+      ratio: round(after / before),
+      model: round(modelRatio(sample, preset)),
+      today: round(modelRatio({ ...sample, display: null }, preset)),
+      // The sample itself, to re-fit the model offline from the JSON.
+      sample,
+    }];
+  });
 }
 
 // Candidate signals for a fresh PNG's ratio, beyond the sample: its size, how
@@ -274,32 +380,34 @@ function pngSignals(bytes, data) {
 }
 
 async function measureFixtures(names) {
-  const images = new Map(); // hash → measured image
+  const images = new Map(); // hash and display size → measured image
   const decks = []; // { name, totalSize, hashes }
   const loose = []; // { name, hash }
-  const add = async (label, kind, bytes) => {
-    const key = await hash(bytes);
+  const add = async (label, kind, bytes, display = null) => {
+    const key = `${await hash(bytes)} ${JSON.stringify(display)}`;
     if (!images.has(key)) {
       status(`Real files: ${label} (${kind}, ${Math.round(bytes.length / 1024)} KB)`);
-      images.set(key, { label, ...(await measureImage(kind, bytes)) });
+      images.set(key, { label, ...(await measureImage(kind, bytes, undefined, display)) });
     }
     return key;
   };
   for (const name of names) {
     if (/\.heic$/i.test(name)) continue;
-    const data = await (await fetch("/fixtures/" + encodeURIComponent(name))).arrayBuffer();
-    if (!/\.pptx$/i.test(name)) {
+    const data = await fixture(name);
+    if (!isDeck(name)) {
       const kind = /\.png$/i.test(name) ? "png" : "jpeg";
       loose.push({ name, hash: await add(name, kind, new Uint8Array(data)) });
       continue;
     }
     const zip = await JSZip.loadAsync(data);
+    const displaySizes = await readDisplaySizes(new Uint8Array(data));
     const hashes = [];
     for (const path of Object.keys(zip.files)) {
-      const m = /^ppt\/media\/.+\.(png|jpe?g)$/i.exec(path);
+      const m = MEDIA_PART.exec(path);
       if (!m) continue;
       const kind = /png/i.test(m[1]) ? "png" : "jpeg";
-      hashes.push(await add(`${name}:${path}`, kind, await zip.files[path].async("uint8array")));
+      const bytes = await zip.files[path].async("uint8array");
+      hashes.push(await add(`${name}:${path}`, kind, bytes, displaySizes.get(path) ?? null));
     }
     decks.push({ name, totalSize: data.byteLength, hashes });
   }
@@ -429,6 +537,23 @@ function fullChromaTable(images) {
   }));
 }
 
+// Resized pictures together, by where they come from, format, fresh or
+// re-run, and preset: measured over model bytes. 1 means the resized model
+// (RESIZED_FLAT_PNG_EXPONENT in pptCompressPlan.ts) fits.
+function resizedResidualTable(sets) {
+  const rows = Object.entries(sets).flatMap(([from, rs]) =>
+    (rs ?? []).map((r) => ({
+      ...r,
+      group: `${from} ${r.kind} ${r.step.startsWith("fresh") ? "fresh" : "re-run"} → ${r.step.split(" → ")[1]}`,
+    })),
+  );
+  return [...groupBy(rows, (r) => r.group)].map(([key, rs]) => ({
+    key,
+    n: rs.length,
+    residual: round(rs.reduce((s, r) => s + r.after, 0) / rs.reduce((s, r) => s + r.model * r.before, 0)),
+  }));
+}
+
 // A deck's estimate against its re-encoded size, fresh and re-run.
 function deckRows(name, totalSize, members) {
   const rows = [];
@@ -458,6 +583,79 @@ function table(title, rows, cols) {
   return `<h2>${title}</h2><table><tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr>` +
     rows.map((r) => `<tr>${cols.map((c) => `<td>${r[c] ?? ""}</td>`).join("")}</tr>`).join("") +
     "</table>";
+}
+
+// The idle-time analysis the tool runs on each real deck, timed whole (the
+// median of three runs), against reading its slides for display sizes alone.
+async function measureAnalysis(fixtureNames) {
+  const { analyzePptxForCompress } = await import("/src/lib/ppt/compressPptx.ts");
+  const median = (xs) => xs.sort((a, b) => a - b)[xs.length >> 1];
+  const timed = async (f) => {
+    const ms = [];
+    for (let i = 0; i < 3; i++) {
+      const start = performance.now();
+      await f();
+      ms.push(performance.now() - start);
+    }
+    return median(ms);
+  };
+  const rows = [];
+  for (const name of fixtureNames.filter(isDeck)) {
+    status(`Analysis: ${name}`);
+    const data = await fixture(name);
+    const file = new File([data], name);
+    const analysis = await timed(() => analyzePptxForCompress(file));
+    const slides = await timed(() => readDisplaySizes(new Uint8Array(data)));
+    rows.push({
+      key: name,
+      mb: round(data.byteLength / 1e6),
+      "analysis ms": Math.round(analysis),
+      "slides ms": Math.round(slides),
+      share: `${Math.round((slides / analysis) * 100)}%`,
+    });
+  }
+  return rows;
+}
+
+// How each real deck's picture bytes spread over the scale a preset would
+// resize them to (the formula of downsampleTarget, before its threshold), to
+// see what the minimum-gain threshold forgoes. Unknown display sizes are "kept".
+const SCALE_BANDS = [["<0.8", 0.8], ["0.8–0.9", 0.9], ["0.9–1", 1], ["≥1", Infinity]];
+async function measureScaleBands(fixtureNames) {
+  const rows = [];
+  for (const name of fixtureNames.filter(isDeck)) {
+    status(`Scale bands: ${name}`);
+    const data = await fixture(name);
+    const zip = await JSZip.loadAsync(data);
+    const displaySizes = await readDisplaySizes(new Uint8Array(data));
+    const pictures = [];
+    for (const path of Object.keys(zip.files).filter((p) => MEDIA_PART.test(p))) {
+      const bytes = await zip.files[path].async("uint8array");
+      pictures.push({ bytes: bytes.length, size: uprightSize(bytes), display: displaySizes.get(path) ?? null });
+    }
+    const total = pictures.reduce((s, p) => s + p.bytes, 0);
+    for (const preset of DOWNSAMPLING) {
+      const width = PRESET_SLIDE_WIDTH_PX[preset];
+      const band = Object.fromEntries([...SCALE_BANDS.map(([b]) => [b, 0]), ["kept", 0]]);
+      for (const { bytes, size, display } of pictures) {
+        if (!size || !display) {
+          band.kept += bytes;
+          continue;
+        }
+        const scale = Math.max(
+          Math.ceil(display.width * width) / size.width,
+          Math.ceil(display.height * width) / size.height,
+        );
+        band[SCALE_BANDS.find(([, below]) => scale < below)[0]] += bytes;
+      }
+      rows.push({
+        key: `${name} ${preset}`,
+        mb: round(total / 1e6),
+        ...Object.fromEntries(Object.entries(band).map(([b, n]) => [b, `${Math.round((n / total) * 100)}%`])),
+      });
+    }
+  }
+  return rows;
 }
 
 async function run() {
@@ -493,8 +691,13 @@ async function run() {
     results.pngs = pngTable(images);
     results.fullChroma = fullChromaTable(images);
     results.decks = decks.flatMap((d) => deckRows(d.name, d.totalSize, d.hashes.map((h) => images.get(h))));
+    results.resized = [...images.values()].flatMap((img) => resizedRows(img.label, img));
   }
-  if (parts.has("hires")) results.hires = await measureHires();
+  if (parts.has("hires")) results.placed = await measurePlaced(fixtureNames);
+  if (parts.has("analysis")) {
+    results.analysis = await measureAnalysis(fixtureNames);
+    results.scaleBands = await measureScaleBands(fixtureNames);
+  }
   return results;
 }
 
@@ -503,6 +706,7 @@ run().then((results) => {
   status("Done");
   const cols = ["key", "n", "min", "median", "max", "weighted"];
   const deckCols = ["key", "mb", "estimate", "actual", "error"];
+  const RESIZED_COLS = ["key", "q", "size", "kept", "bpvp", "ratio", "model", "today"];
   document.getElementById("out").innerHTML = [
     results.curve.length && table("Fresh JPEG curve", results.curve, ["key", "read", ...cols.slice(1), "model"]),
     results.heicDecks && table("HEIC hold-out decks (MB)", results.heicDecks, deckCols),
@@ -512,7 +716,12 @@ run().then((results) => {
     results.pngs && table("Real-file PNGs", results.pngs, ["key", "kb", "size", "type", "bpp", "colors", "opaque", "low out", ...PRESETS.flatMap((p) => [p, `${p} model`])]),
     results.fullChroma && table("4:4:4 JPEGs, measured ÷ model", results.fullChroma, ["key", "n", "residual"]),
     results.decks && table("Decks (MB)", results.decks, deckCols),
-    results.hires && table("High-resolution set", results.hires, ["key", "size", "mp", "kb"]),
+    results.resized && table("Real-file pictures resized in their decks", results.resized, RESIZED_COLS),
+    results.placed && table("Placed pictures, resized", results.placed, RESIZED_COLS),
+    (results.resized || results.placed) && table("Resized pictures, measured ÷ model",
+      resizedResidualTable({ decks: results.resized, placed: results.placed }), ["key", "n", "residual"]),
+    results.analysis && table("Idle-time analysis per deck", results.analysis, ["key", "mb", "analysis ms", "slides ms", "share"]),
+    results.scaleBands && table("Picture bytes by resize scale", results.scaleBands, ["key", "mb", ...SCALE_BANDS.map(([b]) => b), "kept"]),
   ].filter(Boolean).join("");
 }, (error) => {
   window.__results = { error: String(error) };

@@ -25,7 +25,13 @@ export const PRESET_SLIDE_WIDTH_PX: Record<CompressionPreset, number | null> = {
 /**
  * A picture is resized only when it would keep less than this share of its
  * width and height: closer to its display size, the saving is not worth a
- * resample. Provisional; the estimate ticket tunes it by measurement.
+ * resample. Measured with scripts/measure-ppt-ratios (?parts=analysis,
+ * "Picture bytes by resize scale", 2026-10-20) on the eight real decks: the
+ * band this leaves alone (0.9–1) holds 0–10% of a deck's picture bytes at
+ * medium and 0–24% at high, and resizing it would keep at least 0.81 of
+ * their pixels, so it forgoes at most about 2–3% of the picture bytes. A
+ * threshold of 0.8 would also forgo the 0.8–0.9 band: up to 69% of a deck's
+ * picture bytes at high, on the deck where most of the saving lies.
  */
 const MIN_RESIZE_SCALE = 0.9;
 
@@ -226,16 +232,57 @@ const FLAT_PNG_RATIO: Record<CompressionPreset, number> = {
 };
 
 /**
- * A fresh PNG's remaining ratio. Without a pixel count, the flat ratio: the
- * smaller promise.
+ * A resized picture (one the preset shrinks to its display size, see
+ * `downsampleTarget`) is re-encoded from new pixels, so it behaves like a
+ * fresh image of its new size, keeping `kept` of its pixels:
+ *
+ * - a JPEG leaves its ratio at its own size times `kept`, from any quality,
+ *   so a re-run at a stronger preset shrinks it again;
+ * - a PNG leaves the fresh ratio whatever colour budget it was saved within
+ *   (resampling makes new colours): its visible pixels shrink with `kept`, the
+ *   flat-graphic ratio only with `kept` to this power, as flat areas cost
+ *   little at any size. An indexed PNG keeps its size, as unresized.
+ *
+ * Fit with scripts/measure-ppt-ratios (?parts=hires: browser-image-compression
+ * 2.0.2, Chrome, 2026-10-20), byte-weighted, on pictures larger than any
+ * target placed across the full and half slide width, every step fresh and
+ * re-run: the high-resolution set (14 photos) as q95 and q86 JPEGs and as
+ * lossless PNGs, and the six loose real-file photos. In-sample on these; the
+ * page's "Resized pictures, measured ÷ model" table re-checks both powers
+ * (1 means the model fits).
+ *
+ * - JPEG, power of `kept`: 1.02 (n=303), so 1 is used; per source quality and
+ *   preset 0.89–1.15 on the set, 0.77–1.35 on the loose photos.
+ * - PNG, this power: 0.34 (n=123, the set's PNGs); per step (fresh or re-run)
+ *   and preset 0.18–0.60, where 0.34 misses by −2% to +4%; per picture −25%
+ *   to +136%. The flat ratio decides about 9% of their bytes, and on those it
+ *   promises 25% less than they save.
+ *
+ * Not measured resized: a JPEG already as compressed as the preset (no step
+ * resizes one at its own quality; the model gives it `kept`), and an
+ * indexed PNG (kept at its size, which can only under-promise).
+ *
+ * Hold-out: the real decks' resized pictures (18 pictures, JPEG n=12 steps,
+ * PNG n=57) were not used, and every real deck at medium and high, fresh and
+ * re-run, comes out within −8% to +5% (n=40, over two runs; before resizing
+ * was modelled, up to +17%). One picture there shrinks about three times past
+ * its pixels, so resized JPEGs alone come out +17–23%: the model
+ * under-promises.
+ */
+const RESIZED_FLAT_PNG_EXPONENT = 0.34;
+
+/**
+ * A fresh PNG's remaining ratio, keeping `kept` of its pixels. Without a
+ * pixel count, the flat ratio: the smaller promise.
  */
 function freshPngRatio(
   media: Extract<MediaSample, { kind: "png" }>,
   preset: CompressionPreset,
+  kept = 1,
 ): number {
-  const flat = FLAT_PNG_RATIO[preset];
+  const flat = FLAT_PNG_RATIO[preset] * kept ** RESIZED_FLAT_PNG_EXPONENT;
   if (media.visiblePixels === null || media.bytes <= 0) return flat;
-  return Math.min(flat, (media.visiblePixels * PNG_BYTES_PER_VISIBLE_PIXEL[preset]) / media.bytes);
+  return Math.min(flat, (media.visiblePixels * kept * PNG_BYTES_PER_VISIBLE_PIXEL[preset]) / media.bytes);
 }
 
 /** Whole-file [min,max] remaining range used as a static fallback estimate. */
@@ -255,8 +302,16 @@ const PRESET_IMAGE_SHARE_CUTOFF: Record<CompressionPreset, number> = {
   high: 0.03,
 };
 
+/** How a picture is sized, which decides whether a preset resizes it. */
+interface PictureSize {
+  /** Upright pixel size (EXIF orientation applied); null if its header is unreadable. */
+  size: PixelSize | null;
+  /** Its display size from the reader; null when unknown, which keeps its pixels. */
+  display: DisplaySize | null;
+}
+
 /** One recompressible image, as the idle-time analysis read it. */
-export type MediaSample =
+export type MediaSample = PictureSize & (
   | {
       kind: "jpeg";
       bytes: number;
@@ -279,7 +334,8 @@ export type MediaSample =
       colors: number | null;
       /** Stores an alpha channel that every pixel leaves fully opaque. */
       unusedAlpha: boolean;
-    };
+    }
+);
 
 /** The engine writes a PNG of this many colours or fewer as an indexed PNG. */
 const INDEXED_MAX_COLORS = 256;
@@ -377,16 +433,29 @@ function savedAtWeakerPreset(
   return WEAKER_PRESETS[preset].find((weaker) => pngWithinBudget(media, weaker)) ?? null;
 }
 
+/** A JPEG's remaining ratio at its own pixel size. */
+function jpegRatio(media: Extract<MediaSample, { kind: "jpeg" }>, preset: CompressionPreset): number {
+  if (looksAlreadyCompressed(media, preset)) return 1;
+  if (media.quality === null) return PRESET_JPEG_RATIO[preset];
+  const ratio = jpegRatioAt(media.quality, preset);
+  return media.fullChroma && media.quality >= FULL_CHROMA_MIN_QUALITY
+    ? ratio * FULL_CHROMA_FACTOR[preset]
+    : ratio;
+}
+
+/** The share of its pixels `media` keeps when `preset` resizes it, or null when it is not resized. */
+export function keptPixelShare(media: MediaSample, preset: CompressionPreset): number | null {
+  const { size } = media;
+  const target = size && downsampleTarget(size, media.display, preset);
+  return size && target && (target.width * target.height) / (size.width * size.height);
+}
+
 /** Fraction of `media`'s bytes expected to be left after compressing at `preset`. */
 function remainingRatio(media: MediaSample, preset: CompressionPreset): number {
+  const kept = keptPixelShare(media, preset);
+  if (media.kind === "jpeg") return jpegRatio(media, preset) * (kept ?? 1);
+  if (kept !== null && !media.palette) return freshPngRatio(media, preset, kept);
   if (looksAlreadyCompressed(media, preset)) return 1;
-  if (media.kind === "jpeg") {
-    if (media.quality === null) return PRESET_JPEG_RATIO[preset];
-    const ratio = jpegRatioAt(media.quality, preset);
-    return media.fullChroma && media.quality >= FULL_CHROMA_MIN_QUALITY
-      ? ratio * FULL_CHROMA_FACTOR[preset]
-      : ratio;
-  }
   const weaker = savedAtWeakerPreset(media, preset);
   return (weaker && PNG_RERUN_RATIO[preset][weaker]) ?? freshPngRatio(media, preset);
 }
@@ -398,7 +467,9 @@ function remainingRatio(media: MediaSample, preset: CompressionPreset): number {
  * (one curve for fresh JPEGs and the engine's own output alike), PNG bytes
  * by what their visible pixels or the flat-graphic ratio leave, or by the
  * re-run ratio when saved at a weaker preset; already compressed images and
- * everything else are unchanged. The result is not pulled into the static
+ * everything else are unchanged. A picture the preset resizes to its display
+ * size shrinks further, by the pixels it keeps (see
+ * `RESIZED_FLAT_PNG_EXPONENT`). The result is not pulled into the static
  * range: on a deck that is mostly not images, that would promise savings the
  * images cannot deliver (#81).
  *
