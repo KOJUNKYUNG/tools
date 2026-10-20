@@ -18,13 +18,13 @@ Review numbers (R1–R15) refer to the review's §4 table.
 | Review | Item | Where |
 |---|---|---|
 | R2, R7 | Downscale pictures to their display size (crop-aware, groups, projected pixels) | spec #91, PR #96. Deleting cropped-away areas stayed out of scope. |
+| R1 | Self-host the browser-image-compression worker (was S1) | `src/lib/image/imageCompressionWorker.ts` + `scripts/copy-image-compression.mjs`: the worker imports the bundle from `public/`, not cdn.jsdelivr.net. |
 | R10 (part) | High-quality resampler that halves in steps | `src/lib/image/downscale.ts` (#91). ppt-compress uses it; image-resize and image-to-pptx still resize in one step (S4). |
 
 ## Step 2: shared causes
 
 | # | Item | Tools | Reach | Gain | Risk | Effort | Notes |
 |---|---|---|---|---|---|---|---|
-| S1 | Self-host the browser-image-compression worker (R1) | ppt-compress, image-compress | All targets | Works offline and behind filters; no third-party fetch at run time | Low | S | `useWebWorker: true` with no `libURL` today: the worker comes from cdn.jsdelivr.net. |
 | S2 | Pass `wasmUrl` / `iccUrl` to pdf.js and copy its `wasm/` + `iccs/` (R5) | pdf-to-image, PDF checks, thumbnails | Pastors (scanned sheet music), teachers, office workers (scans) | JPEG 2000 images render instead of blank; correct ICC colour | Low | S | |
 | S3 | Each compress preset states its result in user terms | ppt-compress, pdf-compress, image-compress | All targets | Users can predict the result before choosing | Low | S | ppt-compress [임시] 약하게 원본 해상도·4K / 보통 QHD 2560 / 강하게 FHD 1920; pdf-compress 강하게 = screen reading. Final copy is the user's. |
 | S4 | Adopt the shared image prep module (crop → fit inside a screen box → JPEG/PNG choice) and the stepped resampler | image-to-pptx, image-resize, later ppt-compress PNG→JPEG | All targets | One size and format policy instead of three | Medium (outputs change; checks must follow) | M | Blocked by spec A, which builds the module. image-to-pptx today: 1920 px long edge, PNG always PNG, JPEG 0.9, one-step resize. |

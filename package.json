@@ -19,7 +19,7 @@
     "design:drift": "node scripts/check-design-drift.mjs",
     "design:check": "pnpm design:lint && pnpm design:drift",
     "verify": "tsc --noEmit && pnpm lint && pnpm test && pnpm design:check && pnpm build",
-    "postinstall": "node scripts/copy-pdfjs.mjs && node scripts/copy-qpdf.mjs"
+    "postinstall": "node scripts/copy-pdfjs.mjs && node scripts/copy-qpdf.mjs && node scripts/copy-image-compression.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

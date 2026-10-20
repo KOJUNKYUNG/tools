@@ -32,7 +32,8 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      # postinstall copies the pdfjs and qpdf runtime assets into public/.
+      # postinstall copies the pdfjs, qpdf and browser-image-compression runtime
+      # assets into public/.
       - run: pnpm install --frozen-lockfile
 
       # Typecheck, lint, test, design:check, build. No env vars needed:
