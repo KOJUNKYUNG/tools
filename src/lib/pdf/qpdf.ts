@@ -1,7 +1,7 @@
 // Single source of @neslinesli93/qpdf-wasm configuration. The wasm binary is
 // self-hosted from public/qpdf/ (copied by scripts/copy-qpdf.mjs on postinstall)
 // instead of fetched from a CDN at runtime — keeps the app fully self-contained
-// and 0-server (ADR-0001).
+// and 0-server.
 //
 // Unlike pdfjs (which caches one module instance), we intentionally create a
 // FRESH qpdf instance per call and never cache it. Reason: qpdf processes

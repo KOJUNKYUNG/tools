@@ -4,7 +4,7 @@
 //
 // Why self-host: @neslinesli93/qpdf-wasm is an Emscripten module that resolves
 // its .wasm via locateFile() -> a URL. Serving it from public/qpdf/qpdf.wasm
-// keeps the whole tool 0-server and CDN-free (ADR-0001).
+// keeps the whole tool 0-server and CDN-free.
 import { createRequire } from "node:module";
 import { cpSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
