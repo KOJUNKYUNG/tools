@@ -1,4 +1,5 @@
 import type { CompressionPreset } from "@/lib/common/compressionPreset";
+import type { DisplaySize } from "./displaySize";
 
 /**
  * Re-encode quality (0..1) per preset: the JPEG quality, and for PNG the colour
@@ -10,12 +11,60 @@ export const PRESET_QUALITY: Record<CompressionPreset, number> = {
   high: 0.55,
 };
 
+/**
+ * The slide's width in projected pixels that each preset downsamples
+ * pictures to (CONTEXT.md → Display size, spec #91); null keeps every
+ * picture's pixels. The slide's height follows from its aspect ratio.
+ */
+export const PRESET_SLIDE_WIDTH_PX: Record<CompressionPreset, number | null> = {
+  low: null,
+  medium: 2560,
+  high: 1920,
+};
+
+/**
+ * A picture is resized only when it would keep less than this share of its
+ * width and height: closer to its display size, the saving is not worth a
+ * resample. Provisional; the estimate ticket tunes it by measurement.
+ */
+const MIN_RESIZE_SCALE = 0.9;
+
+export interface PixelSize {
+  width: number;
+  height: number;
+}
+
+/**
+ * The pixel size to shrink a picture to, given its size as displayed (EXIF
+ * orientation applied) and its display size; null to keep its pixels. The
+ * scale is the larger of the two sides' ratios, so both keep at least what
+ * the slide shows even when a frame stretches the picture unevenly; the
+ * aspect ratio is kept and each side rounded to whole pixels.
+ */
+export function downsampleTarget(
+  displayed: PixelSize,
+  display: DisplaySize | null,
+  preset: CompressionPreset,
+): PixelSize | null {
+  const slideWidth = PRESET_SLIDE_WIDTH_PX[preset];
+  if (slideWidth === null || display === null) return null;
+  const scale = Math.max(
+    Math.ceil(display.width * slideWidth) / displayed.width,
+    Math.ceil(display.height * slideWidth) / displayed.height,
+  );
+  if (!(scale < MIN_RESIZE_SCALE)) return null;
+  return {
+    width: Math.max(1, Math.round(displayed.width * scale)),
+    height: Math.max(1, Math.round(displayed.height * scale)),
+  };
+}
+
 /** Extensions we attempt to recompress. Everything else passes through. */
 export const RECOMPRESSIBLE_EXTS = new Set(["jpg", "jpeg", "png"]);
 
 export type MediaAction =
-  | { kind: "jpeg"; quality: number }
-  | { kind: "png"; quality: number }
+  | { kind: "jpeg"; quality: number; target?: PixelSize }
+  | { kind: "png"; quality: number; target?: PixelSize }
   | { kind: "passthrough" };
 
 /**

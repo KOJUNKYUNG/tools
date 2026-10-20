@@ -52,6 +52,24 @@ export const JPEG_3x2 = Uint8Array.from(
 );
 
 /**
+ * `jpeg` with its frame header rewritten to `width`×`height`: header-correct
+ * for the header inspector, though the scan no longer decodes.
+ */
+export function withJpegSize(jpeg: Uint8Array, width: number, height: number): Uint8Array {
+  const out = Uint8Array.from(jpeg);
+  const view = new DataView(out.buffer);
+  for (let at = 2; at + 9 <= out.length && out[at] === 0xff; at += 2 + view.getUint16(at + 2)) {
+    const marker = out[at + 1];
+    if (marker >= 0xc0 && marker <= 0xc3) {
+      view.setUint16(at + 5, height);
+      view.setUint16(at + 7, width);
+      return out;
+    }
+  }
+  throw new Error("no frame header");
+}
+
+/**
  * `jpeg` with an EXIF APP1 segment right after SOI whose IFD0 holds only the
  * Orientation tag, in big-endian ("MM") or little-endian ("II") byte order.
  */

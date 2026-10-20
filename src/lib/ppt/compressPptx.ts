@@ -9,17 +9,23 @@ import {
   readPngHeader,
   type ColorCount,
 } from "@/lib/image/alreadyCompressed";
+import { downscaleImage } from "@/lib/image/downscale";
 import { runOutputCheck } from "@/lib/output-check/core";
+import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { notSmaller } from "@/lib/output-check/sizeBound";
 import { getExt, getMime } from "./pptImageFormats";
 import { aggregateFormats } from "./analyzePresentation";
+import { readDisplaySizes, type DisplaySize } from "./displaySize";
 import {
   classifyMedia,
+  downsampleTarget,
   pickSmaller,
+  PRESET_SLIDE_WIDTH_PX,
   pngColorBudget,
   RECOMPRESSIBLE_EXTS,
   type MediaAction,
   type MediaSample,
+  type PixelSize,
 } from "./pptCompressPlan";
 import { checkPptCompress, recompressedMediaViolations } from "./pptCompressCheck";
 
@@ -83,7 +89,11 @@ export type CompressPptxResult =
       anyImageReencoded: boolean;
     };
 
-/** Re-encodes one image in its own format; the browser canvas at run time. */
+/**
+ * Re-encodes one image in its own format, first shrunk to the action's
+ * `target` (upright, as displayed) when it has one; the browser canvas at
+ * run time.
+ */
 export type RecompressMedia = (
   bytes: Uint8Array,
   action: Extract<MediaAction, { kind: "jpeg" | "png" }>,
@@ -224,13 +234,37 @@ export async function analyzePptxForCompress(
   };
 }
 
+/**
+ * The picture shrunk to `target` with the shared resizer, as a lossless PNG
+ * for the encoder; null when the browser cannot resize it, which leaves the
+ * same-size re-encode.
+ */
+async function resizedForEncoder(original: Blob, target: PixelSize): Promise<Blob | null> {
+  if (typeof createImageBitmap !== "function" || typeof OffscreenCanvas === "undefined") {
+    return null;
+  }
+  try {
+    const canvas = await downscaleImage(original, target.width, target.height);
+    try {
+      return await canvas.convertToBlob({ type: "image/png" });
+    } finally {
+      canvas.width = canvas.height = 0;
+    }
+  } catch {
+    return null;
+  }
+}
+
 async function recompressMedia(
   bytes: Uint8Array,
   action: Extract<MediaAction, { kind: "jpeg" | "png" }>,
 ): Promise<Uint8Array> {
   const mime = action.kind === "jpeg" ? "image/jpeg" : "image/png";
   // new Uint8Array(...) keeps BlobPart happy under TS strict.
-  const inputFile = new File([new Uint8Array(bytes)], "m", { type: mime });
+  const original = new Blob([new Uint8Array(bytes)], { type: mime });
+  const resized = action.target ? await resizedForEncoder(original, action.target) : null;
+  // The encoder reads the format to write from `fileType`, not the input's.
+  const inputFile = new File([resized ?? original], "m", { type: resized?.type ?? mime });
   const out = await imageCompression(inputFile, {
     maxSizeMB: Number.POSITIVE_INFINITY,
     initialQuality: action.quality, // for PNG: quantize to 4096 × quality colours
@@ -288,6 +322,12 @@ export async function compressPptxFromBytes({
     }
   });
 
+  // Read only when the preset downsamples: the slides' XML is not needed otherwise.
+  const displaySizes =
+    PRESET_SLIDE_WIDTH_PX[preset] === null
+      ? new Map<string, DisplaySize | null>()
+      : await readDisplaySizes(bytes);
+
   onProgress?.(15);
   let anyImageReencoded = false;
   const total = mediaPaths.length;
@@ -298,15 +338,21 @@ export async function compressPptxFromBytes({
       const original = await entry.async("uint8array");
       const action = classifyMedia(getExt(path), preset);
       if (action.kind !== "passthrough") {
+        const header = readImageHeader(original);
+        const shown = header && displayedSize(header);
+        const target = shown
+          ? downsampleTarget({ width: shown[0], height: shown[1] }, displaySizes.get(path) ?? null, preset)
+          : null;
         let candidate: Uint8Array | null = null;
         try {
-          candidate = await recompress(original, action);
+          candidate = await recompress(original, target ? { ...action, target } : action);
         } catch {
           // Re-encode failure (corrupt/odd image) -> keep the original bytes.
           candidate = null;
         }
         // A candidate in the wrong format or shape would distort its fixed
-        // slide frame: keep the original bytes instead (spec #51, #65).
+        // slide frame: keep the original bytes instead (spec #51, #65). A
+        // resized one that passes counts as re-encoded like any other.
         if (candidate && recompressedMediaViolations(path, original, candidate).length > 0) {
           candidate = null;
         }

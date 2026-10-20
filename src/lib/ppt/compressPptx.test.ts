@@ -1,13 +1,16 @@
 import { describe, it, expect, vi } from "vitest";
 import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
-import { JPEG_3x2, noisePng, solidPng, withExifOrientation } from "@/lib/pdf/testImages";
+import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
+import { sameBytes } from "@/lib/output-check/sameBytes";
+import { JPEG_3x2, noisePng, solidPng, withExifOrientation, withJpegSize } from "@/lib/pdf/testImages";
 import {
   analyzePptxForCompress,
   compressPptxFromBytes,
   type RecompressMedia,
 } from "./compressPptx";
 import * as check from "./pptCompressCheck";
+import type { CompressionPreset } from "@/lib/common/compressionPreset";
 
 // The real checker by default; one test makes it report a violation.
 vi.mock("./pptCompressCheck", async (importOriginal) => {
@@ -132,7 +135,104 @@ describe("compressPptxFromBytes", () => {
       });
       expect(result).toMatchObject({ kind: "not-smaller" });
       expect(vi.mocked(check.checkPptCompress)).not.toHaveBeenCalled();
+      // The unused violation would otherwise reach the next test's run.
+      vi.mocked(check.checkPptCompress).mockReset();
     });
+  });
+});
+
+describe("compressPptxFromBytes downsampling", () => {
+  interface Shown {
+    image: Uint8Array;
+    mime: "image/png" | "image/jpeg";
+    /** Frame size in inches, on pptxgenjs's 10 in wide slide. */
+    w: number;
+    h: number;
+    cropped?: boolean;
+  }
+
+  /** One slide per picture, so slide n's picture is ppt/media/image-n-1.*. */
+  async function deck(shown: Shown[]): Promise<Uint8Array> {
+    const pptx = new PptxGenJS();
+    for (const { image, mime, w, h, cropped } of shown) {
+      pptx.addSlide().addImage({
+        data: `${mime};base64,${b64(image)}`,
+        x: 0,
+        y: 0,
+        w,
+        h,
+        ...(cropped && { sizing: { type: "crop", x: 0.5, y: 0, w: w - 0.5, h } }),
+      });
+    }
+    // write() returns a union over every outputType; "uint8array" yields this one.
+    return (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
+  }
+
+  const slidePicture = (n: number) => new RegExp(`^ppt/media/image-${n}-1\.`);
+  const shownPixels = async (out: Uint8Array, n: number) =>
+    displayedSize(readImageHeader(await media(out, slidePicture(n)))!);
+
+  /**
+   * Stands in for the canvas: a flat image in the input's format, at the
+   * action's target size, or at the input's displayed size without one.
+   */
+  const toTarget: RecompressMedia = async (bytes, action) => {
+    const [w, h] = action.target
+      ? [action.target.width, action.target.height]
+      : displayedSize(readImageHeader(bytes)!);
+    return action.kind === "png" ? solidPng(w, h) : withJpegSize(JPEG_3x2, w, h);
+  };
+
+  async function run(shown: Shown[], preset: CompressionPreset, recompress = toTarget) {
+    const input = await deck(shown);
+    const result = await compressPptxFromBytes({ bytes: input, preset, recompress });
+    if (result.kind !== "compressed") throw new Error(`got ${result.kind}`);
+    expect(await checkPptCompress(input, { preset }, result.data, "full")).toEqual([]);
+    return result.data;
+  }
+
+  // A 4 × 2 in frame spans 0.4 × 0.2 slide widths.
+  const OVERSIZED: Shown = { image: noisePng(1200, 600), mime: "image/png", w: 4, h: 2 };
+
+  it.each([
+    ["medium", [1024, 512]],
+    ["high", [768, 384]],
+  ] as const)("shrinks an oversized picture to its display size at %s", async (preset, size) => {
+    expect(await shownPixels(await run([OVERSIZED], preset), 1)).toEqual(size);
+  });
+
+  it("keeps every picture's pixel size at low", async () => {
+    expect(await shownPixels(await run([OVERSIZED], "low"), 1)).toEqual([1200, 600]);
+  });
+
+  it("keeps the pixel size of a picture whose display size is unknown", async () => {
+    const out = await run([{ ...OVERSIZED, cropped: true }], "high");
+    expect(await shownPixels(out, 1)).toEqual([1200, 600]);
+  });
+
+  it("does not resize a picture already near its display size", async () => {
+    // 1024 px needed of 1100: too little to gain.
+    const out = await run([{ ...OVERSIZED, image: noisePng(1100, 550) }], "medium");
+    expect(await shownPixels(out, 1)).toEqual([1100, 550]);
+  });
+
+  it("sizes an EXIF-rotated photo as it is displayed", async () => {
+    // Stored 3000 × 2000, shown 2000 × 3000 in a 2 × 3 in frame: 512 × 768 at medium.
+    const photo = withExifOrientation(withJpegSize(JPEG_3x2, 3000, 2000), 6);
+    const out = await run([{ image: photo, mime: "image/jpeg", w: 2, h: 3 }], "medium");
+    expect(await shownPixels(out, 1)).toEqual([512, 768]);
+  });
+
+  it.each([
+    ["distorts it", (w: number, h: number) => solidPng(w, h + 50)],
+    ["enlarges it", (w: number, h: number) => solidPng(w * 2, h * 2)],
+  ])("keeps a picture's original bytes when resizing it %s", async (_, resized) => {
+    // A second, small picture still shrinks, so a deck comes back.
+    const small: Shown = { image: noisePng(40, 20), mime: "image/png", w: 10, h: 5 };
+    const out = await run([OVERSIZED, small], "high", async (bytes, action) =>
+      action.target ? resized(action.target.width, action.target.height) : toTarget(bytes, action),
+    );
+    expect(sameBytes(await media(out, slidePicture(1)), OVERSIZED.image)).toBe(true);
   });
 });
 
