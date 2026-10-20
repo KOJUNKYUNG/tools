@@ -11,7 +11,11 @@ import {
 } from "@/lib/image/alreadyCompressed";
 import { downscaleImage } from "@/lib/image/downscale";
 import { runOutputCheck } from "@/lib/output-check/core";
-import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
+import {
+  displayedSize,
+  hasUnreadOrientation,
+  readImageHeader,
+} from "@/lib/output-check/imageHeader";
 import { notSmaller } from "@/lib/output-check/sizeBound";
 import { getExt, getMime } from "./pptImageFormats";
 import { aggregateFormats } from "./analyzePresentation";
@@ -146,9 +150,14 @@ const countPngPixelsInBrowser: CountPngPixels = async (bytes, cap) => {
   }
 };
 
-/** A picture's upright pixel size (EXIF orientation applied); null if its header is unreadable. */
+/**
+ * A picture's upright pixel size (EXIF orientation applied); null if its
+ * header is unreadable or it carries orientation the header reader does not
+ * read (a PNG's eXIf): the browser may draw it turned, and a resize to a
+ * size worked out from its header would squash it.
+ */
 function uprightSize(bytes: Uint8Array): PixelSize | null {
-  const header = readImageHeader(bytes);
+  const header = hasUnreadOrientation(bytes) ? null : readImageHeader(bytes);
   if (!header) return null;
   const [width, height] = displayedSize(header);
   return { width, height };

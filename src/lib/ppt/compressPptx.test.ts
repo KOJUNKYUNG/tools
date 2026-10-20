@@ -3,7 +3,14 @@ import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
 import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { sameBytes } from "@/lib/output-check/sameBytes";
-import { JPEG_3x2, noisePng, solidPng, withExifOrientation, withJpegSize } from "@/lib/pdf/testImages";
+import {
+  JPEG_3x2,
+  noisePng,
+  solidPng,
+  withExifOrientation,
+  withJpegSize,
+  withPngExif,
+} from "@/lib/pdf/testImages";
 import {
   analyzePptxForCompress,
   compressPptxFromBytes,
@@ -242,6 +249,12 @@ describe("compressPptxFromBytes downsampling", () => {
     const photo = withExifOrientation(withJpegSize(JPEG_3x2, 3000, 2000), 6);
     const out = await run([{ image: photo, mime: "image/jpeg", w: 2, h: 3 }], "medium");
     expect(await shownPixels(out, 1)).toEqual([512, 768]);
+  });
+
+  it("keeps the pixel size of a PNG whose eXIf chunk may turn it", async () => {
+    // Browsers may draw it turned, so its upright size is not known from its header.
+    const out = await run([{ ...OVERSIZED, image: withPngExif(OVERSIZED.image) }], "high");
+    expect(await shownPixels(out, 1)).toEqual([1200, 600]);
   });
 
   it.each([

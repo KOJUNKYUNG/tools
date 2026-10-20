@@ -98,6 +98,18 @@ export function withExifOrientation(
   return Uint8Array.from(Buffer.concat([jpeg.subarray(0, 2), app1, exif, jpeg.subarray(2)]));
 }
 
+/** `png` with an eXIf chunk (orientation 6) between IHDR and the image data. */
+export function withPngExif(png: Uint8Array): Uint8Array {
+  const tiff = Buffer.from("4d4d002a00000008000101120003000000010006000000000000", "hex");
+  const chunk = Buffer.alloc(12 + tiff.length);
+  chunk.writeUInt32BE(tiff.length, 0);
+  chunk.write("eXIf", 4, "ascii");
+  tiff.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(chunk.subarray(4, 8 + tiff.length)), 8 + tiff.length);
+  const afterIhdr = 8 + 25; // signature, then IHDR: length, type, 13 data bytes, CRC
+  return Uint8Array.from(Buffer.concat([png.subarray(0, afterIhdr), chunk, png.subarray(afterIhdr)]));
+}
+
 /**
  * Source images by id: a wide and a tall PNG, a small JPEG, and the same
  * JPEG tagged EXIF orientation 6 ("phone": stored 3×2, shown 2×3).
