@@ -1,7 +1,13 @@
 // Single source of pdfjs-dist configuration. Assets are self-hosted from
 // public/pdfjs/ (copied by scripts/copy-pdfjs.mjs on postinstall) instead of
 // fetched from a CDN at runtime — keeps the app fully self-contained.
-import type { DocumentInitParameters } from "pdfjs-dist/types/src/display/api";
+import type { getDocument } from "pdfjs-dist";
+
+/** getDocument's options object, from the public entry (the type is not exported). */
+type DocumentInitParameters = Exclude<
+  NonNullable<Parameters<typeof getDocument>[0]>,
+  string | URL | ArrayBuffer | ArrayBufferView
+>;
 
 /** Self-hosted pdfjs asset URLs (same-origin, served from public/pdfjs/). */
 export const PDFJS_WORKER_SRC = "/pdfjs/build/pdf.worker.min.mjs";
