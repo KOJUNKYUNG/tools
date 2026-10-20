@@ -10,7 +10,7 @@ import {
   isFormat,
 } from "./compressImageCheck";
 import { isConvertedFromHeic } from "./heic";
-import { imageCompressionWorker } from "./imageCompressionWorker";
+import { imageCompressionWorkerOptions } from "./imageCompressionWorker";
 
 export type OutputFormat = "image/jpeg" | "image/png" | "image/webp";
 
@@ -117,7 +117,7 @@ const browserEncoders: ImageEncoders = {
     return imageCompression(file, {
       maxSizeMB: Infinity,
       initialQuality: quality / 100,
-      ...imageCompressionWorker(),
+      ...imageCompressionWorkerOptions(),
       fileType: format,
     });
   },

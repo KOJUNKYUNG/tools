@@ -13,7 +13,7 @@ export const IMAGE_COMPRESSION_LIB_PATH =
  * Options to spread into an `imageCompression` call. `libURL` is absolute:
  * a root-relative path does not resolve against the worker's blob: URL.
  */
-export function imageCompressionWorker(origin: string = self.location.origin): {
+export function imageCompressionWorkerOptions(origin: string = self.location.origin): {
   useWebWorker: true;
   libURL: string;
 } {

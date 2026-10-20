@@ -10,7 +10,7 @@ import {
   type ColorCount,
 } from "@/lib/image/alreadyCompressed";
 import { downscaleImage } from "@/lib/image/downscale";
-import { imageCompressionWorker } from "@/lib/image/imageCompressionWorker";
+import { imageCompressionWorkerOptions } from "@/lib/image/imageCompressionWorker";
 import { runOutputCheck } from "@/lib/output-check/core";
 import {
   displayedSize,
@@ -294,7 +294,7 @@ async function recompressMedia(
   const out = await imageCompression(inputFile, {
     maxSizeMB: Number.POSITIVE_INFINITY,
     initialQuality: action.quality, // for PNG: quantize to 4096 × quality colours
-    ...imageCompressionWorker(),
+    ...imageCompressionWorkerOptions(),
     fileType: mime,
   });
   const buf = await out.arrayBuffer();
