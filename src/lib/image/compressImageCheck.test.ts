@@ -1,11 +1,11 @@
 import JSZip from "jszip";
-import { crc32 } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   JPEG_3x2,
   solidPng,
   stubBrowserDecoder,
   withExifOrientation,
+  withPngExif,
 } from "@/lib/pdf/testImages";
 import {
   checkCompressedImage,
@@ -54,7 +54,7 @@ describe("checkCompressedImage", () => {
 
   it.each([
     ["a WebP with an EXIF chunk", () => extendedWebp(4, 3, { exif: true })],
-    ["a PNG with an eXIf chunk", () => pngWithExif(4, 3)],
+    ["a PNG with an eXIf chunk", () => withPngExif(solidPng(4, 3))],
   ])("skips the size check for %s: the browser may turn it by an orientation not read here", async (_, bytes) => {
     const input = blob(bytes());
     // Drawn turned a quarter: 3×4.
@@ -135,19 +135,6 @@ function extendedWebp(width: number, height: number, { exif }: { exif: boolean }
   b.writeUIntLE(width - 1, 24, 3);
   b.writeUIntLE(height - 1, 27, 3);
   return Uint8Array.from(b);
-}
-
-/** `solidPng` with an eXIf chunk (orientation 6) between IHDR and IDAT. */
-function pngWithExif(width: number, height: number): Uint8Array {
-  const png = Buffer.from(solidPng(width, height));
-  const tiff = Buffer.from("4d4d002a00000008000101120003000000010006000000000000", "hex");
-  const chunk = Buffer.alloc(12 + tiff.length);
-  chunk.writeUInt32BE(tiff.length, 0);
-  chunk.write("eXIf", 4, "ascii");
-  tiff.copy(chunk, 8);
-  chunk.writeUInt32BE(crc32(chunk.subarray(4, 8 + tiff.length)), 8 + tiff.length);
-  const afterIhdr = 8 + 25; // signature, then IHDR: length, type, 13 data bytes, CRC
-  return Uint8Array.from(Buffer.concat([png.subarray(0, afterIhdr), chunk, png.subarray(afterIhdr)]));
 }
 
 describe("checkCompressZip", () => {

@@ -46,12 +46,21 @@ export function recompressedMediaViolations(
   if (source === null) return [];
   const [w, h] = displayedSize(source);
   const [ow, oh] = displayedSize(header);
-  if (w !== ow || h !== oh) {
+  if (!keepsShape(w, h, ow, oh)) {
     return [{ property: "media-dimensions", detail: `${part}: ${w}×${h} → ${ow}×${oh}` }];
   }
   return [];
 }
 
+/**
+ * Whether `ow`×`oh` is `w`×`h` scaled by one factor no larger than 1, each
+ * side rounded to within 1 px: some scale fits both sides. The picture then
+ * fills its fixed slide frame as before; anything else distorts it.
+ */
+function keepsShape(w: number, h: number, ow: number, oh: number): boolean {
+  if (ow < 1 || oh < 1 || ow > w || oh > h) return false;
+  return Math.max((ow - 1) / w, (oh - 1) / h) <= Math.min((ow + 1) / w, (oh + 1) / h);
+}
 
 /**
  * ppt-compress output properties (spec #51, confirmed in #60), all ⚡ (`quick`
@@ -65,10 +74,14 @@ export function recompressedMediaViolations(
  * - `entry-set`: exactly the input's parts, none added, dropped or renamed
  * - `slide-count`: the input's number of slides
  * - `media-header`: every recompressed jpg/jpeg/png holds that format
- * - `media-dimensions`: every recompressed image keeps its size as displayed
- *   (EXIF orientation applied): slide frames are fixed, so a new size or
- *   orientation distorts the slide. The engine keeps an image's original
- *   bytes rather than a candidate that fails either media property
+ * - `media-dimensions`: every recompressed image keeps its aspect ratio as
+ *   displayed (EXIF orientation applied), within 1 px of rounding, and grows
+ *   on neither side: slide frames are fixed, so a new shape or orientation
+ *   distorts the slide. The engine keeps an image's original bytes rather
+ *   than a candidate that fails either media property. A picture shrunk
+ *   below its display size is not caught here: telling would mean working
+ *   out display sizes from the slide XML again, duplicating the engine, so
+ *   the regression set (`pnpm test:real`) guards it instead
  *
  * A media part counts as recompressed when its bytes differ from the input's.
  * Structural defects the input already had are not the tool's doing.

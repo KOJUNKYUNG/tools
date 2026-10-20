@@ -136,6 +136,36 @@ describe("checkPptCompress", () => {
     ]);
   });
 
+  it.each([
+    ["halved", 20, 10],
+    ["scaled to a third, rounded on both sides", 13, 7],
+    ["one pixel off on one side", 21, 10],
+  ])("passes a picture downscaled in proportion (%s)", async (_, w, h) => {
+    const deck = await syntheticDeck();
+    const png = await mediaPath(deck, "png");
+    const output = await mutate(deck, (zip) => {
+      zip.file(png, solidPng(w, h), { compression: "STORE" });
+    });
+    expect(await checkPptCompress(deck, request, output, "quick")).toEqual([]);
+  });
+
+  it.each([
+    ["distorted", 20, 5],
+    ["enlarged", 80, 40],
+    ["enlarged on one side only", 41, 20],
+    ["turned a quarter", 20, 40],
+    ["shrunk to nothing", 0, 0],
+  ])("flags a recompressed picture %s", async (_, w, h) => {
+    const deck = await syntheticDeck();
+    const png = await mediaPath(deck, "png");
+    const output = await mutate(deck, (zip) => {
+      zip.file(png, solidPng(w, h), { compression: "STORE" });
+    });
+    expect(await checkPptCompress(deck, request, output, "quick")).toEqual([
+      { property: "media-dimensions", detail: `${png}: 40×20 → ${w}×${h}` },
+    ]);
+  });
+
   it("compares sizes as displayed, after EXIF orientation", async () => {
     // Stored 3×2, shown 2×3.
     const deck = await syntheticDeck(withExifOrientation(JPEG_3x2, 6));

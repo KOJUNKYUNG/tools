@@ -32,6 +32,10 @@ export interface PptxPackage {
   masterParts: string[];
   /** Raw bytes of a part (null when absent or unreadable). */
   read(part: string): Promise<Uint8Array | null>;
+  /** A part's text (null when absent or unreadable). */
+  text(part: string): Promise<string | null>;
+  /** The relationships `part` declares, in `.rels` order (none without a `.rels`). */
+  relationships(part: string): Promise<Relationship[]>;
   /** A part's size as stored in the zip (null when absent or not indexable). */
   storedSize(part: string): number | null;
   /**
@@ -139,7 +143,7 @@ export function relsPartOf(part: string): string {
   return `${part.slice(0, slash + 1)}_rels/${part.slice(slash + 1)}.rels`;
 }
 
-interface Relationship {
+export interface Relationship {
   id: string;
   type: string;
   /** Resolved part name, or null for an external or unresolvable target. */
@@ -204,6 +208,12 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
 
     read(part) {
       return zip.bytes(part);
+    },
+
+    text,
+
+    relationships(part) {
+      return relationshipsOf(relsPartOf(part));
     },
 
     storedSize(part) {

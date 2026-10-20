@@ -9,17 +9,27 @@ import {
   readPngHeader,
   type ColorCount,
 } from "@/lib/image/alreadyCompressed";
+import { downscaleImage } from "@/lib/image/downscale";
 import { runOutputCheck } from "@/lib/output-check/core";
+import {
+  displayedSize,
+  hasUnreadOrientation,
+  readImageHeader,
+} from "@/lib/output-check/imageHeader";
 import { notSmaller } from "@/lib/output-check/sizeBound";
 import { getExt, getMime } from "./pptImageFormats";
 import { aggregateFormats } from "./analyzePresentation";
+import { readDisplaySizes, type DisplaySize } from "./displaySize";
 import {
   classifyMedia,
+  downsampleTarget,
   pickSmaller,
+  PRESET_SLIDE_WIDTH_PX,
   pngColorBudget,
   RECOMPRESSIBLE_EXTS,
   type MediaAction,
   type MediaSample,
+  type PixelSize,
 } from "./pptCompressPlan";
 import { checkPptCompress, recompressedMediaViolations } from "./pptCompressCheck";
 
@@ -83,7 +93,11 @@ export type CompressPptxResult =
       anyImageReencoded: boolean;
     };
 
-/** Re-encodes one image in its own format; the browser canvas at run time. */
+/**
+ * Re-encodes one image in its own format, first shrunk to the action's
+ * `target` (upright, as displayed) when it has one; the browser canvas at
+ * run time.
+ */
 export type RecompressMedia = (
   bytes: Uint8Array,
   action: Extract<MediaAction, { kind: "jpeg" | "png" }>,
@@ -137,9 +151,26 @@ const countPngPixelsInBrowser: CountPngPixels = async (bytes, cap) => {
 };
 
 /**
+ * A picture's upright pixel size (EXIF orientation applied); null if its
+ * header is unreadable or it carries orientation the header reader does not
+ * read (a PNG's eXIf): the browser may draw it turned, and a resize to a
+ * size worked out from its header would squash it.
+ */
+function uprightSize(bytes: Uint8Array): PixelSize | null {
+  const header = hasUnreadOrientation(bytes) ? null : readImageHeader(bytes);
+  if (!header) return null;
+  const [width, height] = displayedSize(header);
+  return { width, height };
+}
+
+/**
  * Idle-time analysis: pull the embedded thumbnail, count images, and read
- * each recompressible image's size and signs of earlier compression for the
- * size estimate. One unzip per file.
+ * each recompressible image's size, signs of earlier compression, pixel size
+ * and display size for the size estimate. One unzip per file, plus reading
+ * the slides for display sizes. No fixed idle-time budget exists, so its cost
+ * is measured against the analysis itself: on the eight real decks it adds
+ * 2–73 ms to an analysis of 0.08–1.9 s (1–24% of it; scripts/measure-ppt-ratios
+ * ?parts=analysis, Chrome, 2026-10-20).
  */
 export async function analyzePptxForCompress(
   file: File,
@@ -164,6 +195,7 @@ export async function analyzePptxForCompress(
   });
 
   const { imageCount, formatCounts } = aggregateFormats(imageBaseNames);
+  const displaySizes = await readDisplaySizes(new Uint8Array(ab));
 
   const media: MediaSample[] = [];
   // Track the largest recompressible image to use as the preview.
@@ -174,25 +206,28 @@ export async function analyzePptxForCompress(
     if (!entry) continue;
     const bytes = await entry.async("uint8array");
     const ext = getExt(p);
+    const pictureSize = { size: uprightSize(bytes), display: displaySizes.get(p) ?? null };
     if (ext === "png") {
-      const header = readPngHeader(bytes);
-      const palette = header?.colorType === 3;
+      const png = readPngHeader(bytes);
+      const palette = png?.colorType === 3;
       // A palette PNG already counts as compressed; no need to decode it.
       const counted =
-        header && !palette && header.width * header.height <= MAX_COUNT_PIXELS
+        png && !palette && png.width * png.height <= MAX_COUNT_PIXELS
           ? await countPngPixels(bytes, COLOR_COUNT_CAP)
           : null;
-      const hasAlpha = header?.colorType === 4 || header?.colorType === 6;
+      const hasAlpha = png?.colorType === 4 || png?.colorType === 6;
       media.push({
+        ...pictureSize,
         kind: "png",
         bytes: bytes.length,
-        visiblePixels: counted?.visible ?? (header ? header.width * header.height : null),
+        visiblePixels: counted?.visible ?? (png ? png.width * png.height : null),
         palette,
         colors: counted?.colors ?? null,
         unusedAlpha: hasAlpha && (counted?.opaque ?? false),
       });
     } else {
       media.push({
+        ...pictureSize,
         kind: "jpeg",
         bytes: bytes.length,
         quality: estimateJpegQuality(bytes),
@@ -224,13 +259,37 @@ export async function analyzePptxForCompress(
   };
 }
 
+/**
+ * The picture shrunk to `target` with the shared resizer, as a lossless PNG
+ * for the encoder; null when the browser cannot resize it, which leaves the
+ * same-size re-encode.
+ */
+async function resizedForEncoder(original: Blob, target: PixelSize): Promise<Blob | null> {
+  if (typeof createImageBitmap !== "function" || typeof OffscreenCanvas === "undefined") {
+    return null;
+  }
+  try {
+    const canvas = await downscaleImage(original, target.width, target.height);
+    try {
+      return await canvas.convertToBlob({ type: "image/png" });
+    } finally {
+      canvas.width = canvas.height = 0;
+    }
+  } catch {
+    return null;
+  }
+}
+
 async function recompressMedia(
   bytes: Uint8Array,
   action: Extract<MediaAction, { kind: "jpeg" | "png" }>,
 ): Promise<Uint8Array> {
   const mime = action.kind === "jpeg" ? "image/jpeg" : "image/png";
   // new Uint8Array(...) keeps BlobPart happy under TS strict.
-  const inputFile = new File([new Uint8Array(bytes)], "m", { type: mime });
+  const original = new Blob([new Uint8Array(bytes)], { type: mime });
+  const resized = action.target ? await resizedForEncoder(original, action.target) : null;
+  // The encoder reads the format to write from `fileType`, not the input's.
+  const inputFile = new File([resized ?? original], "m", { type: resized?.type ?? mime });
   const out = await imageCompression(inputFile, {
     maxSizeMB: Number.POSITIVE_INFINITY,
     initialQuality: action.quality, // for PNG: quantize to 4096 × quality colours
@@ -288,6 +347,12 @@ export async function compressPptxFromBytes({
     }
   });
 
+  // Read only when the preset downsamples: the slides' XML is not needed otherwise.
+  const displaySizes =
+    PRESET_SLIDE_WIDTH_PX[preset] === null
+      ? new Map<string, DisplaySize | null>()
+      : await readDisplaySizes(bytes);
+
   onProgress?.(15);
   let anyImageReencoded = false;
   const total = mediaPaths.length;
@@ -298,15 +363,18 @@ export async function compressPptxFromBytes({
       const original = await entry.async("uint8array");
       const action = classifyMedia(getExt(path), preset);
       if (action.kind !== "passthrough") {
+        const size = uprightSize(original);
+        const target = size && downsampleTarget(size, displaySizes.get(path) ?? null, preset);
         let candidate: Uint8Array | null = null;
         try {
-          candidate = await recompress(original, action);
+          candidate = await recompress(original, target ? { ...action, target } : action);
         } catch {
           // Re-encode failure (corrupt/odd image) -> keep the original bytes.
           candidate = null;
         }
         // A candidate in the wrong format or shape would distort its fixed
-        // slide frame: keep the original bytes instead (spec #51, #65).
+        // slide frame: keep the original bytes instead (spec #51, #65). A
+        // resized one that passes counts as re-encoded like any other.
         if (candidate && recompressedMediaViolations(path, original, candidate).length > 0) {
           candidate = null;
         }

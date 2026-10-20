@@ -52,6 +52,24 @@ export const JPEG_3x2 = Uint8Array.from(
 );
 
 /**
+ * `jpeg` with its frame header rewritten to `width`×`height`: header-correct
+ * for the header inspector, though the scan no longer decodes.
+ */
+export function withJpegSize(jpeg: Uint8Array, width: number, height: number): Uint8Array {
+  const out = Uint8Array.from(jpeg);
+  const view = new DataView(out.buffer);
+  for (let at = 2; at + 9 <= out.length && out[at] === 0xff; at += 2 + view.getUint16(at + 2)) {
+    const marker = out[at + 1];
+    if (marker >= 0xc0 && marker <= 0xc3) {
+      view.setUint16(at + 5, height);
+      view.setUint16(at + 7, width);
+      return out;
+    }
+  }
+  throw new Error("no frame header");
+}
+
+/**
  * `jpeg` with an EXIF APP1 segment right after SOI whose IFD0 holds only the
  * Orientation tag, in big-endian ("MM") or little-endian ("II") byte order.
  */
@@ -78,6 +96,18 @@ export function withExifOrientation(
   app1.writeUInt16BE(0xffe1, 0);
   app1.writeUInt16BE(exif.length + 2, 2);
   return Uint8Array.from(Buffer.concat([jpeg.subarray(0, 2), app1, exif, jpeg.subarray(2)]));
+}
+
+/** `png` with an eXIf chunk (orientation 6) between IHDR and the image data. */
+export function withPngExif(png: Uint8Array): Uint8Array {
+  const tiff = Buffer.from("4d4d002a00000008000101120003000000010006000000000000", "hex");
+  const chunk = Buffer.alloc(12 + tiff.length);
+  chunk.writeUInt32BE(tiff.length, 0);
+  chunk.write("eXIf", 4, "ascii");
+  tiff.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(chunk.subarray(4, 8 + tiff.length)), 8 + tiff.length);
+  const afterIhdr = 8 + 25; // signature, then IHDR: length, type, 13 data bytes, CRC
+  return Uint8Array.from(Buffer.concat([png.subarray(0, afterIhdr), chunk, png.subarray(afterIhdr)]));
 }
 
 /**
