@@ -51,6 +51,14 @@ export const JPEG_3x2 = Uint8Array.from(
   ),
 );
 
+/** A 16×16 RGB JPEG 2000 codestream (no JP2 box), encoded by OpenJPEG. */
+export const J2K_16x16 = Uint8Array.from(
+  Buffer.from(
+    "/0//UQAvAAAAAAAQAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAAAAAAADBwEBBwEBBwEB/1IADAAAAAEABAQEAAD/XAAdQm8gbwBvAG7gZ1BnUGdoUAVQBVBHV9NX01di/2QAJQABQ3JlYXRlZCBieSBPcGVuSlBFRyB2ZXJzaW9uIDIuNS40/5AACgAAAAAAJwAB/5OAgIDD9QIAAEeh+oEAAEeAgICAgICAgICA/9k=",
+    "base64",
+  ),
+);
+
 /**
  * `jpeg` with its frame header rewritten to `width`×`height`: header-correct
  * for the header inspector, though the scan no longer decodes.

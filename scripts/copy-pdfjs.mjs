@@ -6,6 +6,9 @@
 //   - build/pdf.worker.min.mjs : the render worker
 //   - cmaps/                    : character maps (CJK / Korean text rendering)
 //   - standard_fonts/           : fallback fonts for PDFs without embedded fonts
+//   - wasm/                     : JPEG 2000, JBIG2/CCITT and ICC colour decoders
+//   - iccs/                     : CMYK ICC profile
+// The worker fetches each file only when a document needs it (src/lib/pdf/pdfjs.ts).
 import { createRequire } from "node:module";
 import { cpSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -19,6 +22,8 @@ const assets = [
   ["build/pdf.worker.min.mjs", "build/pdf.worker.min.mjs"],
   ["cmaps", "cmaps"],
   ["standard_fonts", "standard_fonts"],
+  ["wasm", "wasm"],
+  ["iccs", "iccs"],
 ];
 
 mkdirSync(dest, { recursive: true });
@@ -34,4 +39,4 @@ for (const [from, to] of assets) {
   cpSync(src, out, { recursive: true });
 }
 
-console.log(`[copy-pdfjs] worker + cmaps + standard_fonts -> ${dest}`);
+console.log(`[copy-pdfjs] worker + cmaps + standard_fonts + wasm + iccs -> ${dest}`);

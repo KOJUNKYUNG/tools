@@ -4,10 +4,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import type { PdfjsAdapter } from "./pdfInspector";
 
-const fontsDir = path.join(
-  path.dirname(createRequire(import.meta.url).resolve("pdfjs-dist/package.json")),
-  "standard_fonts",
-);
+const pdfjsRoot = path.dirname(createRequire(import.meta.url).resolve("pdfjs-dist/package.json"));
 
 export const nodePdfjsAdapter: PdfjsAdapter = {
   async load() {
@@ -15,8 +12,15 @@ export const nodePdfjsAdapter: PdfjsAdapter = {
     const lib = (await import(
       "pdfjs-dist/legacy/build/pdf.mjs"
     )) as typeof import("pdfjs-dist");
-    // pdfjs reads standard fonts from a path in Node and requires a trailing
+    // pdfjs reads these folders from a path in Node and requires a trailing
     // "/" (it rejects Windows' "\"), which Node's fs accepts on every OS.
-    return { lib, docParams: { standardFontDataUrl: `${fontsDir}/` } };
+    // No iccUrl: Node's pdfjs runs without worker fetch, which turns ICC off.
+    return {
+      lib,
+      docParams: {
+        standardFontDataUrl: `${path.join(pdfjsRoot, "standard_fonts")}/`,
+        wasmUrl: `${path.join(pdfjsRoot, "wasm")}/`,
+      },
+    };
   },
 };

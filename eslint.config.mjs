@@ -18,6 +18,8 @@ const eslintConfig = defineConfig([
   ]),
   // Agent worktrees are full repo copies (with their own .next output).
   globalIgnores([".claude/worktrees/**"]),
+  // Vendor engine assets copied on postinstall (scripts/copy-*.mjs).
+  globalIgnores(["public/pdfjs/**", "public/qpdf/**"]),
 ]);
 
 export default eslintConfig;
