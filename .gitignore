@@ -65,3 +65,7 @@ public/pdfjs/
 
 # qpdf-wasm binary copied by scripts/copy-qpdf.mjs (postinstall)
 public/qpdf/
+
+# browser-image-compression worker bundle copied by
+# scripts/copy-image-compression.mjs (postinstall)
+public/browser-image-compression/
