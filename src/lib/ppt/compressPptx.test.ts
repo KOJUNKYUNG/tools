@@ -148,24 +148,35 @@ describe("compressPptxFromBytes downsampling", () => {
     /** Frame size in inches, on pptxgenjs's 10 in wide slide. */
     w: number;
     h: number;
+    /** Shows only the middle half of the picture, enlarged to fill the frame. */
     cropped?: boolean;
+    /** Tiles the picture in its frame instead of stretching it. */
+    tiled?: boolean;
   }
 
   /** One slide per picture, so slide n's picture is ppt/media/image-n-1.*. */
   async function deck(shown: Shown[]): Promise<Uint8Array> {
     const pptx = new PptxGenJS();
     for (const { image, mime, w, h, cropped } of shown) {
+      // A crop's w × h is the whole picture's size; the frame is the crop box.
       pptx.addSlide().addImage({
         data: `${mime};base64,${b64(image)}`,
         x: 0,
         y: 0,
-        w,
-        h,
-        ...(cropped && { sizing: { type: "crop", x: 0.5, y: 0, w: w - 0.5, h } }),
+        ...(cropped
+          ? { w: w * 2, h: h * 2, sizing: { type: "crop", x: w / 2, y: h / 2, w, h } }
+          : { w, h }),
       });
     }
     // write() returns a union over every outputType; "uint8array" yields this one.
-    return (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
+    const zip = await JSZip.loadAsync((await pptx.write({ outputType: "uint8array" })) as Uint8Array);
+    for (const [i, { tiled }] of shown.entries()) {
+      if (!tiled) continue;
+      const part = `ppt/slides/slide${i + 1}.xml`;
+      const xml = await zip.file(part)!.async("text");
+      zip.file(part, xml.replace(/<a:stretch>[\s\S]*?<\/a:stretch>|<a:stretch\/>/, "<a:tile/>"));
+    }
+    return zip.generateAsync({ type: "uint8array" });
   }
 
   const slidePicture = (n: number) => new RegExp(`^ppt/media/image-${n}-1\.`);
@@ -206,8 +217,18 @@ describe("compressPptxFromBytes downsampling", () => {
   });
 
   it("keeps the pixel size of a picture whose display size is unknown", async () => {
-    const out = await run([{ ...OVERSIZED, cropped: true }], "high");
+    const out = await run([{ ...OVERSIZED, tiled: true }], "high");
     expect(await shownPixels(out, 1)).toEqual([1200, 600]);
+  });
+
+  it.each([
+    ["medium", [2048, 1024]],
+    ["high", [1536, 768]],
+  ] as const)("keeps enough pixels for a cropped and enlarged picture at %s", async (preset, size) => {
+    // The frame shows the middle half, so the whole picture spans 8 × 4 in:
+    // 0.8 × 0.4 slide widths, twice the frame.
+    const photo: Shown = { image: noisePng(2400, 1200), mime: "image/png", w: 4, h: 2, cropped: true };
+    expect(await shownPixels(await run([photo], preset), 1)).toEqual(size);
   });
 
   it("does not resize a picture already near its display size", async () => {
