@@ -148,7 +148,7 @@ describe("compressPptxFromBytes downsampling", () => {
     /** Frame size in inches, on pptxgenjs's 10 in wide slide. */
     w: number;
     h: number;
-    /** Shows only the middle half of the picture, enlarged to fill the frame. */
+    /** Shows only the middle half of the picture's width and height, enlarged to fill the frame. */
     cropped?: boolean;
     /** Tiles the picture in its frame instead of stretching it. */
     tiled?: boolean;
@@ -225,7 +225,7 @@ describe("compressPptxFromBytes downsampling", () => {
     ["medium", [2048, 1024]],
     ["high", [1536, 768]],
   ] as const)("keeps enough pixels for a cropped and enlarged picture at %s", async (preset, size) => {
-    // The frame shows the middle half, so the whole picture spans 8 × 4 in:
+    // The frame shows the middle half of each side, so the whole picture spans 8 × 4 in:
     // 0.8 × 0.4 slide widths, twice the frame.
     const photo: Shown = { image: noisePng(2400, 1200), mime: "image/png", w: 4, h: 2, cropped: true };
     expect(await shownPixels(await run([photo], preset), 1)).toEqual(size);

@@ -109,19 +109,28 @@ const shareFirstImage = (n: number) => async (zip: JSZip) => {
   zip.file(rels, xml.replace(`image-${n}-1.png`, "image-1-1.png"));
 };
 
+/** Gives `part` the relationship rIdX to the first slide's image. */
+async function relateFirstImage(zip: JSZip, part: string): Promise<void> {
+  const rels = relsPartOf(part);
+  const target = "../".repeat(part.split("/").length - 2) + "media/image-1-1.png";
+  const relsXml = zip.file(rels) ? await zip.file(rels)!.async("text") : null;
+  const rel = `<Relationship Id="rIdX" Type="${IMAGE_REL}" Target="${target}"/>`;
+  zip.file(
+    rels,
+    relsXml?.replace("</Relationships>", `${rel}</Relationships>`) ??
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rel}</Relationships>`,
+  );
+}
+
 /** Adds `content` to an existing layout or master, showing the first slide's image. */
 const placedOn = (part: string, content: string) => async (zip: JSZip) => {
   const xml = await zip.file(part)!.async("text");
   zip.file(part, place(xml, content.replaceAll(`r:embed="rId1"`, `r:embed="rIdX"`)));
-  const rels = relsPartOf(part);
-  const rel = `<Relationship Id="rIdX" Type="${IMAGE_REL}" Target="../media/image-1-1.png"/>`;
-  zip.file(rels, (await zip.file(rels)!.async("text")).replace("</Relationships>", `${rel}</Relationships>`));
+  await relateFirstImage(zip, part);
 };
 
 /** Adds a part at `part` that shows the first slide's image. */
 const alsoShownIn = (part: string) => async (zip: JSZip) => {
-  const rels = relsPartOf(part);
-  const target = "../".repeat(part.split("/").length - 2) + "media/image-1-1.png";
   const existing = zip.file(part) ? await zip.file(part)!.async("text") : null;
   const use = `<x r:embed="rIdX"/>`;
   if (existing === null) {
@@ -130,13 +139,7 @@ const alsoShownIn = (part: string) => async (zip: JSZip) => {
     const close = existing.lastIndexOf("</");
     zip.file(part, existing.slice(0, close) + use + existing.slice(close));
   }
-  const relsXml = zip.file(rels) ? await zip.file(rels)!.async("text") : null;
-  const rel = `<Relationship Id="rIdX" Type="${IMAGE_REL}" Target="${target}"/>`;
-  zip.file(
-    rels,
-    relsXml?.replace("</Relationships>", `${rel}</Relationships>`) ??
-      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rel}</Relationships>`,
-  );
+  await relateFirstImage(zip, part);
 };
 
 describe("readDisplaySizes", () => {
@@ -194,6 +197,12 @@ describe("readDisplaySizes", () => {
   ])("sizes a picture in %s by each group's scale", async (_, xml, size) => {
     const sizes = await readDisplaySizes(await deck([xml]));
     expect(sizes.get(IMAGE_1)).toEqual(size);
+  });
+
+  it("gives a rotated frame in an unevenly scaled group the larger scale on both sides", async () => {
+    // The group's ×2 and ×0.5 may fall on either of the turned frame's sides.
+    const sizes = await readDisplaySizes(await deck([group(pic({ rot: 5400000 }), [4, 2], [2, 4])]));
+    expect(sizes.get(IMAGE_1)).toEqual({ width: 0.8, height: 0.4 });
   });
 
   it("takes the largest use of a picture shown both in a group and plainly", async () => {

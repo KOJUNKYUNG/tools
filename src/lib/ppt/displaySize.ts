@@ -22,7 +22,8 @@
  * - narrowed or widened by the `a:fillRect` insets it is stretched into;
  * - divided by the share `a:srcRect` leaves visible (a crop enlarges the
  *   whole picture, a negative crop pads it and shrinks it);
- * - times each enclosing group's `a:ext` / `a:chExt` scale.
+ * - times each enclosing group's `a:ext` / `a:chExt` scale; a turned frame
+ *   or group in an unevenly scaled group takes the larger ratio both ways.
  * Any other use of a picture makes it unknown: tiles, notes, charts,
  * diagrams, handout and notes masters, alternate content, text fills, a
  * frame or group that inherits its extent, anything not listed here.
@@ -87,13 +88,16 @@ function parseXml(xml: string): XmlElement | null {
 const child = (el: XmlElement | undefined, name: string) =>
   el?.children.find((c) => c.name === name);
 
+/** A width and height in EMU. */
 type Extent = [number, number];
+/** A ratio across and a ratio down. */
+type Scale = [number, number];
 
 /**
  * The share of the width and height left between an element's edge
  * attributes (`l`/`r`, `t`/`b`, in 1/1000 of a percent; negative widens).
  */
-const between = (el: XmlElement | undefined): Extent => {
+const innerShare = (el: XmlElement | undefined): Scale => {
   const edge = (k: string) => Number(el?.attrs[k] ?? 0) / 100000;
   return [1 - edge("l") - edge("r"), 1 - edge("t") - edge("b")];
 };
@@ -122,13 +126,13 @@ const extentOf = (el: XmlElement | undefined) => positive([Number(el?.attrs.cx),
 function fillUse(blipFill: XmlElement | undefined, frame: Extent | null): { id: string; extent: Extent } | null {
   if (!blipFill || !frame) return null;
   let id: string | undefined;
-  let filled: Extent | null = null;
-  let visible: Extent = [1, 1];
+  let filled: Scale | null = null;
+  let visible: Scale = [1, 1];
   for (const c of blipFill.children) {
     if (c.name === "a:blip") id = c.attrs["r:embed"];
-    else if (c.name === "a:srcRect") visible = between(c);
+    else if (c.name === "a:srcRect") visible = innerShare(c);
     else if (c.name === "a:stretch" && c.children.every((f, i) => i === 0 && f.name === "a:fillRect")) {
-      filled = between(child(c, "a:fillRect"));
+      filled = innerShare(child(c, "a:fillRect"));
     } else return null;
   }
   if (!id || !filled) return null;
@@ -142,17 +146,29 @@ function fillUse(blipFill: XmlElement | undefined, frame: Extent | null): { id: 
 const frameOf = (spPr: XmlElement | undefined) => extentOf(child(child(spPr, "a:xfrm"), "a:ext"));
 
 /**
+ * The enclosing groups' `scale` as it applies to an element with transform
+ * `xfrm`. Turned by anything but a half turn, the element's sides no longer
+ * line up with the groups' axes, so an uneven scale may fall on either side:
+ * both take the larger ratio, which no side can exceed.
+ */
+function scaleFor(xfrm: XmlElement | undefined, scale: Scale): Scale {
+  const turned = Number(xfrm?.attrs.rot ?? 0) % 10800000 !== 0;
+  return turned ? [Math.max(...scale), Math.max(...scale)] : scale;
+}
+
+/**
  * Adds each picture use in a shape tree's `shapes` to `uses`, its extent
  * scaled by `scale` (each enclosing group's child-to-parent ratio).
  */
-function addTreeUses(shapes: XmlElement[], scale: Extent, uses: Map<string, Extent[]>): void {
+function addTreeUses(shapes: XmlElement[], scale: Scale, uses: Map<string, Extent[]>): void {
   for (const shape of shapes) {
     if (shape.name === "p:grpSp") {
       const xfrm = child(child(shape, "p:grpSpPr"), "a:xfrm");
       const [ext, chExt] = [extentOf(child(xfrm, "a:ext")), extentOf(child(xfrm, "a:chExt"))];
       // Without both, the group's scale is unknown: its pictures stay uncounted.
       if (ext && chExt) {
-        addTreeUses(shape.children, [(scale[0] * ext[0]) / chExt[0], (scale[1] * ext[1]) / chExt[1]], uses);
+        const [sx, sy] = scaleFor(xfrm, scale);
+        addTreeUses(shape.children, [(sx * ext[0]) / chExt[0], (sy * ext[1]) / chExt[1]], uses);
       }
       continue;
     }
@@ -164,7 +180,8 @@ function addTreeUses(shapes: XmlElement[], scale: Extent, uses: Map<string, Exte
           ? fillUse(child(spPr, "a:blipFill"), frameOf(spPr))
           : null;
     if (use) {
-      const extent: Extent = [use.extent[0] * scale[0], use.extent[1] * scale[1]];
+      const [sx, sy] = scaleFor(child(spPr, "a:xfrm"), scale);
+      const extent: Extent = [use.extent[0] * sx, use.extent[1] * sy];
       uses.set(use.id, [...(uses.get(use.id) ?? []), extent]);
     }
   }
@@ -200,7 +217,7 @@ export async function readDisplaySizes(deck: Uint8Array): Promise<Map<string, Di
   const pkg = await openPptxPackage(deck);
   if (!pkg) return sizes;
 
-  const slide = await slideSizeEmu(pkg);
+  const slideSize = await slideSizeEmu(pkg);
   const unknown = new Set<string>();
   const extents = new Map<string, Extent[]>();
   const partSet = new Set(pkg.parts);
@@ -211,13 +228,13 @@ export async function readDisplaySizes(deck: Uint8Array): Promise<Map<string, Di
     );
     if (rels.length === 0) continue;
     const rootName = drawnRoot(source);
-    const xml = rootName && slide ? await pkg.text(source) : null;
-    if (!rootName || !slide || xml === null) {
+    const xml = rootName && slideSize ? await pkg.text(source) : null;
+    if (xml === null || !rootName || !slideSize) {
       for (const r of rels) unknown.add(r.part);
       continue;
     }
     const named = valueCounts(xml);
-    const uses = partUses(parseXml(xml), rootName, slide);
+    const uses = partUses(parseXml(xml), rootName, slideSize);
     for (const r of rels) {
       const found = uses.get(r.id) ?? [];
       if ((named.get(r.id) ?? 0) !== found.length) unknown.add(r.part);
@@ -229,11 +246,11 @@ export async function readDisplaySizes(deck: Uint8Array): Promise<Map<string, Di
     const found = extents.get(part) ?? [];
     sizes.set(
       part,
-      unknown.has(part) || found.length === 0 || slide === null
+      unknown.has(part) || found.length === 0 || slideSize === null
         ? null
         : {
-            width: Math.max(...found.map(([cx]) => cx)) / slide[0],
-            height: Math.max(...found.map(([, cy]) => cy)) / slide[0],
+            width: Math.max(...found.map(([cx]) => cx)) / slideSize[0],
+            height: Math.max(...found.map(([, cy]) => cy)) / slideSize[0],
           },
     );
   }
