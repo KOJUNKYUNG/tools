@@ -35,27 +35,27 @@ export interface PixelSize {
 }
 
 /**
- * The pixel size to shrink a picture to, given its size as displayed (EXIF
+ * The pixel size to shrink a picture to, given its upright pixel size (EXIF
  * orientation applied) and its display size; null to keep its pixels. The
  * scale is the larger of the two sides' ratios, so both keep at least what
  * the slide shows even when a frame stretches the picture unevenly; the
  * aspect ratio is kept and each side rounded to whole pixels.
  */
 export function downsampleTarget(
-  displayed: PixelSize,
+  upright: PixelSize,
   display: DisplaySize | null,
   preset: CompressionPreset,
 ): PixelSize | null {
   const slideWidth = PRESET_SLIDE_WIDTH_PX[preset];
   if (slideWidth === null || display === null) return null;
   const scale = Math.max(
-    Math.ceil(display.width * slideWidth) / displayed.width,
-    Math.ceil(display.height * slideWidth) / displayed.height,
+    Math.ceil(display.width * slideWidth) / upright.width,
+    Math.ceil(display.height * slideWidth) / upright.height,
   );
   if (!(scale < MIN_RESIZE_SCALE)) return null;
   return {
-    width: Math.max(1, Math.round(displayed.width * scale)),
-    height: Math.max(1, Math.round(displayed.height * scale)),
+    width: Math.max(1, Math.round(upright.width * scale)),
+    height: Math.max(1, Math.round(upright.height * scale)),
   };
 }
 

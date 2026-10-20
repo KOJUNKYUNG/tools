@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
+import { relsPartOf } from "@/lib/output-check/pptxPackage";
 import { solidPng } from "@/lib/pdf/testImages";
 import { readDisplaySizes } from "./displaySize";
 
@@ -98,8 +99,7 @@ const shareFirstImage = (n: number) => async (zip: JSZip) => {
 
 /** Adds a part at `part` that shows the first slide's image. */
 const alsoShownIn = (part: string) => async (zip: JSZip) => {
-  const slash = part.lastIndexOf("/");
-  const rels = `${part.slice(0, slash)}/_rels/${part.slice(slash + 1)}.rels`;
+  const rels = relsPartOf(part);
   const target = "../".repeat(part.split("/").length - 2) + "media/image-1-1.png";
   const existing = zip.file(part) ? await zip.file(part)!.async("text") : null;
   const use = `<x r:embed="rIdX"/>`;

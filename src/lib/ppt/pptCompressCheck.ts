@@ -62,7 +62,6 @@ function keepsShape(w: number, h: number, ow: number, oh: number): boolean {
   return Math.max((ow - 1) / w, (oh - 1) / h) <= Math.min((ow + 1) / w, (oh + 1) / h);
 }
 
-
 /**
  * ppt-compress output properties (spec #51, confirmed in #60), all ⚡ (`quick`
  * and `full` check the same). JSZip wrote the output; the shared zip reader

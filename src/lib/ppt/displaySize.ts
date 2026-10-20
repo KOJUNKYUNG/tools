@@ -19,6 +19,8 @@
  * picture makes it unknown: crops, groups, fill insets, rotation, tiles,
  * backgrounds, layouts, masters, notes, charts, diagrams, alternate content,
  * text fills, a frame that inherits its extent, anything not listed here.
+ * A picture used several times takes its largest width and its largest
+ * height, each over all its uses, so no use gets fewer pixels than it shows.
  *
  * Hand-rolled XML reading (no DOMParser) so it runs in Node as in the
  * browser. A use is counted from the raw text, independently of the parse:
