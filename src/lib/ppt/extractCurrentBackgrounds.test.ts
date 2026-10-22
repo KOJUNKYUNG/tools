@@ -15,7 +15,7 @@ const blobs = group(2, { x: -500000, y: -300000, w: 10000000, h: 6000000 }, [
 ]);
 
 describe("extractCurrentBackgrounds reports each slide's visible background", () => {
-  it("reports covering pictures, grouped by the picture parts they use", async () => {
+  it("reports covering backgrounds, grouped by the picture parts they use", async () => {
     const deck = await testDeck([
       { shapes: [picture(2, "rId10"), textBox(9, "1절")], pictures: { rId10: "photo.png" } },
       // The same picture part under another relationship id.

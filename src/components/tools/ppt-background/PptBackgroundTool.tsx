@@ -675,6 +675,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       slideCountTemplate={labels.preview.slideCountTemplate}
                       emptyLabel={labels.preview.currentEmpty}
                       coveringLabel={labels.preview.coveringMarker}
+                      deletesCovering={mode !== "master"}
                       zoomLabel={labels.preview.zoom}
                       onZoom={() => setZoom("current")}
                     />

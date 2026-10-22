@@ -4,8 +4,9 @@ import { openPptxPackage, relsPartOf, type PptxPackage } from "@/lib/output-chec
 import { pngAlphaUsed } from "@/lib/output-check/pngAlpha";
 import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { CropRect } from "@/lib/image/maxFitCrop";
+import type { SlideSize } from "@/lib/image/slideImage";
 import type { BgMode } from "./changeBackground";
-import { coveringIn, shapeIdsIn, topLevelElements, type SlideExtent } from "./coveringBackgrounds";
+import { coveringIn, shapeIdsIn, topLevelElements } from "./coveringBackgrounds";
 import { animationTargets } from "./slideAnimations";
 import { parseXml, type XmlElement } from "./xmlTree";
 
@@ -45,7 +46,8 @@ export interface PptBackgroundRequest {
  * Covering backgrounds (spec #105), on each target slide in the slide modes,
  * re-detected on the input with the shared rule. The rule is the spec: these
  * prove the engine applied it, not that it is right (the regression set
- * covers the rule itself). Elements are matched by shape id.
+ * covers the rule itself). Elements are matched by their XML text: the
+ * engine copies the ones it keeps verbatim, while shape ids may repeat.
  *
  * - ⚡ `covering-background-kept`: a covering background is still there
  * - ⚡ `element-missing`: another top-level element is gone
@@ -190,25 +192,38 @@ async function coveringViolations(
   before: PptxPackage,
   after: PptxPackage,
   targets: readonly string[],
-  slide: SlideExtent,
+  slide: SlideSize,
 ): Promise<Violation[]> {
   const violations: Violation[] = [];
   for (const part of targets) {
     const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
     // Unreadable or malformed parts are structural defects, reported above.
-    const [inRoot, outRoot] = [inXml, outXml].map((xml) => (xml === null ? null : parseXml(xml)));
+    if (inXml === null || outXml === null) continue;
+    const [inRoot, outRoot] = [parseXml(inXml), parseXml(outXml)];
     const [inEls, outEls] = [topLevelElements(inRoot), topLevelElements(outRoot)];
     if (!inRoot || !outRoot || !inEls || !outEls) continue;
 
-    const covering = new Set(coveringIn(inEls, slide).map((c) => c.shapeIds[0]));
-    const present = new Set(outEls.map((el) => shapeIdsIn(el)[0]));
-    for (const id of inEls.map((el) => shapeIdsIn(el)[0])) {
-      if (id === undefined) continue;
-      if (covering.has(id) && present.has(id)) {
-        violations.push({ property: "covering-background-kept", detail: `${part} #${id}` });
-      } else if (!covering.has(id) && !present.has(id)) {
-        violations.push({ property: "element-missing", detail: `${part} #${id}` });
-      }
+    const covering = new Set(coveringIn(inEls, slide).map((c) => c.start));
+    /** How many of the output's top-level elements have each XML text, not yet matched. */
+    const unmatched = new Map<string, number>();
+    for (const el of outEls) {
+      const text = outXml.slice(el.start, el.end);
+      unmatched.set(text, (unmatched.get(text) ?? 0) + 1);
+    }
+    /** Matches an input element to an equal output one; false when none is left. */
+    const match = (el: XmlElement) => {
+      const text = inXml.slice(el.start, el.end);
+      const n = unmatched.get(text) ?? 0;
+      if (n > 0) unmatched.set(text, n - 1);
+      return n > 0;
+    };
+    const detail = (el: XmlElement) => `${part} #${ownId(el) ?? el.name}`;
+    // Elements that stay first, so one equal to a covering background is never taken for it.
+    for (const el of inEls.filter((e) => !covering.has(e.start))) {
+      if (!match(el)) violations.push({ property: "element-missing", detail: detail(el) });
+    }
+    for (const el of inEls.filter((e) => covering.has(e.start))) {
+      if (match(el)) violations.push({ property: "covering-background-kept", detail: detail(el) });
     }
 
     const missingTargets = (root: XmlElement, els: XmlElement[]) => {
@@ -221,6 +236,9 @@ async function coveringViolations(
   }
   return violations;
 }
+
+/** An element's own shape id. */
+const ownId = (el: XmlElement): string | undefined => shapeIdsIn(el)[0];
 
 async function preparationViolations(
   before: PptxPackage,

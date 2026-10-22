@@ -75,7 +75,7 @@ const lyricsOver = (background: string, pictures: Record<string, string>): TestS
 });
 
 describe("changeBackground deletes covering backgrounds on the target slides", () => {
-  it("deletes a covering picture, its relationship and its media, and sets the new background", async () => {
+  it("deletes a covering background picture, its relationship and its media, and sets the new background", async () => {
     const zip = await run([lyricsOver(picture(2, "rId10"), { rId10: "old.png" })]);
 
     expect(await topLevelIds(zip, 1)).toEqual(["9"]);

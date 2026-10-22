@@ -695,6 +695,15 @@ describe("checkPptBackground checks covering backgrounds", () => {
     expect(await properties(input, allSlides, output)).toEqual([]);
   });
 
+  it("passes a deck whose covering background shares a shape id with the content", async () => {
+    // Producers write duplicate ids; PowerPoint repairs them silently.
+    const input = await testDeck([
+      { shapes: [pictureElement(2, "rId10"), textBox(2, "가사")], pictures: { rId10: "old.png" } },
+    ]);
+    const output = await apply(input, allSlides);
+    expect(await properties(input, allSlides, output)).toEqual([]);
+  });
+
   it("flags a covering background left on a target slide", async () => {
     const input = await coveredDeck();
     const output = await editSlide1(await apply(input, allSlides), (xml) =>

@@ -21,23 +21,16 @@
  * quarter) never qualify: the rule errs toward keeping an element.
  */
 
-import { animationCuts, cutSpans } from "./slideAnimations";
-import { child, parseXml, type XmlElement } from "./xmlTree";
+import type { SlideSize } from "@/lib/image/slideImage";
+import { animationCuts, cutSpans, type Span } from "./slideAnimations";
+import { child, findAll, parseXml, type XmlElement } from "./xmlTree";
 
-export interface CoveringBackground {
-  /** Where the element starts and ends in the slide XML. */
-  start: number;
-  end: number;
+/** A covering background, as the span of the slide XML it takes up. */
+export interface CoveringBackground extends Span {
   /** Shape ids (`cNvPr` ids) of the element and everything in it. */
   shapeIds: string[];
   /** Relationship ids of its pictures, in document order. */
   pictures: string[];
-}
-
-/** A slide's extent in EMU. */
-export interface SlideExtent {
-  w: number;
-  h: number;
 }
 
 /** The share of the slide's area an element must cover, as a fraction. */
@@ -56,23 +49,19 @@ export function topLevelElements(root: XmlElement | null): XmlElement[] | null {
   return spTree ? spTree.children.filter((c) => !NOT_ELEMENTS.has(c.name)) : null;
 }
 
-/** Every element in `el` (itself included) named `name`, in document order. */
-function descendants(el: XmlElement, name: string | RegExp, out: XmlElement[] = []): XmlElement[] {
-  if (typeof name === "string" ? el.name === name : name.test(el.name)) out.push(el);
-  for (const c of el.children) descendants(c, name, out);
-  return out;
-}
+/** Every element in `el` (itself included) whose name matches `name`. */
+const named = (el: XmlElement, name: RegExp) => findAll(el, (e) => name.test(e.name));
 
-/** Shape ids (`cNvPr` ids) in `el`, in document order. */
+/** Shape ids (`cNvPr` ids) in `el`, in document order: the element's own first. */
 export function shapeIdsIn(el: XmlElement): string[] {
-  return descendants(el, /(?:^|:)cNvPr$/).flatMap((c) => (c.attrs.id === undefined ? [] : [c.attrs.id]));
+  return named(el, /(?:^|:)cNvPr$/).flatMap((c) => (c.attrs.id === undefined ? [] : [c.attrs.id]));
 }
 
 /** The relationship ids a `blipFill` shows: its blip's, then any variant's (an SVG). */
 function blipIds(blipFill: XmlElement | undefined): string[] {
   const blip = child(blipFill, "a:blip");
   if (!blip) return [];
-  return descendants(blip, /./).flatMap((el) =>
+  return findAll(blip, () => true).flatMap((el) =>
     ["r:embed", "r:link"].flatMap((a) => (el.attrs[a] ? [el.attrs[a]] : [])),
   );
 }
@@ -82,7 +71,7 @@ function picturesOf(el: XmlElement): string[] {
   switch (el.name) {
     case "p:pic": {
       const nvPr = child(child(el, "p:nvPicPr"), "p:nvPr");
-      if (nvPr && descendants(nvPr, MEDIA).length > 0) return [];
+      if (nvPr && named(nvPr, MEDIA).length > 0) return [];
       return blipIds(child(el, "p:blipFill"));
     }
     case "p:sp":
@@ -109,7 +98,7 @@ function boundsOf(el: XmlElement): { x: number; y: number; w: number; h: number 
 }
 
 /** Whether the element's bounds cover at least 90% of the slide's area. */
-function covers(el: XmlElement, slide: SlideExtent): boolean {
+function covers(el: XmlElement, slide: SlideSize): boolean {
   const b = boundsOf(el);
   if (!b) return false;
   const across = Math.min(b.x + b.w, slide.w) - Math.max(b.x, 0);
@@ -118,7 +107,7 @@ function covers(el: XmlElement, slide: SlideExtent): boolean {
 }
 
 /** The covering backgrounds of a slide's top-level `elements` (bottom first). */
-export function coveringIn(elements: XmlElement[], slide: SlideExtent): CoveringBackground[] {
+export function coveringIn(elements: XmlElement[], slide: SlideSize): CoveringBackground[] {
   const run: CoveringBackground[] = [];
   for (const el of elements) {
     const pictures = el.hasText ? [] : picturesOf(el);
@@ -130,7 +119,7 @@ export function coveringIn(elements: XmlElement[], slide: SlideExtent): Covering
 }
 
 /** The covering backgrounds of a slide, bottom first; none for XML that is not a slide. */
-export function findCoveringBackgrounds(slideXml: string, slide: SlideExtent): CoveringBackground[] {
+export function findCoveringBackgrounds(slideXml: string, slide: SlideSize): CoveringBackground[] {
   const elements = topLevelElements(parseXml(slideXml));
   return elements ? coveringIn(elements, slide) : [];
 }
@@ -140,7 +129,7 @@ export function findCoveringBackgrounds(slideXml: string, slide: SlideExtent): C
  * them. Their relationships stay: the caller drops those its part no longer
  * names.
  */
-export function deleteCoveringBackgrounds(slideXml: string, slide: SlideExtent): string {
+export function deleteCoveringBackgrounds(slideXml: string, slide: SlideSize): string {
   const root = parseXml(slideXml);
   const elements = topLevelElements(root);
   const covering = elements ? coveringIn(elements, slide) : [];

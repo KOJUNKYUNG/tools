@@ -118,7 +118,7 @@ function decodePartName(name: string): string {
 }
 
 /** Resolve a relationship target against its source directory. Null if it escapes the package. */
-function resolveTarget(sourceDir: string, target: string): string | null {
+export function resolveTarget(sourceDir: string, target: string): string | null {
   const bare = decodePartName(target.split("#")[0]);
   const segments = bare.startsWith("/")
     ? []

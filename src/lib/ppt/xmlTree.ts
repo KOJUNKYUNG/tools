@@ -78,3 +78,10 @@ export function parseXml(xml: string): XmlElement | null {
 
 export const child = (el: XmlElement | undefined, name: string) =>
   el?.children.find((c) => c.name === name);
+
+/** Every element in `el` (itself included) that passes `test`, in document order. */
+export function findAll(el: XmlElement, test: (e: XmlElement) => boolean, out: XmlElement[] = []): XmlElement[] {
+  if (test(el)) out.push(el);
+  for (const c of el.children) findAll(c, test, out);
+  return out;
+}

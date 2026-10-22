@@ -1,5 +1,7 @@
 import JSZip from "jszip";
-import { findCoveringBackgrounds, type SlideExtent } from "./coveringBackgrounds";
+import type { SlideSize } from "@/lib/image/slideImage";
+import { resolveTarget } from "@/lib/output-check/pptxPackage";
+import { findCoveringBackgrounds } from "./coveringBackgrounds";
 import { slideSizeFromXml } from "./getSlideAspect";
 
 /**
@@ -49,12 +51,8 @@ async function relationshipTargets(zip: JSZip, partPath: string): Promise<Map<st
     const attr = (name: string) => rel.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
     const [id, target] = [attr("Id"), attr("Target")];
     if (!id || !target || attr("TargetMode") === "External") continue;
-    const segments = target.startsWith("/") ? [] : dir.split("/");
-    for (const seg of target.replace(/^\/+/, "").split("/")) {
-      if (seg === "..") segments.pop();
-      else if (seg !== "." && seg !== "") segments.push(seg);
-    }
-    targets.set(id, segments.join("/"));
+    const part = resolveTarget(dir, target);
+    if (part !== null) targets.set(id, part);
   }
   return targets;
 }
@@ -64,7 +62,7 @@ async function coveringBackground(
   zip: JSZip,
   slidePath: string,
   slideXml: string,
-  slide: SlideExtent,
+  slide: SlideSize,
 ): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "coveringParts"> | null> {
   const covering = findCoveringBackgrounds(slideXml, slide);
   if (covering.length === 0) return null;

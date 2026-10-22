@@ -247,8 +247,8 @@ async function processSlideGroup(
   /** 1-based whitelist over the slide order (sorted by trailing integer in the
    *  filename — matches extractCurrentBackgrounds). Undefined = all. */
   targetIndices1Based?: ReadonlySet<number>,
-  /** The slide's extent, to delete covering backgrounds on each part; none for masters. */
-  coveringOn?: SlideSize,
+  /** The slide's size, to delete covering backgrounds on each part; none for masters. */
+  slideSize?: SlideSize,
 ): Promise<Set<string>> {
   /** Parts the replaced backgrounds pointed at, to delete once unreferenced. */
   const replaced = new Set<string>();
@@ -276,7 +276,7 @@ async function processSlideGroup(
     slideXml = ensureNamespaces(slideXml);
     // The pictures of deleted covering backgrounds lose their relationships
     // below, with the replaced background's, once the part no longer names them.
-    if (coveringOn) slideXml = deleteCoveringBackgrounds(slideXml, coveringOn);
+    if (slideSize) slideXml = deleteCoveringBackgrounds(slideXml, slideSize);
 
     const { path: relsPath, xml: emptyRels } = ensureRelsFile(
       zip,

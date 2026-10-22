@@ -20,6 +20,8 @@ interface CurrentBackgroundFrameProps {
   emptyLabel: string;
   /** Under a covering-background group: its picture will be deleted. */
   coveringLabel: string;
+  /** Whether the chosen mode deletes covering backgrounds (master mode does not yet, #110). */
+  deletesCovering: boolean;
   zoomLabel: string;
   onZoom: () => void;
 }
@@ -27,7 +29,7 @@ interface CurrentBackgroundFrameProps {
 export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
   const {
     caption, groups, thumbUrls, index, onIndex, checkedKeys, onToggleCheck,
-    aspect, slideCountTemplate, emptyLabel, coveringLabel, zoomLabel, onZoom,
+    aspect, slideCountTemplate, emptyLabel, coveringLabel, deletesCovering, zoomLabel, onZoom,
   } = props;
   const group = groups[index];
   const url = group ? thumbUrls.get(group.key) ?? null : null;
@@ -126,7 +128,7 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
           never moves anything; outside the picture, apart from the checkbox. */}
       <p
         className="truncate font-body text-[10.5px] leading-[1.35]"
-        style={{ color: "var(--ink-soft)", visibility: group?.source === "covering" ? "visible" : "hidden" }}
+        style={{ color: "var(--ink-soft)", visibility: deletesCovering && group?.source === "covering" ? "visible" : "hidden" }}
         title={coveringLabel}
       >
         {coveringLabel}
