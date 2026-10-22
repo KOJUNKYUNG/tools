@@ -30,6 +30,8 @@ export interface PptxPackage {
   slideParts: string[];
   /** `ppt/slideMasters/*.xml`, same ordering. */
   masterParts: string[];
+  /** `ppt/slideLayouts/*.xml`, same ordering. */
+  layoutParts: string[];
   /** Raw bytes of a part (null when absent or unreadable). */
   read(part: string): Promise<Uint8Array | null>;
   /** A part's text (null when absent or unreadable). */
@@ -205,6 +207,7 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
     parts,
     slideParts: partsIn(parts, "ppt/slides"),
     masterParts: partsIn(parts, "ppt/slideMasters"),
+    layoutParts: partsIn(parts, "ppt/slideLayouts"),
 
     read(part) {
       return zip.bytes(part);

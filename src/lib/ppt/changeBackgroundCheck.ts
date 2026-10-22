@@ -6,7 +6,7 @@ import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import type { SlideSize } from "@/lib/image/slideImage";
 import type { BgMode } from "./changeBackground";
-import { coveringIn, shapeIdsIn, topLevelElements } from "./coveringBackgrounds";
+import { coveringIn, findCoveringBackgrounds, shapeIdsIn, topLevelElements } from "./coveringBackgrounds";
 import { animationTargets } from "./slideAnimations";
 import { parseXml, type XmlElement } from "./xmlTree";
 
@@ -33,8 +33,8 @@ export interface PptBackgroundRequest {
  * - ⚡ `replaced-background-kept`: no target part keeps an image relationship
  *   it no longer uses, i.e. the replaced background's (a part that still
  *   shows that image elsewhere through the same id keeps it legitimately)
- * - `non-target-unchanged`: every slide and master the user did not target,
- *   and its relationships, are byte-identical to the input
+ * - `non-target-unchanged`: every slide, layout and master the tool does not
+ *   rewrite, and its relationships, are byte-identical to the input
  * - `relationship-unused` / `media-unreferenced`: no part anywhere keeps an
  *   unused image relationship, and no media part is left that nothing
  *   references, so a replaced background's image is deleted once unused.
@@ -43,10 +43,19 @@ export interface PptBackgroundRequest {
  * - `size-bound`: output ≤ input + new image − removed parts + a margin for
  *   the rewritten XML, so re-applying never grows the deck
  *
- * Covering backgrounds (spec #105), on each target slide in the slide modes,
- * re-detected on the input with the shared rule. The rule is the spec: these
- * prove the engine applied it, not that it is right (the regression set
- * covers the rule itself). Elements are matched by their XML text: the
+ * Master mode (spec #105) clears what would hide the master's background:
+ *
+ * - ⚡ `own-background-kept`: a slide or layout still declares its own
+ *   background
+ * - `only-background-cleared`: each layout, and each slide without covering
+ *   backgrounds, is its input with its own background removed and nothing
+ *   else changed (slides with covering backgrounds are held by the element
+ *   properties below)
+ *
+ * Covering backgrounds (spec #105), on each target slide (every slide in
+ * master mode), re-detected on the input with the shared rule. The rule is
+ * the spec: these prove the engine applied it, not that it is right (the
+ * regression set covers the rule itself). Elements are matched by their XML text: the
  * engine copies the ones it keeps verbatim, while shape ids may repeat.
  *
  * - ⚡ `covering-background-kept`: a covering background is still there
@@ -119,13 +128,25 @@ export const checkPptBackground: OutputChecker<
     }
   }
 
-  if (request.mode !== "master") {
-    violations.push(...(await coveringViolations(before, after, targets, await slideSize(before))));
+  // Master mode also rewrites every slide (covering backgrounds deleted, own
+  // background cleared) and every layout (own background cleared).
+  const coveringChecked = request.mode === "master" ? before.slideParts : targets;
+  const rewritten =
+    request.mode === "master" ? [...targets, ...coveringChecked, ...before.layoutParts] : targets;
+
+  if (request.mode === "master") {
+    for (const part of [...after.slideParts, ...after.layoutParts]) {
+      if (OWN_BACKGROUND.test((await after.text(part)) ?? "")) {
+        violations.push({ property: "own-background-kept", detail: part });
+      }
+    }
   }
 
-  const kept = await after.unusedRelationships(targets);
+  violations.push(...(await coveringViolations(before, after, coveringChecked, await slideSize(before))));
+
+  const kept = await after.unusedRelationships(rewritten);
   if (kept.length > 0) {
-    const replaced = notInherited(kept, await before.unusedRelationships(targets));
+    const replaced = notInherited(kept, await before.unusedRelationships(rewritten));
     for (const v of replaced) {
       violations.push({ property: "replaced-background-kept", detail: v.detail });
     }
@@ -159,9 +180,21 @@ export const checkPptBackground: OutputChecker<
       });
     }
 
-    const targetSet = new Set(targets);
-    const untouched = [...before.slideParts, ...before.masterParts].filter(
-      (p) => !targetSet.has(p),
+    if (request.mode === "master") {
+      const slide = await slideSize(before);
+      for (const part of [...before.layoutParts, ...before.slideParts]) {
+        const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
+        if (inXml === null || outXml === null) continue;
+        if (findCoveringBackgrounds(inXml, slide).length > 0) continue;
+        if (outXml !== inXml.replace(OWN_BACKGROUND, "")) {
+          violations.push({ property: "only-background-cleared", detail: part });
+        }
+      }
+    }
+
+    const rewrittenSet = new Set(rewritten);
+    const untouched = [...before.slideParts, ...before.layoutParts, ...before.masterParts].filter(
+      (p) => !rewrittenSet.has(p),
     );
     for (const part of untouched) {
       for (const p of [part, relsPartOf(part)]) {
@@ -175,6 +208,9 @@ export const checkPptBackground: OutputChecker<
   return violations;
 };
 
+/** A part's own background, as the part declares it. */
+const OWN_BACKGROUND = /<p:bg[\s>][\s\S]*?<\/p:bg>/;
+
 /** PowerPoint's default slide (16:9) when the deck does not declare one. */
 const DEFAULT_SLIDE = { w: 12192000, h: 6858000 };
 
@@ -187,7 +223,7 @@ async function slideSize(pkg: PptxPackage): Promise<{ w: number; h: number }> {
   return w > 0 && h > 0 ? { w, h } : DEFAULT_SLIDE;
 }
 
-/** The covering-background properties of the target slides. */
+/** The covering-background properties of the given slides. */
 async function coveringViolations(
   before: PptxPackage,
   after: PptxPackage,

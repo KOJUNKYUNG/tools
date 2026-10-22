@@ -99,6 +99,14 @@ export function clickAnimations(spids: number[]): string {
   );
 }
 
+/** A slide's or layout's own background: a solid colour (hex RGB). */
+export const solidBackground = (rgb: string) =>
+  `<p:bg><p:bgPr><a:solidFill><a:srgbClr val="${rgb}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>`;
+
+/** A slide's or layout's own background: the picture of relationship `relId`. */
+export const pictureBackground = (relId: string) =>
+  `<p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1">${blipFill(relId)}</a:blipFill><a:effectLst/></p:bgPr></p:bg>`;
+
 export interface TestSlide {
   /** Top-level elements, bottom of the stack first. */
   shapes: string[];
@@ -106,6 +114,14 @@ export interface TestSlide {
   pictures?: Record<string, string>;
   /** A `p:timing` element. */
   timing?: string;
+  /** Its own `p:bg` (e.g. `solidBackground`); none when absent. */
+  background?: string;
+}
+
+/** The deck's one layout: its own background (pptxgenjs writes a theme reference when absent). */
+export interface TestLayout {
+  background: string;
+  pictures?: Record<string, string>;
 }
 
 /** A small, distinct PNG for each media name. */
@@ -114,8 +130,21 @@ function mediaBytes(name: string): Uint8Array {
   return testPng({ width: 4, height: 3, colorType: 2, pixel: (x, y) => [tag, x * 40, y * 60] });
 }
 
-/** A 16:9 deck with these slides, in order. */
-export async function testDeck(slides: TestSlide[]): Promise<Uint8Array> {
+/** Relate `pictures` (relationship id → media name) from the part whose `.rels` is `relsPath`. */
+async function addPictures(zip: JSZip, relsPath: string, pictures: Record<string, string> = {}) {
+  const rels = Object.entries(pictures).map(([id, name]) => {
+    zip.file(`ppt/media/${name}`, mediaBytes(name));
+    return (
+      `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" ` +
+      `Target="../media/${name}"/>`
+    );
+  });
+  const relsXml = await zip.file(relsPath)!.async("text");
+  zip.file(relsPath, relsXml.replace("</Relationships>", `${rels.join("")}</Relationships>`));
+}
+
+/** A 16:9 deck with these slides, in order, and optionally its layout's own background. */
+export async function testDeck(slides: TestSlide[], layout?: TestLayout): Promise<Uint8Array> {
   const pptx = new PptxGenJS();
   for (let i = 0; i < slides.length; i++) pptx.addSlide();
   // write() returns a union over every outputType; "uint8array" yields this one.
@@ -132,19 +161,17 @@ export async function testDeck(slides: TestSlide[]): Promise<Uint8Array> {
     zip.file(
       slidePath,
       xml
-        .replace(/<p:spTree>[\s\S]*<\/p:spTree>/, spTree)
+        .replace(/<p:spTree>[\s\S]*<\/p:spTree>/, `${slide.background ?? ""}${spTree}`)
         .replace("</p:sld>", `${slide.timing ?? ""}</p:sld>`),
     );
+    await addPictures(zip, relsPath, slide.pictures);
+  }
 
-    const rels = Object.entries(slide.pictures ?? {}).map(([id, name]) => {
-      zip.file(`ppt/media/${name}`, mediaBytes(name));
-      return (
-        `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" ` +
-        `Target="../media/${name}"/>`
-      );
-    });
-    const relsXml = await zip.file(relsPath)!.async("text");
-    zip.file(relsPath, relsXml.replace("</Relationships>", `${rels.join("")}</Relationships>`));
+  if (layout) {
+    const layoutPath = "ppt/slideLayouts/slideLayout1.xml";
+    const xml = await zip.file(layoutPath)!.async("text");
+    zip.file(layoutPath, xml.replace(/<p:bg>[\s\S]*?<\/p:bg>/, layout.background));
+    await addPictures(zip, "ppt/slideLayouts/_rels/slideLayout1.xml.rels", layout.pictures);
   }
   return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 }

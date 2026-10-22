@@ -8,7 +8,7 @@ import { testPng } from "@/lib/image/testPng";
 import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { changeBackground } from "./changeBackground";
-import { clickAnimations, picture as pictureElement, testDeck, textBox } from "./testDeck";
+import { clickAnimations, picture as pictureElement, solidBackground, testDeck, textBox } from "./testDeck";
 import {
   checkPptBackground,
   type PptBackgroundRequest,
@@ -326,7 +326,8 @@ describe("checkPptBackground flags broken output", () => {
         ),
       );
     });
-    expect(await properties(input, request, broken)).toEqual(["relationship-unused"]);
+    // An untargeted layout that changed is reported as well.
+    expect(await properties(input, request, broken)).toEqual(["relationship-unused", "non-target-unchanged"]);
     expect(await quick(input, request, broken)).toEqual([]);
   });
 
@@ -741,5 +742,72 @@ describe("checkPptBackground checks covering backgrounds", () => {
       xml.replace(/<p:bldP spid="9"/, '<p:bldP spid="77"'),
     );
     expect(await properties(input, allSlides, await apply(input, allSlides))).toEqual([]);
+  });
+});
+
+describe("checkPptBackground checks master mode", () => {
+  const masterMode: Intent = { source: newBgBytes, mode: "master" };
+  const SLIDE2 = "ppt/slides/slide2.xml";
+  const LAYOUT1 = "ppt/slideLayouts/slideLayout1.xml";
+
+  /** Put `bg` back as the part's own background. */
+  const declareBackground = (deck: Uint8Array, part: string, bg: string) =>
+    mutate(deck, async (zip) => {
+      const xml = await zip.file(part)!.async("text");
+      zip.file(part, xml.replace(/(<p:cSld\b[^>]*>)/, `$1${bg}`));
+    });
+  const solid = solidBackground("1F3864");
+
+  it("flags a slide that keeps its own background", async () => {
+    const input = await syntheticDeck();
+    const output = await declareBackground(await apply(input, masterMode), SLIDE2, solid);
+    expect(await quick(input, masterMode, output)).toEqual([
+      { property: "own-background-kept", detail: SLIDE2 },
+    ]);
+  });
+
+  it("flags a layout that keeps its own background", async () => {
+    const input = await syntheticDeck();
+    const output = await declareBackground(await apply(input, masterMode), LAYOUT1, solid);
+    expect(await quick(input, masterMode, output)).toEqual([
+      { property: "own-background-kept", detail: LAYOUT1 },
+    ]);
+  });
+
+  it("flags a covering background left on any slide", async () => {
+    const input = await testDeck([
+      { shapes: [textBox(9, "제목")] },
+      { shapes: [pictureElement(2, "rId10"), textBox(9, "가사")], pictures: { rId10: "old.png" } },
+    ]);
+    const output = await mutate(await apply(input, masterMode), async (zip) => {
+      const xml = await zip.file(SLIDE2)!.async("text");
+      zip.file(SLIDE2, xml.replace("</p:grpSpPr>", `</p:grpSpPr>${pictureElement(2, "rId10")}`));
+    });
+    expect(await quick(input, masterMode, output)).toContainEqual({
+      property: "covering-background-kept",
+      detail: `${SLIDE2} #2`,
+    });
+  });
+
+  it("flags a slide or layout changed beyond its own background, at full depth only", async () => {
+    const input = await syntheticDeck();
+    const output = await mutate(await apply(input, masterMode), async (zip) => {
+      for (const part of [SLIDE2, LAYOUT1]) {
+        const xml = await zip.file(part)!.async("text");
+        zip.file(part, xml.replace("</p:spTree>", `${textBox(77, "덧붙임")}</p:spTree>`));
+      }
+    });
+    expect(await quick(input, masterMode, output)).toEqual([]);
+    expect(await checkPptBackground(input, await requestFor(masterMode), output, "full")).toEqual([
+      { property: "only-background-cleared", detail: LAYOUT1 },
+      { property: "only-background-cleared", detail: SLIDE2 },
+    ]);
+  });
+
+  it("flags a layout changed in another mode, at full depth only", async () => {
+    const input = await syntheticDeck();
+    const output = await declareBackground(await apply(input, allSlides), LAYOUT1, solid);
+    expect(await quick(input, allSlides, output)).toEqual([]);
+    expect(await properties(input, allSlides, output)).toEqual(["non-target-unchanged"]);
   });
 });

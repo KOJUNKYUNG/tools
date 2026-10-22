@@ -135,7 +135,7 @@
           "optionAll": "All slides",
           "optionMaster": "Master",
           "optionSpecific": "Select",
-          "masterNote": "Slides with their own backgrounds may override the master background.",
+          "masterNote": "Clears each slide's own background and sets the new one on the master, so slides you add later get it too.",
           "specificInput": "e.g. 1, 3, 5-7",
           "specificSelectAll": "All",
           "specificClear": "Reset",
