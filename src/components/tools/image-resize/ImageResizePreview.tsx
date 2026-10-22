@@ -13,6 +13,7 @@ interface ImageResizePreviewProps {
   cropRect: CropRect | null;
   cropSelectionLabel: string;
   stretchModeLabel: string;
+  previewAlt: string;
   cropFooterTemplate: string;
   handleLabels: Dictionary["common"]["resizeHandles"];
 }
@@ -26,6 +27,7 @@ export function ImageResizePreview({
   cropRect,
   cropSelectionLabel,
   stretchModeLabel,
+  previewAlt,
   cropFooterTemplate,
   handleLabels,
 }: ImageResizePreviewProps) {
@@ -35,6 +37,7 @@ export function ImageResizePreview({
     cropEnabled && targetW > 0 && targetH > 0 ? (
       <CropSelector
         imageUrl={imageUrl}
+        alt={previewAlt}
         targetWidth={targetW}
         targetHeight={targetH}
         onCropChange={onCropChange}
@@ -48,7 +51,7 @@ export function ImageResizePreview({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageUrl}
-          alt="원본 미리보기"
+          alt={previewAlt}
           className="block h-auto max-h-80 w-full object-contain"
           draggable={false}
         />

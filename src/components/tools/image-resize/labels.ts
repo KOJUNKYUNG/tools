@@ -32,6 +32,7 @@ export interface ImageResizeLabels {
   errorCorrupt: string;
   cropSelectionLabel: string;
   stretchModeLabel: string;
+  previewAlt: string;
   cropFooterTemplate: string;
   resizeHandles: Dictionary["common"]["resizeHandles"];
   sizePresetLabels: Record<string, string>;
@@ -71,6 +72,7 @@ export function getImageResizeLabels(dict: Dictionary): ImageResizeLabels {
     errorCorrupt: page.errorCorrupt,
     cropSelectionLabel: page.cropSelectionLabel,
     stretchModeLabel: page.stretchModeLabel,
+    previewAlt: page.previewAlt,
     cropFooterTemplate: page.cropFooterTemplate,
     resizeHandles: dict.common.resizeHandles,
     sizePresetLabels: {

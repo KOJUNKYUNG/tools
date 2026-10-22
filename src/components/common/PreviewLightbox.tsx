@@ -1,5 +1,8 @@
 "use client";
 
+import { CroppedImage } from "@/components/image/CroppedImage";
+import type { CropRect } from "@/lib/image/maxFitCrop";
+
 interface PreviewLightboxProps {
   /** Image URL to enlarge. */
   src: string;
@@ -8,9 +11,11 @@ interface PreviewLightboxProps {
   aspect: string;
   closeLabel: string;
   onClose: () => void;
+  /** Show only this part of the image (its aspect is then the box's). */
+  crop?: CropRect | null;
 }
 
-export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose }: PreviewLightboxProps) {
+export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop }: PreviewLightboxProps) {
   return (
     <div
       className="absolute inset-0 z-10 flex items-center justify-center p-4"
@@ -22,8 +27,12 @@ export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose }: Previ
         className="max-h-full max-w-full overflow-hidden border"
         style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-lg)", aspectRatio: aspect }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt} className="size-full object-contain" />
+        {crop ? (
+          <CroppedImage src={src} alt={alt} crop={crop} className="block max-h-full max-w-full" />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={src} alt={alt} className="size-full object-contain" />
+        )}
       </div>
       <button
         type="button"

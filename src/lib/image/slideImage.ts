@@ -52,6 +52,15 @@ export function fittedSize(crop: CropRect, slide: SlideSize): PixelSize {
   return { width: Math.min(box.width, crop.width, Math.round(height * ratio)), height };
 }
 
+/**
+ * Whether a crop is too small to fill a Full HD screen without being
+ * enlarged, so it may look blurry there: its long side in the slide's
+ * orientation (width, or height for a portrait slide) is under 1920 pixels.
+ */
+export function belowFullHd(crop: CropRect, slide: SlideSize): boolean {
+  return (slide.w >= slide.h ? crop.width : crop.height) < 1920;
+}
+
 export interface PreparedImage {
   bytes: Uint8Array;
   format: "png" | "jpeg";

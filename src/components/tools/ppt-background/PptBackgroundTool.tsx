@@ -20,6 +20,8 @@ import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
 import { getErrorMessage } from "@/lib/errors";
 import { normalizeImageFile } from "@/lib/image/heic";
+import type { CropRect } from "@/lib/image/maxFitCrop";
+import { belowFullHd } from "@/lib/image/slideImage";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
@@ -115,6 +117,8 @@ export interface PptBackgroundToolLabels {
     sourceUpload: string;
     sourceGallery: string;
     tooLarge: string;
+    backToGallery: string;
+    blurNotice: string;
   };
   gallery: {
     heading: string;
@@ -149,6 +153,7 @@ export interface PptBackgroundToolLabels {
     close: string;
   };
   fileUpload: Dictionary["common"]["fileUpload"];
+  resizeHandles: Dictionary["common"]["resizeHandles"];
 }
 
 interface PptBackgroundToolProps {
@@ -174,6 +179,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [bgPreviewUrl, setBgPreviewUrl] = useState<string | null>(null);
   /** A picked HEIC is being converted; the upload button waits. */
   const [normalizing, setNormalizing] = useState(false);
+  /** The Background crop the frame holds, in the picture's upright pixels. */
+  const [crop, setCrop] = useState<CropRect | null>(null);
+  /** The left pane shows the frame over the picked picture instead of the gallery. */
+  const [framing, setFraming] = useState(false);
 
   // Redesigned workspace state.
   const [slideAspect, setSlideAspect] = useState<SlideAspect>({
@@ -195,6 +204,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         : `${slideAspect.ratio}`;
 
   const bgFile = bgFiles[0] ?? null;
+  // The picture and frame the last run applied. When either changes after
+  // (or while) it ran, the Done box goes and the user can Apply again.
+  const appliedRef = useRef<{ file: File | null; crop: CropRect | null } | null>(null);
   const groupThumbUrlsRef = useRef(groupThumbUrls);
   groupThumbUrlsRef.current = groupThumbUrls;
   // Mirror bgPreviewUrl into a ref so the unmount cleanup (which has an empty
@@ -215,8 +227,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     retry,
     download,
   } = useToolProcessor<Uint8Array>({
-    processor: (files, onProgress) =>
-      changeBackground({
+    processor: (files, onProgress) => {
+      appliedRef.current = { file: bgFile, crop };
+      return changeBackground({
         pptxFile: files[0],
         bgImage: bgFile!,
         mode,
@@ -224,8 +237,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
           mode === "specific-slides"
             ? [...selectedSlides].sort((a, b) => a - b)
             : undefined,
+        crop: crop ?? undefined,
         onProgress,
-      }),
+      });
+    },
     onDownload: (bytes) => {
       const baseName = pptxFiles[0]?.name.replace(/\.pptx?$/i, "") ?? "presentation";
       downloadBlob(
@@ -254,6 +269,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     setBgFiles([]);
     setGalleryImage(null);
     showPreview(null);
+    setCrop(null);
+    setFraming(false);
   }, [showPreview]);
 
   // .ppt vs .pptx routing — .ppt never enters useToolProcessor state.
@@ -341,12 +358,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     };
   }, [pptxFile]);
 
-  // When the user picks a new background after a completed run, drop the
-  // Done box and let them Apply again with the new background.
   useEffect(() => {
-    if (status === "done") retry();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bgFiles, galleryImage?.id]);
+    const applied = appliedRef.current;
+    if (status === "done" && applied && (applied.file !== bgFile || applied.crop !== crop)) retry();
+  }, [status, bgFile, crop, retry]);
 
   // Cleanup all object URLs on unmount.
   useEffect(() => {
@@ -359,19 +374,33 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
   const handleGallerySelect = useCallback(
     async (image: GalleryImage) => {
+      // The picture already picked: back to its frame, framing kept.
+      if (image.id === galleryImage?.id && bgFile) {
+        setFraming(true);
+        return;
+      }
       const pick = ++pickRef.current;
       setGalleryImage(image);
+      // Until the picture arrives nothing can be framed or applied: the old
+      // picture and its frame must not meet the new thumbnail.
+      setBgFiles([]);
+      setCrop(null);
+      setFraming(false);
       showPreview(image.thumbnailUrl);
       try {
         const file = await galleryImageFile(image);
-        if (pick === pickRef.current) setBgFiles([file]);
+        if (pick !== pickRef.current) return;
+        setBgFiles([file]);
+        // The frame and the preview work on the full picture, not the thumbnail.
+        showPreview(URL.createObjectURL(file));
+        setFraming(true);
       } catch {
         if (pick !== pickRef.current) return;
         setGalleryImage(null);
         showPreview(null);
       }
     },
-    [showPreview],
+    [showPreview, galleryImage?.id, bgFile],
   );
 
   const handleDirectUpload = useCallback(
@@ -411,7 +440,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       if (pick !== pickRef.current) return;
       setBgFiles([file]);
       setGalleryImage(null);
+      setCrop(null);
       showPreview(URL.createObjectURL(file));
+      setFraming(true);
     },
     [labels.background.tooLarge, labels.errors, showPreview],
   );
@@ -574,33 +605,46 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         // Loaded workspace — the tray height lives HERE (not the outer card),
         // so the card is `header + 50vh` and the gallery scrolls inside its
         // pane. Switching category tabs must never resize the tool (UI
-        // stability contract). Canon = pdf-watermark.
-        <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
+        // stability contract). Canon = pdf-watermark. On a phone the panes
+        // stack: the gallery / frame pane keeps the tray height and the
+        // preview and scope follow at their own height.
+        <div className="flex flex-col gap-3 md:h-[var(--tray-h)]">
 
           {/* Two-pane workspace. */}
-          <div
-            className="grid min-h-0 flex-1"
-            style={{ gridTemplateColumns: "minmax(0, 1fr) 1px minmax(0, 1fr)" }}
-          >
-            {/* LEFT panel — gallery only */}
-            <div className="flex h-full min-h-0 flex-col px-6 py-3">
+          <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)]">
+            {/* LEFT panel — gallery, or the frame over the picked picture */}
+            <div className="flex h-[var(--tray-h)] min-h-0 flex-col px-6 py-3 md:h-full">
               <BackgroundPicker
                 galleryImage={galleryImage}
                 onGallerySelect={handleGallerySelect}
                 onDirectUpload={handleDirectUpload}
                 uploadBusy={normalizing}
+                frame={
+                  framing && bgPreviewUrl
+                    ? {
+                        imageUrl: bgPreviewUrl,
+                        ratio: slideAspect.ratio,
+                        crop,
+                        onCropChange: setCrop,
+                        onBack: () => setFraming(false),
+                      }
+                    : null
+                }
                 labels={{
                   uploadLabel: labels.background.uploadLabel,
+                  backToGallery: labels.background.backToGallery,
+                  pictureAlt: labels.preview.selectedCaption,
+                  handles: labels.resizeHandles,
                   gallery: labels.gallery,
                 }}
               />
             </div>
 
-            {/* Divider */}
-            <div style={{ background: "var(--hairline)" }} />
+            {/* Divider: a rule between the stacked panes on a phone */}
+            <div className="h-px md:h-auto" style={{ background: "var(--hairline)" }} />
 
             {/* RIGHT panel */}
-            <div className="relative flex h-full min-h-0 flex-col px-6 py-3">
+            <div className="relative flex min-h-0 flex-col px-6 py-3 md:h-full">
               {status === "idle" ? (
                 <>
                   <div className="flex items-start gap-3.5">
@@ -611,6 +655,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       emptyLabel={labels.preview.selectedEmpty}
                       zoomLabel={labels.preview.zoom}
                       onZoom={() => setZoom("selected")}
+                      crop={crop}
+                      onSelect={bgFile && !framing ? () => setFraming(true) : undefined}
                     />
                     <CurrentBackgroundFrame
                       caption={template(labels.preview.currentCaptionTemplate, {
@@ -629,6 +675,18 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       onZoom={() => setZoom("current")}
                     />
                   </div>
+
+                  {/* Blur notice: its two lines are always reserved, so it
+                      appears and goes without moving anything. */}
+                  <p
+                    className="mt-2 line-clamp-2 min-h-[2.7em] font-body text-[10.5px] leading-[1.35]"
+                    style={{
+                      color: "var(--ink-soft)",
+                      visibility: crop && belowFullHd(crop, { w: slideAspect.ratio, h: 1 }) ? "visible" : "hidden",
+                    }}
+                  >
+                    {labels.background.blurNotice}
+                  </p>
 
                   {/* Apply-scope block, pinned to bottom */}
                   <div className="mt-auto pt-2">
@@ -701,6 +759,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       : template(labels.preview.currentCaptionTemplate, { n: groups.length })
                   }
                   aspect={aspectCss}
+                  crop={zoom === "selected" ? crop : null}
                   closeLabel={labels.preview.close}
                   onClose={() => setZoom(null)}
                 />

@@ -101,3 +101,38 @@ describe("aspectLockedResize", () => {
     );
   });
 });
+
+describe("aspectLockedResize keeps whole-pixel rects on the ratio", () => {
+  // A slide's crop is checked to within 1 px of the slide aspect on both
+  // sides; rounding width and height apart can miss it by up to ~1.4 px.
+  const handles: ResizeHandle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+  const ratios = [16 / 9, 4 / 3, 1, 9 / 16, 7560310 / 10692130, 12192000 / 7620000];
+  const image = { w: 4032, h: 3024 };
+
+  it("stays within 1 px of the ratio on both sides, inside the image", () => {
+    let seed = 7;
+    const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (const ratio of ratios) {
+      for (const handle of handles) {
+        for (let i = 0; i < 300; i++) {
+          const height = 50 + Math.floor(random() * 1500);
+          const width = Math.round(height * ratio);
+          const prev = {
+            x: Math.floor(random() * (image.w - width)),
+            y: Math.floor(random() * (image.h - height)),
+            width,
+            height,
+          };
+          const mouse = { x: random() * image.w * 1.1, y: random() * image.h * 1.1 };
+          const r = aspectLockedResize(handle, prev, mouse, ratio, image);
+          expect(Math.abs(r.width - r.height * ratio)).toBeLessThanOrEqual(1);
+          expect(Math.abs(r.height - r.width / ratio)).toBeLessThanOrEqual(1);
+          expect(r.x).toBeGreaterThanOrEqual(0);
+          expect(r.y).toBeGreaterThanOrEqual(0);
+          expect(r.x + r.width).toBeLessThanOrEqual(image.w);
+          expect(r.y + r.height).toBeLessThanOrEqual(image.h);
+        }
+      }
+    }
+  });
+});

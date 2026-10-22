@@ -62,12 +62,10 @@ export function aspectLockedResize(
     if (w / ratio < h) h = w / ratio;
     else w = h * ratio;
 
-    w = Math.max(1, Math.round(w));
-    h = Math.max(1, Math.round(h));
-
-    const x = handle.endsWith("e") ? anchorX : anchorX - w;
-    const y = handle.startsWith("s") ? anchorY : anchorY - h;
-    return { x, y, width: w, height: h };
+    const size = roundToRatio(w, h, ratio, maxW, maxH);
+    const x = handle.endsWith("e") ? anchorX : anchorX - size.w;
+    const y = handle.startsWith("s") ? anchorY : anchorY - size.h;
+    return { x, y, width: size.w, height: size.h };
   }
 
   // Edge handles: anchor = opposite edge midpoint; perpendicular axis recentres.
@@ -83,12 +81,10 @@ export function aspectLockedResize(
     if (centreY + h / 2 > bounds.h) h = (bounds.h - centreY) * 2;
     w = Math.min(w, h * ratio);
 
-    w = Math.max(1, Math.round(w));
-    h = Math.max(1, Math.round(h));
-
-    const x = handle === "e" ? anchorX : anchorX - w;
-    const y = Math.round(centreY - h / 2);
-    return { x, y, width: w, height: h };
+    const size = roundToRatio(w, h, ratio, maxW, bounds.h);
+    const x = handle === "e" ? anchorX : anchorX - size.w;
+    const y = clamp(Math.round(centreY - size.h / 2), 0, bounds.h - size.h);
+    return { x, y, width: size.w, height: size.h };
   }
 
   // handle === "n" || handle === "s"
@@ -102,12 +98,35 @@ export function aspectLockedResize(
   if (centreX + w / 2 > bounds.w) w = (bounds.w - centreX) * 2;
   h = Math.min(h, w / ratio);
 
-  w = Math.max(1, Math.round(w));
-  h = Math.max(1, Math.round(h));
+  const size = roundToRatio(w, h, ratio, bounds.w, maxH);
+  const y = handle === "s" ? anchorY : anchorY - size.h;
+  const x = clamp(Math.round(centreX - size.w / 2), 0, bounds.w - size.w);
+  return { x, y, width: size.w, height: size.h };
+}
 
-  const y = handle === "s" ? anchorY : anchorY - h;
-  const x = Math.round(centreX - w / 2);
-  return { x, y, width: w, height: h };
+/**
+ * Whole pixels for an exact `w`×`h` of `ratio`, at most `maxW`×`maxH`. The
+ * shorter side is rounded and the longer derived from it, so both stay within
+ * 1 px of the ratio: rounding each apart misses by up to ~1.4 px at 16:9,
+ * past what a slide background's aspect check allows.
+ */
+function roundToRatio(
+  w: number,
+  h: number,
+  ratio: number,
+  maxW: number,
+  maxH: number,
+): { w: number; h: number } {
+  if (ratio >= 1) {
+    let rh = Math.max(1, Math.min(Math.round(h), Math.floor(maxH)));
+    let rw = Math.round(rh * ratio);
+    while (rw > maxW && rh > 1) rw = Math.round(--rh * ratio);
+    return { w: Math.max(1, rw), h: rh };
+  }
+  let rw = Math.max(1, Math.min(Math.round(w), Math.floor(maxW)));
+  let rh = Math.round(rw / ratio);
+  while (rh > maxH && rw > 1) rh = Math.round(--rw / ratio);
+  return { w: rw, h: Math.max(1, rh) };
 }
 
 function clamp(v: number, lo: number, hi: number): number {

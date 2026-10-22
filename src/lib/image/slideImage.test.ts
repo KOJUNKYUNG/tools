@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { maxFitCrop } from "./maxFitCrop";
-import { fittedSize, preparedFormat } from "./slideImage";
+import { belowFullHd, fittedSize, preparedFormat } from "./slideImage";
 
 /** Slide sizes in EMU, as `<p:sldSz>` stores them. */
 const WIDE = { w: 12192000, h: 6858000 }; // 16:9
@@ -71,5 +71,19 @@ describe("preparedFormat", () => {
   it("keeps PNG when the JPEG saves less than half (flat graphics, text)", () => {
     expect(preparedFormat({ alphaUsed: false, jpegBytes: 501, pngBytes: 1000 })).toBe("png");
     expect(preparedFormat({ alphaUsed: false, jpegBytes: 1200, pngBytes: 1000 })).toBe("png");
+  });
+});
+
+describe("belowFullHd", () => {
+  it("compares a landscape or square slide's crop width with 1920", () => {
+    expect(belowFullHd(crop(1919, 1079), WIDE)).toBe(true);
+    expect(belowFullHd(crop(1920, 1080), WIDE)).toBe(false);
+    expect(belowFullHd(crop(1919, 1919), { w: 1, h: 1 })).toBe(true);
+    expect(belowFullHd(crop(1920, 1440), STANDARD)).toBe(false);
+  });
+
+  it("compares a portrait slide's crop height with 1920", () => {
+    expect(belowFullHd(crop(1080, 1919), { w: 9, h: 16 })).toBe(true);
+    expect(belowFullHd(crop(1358, 1920), A4_PORTRAIT)).toBe(false);
   });
 });

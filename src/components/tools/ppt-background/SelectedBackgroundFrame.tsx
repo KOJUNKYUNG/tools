@@ -1,6 +1,9 @@
 // src/components/tools/ppt-background/SelectedBackgroundFrame.tsx
 "use client";
 
+import { CroppedImage } from "@/components/image/CroppedImage";
+import type { CropRect } from "@/lib/image/maxFitCrop";
+
 interface SelectedBackgroundFrameProps {
   caption: string;
   previewUrl: string | null;
@@ -9,6 +12,10 @@ interface SelectedBackgroundFrameProps {
   emptyLabel: string;
   zoomLabel: string;
   onZoom: () => void;
+  /** The Background crop; until it is known the picture is centred to fill. */
+  crop: CropRect | null;
+  /** Opens the frame over the picture again. */
+  onSelect?: () => void;
 }
 
 export function SelectedBackgroundFrame({
@@ -18,6 +25,8 @@ export function SelectedBackgroundFrame({
   emptyLabel,
   zoomLabel,
   onZoom,
+  crop,
+  onSelect,
 }: SelectedBackgroundFrameProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -33,8 +42,15 @@ export function SelectedBackgroundFrame({
       >
         {previewUrl ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={previewUrl} alt={caption} className="size-full object-cover" />
+            {onSelect ? (
+              <button type="button" onClick={onSelect} aria-label={caption} className="absolute inset-0" />
+            ) : null}
+            {crop ? (
+              <CroppedImage src={previewUrl} alt={caption} crop={crop} className="pointer-events-none size-full" />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={previewUrl} alt={caption} className="pointer-events-none size-full object-cover" />
+            )}
             <button
               type="button"
               onClick={onZoom}

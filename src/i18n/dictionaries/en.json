@@ -159,7 +159,9 @@
           "uploadHint": "JPG or PNG.",
           "sourceUpload": "Upload",
           "sourceGallery": "Gallery",
-          "tooLarge": "Background image must be {size} or smaller."
+          "tooLarge": "Background image must be {size} or smaller.",
+          "backToGallery": "Back to gallery",
+          "blurNotice": "The selected part is small and may look blurry on a Full HD screen."
         },
         "gallery": {
           "heading": "Background gallery",
@@ -635,6 +637,7 @@
         "errorCorrupt": "Something went wrong in the tool and the image couldn't be made. Try again, or try another browser.",
         "cropSelectionLabel": "Selection (drag to move, corners to resize)",
         "stretchModeLabel": "The image is stretched to fit the given size.",
+        "previewAlt": "Original preview",
         "cropFooterTemplate": "Crop to {w}×{h} ratio · selection: {cw}×{ch}px"
       }
     }
