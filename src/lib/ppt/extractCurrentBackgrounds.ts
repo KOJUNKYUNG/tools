@@ -1,12 +1,81 @@
 import JSZip from "jszip";
+import { findCoveringBackgrounds, type SlideExtent } from "./coveringBackgrounds";
+import { slideSizeFromXml } from "./getSlideAspect";
 
+/**
+ * A slide's visible background (CONTEXT.md): its covering backgrounds when it
+ * has any, else its own background, its layout's or its master's.
+ */
 export interface SlideBackground {
   slideIndex: number;
   slideName: string;
   imageBlob: Blob | null;
-  source: "slide" | "layout" | "master" | "none";
-  /** Resolved zip path of the background image part — the dedup key. null when source==="none". */
+  source: "covering" | "slide" | "layout" | "master" | "none";
+  /**
+   * Resolved zip path of the background image part — the dedup key; for
+   * covering backgrounds, the bottom-most one's (first) picture, the
+   * thumbnail. null when source==="none".
+   */
   imagePath: string | null;
+  /** For covering backgrounds: every picture part they use, sorted. */
+  coveringParts?: string[];
+}
+
+const MIME_BY_EXT: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  bmp: "image/bmp",
+  svg: "image/svg+xml",
+  emf: "image/x-emf",
+  wmf: "image/x-wmf",
+};
+
+async function mediaBlob(zip: JSZip, path: string): Promise<Blob | null> {
+  const file = zip.file(path);
+  if (!file) return null;
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  return new Blob([await file.async("arraybuffer")], { type: MIME_BY_EXT[ext] ?? "application/octet-stream" });
+}
+
+/** The internal relationship targets of a part, by id, as zip paths. */
+async function relationshipTargets(zip: JSZip, partPath: string): Promise<Map<string, string>> {
+  const slash = partPath.lastIndexOf("/");
+  const dir = partPath.slice(0, slash);
+  const relsXml = await zip.file(`${dir}/_rels/${partPath.slice(slash + 1)}.rels`)?.async("text");
+  const targets = new Map<string, string>();
+  for (const rel of relsXml?.match(/<Relationship\b[^>]*>/g) ?? []) {
+    const attr = (name: string) => rel.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
+    const [id, target] = [attr("Id"), attr("Target")];
+    if (!id || !target || attr("TargetMode") === "External") continue;
+    const segments = target.startsWith("/") ? [] : dir.split("/");
+    for (const seg of target.replace(/^\/+/, "").split("/")) {
+      if (seg === "..") segments.pop();
+      else if (seg !== "." && seg !== "") segments.push(seg);
+    }
+    targets.set(id, segments.join("/"));
+  }
+  return targets;
+}
+
+/** The slide's covering backgrounds as its visible background; null when it has none. */
+async function coveringBackground(
+  zip: JSZip,
+  slidePath: string,
+  slideXml: string,
+  slide: SlideExtent,
+): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "coveringParts"> | null> {
+  const covering = findCoveringBackgrounds(slideXml, slide);
+  if (covering.length === 0) return null;
+  const targets = await relationshipTargets(zip, slidePath);
+  const partsOf = (ids: string[]) => ids.flatMap((id) => targets.get(id) ?? []);
+  const thumbnail = partsOf(covering[0].pictures)[0] ?? null;
+  return {
+    imageBlob: thumbnail === null ? null : await mediaBlob(zip, thumbnail),
+    imagePath: thumbnail,
+    coveringParts: [...new Set(partsOf(covering.flatMap((c) => c.pictures)))].sort(),
+  };
 }
 
 async function resolveBlipImage(
@@ -42,23 +111,8 @@ async function resolveBlipImage(
     targetPath = `${xmlDir}/${targetPath}`;
   }
 
-  const imageFile = zip.file(targetPath);
-  if (!imageFile) return null;
-
-  const data = await imageFile.async("arraybuffer");
-  const ext = targetPath.split(".").pop()?.toLowerCase() ?? "";
-  const mimeMap: Record<string, string> = {
-    png: "image/png",
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    gif: "image/gif",
-    bmp: "image/bmp",
-    svg: "image/svg+xml",
-    emf: "image/x-emf",
-    wmf: "image/x-wmf",
-  };
-  const blob = new Blob([data], { type: mimeMap[ext] ?? "application/octet-stream" });
-  return { blob, path: targetPath };
+  const blob = await mediaBlob(zip, targetPath);
+  return blob && { blob, path: targetPath };
 }
 
 export async function extractCurrentBackgrounds(
@@ -80,6 +134,8 @@ export async function extractCurrentBackgrounds(
     return numA - numB;
   });
 
+  const presXml = await zip.file("ppt/presentation.xml")?.async("text");
+  const slideSize = (presXml && slideSizeFromXml(presXml)) || { w: 12192000, h: 6858000 };
   const results: SlideBackground[] = [];
 
   for (let i = 0; i < slideFiles.length; i++) {
@@ -94,6 +150,12 @@ export async function extractCurrentBackgrounds(
       source: "none",
       imagePath: null,
     };
+
+    const covering = await coveringBackground(zip, slidePath, slideXml, slideSize);
+    if (covering) {
+      results.push({ ...bg, ...covering, source: "covering" });
+      continue;
+    }
 
     const directBg = await resolveBlipImage(zip, "ppt/slides", `slide${slideNum}.xml`, slideXml);
     if (directBg) {

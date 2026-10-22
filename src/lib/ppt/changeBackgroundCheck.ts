@@ -5,6 +5,9 @@ import { pngAlphaUsed } from "@/lib/output-check/pngAlpha";
 import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import type { BgMode } from "./changeBackground";
+import { coveringIn, shapeIdsIn, topLevelElements, type SlideExtent } from "./coveringBackgrounds";
+import { animationTargets } from "./slideAnimations";
+import { parseXml, type XmlElement } from "./xmlTree";
 
 export interface PptBackgroundRequest {
   /** The picture the user picked, as uploaded. */
@@ -38,6 +41,16 @@ export interface PptBackgroundRequest {
  *   already enforces.
  * - `size-bound`: output ≤ input + new image − removed parts + a margin for
  *   the rewritten XML, so re-applying never grows the deck
+ *
+ * Covering backgrounds (spec #105), on each target slide in the slide modes,
+ * re-detected on the input with the shared rule. The rule is the spec: these
+ * prove the engine applied it, not that it is right (the regression set
+ * covers the rule itself). Elements are matched by shape id.
+ *
+ * - ⚡ `covering-background-kept`: a covering background is still there
+ * - ⚡ `element-missing`: another top-level element is gone
+ * - ⚡ `animation-target-missing`: an animation or build entry names a shape
+ *   the slide does not have (the deck would need repair)
  *
  * The prepared picture (spec #98), re-derived from the source picture, the
  * crop and the input's slide size, never from the engine's numbers:
@@ -104,6 +117,10 @@ export const checkPptBackground: OutputChecker<
     }
   }
 
+  if (request.mode !== "master") {
+    violations.push(...(await coveringViolations(before, after, targets, await slideSize(before))));
+  }
+
   const kept = await after.unusedRelationships(targets);
   if (kept.length > 0) {
     const replaced = notInherited(kept, await before.unusedRelationships(targets));
@@ -166,6 +183,43 @@ async function slideSize(pkg: PptxPackage): Promise<{ w: number; h: number }> {
   const attr = (name: string) => Number(sldSz.match(new RegExp(`\\b${name}="(\\d+)"`))?.[1]);
   const [w, h] = [attr("cx"), attr("cy")];
   return w > 0 && h > 0 ? { w, h } : DEFAULT_SLIDE;
+}
+
+/** The covering-background properties of the target slides. */
+async function coveringViolations(
+  before: PptxPackage,
+  after: PptxPackage,
+  targets: readonly string[],
+  slide: SlideExtent,
+): Promise<Violation[]> {
+  const violations: Violation[] = [];
+  for (const part of targets) {
+    const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
+    // Unreadable or malformed parts are structural defects, reported above.
+    const [inRoot, outRoot] = [inXml, outXml].map((xml) => (xml === null ? null : parseXml(xml)));
+    const [inEls, outEls] = [topLevelElements(inRoot), topLevelElements(outRoot)];
+    if (!inRoot || !outRoot || !inEls || !outEls) continue;
+
+    const covering = new Set(coveringIn(inEls, slide).map((c) => c.shapeIds[0]));
+    const present = new Set(outEls.map((el) => shapeIdsIn(el)[0]));
+    for (const id of inEls.map((el) => shapeIdsIn(el)[0])) {
+      if (id === undefined) continue;
+      if (covering.has(id) && present.has(id)) {
+        violations.push({ property: "covering-background-kept", detail: `${part} #${id}` });
+      } else if (!covering.has(id) && !present.has(id)) {
+        violations.push({ property: "element-missing", detail: `${part} #${id}` });
+      }
+    }
+
+    const missingTargets = (root: XmlElement, els: XmlElement[]) => {
+      const shapes = new Set(els.flatMap(shapeIdsIn));
+      return [...new Set(animationTargets(root))]
+        .filter((id) => !shapes.has(id))
+        .map((id) => ({ property: "animation-target-missing", detail: `${part} spid ${id}` }));
+    };
+    violations.push(...notInherited(missingTargets(outRoot, outEls), missingTargets(inRoot, inEls)));
+  }
+  return violations;
 }
 
 async function preparationViolations(

@@ -8,6 +8,7 @@ import { testPng } from "@/lib/image/testPng";
 import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { changeBackground } from "./changeBackground";
+import { clickAnimations, picture as pictureElement, testDeck, textBox } from "./testDeck";
 import {
   checkPptBackground,
   type PptBackgroundRequest,
@@ -667,5 +668,69 @@ describe("checkPptBackground does not blame the tool for the input", () => {
       zip.generateAsync({ type: "uint8array" }),
     );
     expect(await properties(input, allSlides, rewritten)).toEqual(["size-bound"]);
+  });
+});
+
+describe("checkPptBackground checks covering backgrounds", () => {
+  /** Slide 1: an old background picture under the lyrics, the lyrics animated. */
+  const coveredDeck = () =>
+    testDeck([
+      {
+        shapes: [pictureElement(2, "rId10"), textBox(9, "가사")],
+        pictures: { rId10: "old.png" },
+        timing: clickAnimations([9]),
+      },
+    ]);
+  const SLIDE1 = "ppt/slides/slide1.xml";
+
+  /** Rewrite slide 1 of `deck`. */
+  const editSlide1 = (deck: Uint8Array, edit: (xml: string) => string) =>
+    mutate(deck, async (zip) => {
+      zip.file(SLIDE1, edit(await zip.file(SLIDE1)!.async("text")));
+    });
+
+  it("passes the engine's output", async () => {
+    const input = await coveredDeck();
+    const output = await apply(input, allSlides);
+    expect(await properties(input, allSlides, output)).toEqual([]);
+  });
+
+  it("flags a covering background left on a target slide", async () => {
+    const input = await coveredDeck();
+    const output = await editSlide1(await apply(input, allSlides), (xml) =>
+      xml.replace("</p:grpSpPr>", `</p:grpSpPr>${pictureElement(2, "rId10")}`),
+    );
+    expect(await quick(input, allSlides, output)).toContainEqual({
+      property: "covering-background-kept",
+      detail: `${SLIDE1} #2`,
+    });
+  });
+
+  it("flags another top-level element missing from a target slide", async () => {
+    const input = await coveredDeck();
+    const output = await editSlide1(await apply(input, allSlides), (xml) =>
+      xml.replace(/<p:sp>[\s\S]*?<\/p:sp>/, ""),
+    );
+    expect(await quick(input, allSlides, output)).toContainEqual({
+      property: "element-missing",
+      detail: `${SLIDE1} #9`,
+    });
+  });
+
+  it("flags an animation naming a shape the slide does not have", async () => {
+    const input = await coveredDeck();
+    const output = await editSlide1(await apply(input, allSlides), (xml) =>
+      xml.replace(/<p:bldP spid="9"/, '<p:bldP spid="2"'),
+    );
+    expect(await quick(input, allSlides, output)).toEqual([
+      { property: "animation-target-missing", detail: `${SLIDE1} spid 2` },
+    ]);
+  });
+
+  it("ignores an animation target the input already lacked", async () => {
+    const input = await editSlide1(await coveredDeck(), (xml) =>
+      xml.replace(/<p:bldP spid="9"/, '<p:bldP spid="77"'),
+    );
+    expect(await properties(input, allSlides, await apply(input, allSlides))).toEqual([]);
   });
 });

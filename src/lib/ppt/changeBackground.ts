@@ -9,6 +9,7 @@ import {
   type SlideSize,
 } from "@/lib/image/slideImage";
 import { checkPptBackground } from "./changeBackgroundCheck";
+import { deleteCoveringBackgrounds } from "./coveringBackgrounds";
 import { slideSizeFromXml } from "./getSlideAspect";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
@@ -246,6 +247,8 @@ async function processSlideGroup(
   /** 1-based whitelist over the slide order (sorted by trailing integer in the
    *  filename — matches extractCurrentBackgrounds). Undefined = all. */
   targetIndices1Based?: ReadonlySet<number>,
+  /** The slide's extent, to delete covering backgrounds on each part; none for masters. */
+  coveringOn?: SlideSize,
 ): Promise<Set<string>> {
   /** Parts the replaced backgrounds pointed at, to delete once unreferenced. */
   const replaced = new Set<string>();
@@ -271,6 +274,9 @@ async function processSlideGroup(
     let slideXml = await zip.file(slidePath)!.async("text");
 
     slideXml = ensureNamespaces(slideXml);
+    // The pictures of deleted covering backgrounds lose their relationships
+    // below, with the replaced background's, once the part no longer names them.
+    if (coveringOn) slideXml = deleteCoveringBackgrounds(slideXml, coveringOn);
 
     const { path: relsPath, xml: emptyRels } = ensureRelsFile(
       zip,
@@ -467,6 +473,7 @@ export async function changeBackground({
         onProgress?.(Math.round((done / total) * 100));
       },
       whitelist,
+      slideSize,
     );
   }
 

@@ -1,7 +1,11 @@
 import type { SlideBackground } from "./extractCurrentBackgrounds";
 
 export interface BackgroundGroup {
-  /** Dedup key: imagePath, or "none" for slides with no resolved background. */
+  /**
+   * Dedup key, stable for a deck: `covering:` and the covering backgrounds'
+   * picture parts, the imagePath, or "none" for slides with no resolved
+   * background.
+   */
   key: string;
   source: SlideBackground["source"];
   /** Representative image blob for the preview (first slide in the group). */
@@ -11,14 +15,20 @@ export interface BackgroundGroup {
 }
 
 /**
- * Collapse per-slide backgrounds into distinct groups. Slides whose resolved
- * background image (imagePath) matches are one group; all source==="none"
+ * Collapse per-slide backgrounds into distinct groups. Slides whose covering
+ * backgrounds use the same set of picture parts are one group, as are slides
+ * whose resolved background image (imagePath) matches; all source==="none"
  * slides collapse into a single "none" group. First-seen order preserved.
  */
 export function groupBackgrounds(bgs: SlideBackground[]): BackgroundGroup[] {
   const byKey = new Map<string, BackgroundGroup>();
   for (const b of bgs) {
-    const key = b.source === "none" || !b.imagePath ? "none" : b.imagePath;
+    const key =
+      b.source === "covering"
+        ? `covering:${(b.coveringParts ?? []).join("|")}`
+        : b.source === "none" || !b.imagePath
+          ? "none"
+          : b.imagePath;
     const existing = byKey.get(key);
     if (existing) {
       existing.slideIndexes.push(b.slideIndex);

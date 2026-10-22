@@ -18,6 +18,8 @@ interface CurrentBackgroundFrameProps {
   /** "슬라이드 {n}장" */
   slideCountTemplate: string;
   emptyLabel: string;
+  /** Under a covering-background group: its picture will be deleted. */
+  coveringLabel: string;
   zoomLabel: string;
   onZoom: () => void;
 }
@@ -25,7 +27,7 @@ interface CurrentBackgroundFrameProps {
 export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
   const {
     caption, groups, thumbUrls, index, onIndex, checkedKeys, onToggleCheck,
-    aspect, slideCountTemplate, emptyLabel, zoomLabel, onZoom,
+    aspect, slideCountTemplate, emptyLabel, coveringLabel, zoomLabel, onZoom,
   } = props;
   const group = groups[index];
   const url = group ? thumbUrls.get(group.key) ?? null : null;
@@ -120,6 +122,15 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
           </div>
         )}
       </div>
+      {/* One line always reserved under the picture, so paging between groups
+          never moves anything; outside the picture, apart from the checkbox. */}
+      <p
+        className="truncate font-body text-[10.5px] leading-[1.35]"
+        style={{ color: "var(--ink-soft)", visibility: group?.source === "covering" ? "visible" : "hidden" }}
+        title={coveringLabel}
+      >
+        {coveringLabel}
+      </p>
     </div>
   );
 }

@@ -148,6 +148,8 @@ export interface PptBackgroundToolLabels {
     currentCaptionTemplate: string;
     selectedEmpty: string;
     currentEmpty: string;
+    /** Under a covering-background group: its picture is deleted on apply. */
+    coveringMarker: string;
     slideCountTemplate: string;
     zoom: string;
     close: string;
@@ -672,6 +674,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       aspect={aspectCss}
                       slideCountTemplate={labels.preview.slideCountTemplate}
                       emptyLabel={labels.preview.currentEmpty}
+                      coveringLabel={labels.preview.coveringMarker}
                       zoomLabel={labels.preview.zoom}
                       onZoom={() => setZoom("current")}
                     />

@@ -192,6 +192,7 @@
           "currentCaptionTemplate": "Current · {n}",
           "selectedEmpty": "Pick a background",
           "currentEmpty": "No background",
+          "coveringMarker": "This picture will be removed",
           "slideCountTemplate": "{n} slides",
           "zoom": "Zoom",
           "close": "Close"
