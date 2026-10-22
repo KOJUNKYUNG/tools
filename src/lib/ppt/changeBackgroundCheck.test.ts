@@ -392,6 +392,19 @@ describe("checkPptBackground checks the prepared picture", () => {
     expect(await preparedAs(intent, picture(2880, 2160))).toEqual(["background-aspect"]);
   });
 
+  it("flags a picture off the slide's aspect by more than 1 px on either side", async () => {
+    const intent: Intent = { source: picture(4032, 3024), mode: "all-slides" };
+    // 901 high wants 1601.8 wide: the width is 1.8 px short, the height only 1 px over.
+    expect(await preparedAs(intent, picture(1600, 901))).toEqual(["background-aspect"]);
+  });
+
+  it("flags a prepared picture that is not a readable PNG or JPEG", async () => {
+    const intent: Intent = { source: picture(4032, 3024), mode: "all-slides" };
+    expect(await preparedAs(intent, new TextEncoder().encode("not an image"))).toEqual([
+      "background-format",
+    ]);
+  });
+
   it("flags a picture larger than a 4K screen needs", async () => {
     const intent: Intent = { source: picture(8000, 4500), mode: "all-slides" };
     expect(await preparedAs(intent, picture(4000, 2250))).toEqual(["background-cap"]);

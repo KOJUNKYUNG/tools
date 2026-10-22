@@ -66,6 +66,11 @@ export type PrepareSlideImage = (
   slide: SlideSize,
 ) => Promise<PreparedImage>;
 
+/** The format a prepared picture is saved in: a JPEG stays JPEG, anything else becomes PNG. */
+export function preparedFormat(source: Uint8Array): PreparedImage["format"] {
+  return readImageHeader(source)?.format === "jpeg" ? "jpeg" : "png";
+}
+
 /** Quality for a picture saved as JPEG; spec #98 measured 0.80 and 0.85 alike in size. */
 const JPEG_QUALITY = 0.85;
 
@@ -77,7 +82,7 @@ const JPEG_QUALITY = 0.85;
 export const prepareSlideImage: PrepareSlideImage = async (source, crop, slide) => {
   const bytes = new Uint8Array(await source.arrayBuffer());
   const header = readImageHeader(bytes);
-  const format = header?.format === "jpeg" ? "jpeg" : "png";
+  const format = preparedFormat(bytes);
   const size = fittedSize(crop, slide);
 
   const whole =

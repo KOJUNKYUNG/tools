@@ -41,11 +41,12 @@ export interface PptBackgroundRequest {
  * The prepared picture (spec #98), re-derived from the source picture, the
  * crop and the input's slide size, never from the engine's numbers:
  *
- * - ⚡ `background-aspect`: the slide's aspect, within 1 px on either side
+ * - ⚡ `background-aspect`: the slide's aspect, within 1 px on both sides
  * - ⚡ `background-cap`: within a 4K screen in the slide's orientation,
  *   3840 × 2160 (landscape or square) or 2160 × 3840 (portrait)
  * - ⚡ `background-not-upscaled`: no larger than the crop on either side
- * - ⚡ `background-format`: a PNG or JPEG header the checks can read
+ * - ⚡ `background-format`: PNG or JPEG only (#102 adds: JPEG only when
+ *   the source's alpha is unused)
  *
  * Structural defects the input already had are not the tool's doing and are
  * not reported: the user's deck opened before, so blocking it would be a
@@ -176,7 +177,7 @@ async function preparationViolations(
   const ratio = slide.w / slide.h;
   const violations: Violation[] = [];
 
-  if (Math.abs(width - height * ratio) > 1 && Math.abs(height - width / ratio) > 1) {
+  if (Math.abs(width - height * ratio) > 1 || Math.abs(height - width / ratio) > 1) {
     violations.push({
       property: "background-aspect",
       detail: `${width} × ${height} for a ${slide.w} × ${slide.h} slide`,
@@ -191,18 +192,18 @@ async function preparationViolations(
   // The crop the picture came from: the one given, or the centred, largest
   // rectangle of the slide's aspect, which may round by half a pixel.
   let crop: { width: number; height: number } | null = request.crop ?? null;
-  let slack = 0;
+  let roundingSlack = 0;
   if (!crop) {
     const source = readImageHeader(request.source);
     if (source) {
       const [w, h] = displayedSize(source);
       crop = { width: Math.min(w, h * ratio), height: Math.min(h, w / ratio) };
-      slack = 0.5;
+      roundingSlack = 0.5;
     }
   }
   if (!crop) {
     violations.push({ property: "background-not-upscaled", detail: "source size unreadable" });
-  } else if (width > crop.width + slack || height > crop.height + slack) {
+  } else if (width > crop.width + roundingSlack || height > crop.height + roundingSlack) {
     violations.push({
       property: "background-not-upscaled",
       detail: `${width} × ${height} > crop ${crop.width} × ${crop.height}`,

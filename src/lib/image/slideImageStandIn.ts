@@ -1,8 +1,12 @@
 // Test-only stand-in for the browser slide image preparer (never imported by the app).
 import { createHash } from "node:crypto";
 import { crc32 } from "node:zlib";
-import { readImageHeader } from "@/lib/output-check/imageHeader";
-import { fittedSize, type PixelSize, type PrepareSlideImage } from "./slideImage";
+import {
+  fittedSize,
+  preparedFormat,
+  type PixelSize,
+  type PrepareSlideImage,
+} from "./slideImage";
 
 function pngChunk(type: string, data: Uint8Array): Buffer {
   const out = Buffer.alloc(12 + data.length);
@@ -56,12 +60,12 @@ export function headerOnlyImage(format: "png" | "jpeg", size: PixelSize, tag: Ui
 }
 
 /**
- * Stands in for `prepareSlideImage` in Node: the real sizing decision, a
- * header-only image in the source's format at that size.
+ * Stands in for `prepareSlideImage` in Node: the real sizing and format
+ * decisions, a header-only image at that size.
  */
 export const standInPrepare: PrepareSlideImage = async (source, crop, slide) => {
   const bytes = new Uint8Array(await source.arrayBuffer());
-  const format = readImageHeader(bytes)?.format === "jpeg" ? "jpeg" : "png";
+  const format = preparedFormat(bytes);
   const size = fittedSize(crop, slide);
   const tag = createHash("sha256").update(bytes).update(JSON.stringify(crop)).digest();
   return { bytes: headerOnlyImage(format, size, tag), format, ...size };

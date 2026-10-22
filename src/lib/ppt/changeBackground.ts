@@ -3,7 +3,11 @@ import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { zipCompressionMethods } from "@/lib/output-check/zipReader";
 import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
-import { prepareSlideImage, type PrepareSlideImage } from "@/lib/image/slideImage";
+import {
+  prepareSlideImage,
+  type PrepareSlideImage,
+  type SlideSize,
+} from "@/lib/image/slideImage";
 import { checkPptBackground } from "./changeBackgroundCheck";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
@@ -397,9 +401,7 @@ function loadImageSize(file: File): Promise<{ w: number; h: number }> {
   });
 }
 
-async function getSlideSize(
-  zip: JSZip,
-): Promise<{ w: number; h: number }> {
+async function getSlideSize(zip: JSZip): Promise<SlideSize> {
   const presFile = zip.file("ppt/presentation.xml");
   if (!presFile) return { w: 12192000, h: 6858000 };
 

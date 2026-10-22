@@ -2,6 +2,7 @@
 import { resolveObjectURL } from "node:buffer";
 import { afterAll, beforeAll, vi } from "vitest";
 import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
+import type { SlideSize } from "@/lib/image/slideImage";
 import { headerOnlyImage, standInPrepare } from "@/lib/image/slideImageStandIn";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import {
@@ -13,7 +14,6 @@ import {
   checkPptBackground,
   type PptBackgroundRequest,
 } from "./changeBackgroundCheck";
-import { getSlideAspect } from "./getSlideAspect";
 
 // A phone photo's header (4032 × 3024) stands in for the user's background
 // picture; the stand-in preparer sizes it without decoding pixels.
@@ -52,13 +52,19 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
+/** The deck's `<p:sldSz>` in EMU, PowerPoint's 16:9 default when absent. */
+async function slideSize(input: Uint8Array): Promise<SlideSize> {
+  const bytes = await (await openPptxPackage(input))?.read("ppt/presentation.xml");
+  const m = bytes && new TextDecoder().decode(bytes).match(/<p:sldSz[^>]*\bcx="(\d+)"[^>]*\bcy="(\d+)"/);
+  return m ? { w: Number(m[1]), h: Number(m[2]) } : { w: 12192000, h: 6858000 };
+}
+
 async function requests(
   input: Uint8Array,
 ): Promise<RealFileRequest<PptBackgroundRequest>[]> {
   const slideCount = (await openPptxPackage(input))?.slideParts.length ?? 1;
   const firstAndLast = [...new Set([1, slideCount])];
-  // Only the slide's shape matters to the preparer.
-  const slide = { w: (await getSlideAspect(new File([new Uint8Array(input)], "deck.pptx"))).ratio, h: 1 };
+  const slide = await slideSize(input);
   const centred = maxFitCrop(PHOTO_SIZE, slide.w, slide.h);
   // The top-left quarter's largest crop: smaller than a 4K screen, so kept as is.
   const corner = { ...maxFitCrop({ w: PHOTO_SIZE.w / 2, h: PHOTO_SIZE.h / 2 }, slide.w, slide.h), x: 0, y: 0 };
