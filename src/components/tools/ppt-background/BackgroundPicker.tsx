@@ -22,6 +22,8 @@ export interface BackgroundFrame {
   crop: CropRect | null;
   onCropChange: (crop: CropRect) => void;
   onBack: () => void;
+  /** A run is using the frame: it is shown as is and nothing here responds. */
+  locked: boolean;
 }
 
 interface BackgroundPickerProps {
@@ -69,6 +71,7 @@ export function BackgroundPicker({
           <button
             type="button"
             onClick={frame.onBack}
+            disabled={frame.locked}
             className="subtle-action mb-1 flex shrink-0 items-center gap-1 rounded-[5px] px-2 py-1.5 font-body text-[11px]"
           >
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -96,7 +99,7 @@ export function BackgroundPicker({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          disabled={uploadBusy}
+          disabled={uploadBusy || !!frame?.locked}
           aria-busy={uploadBusy}
           className="subtle-action mb-1 shrink-0 rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
         >
@@ -129,6 +132,7 @@ export function BackgroundPicker({
             initialCrop={frame.crop}
             onCropChange={frame.onCropChange}
             handleLabels={labels.handles}
+            readOnly={frame.locked}
           />
         ) : (
           <InlineGallery

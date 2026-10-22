@@ -56,6 +56,8 @@ interface CropSelectorProps {
    * the centred, largest frame.
    */
   initialCrop?: CropRect | null;
+  /** Shows the frame without handles and ignores drags, e.g. while a run uses it. */
+  readOnly?: boolean;
 }
 
 interface DisplayBox {
@@ -102,6 +104,7 @@ export function CropSelector({
   onCropChange,
   handleLabels,
   initialCrop = null,
+  readOnly = false,
 }: CropSelectorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -295,7 +298,11 @@ export function CropSelector({
 
             {/* Crop handle */}
             <div
-              className="absolute cursor-move border-2 border-white/80 shadow-sm"
+              className={
+                readOnly
+                  ? "pointer-events-none absolute border-2 border-white/80 shadow-sm"
+                  : "absolute cursor-move border-2 border-white/80 shadow-sm"
+              }
               // The frame moves under a finger instead of the page scrolling.
               style={{
                 top: displayCrop.y,
@@ -304,13 +311,13 @@ export function CropSelector({
                 height: displayCrop.h,
                 touchAction: "none",
               }}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerUp}
+              onPointerDown={readOnly ? undefined : handlePointerDown}
+              onPointerMove={readOnly ? undefined : handlePointerMove}
+              onPointerUp={readOnly ? undefined : handlePointerUp}
+              onPointerCancel={readOnly ? undefined : handlePointerUp}
             >
               {/* 8 resize handles */}
-              {(["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const).map((h) => (
+              {!readOnly && (["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const).map((h) => (
                 <div
                   key={h}
                   role="button"

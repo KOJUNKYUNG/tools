@@ -52,6 +52,10 @@ Every UI change passes two checks, in order:
 
 Start the dev server with `preview_start` (configured in `.claude/launch.json`), or attach to the one the user already runs. The pane manages the process; a raw `pnpm dev` in the shell blocks it.
 
+Real files for a self-check stay in `tests/` (the user's rule: no copies elsewhere, e.g. not in `public/`). To feed one to a tool page, start `preview_start` "measure-ppt-ratios" and fetch `http://localhost:4310/fixtures/<name>` from the page, then hand the blob to the tool's file input through a `DataTransfer`.
+
+Check every layout in the landing workspace (`/{lang}`, open the tool from its category) as well as on the tool's own page: the landing workspace is a fixed screen that does not scroll, so a tool taller than the window is cut off there and runs into the footer.
+
 ## Review
 
 Two skills share the name `code-review`; always name which one.

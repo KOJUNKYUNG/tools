@@ -204,9 +204,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         : `${slideAspect.ratio}`;
 
   const bgFile = bgFiles[0] ?? null;
-  // The picture and frame the last run applied. When either changes after
-  // (or while) it ran, the Done box goes and the user can Apply again.
-  const appliedRef = useRef<{ file: File | null; crop: CropRect | null } | null>(null);
   const groupThumbUrlsRef = useRef(groupThumbUrls);
   groupThumbUrlsRef.current = groupThumbUrls;
   // Mirror bgPreviewUrl into a ref so the unmount cleanup (which has an empty
@@ -227,9 +224,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     retry,
     download,
   } = useToolProcessor<Uint8Array>({
-    processor: (files, onProgress) => {
-      appliedRef.current = { file: bgFile, crop };
-      return changeBackground({
+    processor: (files, onProgress) =>
+      changeBackground({
         pptxFile: files[0],
         bgImage: bgFile!,
         mode,
@@ -239,8 +235,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             : undefined,
         crop: crop ?? undefined,
         onProgress,
-      });
-    },
+      }),
     onDownload: (bytes) => {
       const baseName = pptxFiles[0]?.name.replace(/\.pptx?$/i, "") ?? "presentation";
       downloadBlob(
@@ -358,11 +353,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     };
   }, [pptxFile]);
 
-  useEffect(() => {
-    const applied = appliedRef.current;
-    if (status === "done" && applied && (applied.file !== bgFile || applied.crop !== crop)) retry();
-  }, [status, bgFile, crop, retry]);
-
   // Cleanup all object URLs on unmount.
   useEffect(() => {
     return () => {
@@ -454,6 +444,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     !!pptxFile &&
     !!bgFile &&
     (mode !== "specific-slides" || selectedSlides.size > 0) &&
+    // A HEIC still converting would replace the picture under the run.
+    !normalizing &&
     status === "idle";
 
   // ───────── Bidirectional check ↔ range binding ─────────
@@ -491,11 +483,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     }
   }, []);
 
+  // Back to the settings with everything kept, the picture and its frame
+  // included: the user may only want to frame it again.
   const handleTryAnother = useCallback(() => {
     retry();
-    clearPick();
-    // Keep pptxFile, currentBgs, groups, groupThumbUrls, mode, selectedSlides.
-  }, [retry, clearPick]);
+    setFraming(true);
+  }, [retry]);
 
   // Zoom source URL: selected-bg preview or the current group's thumb.
   const currentGroup = groups[curIndex];
@@ -607,28 +600,34 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         // Loaded workspace — the tray height lives HERE (not the outer card),
         // so the card is `header + 50vh` and the gallery scrolls inside its
         // pane. Switching category tabs must never resize the tool (UI
-        // stability contract). Canon = pdf-watermark. On a phone the panes
-        // stack: the gallery / frame pane keeps the tray height and the
-        // preview and scope follow at their own height.
-        <div className="flex flex-col gap-3 md:h-[var(--tray-h)]">
+        // stability contract). Canon = pdf-watermark. The panes stay side by
+        // side at every width: stacked, they outgrow the tray, and the landing
+        // workspace does not scroll.
+        <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
 
           {/* Two-pane workspace. */}
-          <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)]">
+          <div
+            className="grid min-h-0 flex-1"
+            style={{ gridTemplateColumns: "minmax(0, 1fr) 1px minmax(0, 1fr)" }}
+          >
             {/* LEFT panel — gallery, or the frame over the picked picture */}
-            <div className="flex h-[var(--tray-h)] min-h-0 flex-col px-6 py-3 md:h-full">
+            <div className="flex h-full min-h-0 flex-col px-6 py-3">
               <BackgroundPicker
                 galleryImage={galleryImage}
                 onGallerySelect={handleGallerySelect}
                 onDirectUpload={handleDirectUpload}
                 uploadBusy={normalizing}
+                // While a run uses the picture (running, done or failed) its
+                // frame is shown locked; `다시 하기` goes back to edit it.
                 frame={
-                  framing && bgPreviewUrl
+                  (framing || status !== "idle") && bgPreviewUrl
                     ? {
                         imageUrl: bgPreviewUrl,
                         ratio: slideAspect.ratio,
                         crop,
                         onCropChange: setCrop,
                         onBack: () => setFraming(false),
+                        locked: status !== "idle",
                       }
                     : null
                 }
@@ -642,11 +641,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               />
             </div>
 
-            {/* Divider: a rule between the stacked panes on a phone */}
-            <div className="h-px md:h-auto" style={{ background: "var(--hairline)" }} />
+            {/* Divider */}
+            <div style={{ background: "var(--hairline)" }} />
 
             {/* RIGHT panel */}
-            <div className="relative flex min-h-0 flex-col px-6 py-3 md:h-full">
+            <div className="relative flex h-full min-h-0 flex-col px-6 py-3">
               {status === "idle" ? (
                 <>
                   <div className="flex items-start gap-3.5">
