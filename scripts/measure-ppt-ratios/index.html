@@ -658,8 +658,130 @@ async function measureScaleBands(fixtureNames) {
   return rows;
 }
 
+// Media parts each deck tiles (`a:tile` in the blipFill that names them).
+async function tiledParts(zip) {
+  const tiled = new Set();
+  for (const path of Object.keys(zip.files).filter((p) => /\.xml$/i.test(p) && !p.endsWith(".rels"))) {
+    const relsPath = path.replace(/([^/]+)$/, "_rels/$1.rels");
+    if (!zip.files[relsPath]) continue;
+    const xml = await zip.files[path].async("string");
+    if (!xml.includes("<a:tile")) continue;
+    const rels = await zip.files[relsPath].async("string");
+    const dir = path.replace(/[^/]+$/, "");
+    const targets = new Map(
+      [...rels.matchAll(/<Relationship\b[^>]*>/g)].map(([tag]) => [
+        /\bId="([^"]+)"/.exec(tag)?.[1],
+        /\bTarget="([^"]+)"/.exec(tag)?.[1],
+      ]),
+    );
+    for (const [fill] of xml.matchAll(/<(a|p):blipFill\b[\s\S]*?<\/\1:blipFill>/g)) {
+      if (!fill.includes("<a:tile")) continue;
+      const id = /r:embed="([^"]+)"/.exec(fill)?.[1];
+      const target = targets.get(id);
+      if (target) tiled.add(new URL(target, "http://x/" + dir).pathname.slice(1));
+    }
+  }
+  return tiled;
+}
+
+// PNG→JPEG at high (tool-methods review §3.4): what high leaves today, the
+// PNG share of it, and what a JPEG of each PNG that passes the five guards
+// would save. Guards: 1 every alpha byte 255; 2 photographic (≥ 20k colours
+// or ≥ 8 bits per pixel as found); 3 not tiled; 4 the trial JPEG ≤ half of
+// high's PNG; 5 JPEG quality 0.80 / 0.85. The JPEG is encoded from the same
+// (resized) input high's PNG path gets.
+const PNG_JPEG_QUALITIES = [0.8, 0.85];
+async function measurePngToJpeg(fixtureNames) {
+  const decks = [];
+  const pngs = [];
+  for (const name of fixtureNames.filter(isDeck)) {
+    const data = await fixture(name);
+    const zip = await JSZip.loadAsync(data);
+    const displaySizes = await readDisplaySizes(new Uint8Array(data));
+    const tiled = await tiledParts(zip);
+    const deck = { key: name, mb: round(data.byteLength / 1e6), pictures: 0, after: 0, pngAfter: 0, jpegAfter: 0, pngIn: 0 };
+    const extra = Object.fromEntries(PNG_JPEG_QUALITIES.map((q) => [q, 0]));
+    const passing = Object.fromEntries(PNG_JPEG_QUALITIES.map((q) => [q, 0]));
+    for (const path of Object.keys(zip.files)) {
+      const m = MEDIA_PART.exec(path);
+      if (!m) continue;
+      const kind = /png/i.test(m[1]) ? "png" : "jpeg";
+      const bytes = await zip.files[path].async("uint8array");
+      const display = displaySizes.get(path) ?? null;
+      status(`PNG→JPEG: ${name}:${path} (${Math.round(bytes.length / 1024)} KB)`);
+      const out = await compressAt(kind, bytes, "high", display);
+      deck.pictures += bytes.length;
+      deck.after += out.length;
+      if (kind === "jpeg") {
+        deck.jpegAfter += out.length;
+        continue;
+      }
+      deck.pngAfter += out.length;
+      deck.pngIn += bytes.length;
+      const header = readPngHeader(bytes);
+      const { canvas, data: px } = await decode(bytes, "image/png");
+      let opaque = true;
+      for (let i = 3; i < px.length; i += 4) if (px[i] !== 255) { opaque = false; break; }
+      const colors = countColors(px, WIDE_COLOR_CAP).colors;
+      canvas.width = canvas.height = 0;
+      const bitsPerPixel = (bytes.length * 8) / (header.width * header.height);
+      const photo = colors >= 20000 || bitsPerPixel >= 8;
+      const notTiled = !tiled.has(path);
+      const row = {
+        key: `${name}:${path}`,
+        kb: Math.round(bytes.length / 1024),
+        size: `${header.width}×${header.height}`,
+        "display known": display ? "y" : "n",
+        colors,
+        "bits/px": round(bitsPerPixel),
+        opaque: opaque ? "y" : "n",
+        photo: photo ? "y" : "n",
+        tiled: notTiled ? "n" : "y",
+        "high png kb": Math.round(out.length / 1024),
+      };
+      if (opaque && photo && notTiled) {
+        const target = downsampleTarget(uprightSize(bytes), display, "high");
+        let input = bytes;
+        if (target) {
+          const resized = await downscaleImage(new Blob([bytes], { type: "image/png" }), target.width, target.height);
+          input = await resized.convertToBlob({ type: "image/png" });
+          resized.width = resized.height = 0;
+        }
+        for (const q of PNG_JPEG_QUALITIES) {
+          const jpeg = await encode(input, "image/jpeg", q);
+          const wins = jpeg.length <= out.length / 2;
+          row[`jpeg ${q} kb`] = Math.round(jpeg.length / 1024);
+          row[`jpeg ${q} pass`] = wins ? "y" : "n";
+          if (wins) {
+            extra[q] += out.length - jpeg.length;
+            passing[q]++;
+          }
+        }
+      }
+      pngs.push(row);
+    }
+    const afterDeck = data.byteLength - deck.pictures + deck.after;
+    decks.push({
+      key: name,
+      mb: deck.mb,
+      "high mb": round(afterDeck / 1e6),
+      "pictures in mb": round(deck.pictures / 1e6),
+      "png in share": `${Math.round((deck.pngIn / deck.pictures) * 100)}%`,
+      "png share after": `${Math.round((deck.pngAfter / deck.after) * 100)}%`,
+      ...Object.fromEntries(PNG_JPEG_QUALITIES.flatMap((q) => [
+        [`n ${q}`, passing[q]],
+        [`saves ${q} mb`, round(extra[q] / 1e6)],
+        [`of high deck ${q}`, `${round((extra[q] / afterDeck) * 100)}%`],
+        [`of original ${q}`, `${round((extra[q] / data.byteLength) * 100)}%`],
+      ])),
+    });
+  }
+  return { decks, pngs };
+}
+
 async function run() {
   const results = {};
+  if (parts.has("pngjpeg")) results.pngToJpeg = await measurePngToJpeg(await list("/fixtures"));
   const curveRows = [];
   if (parts.has("curve")) {
     const names = await list("/lossless");
@@ -720,6 +842,9 @@ run().then((results) => {
     results.placed && table("Placed pictures, resized", results.placed, RESIZED_COLS),
     (results.resized || results.placed) && table("Resized pictures, measured ÷ model",
       resizedResidualTable({ decks: results.resized, placed: results.placed }), ["key", "n", "residual"]),
+    results.pngToJpeg && table("PNG→JPEG at high, per deck", results.pngToJpeg.decks, Object.keys(results.pngToJpeg.decks[0] ?? {})),
+    results.pngToJpeg && table("PNG→JPEG at high, per PNG", results.pngToJpeg.pngs,
+      ["key", "kb", "size", "display known", "colors", "bits/px", "opaque", "photo", "tiled", "high png kb", ...PNG_JPEG_QUALITIES.flatMap((q) => [`jpeg ${q} kb`, `jpeg ${q} pass`])]),
     results.analysis && table("Idle-time analysis per deck", results.analysis, ["key", "mb", "analysis ms", "slides ms", "share"]),
     results.scaleBands && table("Picture bytes by resize scale", results.scaleBands, ["key", "mb", ...SCALE_BANDS.map(([b]) => b), "kept"]),
   ].filter(Boolean).join("");
