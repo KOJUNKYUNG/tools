@@ -1,6 +1,6 @@
 // src/lib/ppt/getSlideAspect.test.ts
 import { describe, it, expect } from "vitest";
-import { aspectFromSldSz, type SlideAspect } from "./getSlideAspect";
+import { aspectFromSldSz, slideSizeFromXml, type SlideAspect } from "./getSlideAspect";
 
 describe("aspectFromSldSz", () => {
   it("classifies 16:9 (12192000 x 6858000)", () => {
@@ -21,5 +21,17 @@ describe("aspectFromSldSz", () => {
 
   it("defaults to 16:9 when dimensions are missing/invalid", () => {
     expect(aspectFromSldSz(0, 0).kind).toBe("16:9");
+  });
+});
+
+describe("slideSizeFromXml", () => {
+  it("reads cx and cy in either order", () => {
+    expect(slideSizeFromXml('<p:sldSz cx="9144000" cy="6858000" type="screen4x3"/>')).toEqual({ w: 9144000, h: 6858000 });
+    expect(slideSizeFromXml('<p:sldSz cy="6858000" cx="9144000"/>')).toEqual({ w: 9144000, h: 6858000 });
+  });
+
+  it("is null when the size is missing or not positive", () => {
+    expect(slideSizeFromXml("<p:presentation/>")).toBeNull();
+    expect(slideSizeFromXml('<p:sldSz cx="0" cy="6858000"/>')).toBeNull();
   });
 });

@@ -9,6 +9,7 @@ import {
   type SlideSize,
 } from "@/lib/image/slideImage";
 import { checkPptBackground } from "./changeBackgroundCheck";
+import { slideSizeFromXml } from "./getSlideAspect";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
 
@@ -405,11 +406,7 @@ async function getSlideSize(zip: JSZip): Promise<SlideSize> {
   const presFile = zip.file("ppt/presentation.xml");
   if (!presFile) return { w: 12192000, h: 6858000 };
 
-  const xml = await presFile.async("text");
-  const match = xml.match(/<p:sldSz[^>]*cx="(\d+)"[^>]*cy="(\d+)"/);
-  if (!match) return { w: 12192000, h: 6858000 };
-
-  return { w: parseInt(match[1], 10), h: parseInt(match[2], 10) };
+  return slideSizeFromXml(await presFile.async("text")) ?? { w: 12192000, h: 6858000 };
 }
 
 export async function changeBackground({

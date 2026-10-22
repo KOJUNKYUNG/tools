@@ -11,6 +11,7 @@ import {
   type RealFileRequest,
 } from "@/lib/output-check/realFileSuite";
 import { changeBackground } from "./changeBackground";
+import { slideSizeFromXml } from "./getSlideAspect";
 import {
   checkPptBackground,
   type PptBackgroundRequest,
@@ -65,8 +66,7 @@ afterAll(() => {
 /** The deck's `<p:sldSz>` in EMU, PowerPoint's 16:9 default when absent. */
 async function slideSize(input: Uint8Array): Promise<SlideSize> {
   const bytes = await (await openPptxPackage(input))?.read("ppt/presentation.xml");
-  const m = bytes && new TextDecoder().decode(bytes).match(/<p:sldSz[^>]*\bcx="(\d+)"[^>]*\bcy="(\d+)"/);
-  return m ? { w: Number(m[1]), h: Number(m[2]) } : { w: 12192000, h: 6858000 };
+  return (bytes && slideSizeFromXml(new TextDecoder().decode(bytes))) || { w: 12192000, h: 6858000 };
 }
 
 async function requests(

@@ -40,25 +40,24 @@ export async function downscaleImage(
     : image;
   try {
     let source: ImageBitmap | OffscreenCanvas = bitmap;
-    let [w, h] = [bitmap.width, bitmap.height];
-    // The cut is drawn from the upright bitmap: createImageBitmap's own
-    // source rectangle may be applied before the EXIF turn.
-    if (crop) {
-      [w, h] = [crop.width, crop.height];
-      const cut = new OffscreenCanvas(w, h);
-      context(cut).drawImage(bitmap, crop.x, crop.y, w, h, 0, 0, w, h);
-      source = cut;
-    }
+    // The cut is the source rectangle of the first draw, taken from the
+    // upright bitmap (createImageBitmap's own source rectangle may be applied
+    // before the EXIF turn). It is never copied at full size first: a phone
+    // photo's cut can pass iOS Safari's ~16.7 MP canvas limit.
+    let [x, y, w, h] = crop
+      ? [crop.x, crop.y, crop.width, crop.height]
+      : [0, 0, bitmap.width, bitmap.height];
     // Halve while the result stays at least the target on both sides.
     while (w >= width * 2 && h >= height * 2) {
-      [w, h] = [Math.ceil(w / 2), Math.ceil(h / 2)];
-      const step = new OffscreenCanvas(w, h);
-      context(step).drawImage(source, 0, 0, w, h);
+      const [halfW, halfH] = [Math.ceil(w / 2), Math.ceil(h / 2)];
+      const step = new OffscreenCanvas(halfW, halfH);
+      context(step).drawImage(source, x, y, w, h, 0, 0, halfW, halfH);
       if (source instanceof OffscreenCanvas) source.width = source.height = 0;
       source = step;
+      [x, y, w, h] = [0, 0, halfW, halfH];
     }
     const out = new OffscreenCanvas(width, height);
-    context(out).drawImage(source, 0, 0, width, height);
+    context(out).drawImage(source, x, y, w, h, 0, 0, width, height);
     if (source instanceof OffscreenCanvas) source.width = source.height = 0;
     return out;
   } finally {

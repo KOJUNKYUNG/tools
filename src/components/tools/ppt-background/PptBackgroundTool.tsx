@@ -380,6 +380,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         return;
       }
       const pick = ++pickRef.current;
+      // A HEIC still converting is dropped, so its busy state goes too.
+      setNormalizing(false);
       setGalleryImage(image);
       // Until the picture arrives nothing can be framed or applied: the old
       // picture and its frame must not meet the new thumbnail.
