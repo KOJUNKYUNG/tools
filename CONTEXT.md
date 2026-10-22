@@ -95,6 +95,40 @@ Gallery backgrounds are cropped the same way.
 _Avoid_: "cover" or fill offsets: the earlier XML-only approach that kept the
 whole image in the deck.
 
+### Covering picture
+A picture lying at the bottom of a slide's stack, under the slide's content,
+that hides the background or tints it, so a new background would not show as
+chosen. It is a top-level element holding a picture (a picture, a shape filled
+with a picture, or a group containing one) whose bounds cover at least 90% of
+the slide, counted upwards from the bottom while consecutive elements qualify,
+with at least one element above it. A slide whose only element is one large
+picture holds content, not a covering picture (a sheet-music slide from
+image-to-pptx, a lyrics image). A large picture higher in the stack, or one
+under 90% (sheet music on a background, typically 60–80% of the slide), is
+content too. Decks exported from design tools often carry one, as a
+picture-filled shape or a group rather than a picture, and it may be mostly
+transparent (soft colour blobs), so transparency does not tell it from
+content. ppt-background deletes covering pictures on the slides it changes
+unless the user keeps one (sheet music caught by the rule); the user keeps
+the original file.
+_Avoid_: "individual background" — that is a slide's own background.
+
+### Visible background
+What a viewer sees behind a slide's content: the first of its covering
+pictures, its own background, its layout's background, or the master's.
+ppt-background shows each slide's visible background as the current one and
+replaces it: in all or chosen slides by setting the slide's own background
+and deleting covering pictures; in master mode by setting the master's and
+deleting what lies above it on every slide (covering pictures, slides' own
+backgrounds, layouts' backgrounds). Both look the same; master mode also
+reaches slides added later in PowerPoint.
+
+### Slide's own background
+The background a single slide declares for itself, which overrides its
+layout's and master's. Real decks set one (usually a solid colour) on nearly
+every slide, so a changed master background does not show through.
+_Avoid_: "individual background" for covering pictures.
+
 ### Alias
 A slug kept live for SEO / backwards compatibility that renders a different
 **canonical** tool, declared via `aliasOf` in the registry. Today: `pdf-merge`,
