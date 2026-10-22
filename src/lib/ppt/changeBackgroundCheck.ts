@@ -1,6 +1,7 @@
 import { notInherited, type OutputChecker, type Violation } from "@/lib/output-check/core";
 import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage, relsPartOf, type PptxPackage } from "@/lib/output-check/pptxPackage";
+import { pngAlphaUsed } from "@/lib/output-check/pngAlpha";
 import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import type { BgMode } from "./changeBackground";
@@ -45,8 +46,11 @@ export interface PptBackgroundRequest {
  * - ⚡ `background-cap`: within a 4K screen in the slide's orientation,
  *   3840 × 2160 (landscape or square) or 2160 × 3840 (portrait)
  * - ⚡ `background-not-upscaled`: no larger than the crop on either side
- * - ⚡ `background-format`: PNG or JPEG only (#102 adds: JPEG only when
- *   the source's alpha is unused)
+ * - ⚡ `background-format`: PNG or JPEG only, and JPEG only when no pixel
+ *   of the source is less than fully opaque (its transparency would be lost).
+ *   The source's pixels are read at `quick` depth too: only a PNG with an
+ *   alpha channel or tRNS is scanned (a JPEG never), ~150 ms for a 12 MP
+ *   picture against seconds of decoding, re-encoding and zipping (#102).
  *
  * Structural defects the input already had are not the tool's doing and are
  * not reported: the user's deck opened before, so blocking it would be a
@@ -176,6 +180,12 @@ async function preparationViolations(
   const slide = await slideSize(before);
   const ratio = slide.w / slide.h;
   const violations: Violation[] = [];
+
+  // Unknown (a source that is not a readable PNG) proves nothing, so only a
+  // source certainly using alpha counts.
+  if (header.format === "jpeg" && (await pngAlphaUsed(request.source)) === true) {
+    violations.push({ property: "background-format", detail: "JPEG from a source whose alpha is used" });
+  }
 
   if (Math.abs(width - height * ratio) > 1 || Math.abs(height - width / ratio) > 1) {
     violations.push({

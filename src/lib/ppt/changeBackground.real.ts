@@ -4,6 +4,7 @@ import { afterAll, beforeAll, vi } from "vitest";
 import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import type { SlideSize } from "@/lib/image/slideImage";
 import { headerOnlyImage, standInPrepare } from "@/lib/image/slideImageStandIn";
+import { testPng } from "@/lib/image/testPng";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import {
   realFileSuite,
@@ -23,6 +24,15 @@ const PHOTO = headerOnlyImage(
   { width: PHOTO_SIZE.w, height: PHOTO_SIZE.h },
   new TextEncoder().encode("real-file photo"),
 );
+
+// A picture whose alpha is used (a cut-out logo): real pixels, so the
+// preparer keeps it PNG and the check scans them.
+const CUTOUT = testPng({
+  width: 400,
+  height: 300,
+  colorType: 6,
+  pixel: (x, y) => [x & 0xff, y & 0xff, 120, (x - 200) ** 2 + (y - 150) ** 2 < 100 ** 2 ? 255 : 0],
+});
 
 // The engine measures the background with the browser's Image element; Node
 // has none. This stand-in reads the size from the PNG header behind the
@@ -68,10 +78,10 @@ async function requests(
   const centred = maxFitCrop(PHOTO_SIZE, slide.w, slide.h);
   // The top-left quarter's largest crop: smaller than a 4K screen, so kept as is.
   const corner = { ...maxFitCrop({ w: PHOTO_SIZE.w / 2, h: PHOTO_SIZE.h / 2 }, slide.w, slide.h), x: 0, y: 0 };
-  const prepared = async (crop: CropRect) => ({
-    source: PHOTO,
+  const prepared = async (crop: CropRect, source = PHOTO) => ({
+    source,
     crop,
-    background: (await standInPrepare(new Blob([new Uint8Array(PHOTO)]), crop, slide)).bytes,
+    background: (await standInPrepare(new Blob([new Uint8Array(source)]), crop, slide)).bytes,
   });
   return [
     {
@@ -79,6 +89,13 @@ async function requests(
       request: { ...(await prepared(centred)), mode: "all-slides" },
     },
     { label: "master, centred crop", request: { ...(await prepared(centred)), mode: "master" } },
+    {
+      label: "all-slides, transparent PNG kept PNG",
+      request: {
+        ...(await prepared(maxFitCrop({ w: 400, h: 300 }, slide.w, slide.h), CUTOUT)),
+        mode: "all-slides",
+      },
+    },
     {
       label: `specific-slides ${firstAndLast.join(",")}, corner crop`,
       request: {

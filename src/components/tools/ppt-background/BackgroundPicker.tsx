@@ -14,6 +14,8 @@ interface BackgroundPickerProps {
   galleryImage: GalleryImage | null;
   onGallerySelect: (img: GalleryImage) => void;
   onDirectUpload: (files: File[]) => void;
+  /** A picked file is still being prepared (HEIC conversion). */
+  uploadBusy?: boolean;
   labels: {
     uploadLabel: string;
     gallery: {
@@ -30,6 +32,7 @@ export function BackgroundPicker({
   galleryImage,
   onGallerySelect,
   onDirectUpload,
+  uploadBusy = false,
   labels,
 }: BackgroundPickerProps) {
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
@@ -60,6 +63,8 @@ export function BackgroundPicker({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
+          disabled={uploadBusy}
+          aria-busy={uploadBusy}
           className="subtle-action mb-1 shrink-0 rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
         >
           {labels.uploadLabel}
@@ -67,7 +72,7 @@ export function BackgroundPicker({
         <input
           ref={inputRef}
           type="file"
-          accept="image/png,image/jpeg"
+          accept="image/png,image/jpeg,image/heic,image/heif,.heic,.heif"
           className="hidden"
           onChange={(e) => {
             const files = e.target.files ? Array.from(e.target.files) : [];

@@ -25,15 +25,19 @@ function context(canvas: OffscreenCanvas): OffscreenCanvasRenderingContext2D {
 /**
  * `image` decoded upright, cut to `crop` (in upright pixels) when given, and
  * drawn at `width`×`height`, which should not exceed the cut's size. The
- * caller encodes the canvas.
+ * caller encodes the canvas. A bitmap the caller already decoded (upright)
+ * is used as is and stays the caller's to close.
  */
 export async function downscaleImage(
-  image: Blob,
+  image: Blob | ImageBitmap,
   width: number,
   height: number,
   crop?: CropRect,
 ): Promise<OffscreenCanvas> {
-  const bitmap = await createImageBitmap(image, { imageOrientation: "from-image" });
+  const owned = image instanceof Blob;
+  const bitmap = owned
+    ? await createImageBitmap(image, { imageOrientation: "from-image" })
+    : image;
   try {
     let source: ImageBitmap | OffscreenCanvas = bitmap;
     let [w, h] = [bitmap.width, bitmap.height];
@@ -58,6 +62,6 @@ export async function downscaleImage(
     if (source instanceof OffscreenCanvas) source.width = source.height = 0;
     return out;
   } finally {
-    bitmap.close();
+    if (owned) bitmap.close();
   }
 }

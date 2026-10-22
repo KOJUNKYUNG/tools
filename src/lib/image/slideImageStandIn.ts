@@ -1,6 +1,7 @@
 // Test-only stand-in for the browser slide image preparer (never imported by the app).
 import { createHash } from "node:crypto";
 import { crc32 } from "node:zlib";
+import { pngAlphaUsed } from "@/lib/output-check/pngAlpha";
 import {
   fittedSize,
   preparedFormat,
@@ -59,13 +60,19 @@ export function headerOnlyImage(format: "png" | "jpeg", size: PixelSize, tag: Ui
   );
 }
 
+/** Encoded sizes the stand-in assumes for every picture: a photo's, JPEG a tenth of PNG. */
+const PHOTO_ENCODED = { jpegBytes: 1, pngBytes: 10 };
+
 /**
  * Stands in for `prepareSlideImage` in Node: the real sizing and format
- * decisions, a header-only image at that size.
+ * decisions, a header-only image at that size. With no encoder to measure,
+ * every picture is sized as a photo (its JPEG a tenth of its PNG), so opaque
+ * pictures come out JPEG and pictures whose alpha is used stay PNG.
  */
 export const standInPrepare: PrepareSlideImage = async (source, crop, slide) => {
   const bytes = new Uint8Array(await source.arrayBuffer());
-  const format = preparedFormat(bytes);
+  const alphaUsed = (await pngAlphaUsed(bytes)) === true;
+  const format = preparedFormat({ alphaUsed, ...PHOTO_ENCODED });
   const size = fittedSize(crop, slide);
   const tag = createHash("sha256").update(bytes).update(JSON.stringify(crop)).digest();
   return { bytes: headerOnlyImage(format, size, tag), format, ...size };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { maxFitCrop } from "./maxFitCrop";
-import { fittedSize } from "./slideImage";
+import { fittedSize, preparedFormat } from "./slideImage";
 
 /** Slide sizes in EMU, as `<p:sldSz>` stores them. */
 const WIDE = { w: 12192000, h: 6858000 }; // 16:9
@@ -55,5 +55,21 @@ describe("fittedSize", () => {
         expect(Math.abs(out.width - (out.height * slide.w) / slide.h)).toBeLessThanOrEqual(1);
       }
     }
+  });
+});
+
+describe("preparedFormat", () => {
+  it("keeps a picture whose alpha is used as PNG, however small its JPEG", () => {
+    expect(preparedFormat({ alphaUsed: true, jpegBytes: 10, pngBytes: 1000 })).toBe("png");
+  });
+
+  it("takes the JPEG when it is at most half the PNG", () => {
+    expect(preparedFormat({ alphaUsed: false, jpegBytes: 400, pngBytes: 1000 })).toBe("jpeg");
+    expect(preparedFormat({ alphaUsed: false, jpegBytes: 500, pngBytes: 1000 })).toBe("jpeg");
+  });
+
+  it("keeps PNG when the JPEG saves less than half (flat graphics, text)", () => {
+    expect(preparedFormat({ alphaUsed: false, jpegBytes: 501, pngBytes: 1000 })).toBe("png");
+    expect(preparedFormat({ alphaUsed: false, jpegBytes: 1200, pngBytes: 1000 })).toBe("png");
   });
 });

@@ -5,6 +5,7 @@ import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import type { PrepareSlideImage } from "@/lib/image/slideImage";
 import { headerOnlyImage, standInPrepare } from "@/lib/image/slideImageStandIn";
+import { testPng } from "@/lib/image/testPng";
 import { changeBackground } from "./changeBackground";
 
 /** A 2-slide deck at pptxgenjs's layout (16:9 by default). */
@@ -18,6 +19,15 @@ async function deck(layout: "LAYOUT_16x9" | "LAYOUT_4x3" = "LAYOUT_16x9"): Promi
 
 /** A phone photo's header: 4032 × 3024, upright. */
 const PHOTO = headerOnlyImage("jpeg", { width: 4032, height: 3024 }, new Uint8Array([1]));
+
+/** A real 64 × 48 PNG whose top-left pixel has this alpha (255: opaque). */
+const picture = (alpha: number) =>
+  testPng({
+    width: 64,
+    height: 48,
+    colorType: 6,
+    pixel: (x, y) => [x * 4, y * 5, 90, x === 0 && y === 0 ? alpha : 255],
+  });
 
 /** Stub the browser's Image element to report `width`×`height`, or fail to decode. */
 function stubImage(width: number, height: number, decodes = true): void {
@@ -108,6 +118,32 @@ describe("changeBackground prepares the picture before embedding it", () => {
     const { prepare, calls } = recordingPreparer();
     await run(await deck(), { crop, prepare });
     expect(calls.map(([, c, slide]) => [c, slide])).toEqual([[crop, { w: 9144000, h: 5143500 }]]);
+  });
+
+  it("stores an opaque picture as JPEG and one whose alpha is used as PNG", async () => {
+    stubImage(64, 48);
+    const opaque = await run(await deck(), { image: picture(255) });
+    expect(backgroundMedia(opaque)).toEqual(["ppt/media/background_custom.jpeg"]);
+    expect(await opaque.file("[Content_Types].xml")!.async("text")).toMatch(
+      /<Default Extension="jpeg" ContentType="image\/jpeg"\/>/,
+    );
+
+    const transparent = await run(await deck(), { image: picture(128) });
+    expect(backgroundMedia(transparent)).toEqual(["ppt/media/background_custom.png"]);
+    expect(await transparent.file("[Content_Types].xml")!.async("text")).toMatch(
+      /<Default Extension="png" ContentType="image\/png"\/>/,
+    );
+  });
+
+  it("re-applied in the other format, leaves only the background in use", async () => {
+    stubImage(64, 48);
+    const first = await run(await deck(), { image: picture(128) });
+    const firstBytes = await first.generateAsync({ type: "uint8array" });
+    const second = await run(firstBytes, { image: picture(255) });
+    expect(backgroundMedia(second)).toEqual(["ppt/media/background_custom.jpeg"]);
+
+    const back = await run(await second.generateAsync({ type: "uint8array" }), { image: picture(128) });
+    expect(backgroundMedia(back)).toEqual(["ppt/media/background_custom.png"]);
   });
 
   it("rejects a picture the browser cannot decode as invalid input", async () => {

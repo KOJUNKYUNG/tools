@@ -4,6 +4,7 @@ import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
 import { maxFitCrop } from "@/lib/image/maxFitCrop";
 import { headerOnlyImage, standInPrepare } from "@/lib/image/slideImageStandIn";
+import { testPng } from "@/lib/image/testPng";
 import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { changeBackground } from "./changeBackground";
@@ -201,8 +202,8 @@ describe("checkPptBackground flags broken output", () => {
       const xml = await zip.file("[Content_Types].xml")!.async("text");
       zip.file(
         "[Content_Types].xml",
-        // Drop the declaration that covers the .png background media.
-        xml.replace(/<Default[^>]*Extension="png"[^>]*\/>/, ""),
+        // Drop the declaration that covers the .jpeg background media.
+        xml.replace(/<Default[^>]*Extension="jpeg"[^>]*\/>/, ""),
       );
     });
     expect(await properties(input, allSlides, broken)).toContain("content-type");
@@ -403,6 +404,25 @@ describe("checkPptBackground checks the prepared picture", () => {
     expect(await preparedAs(intent, new TextEncoder().encode("not an image"))).toEqual([
       "background-format",
     ]);
+  });
+
+  it("flags a picture whose alpha is used, turned JPEG", async () => {
+    /** A real 64 × 48 PNG whose last pixel has this alpha. */
+    const source = (alpha: number) =>
+      testPng({
+        width: 64,
+        height: 48,
+        colorType: 6,
+        pixel: (x, y) => [x, y, 0, x === 63 && y === 47 ? alpha : 255],
+      });
+    const preparedIn = (format: "png" | "jpeg") =>
+      headerOnlyImage(format, { width: 64, height: 36 }, new Uint8Array([9]));
+    const transparent: Intent = { source: source(0), mode: "all-slides" };
+    const opaque: Intent = { source: source(255), mode: "all-slides" };
+
+    expect(await preparedAs(transparent, preparedIn("jpeg"))).toEqual(["background-format"]);
+    expect(await preparedAs(transparent, preparedIn("png"))).toEqual([]);
+    expect(await preparedAs(opaque, preparedIn("jpeg"))).toEqual([]);
   });
 
   it("flags a picture larger than a 4K screen needs", async () => {

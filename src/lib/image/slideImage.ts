@@ -1,13 +1,16 @@
 /**
  * Shared slide image preparation (spec #98): a picture that fills a slide is
  * cut to the slide's aspect (a Background crop, in ppt-background), made no
- * larger than a 4K screen needs in the slide's orientation, and never
- * enlarged. ppt-background is the first adopter; image-to-pptx and
- * ppt-compress can adopt the same policy (backlog S4).
+ * larger than a 4K screen needs in the slide's orientation, never enlarged,
+ * and saved as JPEG when that is much smaller. ppt-background is the first
+ * adopter; image-to-pptx and ppt-compress can adopt the same policy
+ * (backlog S4).
  *
- * The sizing decisions are pure, so they run in Node; `prepareSlideImage`
- * does the pixels in the browser and is injectable, so engines stand it in.
+ * The sizing and format decisions are pure, so they run in Node;
+ * `prepareSlideImage` does the pixels in the browser and is injectable, so
+ * engines stand it in.
  */
+import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { hasUnreadOrientation, readImageHeader } from "@/lib/output-check/imageHeader";
 import { downscaleImage } from "./downscale";
 import type { CropRect } from "./maxFitCrop";
@@ -66,23 +69,71 @@ export type PrepareSlideImage = (
   slide: SlideSize,
 ) => Promise<PreparedImage>;
 
-/** The format a prepared picture is saved in: a JPEG stays JPEG, anything else becomes PNG. */
-export function preparedFormat(source: Uint8Array): PreparedImage["format"] {
-  return readImageHeader(source)?.format === "jpeg" ? "jpeg" : "png";
+/**
+ * The format a prepared picture is saved in (spec #98): a picture whose alpha
+ * is used stays PNG; otherwise JPEG when it is at most half the PNG's size,
+ * so photos become JPEG while flat graphics and text, which JPEG barely
+ * shrinks and visibly blurs, stay PNG. Measured for ppt-compress; no separate
+ * photo detector is needed.
+ */
+export function preparedFormat({
+  alphaUsed,
+  jpegBytes,
+  pngBytes,
+}: {
+  alphaUsed: boolean;
+  /** Sizes of the picture encoded both ways (JPEG at quality 0.85). */
+  jpegBytes: number;
+  pngBytes: number;
+}): PreparedImage["format"] {
+  return !alphaUsed && jpegBytes * 2 <= pngBytes ? "jpeg" : "png";
 }
 
 /** Quality for a picture saved as JPEG; spec #98 measured 0.80 and 0.85 alike in size. */
 const JPEG_QUALITY = 0.85;
 
+/** Rows scanned at a time for transparency: bounds the pixel buffer to ~16 MB. */
+const SCAN_PIXELS = 4_000_000;
+
+/** Whether any pixel of `bitmap` is less than fully opaque, read in bands. */
+function alphaUsed(bitmap: ImageBitmap): boolean {
+  const { width, height } = bitmap;
+  const band = Math.max(1, Math.min(height, Math.floor(SCAN_PIXELS / width)));
+  const canvas = new OffscreenCanvas(width, band);
+  try {
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("no 2d canvas context");
+    for (let y = 0; y < height; y += band) {
+      const rows = Math.min(band, height - y);
+      ctx.clearRect(0, 0, width, band);
+      ctx.drawImage(bitmap, 0, y, width, rows, 0, 0, width, rows);
+      const pixels = ctx.getImageData(0, 0, width, rows).data;
+      for (let i = 3; i < pixels.length; i += 4) if (pixels[i] !== 255) return true;
+    }
+    return false;
+  } finally {
+    canvas.width = canvas.height = 0;
+  }
+}
+
+async function encode(canvas: OffscreenCanvas, format: PreparedImage["format"]): Promise<Uint8Array> {
+  const blob = await canvas.convertToBlob({
+    type: `image/${format}`,
+    quality: format === "jpeg" ? JPEG_QUALITY : undefined,
+  });
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
 /**
- * The browser preparer. The picture keeps its uploaded format (PNG, or JPEG
- * for a JPEG). An upright picture taken whole at its own size goes in as
- * uploaded: re-encoding it would only lose quality or grow it.
+ * The browser preparer: cut, fit, then save as `preparedFormat` decides,
+ * scanning a PNG's pixels for transparency (a JPEG has none). A picture
+ * taken whole at its own size that stays in its format goes in as uploaded:
+ * re-encoding it could only lose quality or grow it. So a whole JPEG is
+ * never re-encoded, and a whole PNG is re-encoded only to measure the rule.
  */
 export const prepareSlideImage: PrepareSlideImage = async (source, crop, slide) => {
   const bytes = new Uint8Array(await source.arrayBuffer());
   const header = readImageHeader(bytes);
-  const format = preparedFormat(bytes);
   const size = fittedSize(crop, slide);
 
   const whole =
@@ -96,16 +147,30 @@ export const prepareSlideImage: PrepareSlideImage = async (source, crop, slide) 
     crop.height === header.height &&
     size.width === crop.width &&
     size.height === crop.height;
-  if (whole) return { bytes, format, ...size };
+  if (whole && header.format === "jpeg") return { bytes, format: "jpeg", ...size };
 
-  const canvas = await downscaleImage(source, size.width, size.height, crop);
+  // The <img> that measured the picture may decode what createImageBitmap
+  // cannot; either way the file is the problem, not the tool.
+  const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" }).catch(() => {
+    throw new Error(`${INVALID_INPUT_PREFIX}: the background image could not be decoded`);
+  });
   try {
-    const blob = await canvas.convertToBlob({
-      type: `image/${format}`,
-      quality: format === "jpeg" ? JPEG_QUALITY : undefined,
-    });
-    return { bytes: new Uint8Array(await blob.arrayBuffer()), format, ...size };
+    const alpha = header?.format !== "jpeg" && alphaUsed(bitmap);
+    if (whole && alpha) return { bytes, format: "png", ...size };
+    const canvas = await downscaleImage(bitmap, size.width, size.height, crop);
+    try {
+      // Measured on the canvas's own PNG, not the upload's: a badly
+      // compressed graphic would otherwise look worth turning into JPEG.
+      const png = await encode(canvas, "png");
+      const jpeg = alpha ? null : await encode(canvas, "jpeg");
+      if (jpeg && preparedFormat({ alphaUsed: alpha, jpegBytes: jpeg.length, pngBytes: png.length }) === "jpeg") {
+        return { bytes: jpeg, format: "jpeg", ...size };
+      }
+      return { bytes: whole ? bytes : png, format: "png", ...size };
+    } finally {
+      canvas.width = canvas.height = 0;
+    }
   } finally {
-    canvas.width = canvas.height = 0;
+    bitmap.close();
   }
 };
