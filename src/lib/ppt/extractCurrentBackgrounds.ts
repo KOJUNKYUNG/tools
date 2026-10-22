@@ -41,20 +41,37 @@ async function mediaBlob(zip: JSZip, path: string): Promise<Blob | null> {
   return new Blob([await file.async("arraybuffer")], { type: MIME_BY_EXT[ext] ?? "application/octet-stream" });
 }
 
-/** The internal relationship targets of a part, by id, as zip paths. */
-async function relationshipTargets(zip: JSZip, partPath: string): Promise<Map<string, string>> {
+interface PartRelationship {
+  id: string;
+  type: string;
+  /** The target as a zip path. */
+  part: string;
+}
+
+/** A part's internal relationships, read whatever order their attributes come in. */
+async function relationshipsOf(zip: JSZip, partPath: string): Promise<PartRelationship[]> {
   const slash = partPath.lastIndexOf("/");
   const dir = partPath.slice(0, slash);
   const relsXml = await zip.file(`${dir}/_rels/${partPath.slice(slash + 1)}.rels`)?.async("text");
-  const targets = new Map<string, string>();
+  const rels: PartRelationship[] = [];
   for (const rel of relsXml?.match(/<Relationship\b[^>]*>/g) ?? []) {
     const attr = (name: string) => rel.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
-    const [id, target] = [attr("Id"), attr("Target")];
+    const [id, type, target] = [attr("Id"), attr("Type") ?? "", attr("Target")];
     if (!id || !target || attr("TargetMode") === "External") continue;
     const part = resolveTarget(dir, target);
-    if (part !== null) targets.set(id, part);
+    if (part !== null) rels.push({ id, type, part });
   }
-  return targets;
+  return rels;
+}
+
+/** The internal relationship targets of a part, by id, as zip paths. */
+async function relationshipTargets(zip: JSZip, partPath: string): Promise<Map<string, string>> {
+  return new Map((await relationshipsOf(zip, partPath)).map((r) => [r.id, r.part]));
+}
+
+/** The first part `partPath` relates to by this relationship type (the URI's last segment). */
+async function relatedPart(zip: JSZip, partPath: string, type: string): Promise<string | null> {
+  return (await relationshipsOf(zip, partPath)).find((r) => r.type.endsWith(`/${type}`))?.part ?? null;
 }
 
 /** The slide's covering backgrounds as its visible background; null when it has none. */
@@ -76,41 +93,19 @@ async function coveringBackground(
   };
 }
 
-async function resolveBlipImage(
+/** The picture of a part's own background; null when it declares none, or no picture. */
+async function backgroundPicture(
   zip: JSZip,
-  xmlDir: string,
-  xmlFileName: string,
-  slideXml: string,
+  partPath: string,
+  partXml: string,
 ): Promise<{ blob: Blob; path: string } | null> {
-  const bgMatch = slideXml.match(/<p:bg[\s>][\s\S]*?<\/p:bg>/);
-  if (!bgMatch) return null;
-
-  const embedMatch = bgMatch[0].match(/r:embed="([^"]+)"/);
-  if (!embedMatch) return null;
-
-  const relId = embedMatch[1];
-  const relsPath = `${xmlDir}/_rels/${xmlFileName}.rels`;
-  const relsFile = zip.file(relsPath);
-  if (!relsFile) return null;
-
-  const relsXml = await relsFile.async("text");
-  const relPattern = new RegExp(
-    `<Relationship[^>]*Id="${relId}"[^>]*Target="([^"]+)"`,
-  );
-  const relMatch = relsXml.match(relPattern);
-  if (!relMatch) return null;
-
-  let targetPath = relMatch[1];
-  if (targetPath.startsWith("../")) {
-    const parts = xmlDir.split("/");
-    parts.pop();
-    targetPath = parts.join("/") + "/" + targetPath.replace("../", "");
-  } else if (!targetPath.startsWith("ppt/")) {
-    targetPath = `${xmlDir}/${targetPath}`;
-  }
-
-  const blob = await mediaBlob(zip, targetPath);
-  return blob && { blob, path: targetPath };
+  const bg = partXml.match(/<p:bg[\s>][\s\S]*?<\/p:bg>/)?.[0];
+  const relId = bg?.match(/r:embed="([^"]+)"/)?.[1];
+  if (!relId) return null;
+  const path = (await relationshipTargets(zip, partPath)).get(relId);
+  if (!path) return null;
+  const blob = await mediaBlob(zip, path);
+  return blob && { blob, path };
 }
 
 export async function extractCurrentBackgrounds(
@@ -155,70 +150,20 @@ export async function extractCurrentBackgrounds(
       continue;
     }
 
-    const directBg = await resolveBlipImage(zip, "ppt/slides", `slide${slideNum}.xml`, slideXml);
-    if (directBg) {
-      bg.imageBlob = directBg.blob;
-      bg.imagePath = directBg.path;
-      bg.source = "slide";
-      results.push(bg);
-      continue;
-    }
-
-    const relsPath = `ppt/slides/_rels/slide${slideNum}.xml.rels`;
-    const relsFile = zip.file(relsPath);
-    if (relsFile) {
-      const relsXml = await relsFile.async("text");
-      const layoutRelMatch = relsXml.match(
-        /<Relationship[^>]*Type="[^"]*slideLayout"[^>]*Target="([^"]+)"/,
-      );
-      if (layoutRelMatch) {
-        let layoutPath = layoutRelMatch[1];
-        if (layoutPath.startsWith("../")) {
-          layoutPath = "ppt/" + layoutPath.replace("../", "");
-        }
-        const layoutFile = zip.file(layoutPath);
-        if (layoutFile) {
-          const layoutXml = await layoutFile.async("text");
-          const layoutDir = layoutPath.substring(0, layoutPath.lastIndexOf("/"));
-          const layoutFileName = layoutPath.split("/").pop()!;
-          const layoutBg = await resolveBlipImage(zip, layoutDir, layoutFileName, layoutXml);
-          if (layoutBg) {
-            bg.imageBlob = layoutBg.blob;
-            bg.imagePath = layoutBg.path;
-            bg.source = "layout";
-            results.push(bg);
-            continue;
-          }
-
-          const layoutRelsPath = `${layoutDir}/_rels/${layoutFileName}.rels`;
-          const layoutRelsFile = zip.file(layoutRelsPath);
-          if (layoutRelsFile) {
-            const layoutRelsXml = await layoutRelsFile.async("text");
-            const masterRelMatch = layoutRelsXml.match(
-              /<Relationship[^>]*Type="[^"]*slideMaster"[^>]*Target="([^"]+)"/,
-            );
-            if (masterRelMatch) {
-              let masterPath = masterRelMatch[1];
-              if (masterPath.startsWith("../")) {
-                masterPath = "ppt/" + masterPath.replace("../", "");
-              }
-              const masterFile = zip.file(masterPath);
-              if (masterFile) {
-                const masterXml = await masterFile.async("text");
-                const masterDir = masterPath.substring(0, masterPath.lastIndexOf("/"));
-                const masterFileName = masterPath.split("/").pop()!;
-                const masterBg = await resolveBlipImage(zip, masterDir, masterFileName, masterXml);
-                if (masterBg) {
-                  bg.imageBlob = masterBg.blob;
-                  bg.imagePath = masterBg.path;
-                  bg.source = "master";
-                  results.push(bg);
-                  continue;
-                }
-              }
-            }
-          }
-        }
+    // Its own background, else the layout's, else the master's.
+    const layoutPath = await relatedPart(zip, slidePath, "slideLayout");
+    const masterPath = layoutPath && (await relatedPart(zip, layoutPath, "slideMaster"));
+    const chain: [SlideBackground["source"], string | null][] = [
+      ["slide", slidePath],
+      ["layout", layoutPath],
+      ["master", masterPath],
+    ];
+    for (const [source, partPath] of chain) {
+      const partXml = partPath && (await zip.file(partPath)?.async("text"));
+      const picture = partXml && (await backgroundPicture(zip, partPath, partXml));
+      if (picture) {
+        Object.assign(bg, { imageBlob: picture.blob, imagePath: picture.path, source });
+        break;
       }
     }
 

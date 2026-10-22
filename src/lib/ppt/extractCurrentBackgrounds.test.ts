@@ -2,7 +2,7 @@ import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { extractCurrentBackgrounds } from "./extractCurrentBackgrounds";
 import { groupBackgrounds } from "./groupBackgrounds";
-import { group, picture, pictureShape, testDeck, textBox } from "./testDeck";
+import { group, picture, pictureBackground, pictureShape, testDeck, textBox } from "./testDeck";
 
 /** The visible-background groups of a deck, as the preview shows them. */
 async function analyse(deck: Uint8Array) {
@@ -58,5 +58,60 @@ describe("extractCurrentBackgrounds reports each slide's visible background", ()
     expect(groups.map((g) => [g.key, g.slideIndexes])).toEqual([
       ["covering:ppt/media/blob1.png|ppt/media/blob2.png", [1, 2]],
     ]);
+  });
+});
+
+describe("extractCurrentBackgrounds finds inherited backgrounds", () => {
+  /**
+   * The deck with every relationship written `Id, Target, Type`, as some
+   * producers do (pptxgenjs writes `Id, Type, Target`), and its master's own
+   * background set to `masterBackground` when given.
+   */
+  async function rewritten(deck: Uint8Array, masterBackground?: { bg: string; media: string }) {
+    const zip = await JSZip.loadAsync(deck);
+    for (const relsPart of zip.file(/_rels\/.*\.rels$/)) {
+      const xml = await relsPart.async("text");
+      zip.file(
+        relsPart.name,
+        xml.replace(
+          /<Relationship Id="([^"]*)" Type="([^"]*)" Target="([^"]*)"\/>/g,
+          '<Relationship Id="$1" Target="$3" Type="$2"/>',
+        ),
+      );
+    }
+    if (masterBackground) {
+      const master = "ppt/slideMasters/slideMaster1.xml";
+      const relsPart = "ppt/slideMasters/_rels/slideMaster1.xml.rels";
+      const xml = await zip.file(master)!.async("text");
+      zip.file(master, xml.replace("<p:cSld>", `<p:cSld>${masterBackground.bg}`));
+      const rels = await zip.file(relsPart)!.async("text");
+      zip.file(
+        relsPart,
+        rels.replace(
+          "</Relationships>",
+          `<Relationship Id="rId90" Target="../media/${masterBackground.media}" ` +
+            `Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"/></Relationships>`,
+        ),
+      );
+      zip.file(`ppt/media/${masterBackground.media}`, await zip.file("ppt/media/layout.png")!.async("uint8array"));
+    }
+    return zip.generateAsync({ type: "uint8array" });
+  }
+
+  it("reports the layout's and the master's picture backgrounds whatever the attribute order", async () => {
+    const slides = [{ shapes: [textBox(9, "가사")] }];
+    const layout = { background: pictureBackground("rId20"), pictures: { rId20: "layout.png" } };
+
+    const fromLayout = await analyse(await rewritten(await testDeck(slides, layout)));
+    expect(fromLayout.map((g) => [g.key, g.source])).toEqual([["ppt/media/layout.png", "layout"]]);
+
+    const noLayoutBackground = { background: "", pictures: { rId20: "layout.png" } };
+    const fromMaster = await analyse(
+      await rewritten(await testDeck(slides, noLayoutBackground), {
+        bg: pictureBackground("rId90"),
+        media: "master.png",
+      }),
+    );
+    expect(fromMaster.map((g) => [g.key, g.source])).toEqual([["ppt/media/master.png", "master"]]);
   });
 });
