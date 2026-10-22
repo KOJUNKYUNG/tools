@@ -5,13 +5,17 @@
  *
  * Each element also carries its source range in the raw XML, so a caller can
  * cut it out exactly, and whether it holds text a viewer sees: a text run
- * (`a:t`, in a run or a field) with anything but whitespace, in the element
- * or anywhere inside it.
+ * with anything but whitespace, in the element or anywhere inside it. A text
+ * run is any element named `t` under any prefix: DrawingML's `a:t` (in a run
+ * or a field) whatever prefix a producer binds, and equation text (`m:t`).
+ * Reading too much as text only keeps an element that might have gone.
  */
 
 const ATTR = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 const TOKEN =
   /<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[([\s\S]*?)\]\]>|<!DOCTYPE[^>]*>|<(\/?)([^\s/>]+)((?:\s+[^\s=/>]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>/g;
+/** A text run's element name, under any prefix. */
+const TEXT_RUN = /^(?:[^:]+:)?t$/;
 /** A character reference, or any other entity reference (never whitespace). */
 const REFERENCE = /&#(\d+);|&#x([0-9a-f]+);|&[^;\s]*;/gi;
 
@@ -44,11 +48,10 @@ export function parseXml(xml: string): XmlElement | null {
   for (const m of xml.matchAll(TOKEN)) {
     const [token, cdata, closing, name, attrText, selfClosing] = m;
     // Character data between tokens, or a CDATA section, belongs to the open element.
-    const data = (cdata ?? "") + xml.slice(dataStart, m.index);
-    dataStart = m.index + token.length;
-    if (stack[stack.length - 1].name === "a:t" && showsText(data)) {
+    if (TEXT_RUN.test(stack[stack.length - 1].name) && showsText((cdata ?? "") + xml.slice(dataStart, m.index))) {
       for (const open of stack) open.hasText = true;
     }
+    dataStart = m.index + token.length;
     if (name === undefined) continue; // comment, declaration, CDATA
     const parent = stack[stack.length - 1];
     if (closing) {
