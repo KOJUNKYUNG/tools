@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
-import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
+import { cropFits, maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
   aspectLockedResize,
   type ResizeHandle,
@@ -43,11 +43,21 @@ const HANDLE_CURSORS: Record<ResizeHandle, string> = {
 
 interface CropSelectorProps {
   imageUrl: string;
+  /** Accessible name of the picture, in the page's language. */
+  alt: string;
   /** Accessible name of each resize handle. */
   handleLabels: Record<ResizeHandle, string>;
   targetWidth: number;
   targetHeight: number;
   onCropChange: (crop: CropRect) => void;
+  /**
+   * The frame to start from, e.g. one the user set before the selector was
+   * last shown; used while it fits the image and the target ratio, otherwise
+   * the centred, largest frame.
+   */
+  initialCrop?: CropRect | null;
+  /** Shows the frame without handles and ignores drags, e.g. while a run uses it. */
+  readOnly?: boolean;
 }
 
 interface DisplayBox {
@@ -88,10 +98,13 @@ function computeDisplayBox(
 
 export function CropSelector({
   imageUrl,
+  alt,
   targetWidth,
   targetHeight,
   onCropChange,
   handleLabels,
+  initialCrop = null,
+  readOnly = false,
 }: CropSelectorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -105,9 +118,17 @@ export function CropSelector({
     rect: { x: 0, y: 0, width: 0, height: 0 },
   });
 
+  // Read once per image load, not tracked: the selector owns the frame
+  // after that, and echoing each change back must not restart it.
+  const initialCropRef = useRef(initialCrop);
+
   const initCrop = useCallback(
     (natW: number, natH: number) => {
-      const rect = maxFitCrop({ w: natW, h: natH }, targetWidth, targetHeight);
+      const start = initialCropRef.current;
+      const rect =
+        start && cropFits(start, { w: natW, h: natH }, targetWidth / targetHeight)
+          ? start
+          : maxFitCrop({ w: natW, h: natH }, targetWidth, targetHeight);
       setCrop(rect);
       onCropChange(rect);
     },
@@ -237,7 +258,7 @@ export function CropSelector({
         <img
           ref={imgRef}
           src={imageUrl}
-          alt="원본 미리보기"
+          alt={alt}
           className="block h-auto max-h-80 w-full object-contain"
           onLoad={handleImgLoad}
           draggable={false}
@@ -277,24 +298,33 @@ export function CropSelector({
 
             {/* Crop handle */}
             <div
-              className="absolute cursor-move border-2 border-white/80 shadow-sm"
+              className={
+                readOnly
+                  ? "pointer-events-none absolute border-2 border-white/80 shadow-sm"
+                  : "absolute cursor-move border-2 border-white/80 shadow-sm"
+              }
+              // The frame moves under a finger instead of the page scrolling.
               style={{
                 top: displayCrop.y,
                 left: displayCrop.x,
                 width: displayCrop.w,
                 height: displayCrop.h,
+                touchAction: "none",
               }}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
+              onPointerDown={readOnly ? undefined : handlePointerDown}
+              onPointerMove={readOnly ? undefined : handlePointerMove}
+              onPointerUp={readOnly ? undefined : handlePointerUp}
+              onPointerCancel={readOnly ? undefined : handlePointerUp}
             >
               {/* 8 resize handles */}
-              {(["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const).map((h) => (
+              {!readOnly && (["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const).map((h) => (
                 <div
                   key={h}
                   role="button"
                   aria-label={handleLabels[h]}
-                  className="absolute size-3 rounded-sm border-2 border-white bg-white/90 shadow"
+                  // A finger needs more than the 12 px handle: on a touch
+                  // screen an invisible 36 px area around it catches the drag.
+                  className="absolute size-3 rounded-sm border-2 border-white bg-white/90 shadow pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-['']"
                   style={{
                     ...HANDLE_POSITIONS[h],
                     cursor: HANDLE_CURSORS[h],
@@ -303,6 +333,7 @@ export function CropSelector({
                   onPointerDown={(e) => handleResizePointerDown(e, h)}
                   onPointerMove={handleResizePointerMove}
                   onPointerUp={handleResizePointerUp}
+                  onPointerCancel={handleResizePointerUp}
                 />
               ))}
             </div>

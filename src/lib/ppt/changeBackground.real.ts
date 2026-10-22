@@ -1,28 +1,43 @@
 // Real-file regression set entry for ppt-background (`pnpm test:real`).
 import { resolveObjectURL } from "node:buffer";
 import { afterAll, beforeAll, vi } from "vitest";
+import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
+import type { SlideSize } from "@/lib/image/slideImage";
+import { headerOnlyImage, standInPrepare } from "@/lib/image/slideImageStandIn";
+import { testPng } from "@/lib/image/testPng";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import {
   realFileSuite,
   type RealFileRequest,
 } from "@/lib/output-check/realFileSuite";
 import { changeBackground } from "./changeBackground";
+import { slideSizeFromXml } from "./getSlideAspect";
 import {
   checkPptBackground,
   type PptBackgroundRequest,
 } from "./changeBackgroundCheck";
 
-// A 2×2 PNG stands in for the user's background image.
-const BG_PNG = Uint8Array.from(
-  Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR4nGP8z8DwnwEJMJIoAACkrwMBhE8mKwAAAABJRU5ErkJggg==",
-    "base64",
-  ),
+// A phone photo's header (4032 × 3024) stands in for the user's background
+// picture; the stand-in preparer sizes it without decoding pixels.
+const PHOTO_SIZE = { w: 4032, h: 3024 };
+const PHOTO = headerOnlyImage(
+  "png",
+  { width: PHOTO_SIZE.w, height: PHOTO_SIZE.h },
+  new TextEncoder().encode("real-file photo"),
 );
+
+// A picture whose alpha is used (a cut-out logo): real pixels, so the
+// preparer keeps it PNG and the check scans them.
+const CUTOUT = testPng({
+  width: 400,
+  height: 300,
+  colorType: 6,
+  pixel: (x, y) => [x & 0xff, y & 0xff, 120, (x - 200) ** 2 + (y - 150) ** 2 < 100 ** 2 ? 255 : 0],
+});
 
 // The engine measures the background with the browser's Image element; Node
 // has none. This stand-in reads the size from the PNG header behind the
-// object URL, so the engine computes the same cover offsets as in a browser.
+// object URL, as a browser would report it.
 beforeAll(() => {
   vi.stubGlobal(
     "Image",
@@ -48,21 +63,43 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
+/** The deck's `<p:sldSz>` in EMU, PowerPoint's 16:9 default when absent. */
+async function slideSize(input: Uint8Array): Promise<SlideSize> {
+  const bytes = await (await openPptxPackage(input))?.read("ppt/presentation.xml");
+  return (bytes && slideSizeFromXml(new TextDecoder().decode(bytes))) || { w: 12192000, h: 6858000 };
+}
+
 async function requests(
   input: Uint8Array,
 ): Promise<RealFileRequest<PptBackgroundRequest>[]> {
   const slideCount = (await openPptxPackage(input))?.slideParts.length ?? 1;
   const firstAndLast = [...new Set([1, slideCount])];
+  const slide = await slideSize(input);
+  const centred = maxFitCrop(PHOTO_SIZE, slide.w, slide.h);
+  // The top-left quarter's largest crop: smaller than a 4K screen, so kept as is.
+  const corner = { ...maxFitCrop({ w: PHOTO_SIZE.w / 2, h: PHOTO_SIZE.h / 2 }, slide.w, slide.h), x: 0, y: 0 };
+  const prepared = async (crop: CropRect, source = PHOTO) => ({
+    source,
+    crop,
+    background: (await standInPrepare(new Blob([new Uint8Array(source)]), crop, slide)).bytes,
+  });
   return [
     {
-      label: "all-slides (default)",
-      request: { bgImage: BG_PNG, mode: "all-slides" },
+      label: "all-slides, centred crop (default)",
+      request: { ...(await prepared(centred)), mode: "all-slides" },
     },
-    { label: "master", request: { bgImage: BG_PNG, mode: "master" } },
+    { label: "master, centred crop", request: { ...(await prepared(centred)), mode: "master" } },
     {
-      label: `specific-slides ${firstAndLast.join(",")}`,
+      label: "all-slides, transparent PNG kept PNG",
       request: {
-        bgImage: BG_PNG,
+        ...(await prepared(maxFitCrop({ w: 400, h: 300 }, slide.w, slide.h), CUTOUT)),
+        mode: "all-slides",
+      },
+    },
+    {
+      label: `specific-slides ${firstAndLast.join(",")}, corner crop`,
+      request: {
+        ...(await prepared(corner)),
         mode: "specific-slides",
         targetSlides: firstAndLast,
       },
@@ -77,9 +114,11 @@ realFileSuite({
   run: (input, request, fileName) =>
     changeBackground({
       pptxFile: new File([new Uint8Array(input)], fileName),
-      bgImage: new File([new Uint8Array(request.bgImage)], "bg.png"),
+      bgImage: new File([new Uint8Array(request.source)], "photo.png"),
       mode: request.mode,
       targetSlides: request.targetSlides,
+      crop: request.crop,
+      prepare: standInPrepare,
     }),
   check: checkPptBackground,
 });

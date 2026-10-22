@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { maxFitCrop } from "./maxFitCrop";
+import { cropFits, maxFitCrop } from "./maxFitCrop";
 
 describe("maxFitCrop", () => {
   it("returns a centred crop when target ratio matches the image ratio", () => {
@@ -83,5 +83,34 @@ describe("maxFitCrop", () => {
       width: 0,
       height: 0,
     });
+  });
+});
+
+describe("cropFits", () => {
+  const image = { w: 4032, h: 3024 };
+  const wide = 16 / 9;
+
+  it("accepts a crop inside the image on the ratio, to within 1 px", () => {
+    expect(cropFits({ x: 0, y: 378, width: 4032, height: 2268 }, image, wide)).toBe(true);
+    expect(cropFits({ x: 10, y: 10, width: 1601, height: 900 }, image, wide)).toBe(true);
+  });
+
+  it("rejects a crop off the ratio, outside the image, or empty", () => {
+    expect(cropFits({ x: 0, y: 0, width: 1603, height: 900 }, image, wide)).toBe(false);
+    expect(cropFits({ x: 0, y: 0, width: 2880, height: 2160 }, image, wide)).toBe(false);
+    expect(cropFits({ x: 100, y: 1000, width: 4032, height: 2268 }, image, wide)).toBe(false);
+    expect(cropFits({ x: -1, y: 0, width: 1600, height: 900 }, image, wide)).toBe(false);
+    expect(cropFits({ x: 0, y: 0, width: 0, height: 0 }, image, wide)).toBe(false);
+  });
+});
+
+describe("maxFitCrop holds odd slide ratios to 1 px", () => {
+  it("stays within 1 px of the ratio on both sides, even past 2:1", () => {
+    for (const ratio of [16 / 9, 4 / 3, 32 / 9, 3, 1 / 3, 9 / 32, 0.7071]) {
+      for (const [w, h] of [[4032, 3024], [3024, 4032], [5001, 2813], [1999, 1001], [801, 3001]]) {
+        const crop = maxFitCrop({ w, h }, ratio, 1);
+        expect(cropFits(crop, { w, h }, ratio)).toBe(true);
+      }
+    }
   });
 });

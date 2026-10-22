@@ -1,7 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { CropSelector } from "@/components/image/CropSelector";
 import { InlineGallery } from "@/components/ppt/InlineGallery";
+import type { Dictionary } from "@/i18n/config";
+import type { CropRect } from "@/lib/image/maxFitCrop";
 import {
   GALLERY_CATEGORIES,
   type GalleryCategory,
@@ -10,12 +13,32 @@ import {
 
 type CategoryFilter = "all" | GalleryCategory;
 
+/** The frame over the picked picture, shown in place of the gallery. */
+export interface BackgroundFrame {
+  imageUrl: string;
+  /** The slide's width / height: the frame's locked aspect. */
+  ratio: number;
+  /** The frame set before, kept when the user comes back to this picture. */
+  crop: CropRect | null;
+  onCropChange: (crop: CropRect) => void;
+  onBack: () => void;
+  /** A run is using the frame: it is shown as is and nothing here responds. */
+  locked: boolean;
+}
+
 interface BackgroundPickerProps {
   galleryImage: GalleryImage | null;
   onGallerySelect: (img: GalleryImage) => void;
   onDirectUpload: (files: File[]) => void;
+  /** A picked file is still being prepared (HEIC conversion). */
+  uploadBusy?: boolean;
+  /** When set, the frame replaces the category tabs and the gallery. */
+  frame?: BackgroundFrame | null;
   labels: {
     uploadLabel: string;
+    backToGallery: string;
+    pictureAlt: string;
+    handles: Dictionary["common"]["resizeHandles"];
     gallery: {
       heading: string;
       countSuffixTemplate: string;
@@ -30,6 +53,8 @@ export function BackgroundPicker({
   galleryImage,
   onGallerySelect,
   onDirectUpload,
+  uploadBusy = false,
+  frame = null,
   labels,
 }: BackgroundPickerProps) {
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
@@ -42,24 +67,40 @@ export function BackgroundPicker({
         className="flex shrink-0 items-center justify-between gap-2 border-b"
         style={{ borderColor: "var(--hairline)" }}
       >
-        <div className="flex min-w-0 gap-0.5">
-          <CategoryTab
-            active={activeCategory === "all"}
-            onClick={() => setActiveCategory("all")}
-            label={labels.gallery.categoryAll}
-          />
-          {GALLERY_CATEGORIES.map((cat) => (
+        {frame ? (
+          <button
+            type="button"
+            onClick={frame.onBack}
+            disabled={frame.locked}
+            className="subtle-action mb-1 flex shrink-0 items-center gap-1 rounded-[5px] px-2 py-1.5 font-body text-[11px]"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 5 L8 12 L15 19" />
+            </svg>
+            {labels.backToGallery}
+          </button>
+        ) : (
+          <div className="flex min-w-0 gap-0.5">
             <CategoryTab
-              key={cat}
-              active={activeCategory === cat}
-              onClick={() => setActiveCategory(cat)}
-              label={labels.gallery.categoryByKey[cat]}
+              active={activeCategory === "all"}
+              onClick={() => setActiveCategory("all")}
+              label={labels.gallery.categoryAll}
             />
-          ))}
-        </div>
+            {GALLERY_CATEGORIES.map((cat) => (
+              <CategoryTab
+                key={cat}
+                active={activeCategory === cat}
+                onClick={() => setActiveCategory(cat)}
+                label={labels.gallery.categoryByKey[cat]}
+              />
+            ))}
+          </div>
+        )}
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
+          disabled={uploadBusy || !!frame?.locked}
+          aria-busy={uploadBusy}
           className="subtle-action mb-1 shrink-0 rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
         >
           {labels.uploadLabel}
@@ -67,7 +108,7 @@ export function BackgroundPicker({
         <input
           ref={inputRef}
           type="file"
-          accept="image/png,image/jpeg"
+          accept="image/png,image/jpeg,image/heic,image/heif,.heic,.heif"
           className="hidden"
           onChange={(e) => {
             const files = e.target.files ? Array.from(e.target.files) : [];
@@ -77,15 +118,31 @@ export function BackgroundPicker({
         />
       </div>
 
-      {/* Gallery grid — fills remaining panel height */}
+      {/* Frame over the picked picture, or the gallery grid — either fills
+          the remaining panel height, so switching never resizes the tool. */}
       <div className="min-h-0 flex-1">
-        <InlineGallery
-          onSelect={onGallerySelect}
-          selectedImageId={galleryImage?.id}
-          forceOpen
-          category={activeCategory}
-          labels={labels.gallery}
-        />
+        {frame ? (
+          // Keyed by picture: a new picture starts from the centred frame.
+          <CropSelector
+            key={frame.imageUrl}
+            imageUrl={frame.imageUrl}
+            alt={labels.pictureAlt}
+            targetWidth={frame.ratio}
+            targetHeight={1}
+            initialCrop={frame.crop}
+            onCropChange={frame.onCropChange}
+            handleLabels={labels.handles}
+            readOnly={frame.locked}
+          />
+        ) : (
+          <InlineGallery
+            onSelect={onGallerySelect}
+            selectedImageId={galleryImage?.id}
+            forceOpen
+            category={activeCategory}
+            labels={labels.gallery}
+          />
+        )}
       </div>
     </div>
   );

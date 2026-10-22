@@ -56,5 +56,6 @@ export function getPptBackgroundLabels(
     processing: p.processing,
     preview: p.preview,
     fileUpload: dict.common.fileUpload,
+    resizeHandles: dict.common.resizeHandles,
   };
 }

@@ -22,14 +22,26 @@ export function aspectFromSldSz(cx: number, cy: number): SlideAspect {
   return { kind: "other", ratio };
 }
 
+/**
+ * The slide size `<p:sldSz>` declares in presentation.xml, its attributes in
+ * any order; null when it is missing or not positive.
+ */
+export function slideSizeFromXml(xml: string): { w: number; h: number } | null {
+  const tag = xml.match(/<p:sldSz\b[^>]*>/)?.[0];
+  if (!tag) return null;
+  const attr = (name: string) => Number(tag.match(new RegExp(`\\b${name}="(\\d+)"`))?.[1]);
+  const [w, h] = [attr("cx"), attr("cy")];
+  return w > 0 && h > 0 ? { w, h } : null;
+}
+
 /** Read ppt/presentation.xml <p:sldSz cx cy/> and classify. Never throws. */
 export async function getSlideAspect(file: File): Promise<SlideAspect> {
   try {
     const zip = await JSZip.loadAsync(await file.arrayBuffer());
     const xml = await zip.file("ppt/presentation.xml")?.async("text");
-    const m = xml?.match(/<p:sldSz[^>]*\bcx="(\d+)"[^>]*\bcy="(\d+)"/);
-    if (!m) return { kind: "16:9", ratio: R_16_9 };
-    return aspectFromSldSz(parseInt(m[1], 10), parseInt(m[2], 10));
+    const size = xml ? slideSizeFromXml(xml) : null;
+    if (!size) return { kind: "16:9", ratio: R_16_9 };
+    return aspectFromSldSz(size.w, size.h);
   } catch {
     return { kind: "16:9", ratio: R_16_9 };
   }

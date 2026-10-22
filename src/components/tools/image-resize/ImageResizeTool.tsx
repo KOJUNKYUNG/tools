@@ -456,6 +456,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
               cropRect={cropRect}
               cropSelectionLabel={labels.cropSelectionLabel}
               stretchModeLabel={labels.stretchModeLabel}
+              previewAlt={labels.previewAlt}
               cropFooterTemplate={labels.cropFooterTemplate}
               handleLabels={labels.resizeHandles}
             />

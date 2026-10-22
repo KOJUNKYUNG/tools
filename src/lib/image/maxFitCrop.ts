@@ -33,20 +33,27 @@ export function maxFitCrop(
   const ratioTarget = targetW / targetH;
   const ratioImage = img.w / img.h;
 
+  // The exact largest size: target wider than image → width-limited.
+  const exactW = ratioTarget >= ratioImage ? img.w : img.h * ratioTarget;
+  const exactH = ratioTarget >= ratioImage ? img.w / ratioTarget : img.h;
+
+  // Whole pixels: round the shorter side and derive the longer from it, so
+  // both stay within 1 px of the ratio however wide the target (rounding
+  // each apart misses by half the ratio, past 1 px beyond 2:1); step down
+  // while the derived side overshoots the image.
   let cropW: number;
   let cropH: number;
-  if (ratioTarget >= ratioImage) {
-    // target wider than image → width-limited
-    cropW = img.w;
-    cropH = Math.round((img.w * targetH) / targetW);
+  if (ratioTarget >= 1) {
+    cropH = Math.max(1, Math.min(Math.round(exactH), img.h));
+    cropW = Math.round(cropH * ratioTarget);
+    while (cropW > img.w && cropH > 1) cropW = Math.round(--cropH * ratioTarget);
+    cropW = Math.min(Math.max(1, cropW), img.w);
   } else {
-    cropH = img.h;
-    cropW = Math.round((img.h * targetW) / targetH);
+    cropW = Math.max(1, Math.min(Math.round(exactW), img.w));
+    cropH = Math.round(cropW / ratioTarget);
+    while (cropH > img.h && cropW > 1) cropH = Math.round(--cropW / ratioTarget);
+    cropH = Math.min(Math.max(1, cropH), img.h);
   }
-
-  // Clamp in case rounding pushed us one px past the bound
-  cropW = Math.min(cropW, img.w);
-  cropH = Math.min(cropH, img.h);
 
   return {
     x: Math.round((img.w - cropW) / 2),
@@ -54,4 +61,22 @@ export function maxFitCrop(
     width: cropW,
     height: cropH,
   };
+}
+
+/**
+ * Whether `crop` lies inside an image of `img` and holds the ratio (w / h)
+ * to within 1 px on both sides, the tolerance a slide background's aspect is
+ * checked to. A frame the user set earlier is reused only when it fits.
+ */
+export function cropFits(crop: CropRect, img: ImageDims, ratio: number): boolean {
+  return (
+    crop.width > 0 &&
+    crop.height > 0 &&
+    crop.x >= 0 &&
+    crop.y >= 0 &&
+    crop.x + crop.width <= img.w &&
+    crop.y + crop.height <= img.h &&
+    Math.abs(crop.width - crop.height * ratio) <= 1 &&
+    Math.abs(crop.height - crop.width / ratio) <= 1
+  );
 }

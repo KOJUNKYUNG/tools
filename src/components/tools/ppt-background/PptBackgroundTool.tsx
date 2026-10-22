@@ -18,6 +18,10 @@ import { groupBackgrounds, type BackgroundGroup } from "@/lib/ppt/groupBackgroun
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
+import { getErrorMessage } from "@/lib/errors";
+import { normalizeImageFile } from "@/lib/image/heic";
+import type { CropRect } from "@/lib/image/maxFitCrop";
+import { belowFullHd } from "@/lib/image/slideImage";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
@@ -34,42 +38,48 @@ const PPTX_ACCEPT = {
 };
 
 /**
- * Load a gallery image (any URL the browser can decode — picsum JPEG, SVG data
- * URL, etc.) and convert it to a PNG File via Canvas. This gives the
- * downstream PPTX writer a single, predictable input (raster PNG bytes with a
- * correct MIME label) and avoids embedding SVG into PPTX backgrounds, which
- * PowerPoint handles inconsistently.
+ * Draw an SVG gallery image (the gradients) once at its own size into a
+ * lossless PNG: PowerPoint handles SVG backgrounds inconsistently, and the
+ * preparer needs pixels. The preparer then picks its format like any upload.
  */
-async function galleryImageToPngFile(url: string, id: string): Promise<File> {
+async function rasterizeSvg(image: GalleryImage): Promise<File> {
   return new Promise<File>((resolve, reject) => {
     const img = new globalThis.Image();
-    img.crossOrigin = "anonymous";
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      const w = img.naturalWidth || 1920;
-      const h = img.naturalHeight || 1080;
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = img.naturalWidth || image.width;
+      canvas.height = img.naturalHeight || image.height;
       const ctx = canvas.getContext("2d");
       if (!ctx) {
         reject(new Error("Canvas 2D context unavailable"));
         return;
       }
-      ctx.drawImage(img, 0, 0, w, h);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error("Canvas toBlob returned null"));
-            return;
-          }
-          resolve(new File([blob], `gallery-${id}.png`, { type: "image/png" }));
-        },
-        "image/png",
-      );
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("Canvas toBlob returned null"));
+          return;
+        }
+        resolve(new File([blob], `gallery-${image.id}.png`, { type: "image/png" }));
+      }, "image/png");
     };
     img.onerror = () => reject(new Error("Failed to load gallery image"));
-    img.src = url;
+    img.src = image.url;
   });
+}
+
+/**
+ * A gallery image as the file the preparer starts from. A raster image
+ * (picsum's photos) is fetched in its own format, so a photo stays a small
+ * JPEG instead of being turned into a large PNG first; only an SVG is drawn.
+ */
+async function galleryImageFile(image: GalleryImage): Promise<File> {
+  if (image.url.startsWith("data:image/svg+xml")) return rasterizeSvg(image);
+  const response = await fetch(image.url);
+  if (!response.ok) throw new Error(`Failed to load gallery image (${response.status})`);
+  const blob = await response.blob();
+  const ext = blob.type === "image/png" ? "png" : "jpg";
+  return new File([blob], `gallery-${image.id}.${ext}`, { type: blob.type });
 }
 
 export interface PptBackgroundToolLabels {
@@ -107,6 +117,8 @@ export interface PptBackgroundToolLabels {
     sourceUpload: string;
     sourceGallery: string;
     tooLarge: string;
+    backToGallery: string;
+    blurNotice: string;
   };
   gallery: {
     heading: string;
@@ -141,6 +153,7 @@ export interface PptBackgroundToolLabels {
     close: string;
   };
   fileUpload: Dictionary["common"]["fileUpload"];
+  resizeHandles: Dictionary["common"]["resizeHandles"];
 }
 
 interface PptBackgroundToolProps {
@@ -164,6 +177,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [galleryImage, setGalleryImage] = useState<GalleryImage | null>(null);
   const [currentBgs, setCurrentBgs] = useState<SlideBackground[]>([]);
   const [bgPreviewUrl, setBgPreviewUrl] = useState<string | null>(null);
+  /** A picked HEIC is being converted; the upload button waits. */
+  const [normalizing, setNormalizing] = useState(false);
+  /** The Background crop the frame holds, in the picture's upright pixels. */
+  const [crop, setCrop] = useState<CropRect | null>(null);
+  /** The left pane shows the frame over the picked picture instead of the gallery. */
+  const [framing, setFraming] = useState(false);
 
   // Redesigned workspace state.
   const [slideAspect, setSlideAspect] = useState<SlideAspect>({
@@ -191,6 +210,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // dep array) revokes the LATEST uploaded blob URL, not the mount-time null.
   const bgPreviewUrlRef = useRef(bgPreviewUrl);
   bgPreviewUrlRef.current = bgPreviewUrl;
+  // Each background pick takes a number; a slow pick (a gallery download, a
+  // HEIC conversion) that finishes after a newer pick or a reset is dropped.
+  const pickRef = useRef(0);
 
   const {
     files: pptxFiles,
@@ -211,6 +233,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
           mode === "specific-slides"
             ? [...selectedSlides].sort((a, b) => a - b)
             : undefined,
+        crop: crop ?? undefined,
         onProgress,
       }),
     onDownload: (bytes) => {
@@ -225,6 +248,25 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   });
 
   const pptxFile = pptxFiles[0] ?? null;
+
+  /** Show `url` as the selected background, releasing the previous blob URL. */
+  const showPreview = useCallback((url: string | null) => {
+    const prev = bgPreviewUrlRef.current;
+    if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+    bgPreviewUrlRef.current = url;
+    setBgPreviewUrl(url);
+  }, []);
+
+  /** Drop the background pick, including one still downloading or converting. */
+  const clearPick = useCallback(() => {
+    pickRef.current++;
+    setNormalizing(false);
+    setBgFiles([]);
+    setGalleryImage(null);
+    showPreview(null);
+    setCrop(null);
+    setFraming(false);
+  }, [showPreview]);
 
   // .ppt vs .pptx routing — .ppt never enters useToolProcessor state.
   const setPptxFiles = useCallback(
@@ -242,18 +284,14 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setShowConversionGuide(false);
       setGuideOpen(false);
       retry();
-      setBgFiles([]);
-      setGalleryImage(null);
-      const prevPreview = bgPreviewUrlRef.current;
-      if (prevPreview && prevPreview.startsWith("blob:")) URL.revokeObjectURL(prevPreview);
-      setBgPreviewUrl(null);
+      clearPick();
       setMode("all-slides");
       setCheckedKeys(new Set());
       setSelectedSlides(new Set());
       setZoom(null);
       setPptxFilesRaw(files);
     },
-    [setPptxFilesRaw, retry],
+    [setPptxFilesRaw, retry, clearPick],
   );
 
   const openPptxFileDialog = useCallback(() => {
@@ -315,13 +353,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     };
   }, [pptxFile]);
 
-  // When the user picks a new background after a completed run, drop the
-  // Done box and let them Apply again with the new background.
-  useEffect(() => {
-    if (status === "done") retry();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bgFiles, galleryImage?.id]);
-
   // Cleanup all object URLs on unmount.
   useEffect(() => {
     return () => {
@@ -333,27 +364,45 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
   const handleGallerySelect = useCallback(
     async (image: GalleryImage) => {
+      // The picture already picked: back to its frame, framing kept.
+      if (image.id === galleryImage?.id && bgFile) {
+        setFraming(true);
+        return;
+      }
+      const pick = ++pickRef.current;
+      // A HEIC still converting is dropped, so its busy state goes too.
+      setNormalizing(false);
       setGalleryImage(image);
-      if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
-      setBgPreviewUrl(image.thumbnailUrl);
+      // Until the picture arrives nothing can be framed or applied: the old
+      // picture and its frame must not meet the new thumbnail.
+      setBgFiles([]);
+      setCrop(null);
+      setFraming(false);
+      showPreview(image.thumbnailUrl);
       try {
-        const file = await galleryImageToPngFile(image.url, image.id);
+        const file = await galleryImageFile(image);
+        if (pick !== pickRef.current) return;
         setBgFiles([file]);
+        // The frame and the preview work on the full picture, not the thumbnail.
+        showPreview(URL.createObjectURL(file));
+        setFraming(true);
       } catch {
+        if (pick !== pickRef.current) return;
         setGalleryImage(null);
-        if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
-        setBgPreviewUrl(null);
+        showPreview(null);
       }
     },
-    [bgPreviewUrl],
+    [showPreview, galleryImage?.id, bgFile],
   );
 
   const handleDirectUpload = useCallback(
-    (files: File[]) => {
+    async (files: File[]) => {
+      const picked = files[0];
+      if (!picked) return;
       // The background is embedded into the deck, so it bypasses the .pptx
-      // UPLOAD_LIMIT and gets its own (tighter) ceiling.
-      const oversize = files.find((f) => f.size > EMBEDDED_ASSET_LIMIT);
-      if (oversize) {
+      // UPLOAD_LIMIT and gets its own (tighter) ceiling, checked on the file
+      // as picked (before HEIC conversion).
+      if (picked.size > EMBEDDED_ASSET_LIMIT) {
         toast.error(
           template(labels.background.tooLarge, {
             size: formatBytes(EMBEDDED_ASSET_LIMIT),
@@ -361,12 +410,33 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         );
         return;
       }
-      setBgFiles(files);
+      const pick = ++pickRef.current;
+      let file: File;
+      setNormalizing(true);
+      try {
+        // HEIC/HEIF (iPhone photos) → JPEG; PNG and JPEG pass through.
+        file = await normalizeImageFile(picked);
+      } catch (err) {
+        if (pick === pickRef.current) {
+          toast.error(
+            getErrorMessage(err, {
+              copy: labels.errors,
+              fallbackMessage: labels.errors.heicConvertFailed,
+            }).message,
+          );
+        }
+        return;
+      } finally {
+        if (pick === pickRef.current) setNormalizing(false);
+      }
+      if (pick !== pickRef.current) return;
+      setBgFiles([file]);
       setGalleryImage(null);
-      if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
-      setBgPreviewUrl(files[0] ? URL.createObjectURL(files[0]) : null);
+      setCrop(null);
+      showPreview(URL.createObjectURL(file));
+      setFraming(true);
     },
-    [bgPreviewUrl, labels.background.tooLarge],
+    [labels.background.tooLarge, labels.errors, showPreview],
   );
 
   const totalSlides = currentBgs.length;
@@ -374,6 +444,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     !!pptxFile &&
     !!bgFile &&
     (mode !== "specific-slides" || selectedSlides.size > 0) &&
+    // A HEIC still converting would replace the picture under the run.
+    !normalizing &&
     status === "idle";
 
   // ───────── Bidirectional check ↔ range binding ─────────
@@ -411,14 +483,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     }
   }, []);
 
+  // Back to the settings with everything kept, the picture and its frame
+  // included: the user may only want to frame it again.
   const handleTryAnother = useCallback(() => {
     retry();
-    setBgFiles([]);
-    setGalleryImage(null);
-    if (bgPreviewUrl && bgPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(bgPreviewUrl);
-    setBgPreviewUrl(null);
-    // Keep pptxFile, currentBgs, groups, groupThumbUrls, mode, selectedSlides.
-  }, [retry, bgPreviewUrl]);
+    setFraming(true);
+  }, [retry]);
 
   // Zoom source URL: selected-bg preview or the current group's thumb.
   const currentGroup = groups[curIndex];
@@ -530,7 +600,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         // Loaded workspace — the tray height lives HERE (not the outer card),
         // so the card is `header + 50vh` and the gallery scrolls inside its
         // pane. Switching category tabs must never resize the tool (UI
-        // stability contract). Canon = pdf-watermark.
+        // stability contract). Canon = pdf-watermark. The panes stay side by
+        // side at every width: stacked, they outgrow the tray, and the landing
+        // workspace does not scroll.
         <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
 
           {/* Two-pane workspace. */}
@@ -538,14 +610,32 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             className="grid min-h-0 flex-1"
             style={{ gridTemplateColumns: "minmax(0, 1fr) 1px minmax(0, 1fr)" }}
           >
-            {/* LEFT panel — gallery only */}
+            {/* LEFT panel — gallery, or the frame over the picked picture */}
             <div className="flex h-full min-h-0 flex-col px-6 py-3">
               <BackgroundPicker
                 galleryImage={galleryImage}
                 onGallerySelect={handleGallerySelect}
                 onDirectUpload={handleDirectUpload}
+                uploadBusy={normalizing}
+                // While a run uses the picture (running, done or failed) its
+                // frame is shown locked; `다시 하기` goes back to edit it.
+                frame={
+                  (framing || status !== "idle") && bgPreviewUrl
+                    ? {
+                        imageUrl: bgPreviewUrl,
+                        ratio: slideAspect.ratio,
+                        crop,
+                        onCropChange: setCrop,
+                        onBack: () => setFraming(false),
+                        locked: status !== "idle",
+                      }
+                    : null
+                }
                 labels={{
                   uploadLabel: labels.background.uploadLabel,
+                  backToGallery: labels.background.backToGallery,
+                  pictureAlt: labels.preview.selectedCaption,
+                  handles: labels.resizeHandles,
                   gallery: labels.gallery,
                 }}
               />
@@ -566,6 +656,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       emptyLabel={labels.preview.selectedEmpty}
                       zoomLabel={labels.preview.zoom}
                       onZoom={() => setZoom("selected")}
+                      crop={crop}
+                      onSelect={bgFile && !framing ? () => setFraming(true) : undefined}
                     />
                     <CurrentBackgroundFrame
                       caption={template(labels.preview.currentCaptionTemplate, {
@@ -584,6 +676,18 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       onZoom={() => setZoom("current")}
                     />
                   </div>
+
+                  {/* Blur notice: its two lines are always reserved, so it
+                      appears and goes without moving anything. */}
+                  <p
+                    className="mt-2 line-clamp-2 min-h-[2.7em] font-body text-[10.5px] leading-[1.35]"
+                    style={{
+                      color: "var(--ink-soft)",
+                      visibility: crop && belowFullHd(crop, { w: slideAspect.ratio, h: 1 }) ? "visible" : "hidden",
+                    }}
+                  >
+                    {labels.background.blurNotice}
+                  </p>
 
                   {/* Apply-scope block, pinned to bottom */}
                   <div className="mt-auto pt-2">
@@ -656,6 +760,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       : template(labels.preview.currentCaptionTemplate, { n: groups.length })
                   }
                   aspect={aspectCss}
+                  crop={zoom === "selected" ? crop : null}
                   closeLabel={labels.preview.close}
                   onClose={() => setZoom(null)}
                 />
