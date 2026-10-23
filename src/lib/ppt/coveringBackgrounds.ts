@@ -125,15 +125,35 @@ export function findCoveringBackgrounds(slideXml: string, slide: SlideSize): Cov
 }
 
 /**
- * The slide without its covering backgrounds or the animations that name
- * them. Their relationships stay: the caller drops those its part no longer
- * names.
+ * The key of the covering-background group a slide's covering backgrounds
+ * belong to: the set of picture parts they use, whatever relationship ids
+ * name them. The preview groups slides by it and the user keeps a group by
+ * it, so the engine and the output check derive it the same way.
+ * `partOf` resolves a relationship id of the slide to its part name.
  */
-export function deleteCoveringBackgrounds(slideXml: string, slide: SlideSize): string {
+export function coveringGroupKey(
+  covering: readonly CoveringBackground[],
+  partOf: (relId: string) => string | null | undefined,
+): string {
+  // OPC part names compare case-insensitively.
+  const parts = covering.flatMap((c) => c.pictures.flatMap((id) => partOf(id)?.toLowerCase() ?? []));
+  return `covering:${[...new Set(parts)].sort().join("|")}`;
+}
+
+/**
+ * The slide without its covering backgrounds or the animations that name
+ * them, unless `keep` keeps them (they then stay untouched). Their
+ * relationships stay: the caller drops those its part no longer names.
+ */
+export function deleteCoveringBackgrounds(
+  slideXml: string,
+  slide: SlideSize,
+  keep: (covering: CoveringBackground[]) => boolean,
+): string {
   const root = parseXml(slideXml);
   const elements = topLevelElements(root);
   const covering = elements ? coveringIn(elements, slide) : [];
-  if (!root || covering.length === 0) return slideXml;
+  if (!root || covering.length === 0 || keep(covering)) return slideXml;
   const ids = new Set(covering.flatMap((c) => c.shapeIds));
   return cutSpans(slideXml, [...covering, ...animationCuts(root, ids)]);
 }

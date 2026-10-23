@@ -2,6 +2,8 @@ import JSZip from "jszip";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { headerOnlyImage, standInPrepare } from "@/lib/image/slideImageStandIn";
 import { changeBackground, type BgMode } from "./changeBackground";
+import { extractCurrentBackgrounds } from "./extractCurrentBackgrounds";
+import { groupBackgrounds } from "./groupBackgrounds";
 import {
   FULL,
   SLIDE,
@@ -39,12 +41,18 @@ async function run(slides: TestSlide[], mode: BgMode = "all-slides", targetSlide
   return runOn(await testDeck(slides), mode, targetSlides);
 }
 
-async function runOn(deck: Uint8Array, mode: BgMode = "all-slides", targetSlides?: number[]): Promise<JSZip> {
+async function runOn(
+  deck: Uint8Array,
+  mode: BgMode = "all-slides",
+  targetSlides?: number[],
+  keptCovering?: string[],
+): Promise<JSZip> {
   const output = await changeBackground({
     pptxFile: new File([new Uint8Array(deck)], "deck.pptx"),
     bgImage: new File([new Uint8Array(PHOTO)], "photo.jpg"),
     mode,
     targetSlides,
+    keptCovering,
     prepare: standInPrepare,
   });
   return JSZip.loadAsync(output);
@@ -205,6 +213,58 @@ describe("changeBackground deletes covering backgrounds on the target slides", (
     expect(await topLevelIds(zip, 1)).toEqual(["9"]);
     expect(await slideXml(zip, 2)).toBe(await slideXml(input, 2));
     expect(mediaParts(zip)).toContain("ppt/media/b.png");
+  });
+
+  it("keeps the covering backgrounds of a group the user switched off, with their parts and animations", async () => {
+    const deck = await testDeck([
+      { ...lyricsOver(picture(2, "rId10"), { rId10: "keep.png" }), timing: clickAnimations([2, 9]) },
+      // The same group under another relationship id.
+      lyricsOver(pictureShape(2, "rId30"), { rId30: "keep.png" }),
+      lyricsOver(picture(2, "rId10"), { rId10: "old.png" }),
+    ]);
+    const input = await JSZip.loadAsync(deck);
+    const zip = await runOn(deck, "all-slides", undefined, ["covering:ppt/media/keep.png"]);
+
+    const between = (xml: string, from: string, to: string) => xml.slice(xml.indexOf(from), xml.indexOf(to) + to.length);
+    for (const n of [1, 2]) {
+      const [before, after] = [await slideXml(input, n), await slideXml(zip, n)];
+      expect(between(after, "<p:spTree>", "</p:spTree>")).toBe(between(before, "<p:spTree>", "</p:spTree>"));
+      // The new background goes under them.
+      expect(after).toMatch(/<p:bg><p:bgPr><a:blipFill/);
+    }
+    const first = await slideXml(zip, 1);
+    expect(between(first, "<p:timing>", "</p:timing>")).toBe(
+      between(await slideXml(input, 1), "<p:timing>", "</p:timing>"),
+    );
+    expect(await zip.file("ppt/slides/_rels/slide1.xml.rels")!.async("text")).toContain('Id="rId10"');
+    expect(await topLevelIds(zip, 3)).toEqual(["9"]);
+    expect(mediaParts(zip)).toEqual(["ppt/media/background_custom.jpeg", "ppt/media/keep.png"]);
+  });
+
+  it("keeps the group whose preview key the user switched off, however its relationships are written", async () => {
+    const blobs = group(2, { x: -600000, y: -300000, w: 11000000, h: 6500000 }, [
+      pictureShape(3, "rId10", { x: 0, y: 0, w: 5000000, h: 5000000 }),
+      pictureShape(4, "rId11", { x: 6000000, y: 1500000, w: 5000000, h: 5000000 }),
+    ]);
+    const deck = await testDeck([
+      lyricsOver(blobs, { rId10: "Blob1.png", rId11: "blob2.png" }),
+      lyricsOver(picture(2, "rId10"), { rId10: "old.png" }),
+    ]);
+    // A producer names the part in another case than the zip does, and
+    // quotes the relationships' attributes with single quotes.
+    const input = await JSZip.loadAsync(deck);
+    const rels = "ppt/slides/_rels/slide1.xml.rels";
+    const relsXml = (await input.file(rels)!.async("text")).replace("../media/Blob1.png", "../media/BLOB1.png");
+    input.file(rels, relsXml.replace(/<Relationship\b[^>]*>/g, (rel) => rel.replaceAll('"', "'")));
+    const renamed = await input.generateAsync({ type: "uint8array" });
+
+    const groups = groupBackgrounds(await extractCurrentBackgrounds(new File([new Uint8Array(renamed)], "deck.pptx")));
+    const kept = groups.find((g) => g.slideIndexes.includes(1))!;
+    expect(kept.source).toBe("covering");
+    const zip = await runOn(renamed, "all-slides", undefined, [kept.key]);
+
+    expect(await topLevelIds(zip, 1)).toEqual(["2", "9"]);
+    expect(await topLevelIds(zip, 2)).toEqual(["9"]);
   });
 
   it("finds nothing left to delete when re-run on its own output", async () => {

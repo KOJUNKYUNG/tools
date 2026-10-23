@@ -192,7 +192,7 @@
           "currentCaptionTemplate": "현재 배경 · {n}종",
           "selectedEmpty": "갤러리에서 배경 선택",
           "currentEmpty": "배경 없음",
-          "coveringMarker": "변경하면 이 그림은 지워집니다",
+          "coveringDelete": "변경하면 이 그림 지우기",
           "slideCountTemplate": "슬라이드 {n}장",
           "zoom": "확대",
           "close": "닫기"

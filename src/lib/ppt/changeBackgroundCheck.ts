@@ -6,7 +6,13 @@ import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import type { SlideSize } from "@/lib/image/slideImage";
 import type { BgMode } from "./changeBackground";
-import { coveringIn, findCoveringBackgrounds, shapeIdsIn, topLevelElements } from "./coveringBackgrounds";
+import {
+  coveringGroupKey,
+  coveringIn,
+  shapeIdsIn,
+  topLevelElements,
+  type CoveringBackground,
+} from "./coveringBackgrounds";
 import { animationTargets } from "./slideAnimations";
 import { parseXml, type XmlElement } from "./xmlTree";
 
@@ -20,6 +26,8 @@ export interface PptBackgroundRequest {
   mode: BgMode;
   /** 1-based slide indices, for `specific-slides`. */
   targetSlides?: number[];
+  /** Keys of the covering-background groups the user keeps (`coveringGroupKey`). */
+  keptCovering?: readonly string[];
 }
 
 /**
@@ -48,15 +56,17 @@ export interface PptBackgroundRequest {
  * - ⚡ `own-background-kept`: a slide or layout still declares its own
  *   background
  * - `only-background-cleared`: each layout, and each slide without covering
- *   backgrounds, is its input with its own background removed and nothing
- *   else changed (slides with covering backgrounds are held by the element
- *   properties below)
+ *   backgrounds to delete (none, or a kept group), is its input with its own
+ *   background removed and nothing else changed (slides with covering
+ *   backgrounds deleted are held by the element properties below)
  *
  * Covering backgrounds (spec #105), on each target slide (every slide in
  * master mode), re-detected on the input with the shared rule. The rule is
  * the spec: these prove the engine applied it, not that it is right (the
  * regression set covers the rule itself). Elements are matched by their XML text: the
- * engine copies the ones it keeps verbatim, while shape ids may repeat.
+ * engine copies the ones it keeps verbatim, while shape ids may repeat. The
+ * covering backgrounds of a group the user keeps (#109) count as other
+ * elements: they must stay.
  *
  * - ⚡ `covering-background-kept`: a covering background is still there
  * - ⚡ `element-missing`: another top-level element is gone
@@ -142,7 +152,10 @@ export const checkPptBackground: OutputChecker<
     }
   }
 
-  violations.push(...(await coveringViolations(before, after, coveringChecked, await slideSize(before))));
+  const keptGroups = new Set(request.keptCovering ?? []);
+  violations.push(
+    ...(await coveringViolations(before, after, coveringChecked, await slideSize(before), keptGroups)),
+  );
 
   const kept = await after.unusedRelationships(rewritten);
   if (kept.length > 0) {
@@ -185,7 +198,8 @@ export const checkPptBackground: OutputChecker<
       for (const part of [...before.layoutParts, ...before.slideParts]) {
         const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
         if (inXml === null || outXml === null) continue;
-        if (findCoveringBackgrounds(inXml, slide).length > 0) continue;
+        const elements = topLevelElements(parseXml(inXml));
+        if (elements && (await deletedCovering(before, part, elements, slide, keptGroups)).length > 0) continue;
         if (outXml !== inXml.replace(OWN_BACKGROUND, "")) {
           violations.push({ property: "only-background-cleared", detail: part });
         }
@@ -223,12 +237,30 @@ async function slideSize(pkg: PptxPackage): Promise<{ w: number; h: number }> {
   return w > 0 && h > 0 ? { w, h } : DEFAULT_SLIDE;
 }
 
+/**
+ * The covering backgrounds the engine must delete from an input slide, given
+ * its top-level elements: none when the user keeps their group.
+ */
+async function deletedCovering(
+  before: PptxPackage,
+  part: string,
+  elements: XmlElement[],
+  slide: SlideSize,
+  keptGroups: ReadonlySet<string>,
+): Promise<CoveringBackground[]> {
+  const covering = coveringIn(elements, slide);
+  if (covering.length === 0 || keptGroups.size === 0) return covering;
+  const targets = new Map((await before.relationships(part)).map((r) => [r.id, r.part]));
+  return keptGroups.has(coveringGroupKey(covering, (id) => targets.get(id))) ? [] : covering;
+}
+
 /** The covering-background properties of the given slides. */
 async function coveringViolations(
   before: PptxPackage,
   after: PptxPackage,
   targets: readonly string[],
   slide: SlideSize,
+  keptGroups: ReadonlySet<string>,
 ): Promise<Violation[]> {
   const violations: Violation[] = [];
   for (const part of targets) {
@@ -239,7 +271,7 @@ async function coveringViolations(
     const [inEls, outEls] = [topLevelElements(inRoot), topLevelElements(outRoot)];
     if (!inRoot || !outRoot || !inEls || !outEls) continue;
 
-    const covering = new Set(coveringIn(inEls, slide).map((c) => c.start));
+    const covering = new Set((await deletedCovering(before, part, inEls, slide, keptGroups)).map((c) => c.start));
     /** How many of the output's top-level elements have each XML text, not yet matched. */
     const unmatched = new Map<string, number>();
     for (const el of outEls) {

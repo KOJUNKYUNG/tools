@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
+import { parseRelationships } from "@/lib/output-check/pptxPackage";
 import { zipCompressionMethods } from "@/lib/output-check/zipReader";
 import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
@@ -9,7 +10,11 @@ import {
   type SlideSize,
 } from "@/lib/image/slideImage";
 import { checkPptBackground } from "./changeBackgroundCheck";
-import { deleteCoveringBackgrounds } from "./coveringBackgrounds";
+import {
+  coveringGroupKey,
+  deleteCoveringBackgrounds,
+  type CoveringBackground,
+} from "./coveringBackgrounds";
 import { slideSizeFromXml } from "./getSlideAspect";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
@@ -22,6 +27,8 @@ export interface ChangeBackgroundOptions {
   targetSlides?: number[];
   /** The Background crop, in the picture's upright pixels; centred and as large as possible when absent. */
   crop?: CropRect;
+  /** Keys of the covering-background groups the user keeps (`coveringGroupKey`); none by default. */
+  keptCovering?: readonly string[];
   onProgress?: (pct: number) => void;
   /** The picture preparer; tests and Node stand one in for the canvas. */
   prepare?: PrepareSlideImage;
@@ -54,7 +61,7 @@ function getContentType(ext: string): string {
  * Generate a relationship ID that doesn't conflict with existing ones.
  */
 function nextRelId(relsXml: string): string {
-  const matches = relsXml.matchAll(/Id="rId(\d+)"/g);
+  const matches = relsXml.matchAll(/\bId\s*=\s*["']rId(\d+)["']/g);
   let max = 0;
   for (const m of matches) {
     const n = parseInt(m[1], 10);
@@ -236,13 +243,24 @@ interface GroupChange {
   targetIndices1Based?: ReadonlySet<number>;
   /** The slide's size, to delete covering backgrounds on each part; none for masters and layouts. */
   slideSize?: SlideSize;
+  /** Keys of the covering-background groups left in place. */
+  keptCovering?: ReadonlySet<string>;
+}
+
+/**
+ * The internal targets of a `.rels` part's relationships, by id, as zip part
+ * names, resolved as the preview resolves them so both derive the same
+ * covering-group keys.
+ */
+function relTargets(relsXml: string | null, sourceDir: string): Map<string, string | null> {
+  return new Map(parseRelationships(relsXml ?? "", sourceDir).map((r) => [r.id, r.part]));
 }
 
 /** Change the background of each part in `dir`; returns the parts the replaced backgrounds pointed at. */
 async function processSlideGroup(
   zip: JSZip,
   dir: string,
-  { background, onEach, targetIndices1Based, slideSize }: GroupChange,
+  { background, onEach, targetIndices1Based, slideSize, keptCovering }: GroupChange,
 ): Promise<Set<string>> {
   /** Parts the replaced backgrounds pointed at, to delete once unreferenced. */
   const replaced = new Set<string>();
@@ -266,14 +284,20 @@ async function processSlideGroup(
     const slidePath = filtered[i];
     const slideFileName = slidePath.split("/").pop()!;
     let slideXml = await zip.file(slidePath)!.async("text");
-
-    // The pictures of deleted covering backgrounds lose their relationships
-    // below, with the replaced background's, once the part no longer names them.
-    if (slideSize) slideXml = deleteCoveringBackgrounds(slideXml, slideSize);
-
     const relsPath = `${dir}/_rels/${slideFileName}.rels`;
     const relsFile = zip.file(relsPath);
     let relsXml = relsFile ? await relsFile.async("text") : null;
+
+    // The pictures of deleted covering backgrounds lose their relationships
+    // below, with the replaced background's, once the part no longer names them.
+    if (slideSize) {
+      const kept = (covering: CoveringBackground[]) => {
+        if (!keptCovering?.size) return false;
+        const targets = relTargets(relsXml, dir);
+        return keptCovering.has(coveringGroupKey(covering, (id) => targets.get(id)));
+      };
+      slideXml = deleteCoveringBackgrounds(slideXml, slideSize, kept);
+    }
 
     const oldIds = backgroundValues(slideXml);
     let relId: string | undefined;
@@ -417,9 +441,11 @@ export async function changeBackground({
   mode,
   targetSlides,
   crop,
+  keptCovering = [],
   onProgress,
   prepare = prepareSlideImage,
 }: ChangeBackgroundOptions): Promise<Uint8Array> {
+  const kept = new Set(keptCovering);
   const arrayBuffer = await pptxFile.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
 
@@ -451,7 +477,12 @@ export async function changeBackground({
     replaced = new Set([
       ...(await processSlideGroup(zip, "ppt/slideMasters", { background: mediaTarget })),
       ...(await processSlideGroup(zip, "ppt/slideLayouts", { background: "clear" })),
-      ...(await processSlideGroup(zip, "ppt/slides", { background: "clear", onEach: progress, slideSize })),
+      ...(await processSlideGroup(zip, "ppt/slides", {
+        background: "clear",
+        onEach: progress,
+        slideSize,
+        keptCovering: kept,
+      })),
     ]);
   } else {
     let whitelist: Set<number> | undefined;
@@ -466,6 +497,7 @@ export async function changeBackground({
       onEach: progress,
       targetIndices1Based: whitelist,
       slideSize,
+      keptCovering: kept,
     });
   }
 
@@ -500,6 +532,7 @@ export async function changeBackground({
           background: prepared.bytes,
           mode,
           targetSlides,
+          keptCovering,
         },
         out,
         "quick",

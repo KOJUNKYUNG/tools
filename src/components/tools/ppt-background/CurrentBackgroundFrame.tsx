@@ -13,21 +13,24 @@ interface CurrentBackgroundFrameProps {
   onIndex: (next: number) => void;
   checkedKeys: Set<string>;
   onToggleCheck: (key: string) => void;
+  /** Covering-background groups whose delete toggle is off. */
+  keptCovering: Set<string>;
+  onToggleDelete: (key: string) => void;
   /** aspect-ratio value, e.g. "16 / 9" | "4 / 3" */
   aspect: string;
   /** "슬라이드 {n}장" */
   slideCountTemplate: string;
   emptyLabel: string;
-  /** Under a covering-background group: its picture will be deleted. */
-  coveringLabel: string;
+  /** The delete toggle under a covering-background group. */
+  deleteLabel: string;
   zoomLabel: string;
   onZoom: () => void;
 }
 
 export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
   const {
-    caption, groups, thumbUrls, index, onIndex, checkedKeys, onToggleCheck,
-    aspect, slideCountTemplate, emptyLabel, coveringLabel, zoomLabel, onZoom,
+    caption, groups, thumbUrls, index, onIndex, checkedKeys, onToggleCheck, keptCovering, onToggleDelete,
+    aspect, slideCountTemplate, emptyLabel, deleteLabel, zoomLabel, onZoom,
   } = props;
   const group = groups[index];
   const url = group ? thumbUrls.get(group.key) ?? null : null;
@@ -122,15 +125,25 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
           </div>
         )}
       </div>
-      {/* One line always reserved under the picture, so paging between groups
-          never moves anything; outside the picture, apart from the checkbox. */}
-      <p
-        className="truncate font-body text-[10.5px] leading-[1.35]"
+      {/* The delete toggle of a covering-background group: one line always
+          reserved under the picture, so paging between groups never moves
+          anything; outside the picture, apart from the top-left check that
+          selects the group's slides. */}
+      <label
+        className="flex min-w-0 cursor-pointer select-none items-center gap-1.5 font-body text-[10.5px] leading-[1.35]"
         style={{ color: "var(--ink-soft)", visibility: group?.source === "covering" ? "visible" : "hidden" }}
-        title={coveringLabel}
+        title={deleteLabel}
       >
-        {coveringLabel}
-      </p>
+        <input
+          type="checkbox"
+          className="size-3 shrink-0"
+          checked={group ? !keptCovering.has(group.key) : false}
+          disabled={group?.source !== "covering"}
+          onChange={() => group && onToggleDelete(group.key)}
+          style={{ accentColor: "var(--emphasis)" }}
+        />
+        <span className="truncate">{deleteLabel}</span>
+      </label>
     </div>
   );
 }

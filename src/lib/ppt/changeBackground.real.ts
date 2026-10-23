@@ -11,6 +11,8 @@ import {
   type RealFileRequest,
 } from "@/lib/output-check/realFileSuite";
 import { changeBackground } from "./changeBackground";
+import { extractCurrentBackgrounds } from "./extractCurrentBackgrounds";
+import { groupBackgrounds } from "./groupBackgrounds";
 import { slideSizeFromXml } from "./getSlideAspect";
 import {
   checkPptBackground,
@@ -78,6 +80,10 @@ async function requests(
   const centred = maxFitCrop(PHOTO_SIZE, slide.w, slide.h);
   // The top-left quarter's largest crop: smaller than a 4K screen, so kept as is.
   const corner = { ...maxFitCrop({ w: PHOTO_SIZE.w / 2, h: PHOTO_SIZE.h / 2 }, slide.w, slide.h), x: 0, y: 0 };
+  // The deck's first covering-background group, as the preview offers it to keep.
+  const covering = groupBackgrounds(
+    await extractCurrentBackgrounds(new File([new Uint8Array(input)], "deck.pptx")),
+  ).find((g) => g.source === "covering");
   const prepared = async (crop: CropRect, source = PHOTO) => ({
     source,
     crop,
@@ -104,6 +110,14 @@ async function requests(
         targetSlides: firstAndLast,
       },
     },
+    ...(covering
+      ? [
+          {
+            label: `all-slides, keeping the covering group of slides ${covering.slideIndexes.join(",")}`,
+            request: { ...(await prepared(centred)), mode: "all-slides" as const, keptCovering: [covering.key] },
+          },
+        ]
+      : []),
   ];
 }
 
@@ -118,6 +132,7 @@ realFileSuite({
       mode: request.mode,
       targetSlides: request.targetSlides,
       crop: request.crop,
+      keptCovering: request.keptCovering,
       prepare: standInPrepare,
     }),
   check: checkPptBackground,

@@ -153,6 +153,25 @@ export interface Relationship {
   external: boolean;
 }
 
+/**
+ * The relationships a `.rels` part's XML declares, in order, their targets
+ * resolved against `sourceDir` (the source part's directory), whatever order
+ * and quotes their attributes take. One parser for every reader, so keys
+ * built from targets (covering-background groups) agree everywhere.
+ */
+export function parseRelationships(relsXml: string, sourceDir: string): Relationship[] {
+  return [...relsXml.matchAll(/<Relationship\b[^>]*>/g)].map((m) => {
+    const a = attrs(m[0]);
+    const external = a.TargetMode === "External";
+    return {
+      id: a.Id ?? "",
+      type: a.Type ?? "",
+      external,
+      part: external || !a.Target ? null : resolveTarget(sourceDir, a.Target),
+    };
+  });
+}
+
 const zipOf = new WeakMap<PptxPackage, ZipReader>();
 
 /** Opens the bytes as a zip; null when they are not one. */
@@ -178,19 +197,9 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
     const xml = await text(relsPart);
     if (xml === null) return [];
     const sourceDir = relsPart.match(RELS_PART)?.[1] ?? "";
-    const rels: Relationship[] = [];
-    for (const m of xml.matchAll(/<Relationship\b[^>]*>/g)) {
-      const a = attrs(m[0]);
-      const external = a.TargetMode === "External";
-      const resolved = external || !a.Target ? null : resolveTarget(sourceDir, a.Target);
-      rels.push({
-        id: a.Id ?? "",
-        type: a.Type ?? "",
-        external,
-        part: resolved === null ? null : (byLowerName.get(resolved.toLowerCase()) ?? resolved),
-      });
-    }
-    return rels;
+    return parseRelationships(xml, sourceDir).map((rel) =>
+      rel.part === null ? rel : { ...rel, part: byLowerName.get(rel.part.toLowerCase()) ?? rel.part },
+    );
   };
 
   const relsParts = parts.filter((p) => RELS_PART.test(p));

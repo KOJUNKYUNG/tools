@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import type { SlideSize } from "@/lib/image/slideImage";
-import { resolveTarget } from "@/lib/output-check/pptxPackage";
-import { findCoveringBackgrounds } from "./coveringBackgrounds";
+import { parseRelationships } from "@/lib/output-check/pptxPackage";
+import { coveringGroupKey, findCoveringBackgrounds } from "./coveringBackgrounds";
 import { slideSizeFromXml } from "./getSlideAspect";
 
 /**
@@ -19,8 +19,8 @@ export interface SlideBackground {
    * thumbnail. null when source==="none".
    */
   imagePath: string | null;
-  /** For covering backgrounds: every picture part they use, sorted. */
-  coveringParts?: string[];
+  /** For covering backgrounds: their group's key (`coveringGroupKey`), what the user keeps a group by. */
+  coveringKey?: string;
 }
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -53,15 +53,9 @@ async function relationshipsOf(zip: JSZip, partPath: string): Promise<PartRelati
   const slash = partPath.lastIndexOf("/");
   const dir = partPath.slice(0, slash);
   const relsXml = await zip.file(`${dir}/_rels/${partPath.slice(slash + 1)}.rels`)?.async("text");
-  const rels: PartRelationship[] = [];
-  for (const rel of relsXml?.match(/<Relationship\b[^>]*>/g) ?? []) {
-    const attr = (name: string) => rel.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
-    const [id, type, target] = [attr("Id"), attr("Type") ?? "", attr("Target")];
-    if (!id || !target || attr("TargetMode") === "External") continue;
-    const part = resolveTarget(dir, target);
-    if (part !== null) rels.push({ id, type, part });
-  }
-  return rels;
+  return parseRelationships(relsXml ?? "", dir).flatMap(({ id, type, part }) =>
+    id && part !== null ? [{ id, type, part }] : [],
+  );
 }
 
 /** The internal relationship targets of a part, by id, as zip paths. */
@@ -80,16 +74,15 @@ async function coveringBackground(
   slidePath: string,
   slideXml: string,
   slide: SlideSize,
-): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "coveringParts"> | null> {
+): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "coveringKey"> | null> {
   const covering = findCoveringBackgrounds(slideXml, slide);
   if (covering.length === 0) return null;
   const targets = await relationshipTargets(zip, slidePath);
-  const partsOf = (ids: string[]) => ids.flatMap((id) => targets.get(id) ?? []);
-  const thumbnail = partsOf(covering[0].pictures)[0] ?? null;
+  const thumbnail = covering[0].pictures.flatMap((id) => targets.get(id) ?? [])[0] ?? null;
   return {
     imageBlob: thumbnail === null ? null : await mediaBlob(zip, thumbnail),
     imagePath: thumbnail,
-    coveringParts: [...new Set(partsOf(covering.flatMap((c) => c.pictures)))].sort(),
+    coveringKey: coveringGroupKey(covering, (id) => targets.get(id)),
   };
 }
 

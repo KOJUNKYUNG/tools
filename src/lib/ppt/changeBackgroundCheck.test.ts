@@ -49,6 +49,7 @@ async function apply(deck: Uint8Array, intent: Intent): Promise<Uint8Array> {
     mode: intent.mode,
     targetSlides: intent.targetSlides,
     crop: intent.crop,
+    keptCovering: intent.keptCovering,
     prepare: standInPrepare,
   });
 }
@@ -735,6 +736,49 @@ describe("checkPptBackground checks covering backgrounds", () => {
     expect(await quick(input, allSlides, output)).toEqual([
       { property: "animation-target-missing", detail: `${SLIDE1} spid 2` },
     ]);
+  });
+
+  describe("with a group the user keeps", () => {
+    /** Slide 1's covering background is kept, slide 2's is deleted. */
+    const twoGroups = () =>
+      testDeck([
+        { shapes: [pictureElement(2, "rId10"), textBox(9, "1절")], pictures: { rId10: "keep.png" } },
+        { shapes: [pictureElement(2, "rId10"), textBox(9, "2절")], pictures: { rId10: "old.png" } },
+      ]);
+    const keeping = (mode: Intent["mode"]): Intent => ({
+      source: newBgBytes,
+      mode,
+      keptCovering: ["covering:ppt/media/keep.png"],
+    });
+
+    it.each(["all-slides", "master"] as const)("passes the engine's output (%s)", async (mode) => {
+      const input = await twoGroups();
+      expect(await properties(input, keeping(mode), await apply(input, keeping(mode)))).toEqual([]);
+    });
+
+    it("flags a kept covering background that was deleted", async () => {
+      const input = await twoGroups();
+      const output = await editSlide1(await apply(input, keeping("all-slides")), (xml) =>
+        xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/, ""),
+      );
+      expect(await quick(input, keeping("all-slides"), output)).toContainEqual({
+        property: "element-missing",
+        detail: `${SLIDE1} #2`,
+      });
+    });
+
+    it("flags a covering background of another group left in place", async () => {
+      const input = await twoGroups();
+      const output = await mutate(await apply(input, keeping("all-slides")), async (zip) => {
+        const part = "ppt/slides/slide2.xml";
+        const xml = await zip.file(part)!.async("text");
+        zip.file(part, xml.replace("</p:grpSpPr>", `</p:grpSpPr>${pictureElement(2, "rId10")}`));
+      });
+      expect(await quick(input, keeping("all-slides"), output)).toContainEqual({
+        property: "covering-background-kept",
+        detail: "ppt/slides/slide2.xml #2",
+      });
+    });
   });
 
   it("ignores an animation target the input already lacked", async () => {
