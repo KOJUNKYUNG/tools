@@ -14,7 +14,7 @@
  * transparency modifiers; it shows as the neutral swatch.
  */
 
-import { child, findAll, parseXml, type XmlElement } from "./xmlTree";
+import { child, findAll, firstElementNamed, type XmlElement } from "./xmlTree";
 
 /**
  * What a fill shows, for the preview: a resolved solid colour as lowercase
@@ -52,13 +52,15 @@ const DEFAULT_MAP: Record<string, string> = { bg1: "lt1", tx1: "dk1", bg2: "lt2"
  * Unreadable parts count as absent.
  */
 export function masterColours(themeXml: string | null, masterXml: string | null): Colours {
-  const theme = themeXml ? parseXml(themeXml) : null;
-  const elements = child(theme ?? undefined, "a:themeElements");
-  const scheme = new Map((child(elements, "a:clrScheme")?.children ?? []).map((c) => [c.name.replace(/^a:/, ""), c]));
-  const fmt = child(elements, "a:fmtScheme");
+  // Only these few elements of the large theme and master are parsed (each
+  // check of a deck reads them anew). The first match is the one meant: a
+  // theme's own colour scheme precedes any extra ones, a master has one map.
+  const scheme = new Map(
+    (firstElementNamed(themeXml, "a:clrScheme")?.children ?? []).map((c) => [c.name.replace(/^a:/, ""), c]),
+  );
+  const fmt = firstElementNamed(themeXml, "a:fmtScheme");
   const styles = (name: string) => (child(fmt, name)?.children ?? []).filter((c) => FILLS.has(c.name));
-  const master = masterXml ? parseXml(masterXml) : null;
-  const map = { ...DEFAULT_MAP, ...child(master ?? undefined, "p:clrMap")?.attrs };
+  const map = { ...DEFAULT_MAP, ...firstElementNamed(masterXml, "p:clrMap")?.attrs };
   return { scheme, map, fillStyles: styles("a:fillStyleLst"), bgFillStyles: styles("a:bgFillStyleLst") };
 }
 
@@ -67,8 +69,9 @@ export function masterColours(themeXml: string | null, masterXml: string | null)
  * (`p:clrMapOvr/a:overrideClrMapping`), when its part declares one.
  */
 export function withOverride(colours: Colours, partXml: string | null): Colours {
-  const root = partXml ? parseXml(partXml) : null;
-  const override = child(child(root ?? undefined, "p:clrMapOvr"), "a:overrideClrMapping");
+  // Only the override is read: parsing the whole part again would double the
+  // cost of reading a slide (the output check reads every target slide).
+  const override = child(firstElementNamed(partXml, "p:clrMapOvr"), "a:overrideClrMapping");
   return override ? { ...colours, map: { ...colours.map, ...override.attrs } } : colours;
 }
 

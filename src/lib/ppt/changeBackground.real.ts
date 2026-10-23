@@ -20,7 +20,13 @@ import {
 } from "./changeBackgroundCheck";
 
 // A phone photo's header (4032 × 3024) stands in for the user's background
-// picture; the stand-in preparer sizes it without decoding pixels.
+// picture; the stand-in preparer sizes it without decoding pixels. The
+// processing time the suite prints therefore leaves out decoding and
+// re-encoding the picture, which dominate in the browser, and its quick-check
+// share overstates the real one: measured in the browser on 2026-10-23 with
+// the real preparer, the quick check took 5–8% of applying a background
+// (찬양맞추기, canva_template_7, miricanvas_template_1_text), while this suite
+// printed ≈ +28%.
 const PHOTO_SIZE = { w: 4032, h: 3024 };
 const PHOTO = headerOnlyImage(
   "png",

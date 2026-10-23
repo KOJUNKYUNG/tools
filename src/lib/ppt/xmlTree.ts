@@ -76,6 +76,26 @@ export function parseXml(xml: string): XmlElement | null {
   return stack.length === 1 && top.children.length === 1 ? top.children[0] : null;
 }
 
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * The first element named `name` in `xml`, parsed on its own (its source
+ * range is then within it, not the whole XML); undefined when absent or not
+ * well-formed. For reading one small element of a large part without parsing
+ * the rest; an element nesting another of its own name is not supported.
+ */
+export function firstElementNamed(xml: string | null | undefined, name: string): XmlElement | undefined {
+  const n = escapeRegExp(name);
+  const open = xml?.match(new RegExp(`<${n}(?:\\s+[^\\s=/>]+\\s*=\\s*(?:"[^"]*"|'[^']*'))*\\s*(/?)>`));
+  if (!xml || !open || open.index === undefined) return undefined;
+  const at = open.index;
+  if (open[1]) return parseXml(open[0]) ?? undefined;
+  const close = new RegExp(`</${n}\\s*>`, "g");
+  close.lastIndex = at + open[0].length;
+  const end = close.exec(xml);
+  return end ? (parseXml(xml.slice(at, end.index + end[0].length)) ?? undefined) : undefined;
+}
+
 export const child = (el: XmlElement | undefined, name: string) =>
   el?.children.find((c) => c.name === name);
 

@@ -36,8 +36,8 @@ export interface PptxPackage {
   read(part: string): Promise<Uint8Array | null>;
   /** A part's text (null when absent or unreadable). */
   text(part: string): Promise<string | null>;
-  /** The relationships `part` declares, in `.rels` order (none without a `.rels`). */
-  relationships(part: string): Promise<Relationship[]>;
+  /** The relationships `part` declares, in `.rels` order (none without a `.rels`); shared, so read-only. */
+  relationships(part: string): Promise<readonly Relationship[]>;
   /** A part's size as stored in the zip (null when absent or not indexable). */
   storedSize(part: string): number | null;
   /**
@@ -139,6 +139,16 @@ export function resolveTarget(sourceDir: string, target: string): string | null 
   return segments.join("/");
 }
 
+/** `load` computed once per key: the package's parts never change once opened. */
+function memo<T>(load: (key: string) => Promise<T>): (key: string) => Promise<T> {
+  const byKey = new Map<string, Promise<T>>();
+  return (key) => {
+    let found = byKey.get(key);
+    if (!found) byKey.set(key, (found = load(key)));
+    return found;
+  };
+}
+
 /** The `.rels` part that holds a part's relationships. */
 export function relsPartOf(part: string): string {
   const slash = part.lastIndexOf("/");
@@ -146,11 +156,11 @@ export function relsPartOf(part: string): string {
 }
 
 export interface Relationship {
-  id: string;
-  type: string;
+  readonly id: string;
+  readonly type: string;
   /** Resolved part name, or null for an external or unresolvable target. */
-  part: string | null;
-  external: boolean;
+  readonly part: string | null;
+  readonly external: boolean;
 }
 
 /**
@@ -181,26 +191,19 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
   const parts = zip.names;
   // OPC part names compare case-insensitively.
   const byLowerName = new Map(parts.map((p) => [p.toLowerCase(), p]));
-  const textCache = new Map<string, Promise<string | null>>();
-
   /** A part's text; null when absent or its zip data is corrupt. */
-  const text = (part: string): Promise<string | null> => {
-    let cached = textCache.get(part);
-    if (!cached) {
-      cached = zip.text(part);
-      textCache.set(part, cached);
-    }
-    return cached;
-  };
+  const text = memo((part: string): Promise<string | null> => zip.text(part));
 
-  const relationshipsOf = async (relsPart: string): Promise<Relationship[]> => {
+  // Parsed once per `.rels` part: checks ask for a slide's relationships
+  // several times, and design-tool slides carry hundreds of them.
+  const relationshipsOf = memo(async (relsPart: string): Promise<readonly Relationship[]> => {
     const xml = await text(relsPart);
     if (xml === null) return [];
     const sourceDir = relsPart.match(RELS_PART)?.[1] ?? "";
     return parseRelationships(xml, sourceDir).map((rel) =>
       rel.part === null ? rel : { ...rel, part: byLowerName.get(rel.part.toLowerCase()) ?? rel.part },
     );
-  };
+  });
 
   const relsParts = parts.filter((p) => RELS_PART.test(p));
   let index: ReturnType<typeof indexZip> | undefined;

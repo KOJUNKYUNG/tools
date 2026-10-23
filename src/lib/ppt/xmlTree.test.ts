@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseXml, type XmlElement } from "./xmlTree";
+import { firstElementNamed, parseXml, type XmlElement } from "./xmlTree";
 
 /** Every element in the tree, depth first. */
 const allElements = (el: XmlElement): XmlElement[] => [el, ...el.children.flatMap(allElements)];
@@ -85,5 +85,22 @@ describe("parseXml unreadable XML", () => {
     ["no element", "<!-- only a comment -->"],
   ])("returns no tree for %s", (_, xml) => {
     expect(parseXml(xml)).toBeNull();
+  });
+});
+
+describe("firstElementNamed", () => {
+  const xml =
+    `<p:sld><p:cSld/><p:clrMapOvr><a:overrideClrMapping bg1="dk1" note="a>b"/></p:clrMapOvr >` +
+    `<p:clrMap bg1="lt1"/></p:sld>`;
+
+  it("finds an element by its exact name, not one whose name it begins", () => {
+    expect(firstElementNamed(xml, "p:clrMap")?.attrs).toEqual({ bg1: "lt1" });
+    expect(firstElementNamed(xml, "p:clrMapOvr")?.children[0].attrs).toEqual({ bg1: "dk1", note: "a>b" });
+  });
+
+  it("is undefined when the element is absent, unclosed, or there is no XML", () => {
+    expect(firstElementNamed(xml, "p:bg")).toBeUndefined();
+    expect(firstElementNamed("<a:clrScheme><a:dk1/>", "a:clrScheme")).toBeUndefined();
+    expect(firstElementNamed(null, "p:clrMap")).toBeUndefined();
   });
 });
