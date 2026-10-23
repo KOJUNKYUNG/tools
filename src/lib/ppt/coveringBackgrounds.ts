@@ -29,7 +29,7 @@
  */
 
 import type { SlideSize } from "@/lib/image/slideImage";
-import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
+import { fillChild, shownFill, type Colours, type ResolvedFill, type Swatch } from "./fills";
 import { animationCuts, cutSpans, type Span } from "./slideAnimations";
 import { child, findAll, parseXml, type XmlElement } from "./xmlTree";
 
@@ -111,21 +111,22 @@ function picturesOf(el: XmlElement): string[] {
 }
 
 /**
- * What the opaque fills of an element show; empty when it has none. A member
- * of a group that takes the group's fill (`a:grpFill`) gets `groupFill`.
+ * What the fills of an element show, opaque or not; empty when it has none.
+ * A member of a group that takes the group's fill (`a:grpFill`) gets
+ * `groupFill`.
  */
-function opaqueFillsOf(el: XmlElement, colours: Colours, groupFill?: XmlElement): Swatch[] {
+function fillsOf(el: XmlElement, colours: Colours, groupFill?: XmlElement): ResolvedFill[] {
   if (isHidden(el)) return [];
   switch (el.name) {
     case "p:sp": {
       const shown = shownFill(child(el, "p:spPr"), child(child(el, "p:style"), "a:fillRef"), colours, groupFill);
-      return shown?.opaque ? [shown.swatch] : [];
+      return shown ? [shown] : [];
     }
     case "p:grpSp": {
       // A group's own group fill passes on the enclosing group's.
       const own = fillChild(child(el, "p:grpSpPr"));
       const fill = own?.name === "a:grpFill" ? groupFill : own;
-      return el.children.flatMap((c) => opaqueFillsOf(c, colours, fill));
+      return el.children.flatMap((c) => fillsOf(c, colours, fill));
     }
     default:
       return [];
@@ -156,20 +157,57 @@ function covers(el: XmlElement, slide: SlideSize): boolean {
 }
 
 /**
+ * Why an element covering the slide did not qualify: it shows text, or
+ * without a picture its fills are all transparent, or it has no fill.
+ */
+export type MissReason = "text" | "transparent fill" | "no fill";
+
+/**
+ * The rule's working on one slide, for the real-file coverage report: what it
+ * found, and what it nearly found.
+ */
+export interface CoveringRun {
+  /** The qualifying elements from the bottom, before asking for something above them. */
+  qualifying: CoveringBackground[];
+  /** The element that ended the run although it covers the slide, and why; null when none did. */
+  missed: (Span & { reason: MissReason }) | null;
+  /** Whether a shown element lies above the run. */
+  somethingAbove: boolean;
+}
+
+/** The rule's working on a slide's top-level `elements` (bottom first). */
+export function coveringRun(elements: XmlElement[], slide: SlideSize, colours: Colours): CoveringRun {
+  const shown = elements.filter((el) => !isHidden(el));
+  const qualifying: CoveringBackground[] = [];
+  let missed: CoveringRun["missed"] = null;
+  for (const el of shown) {
+    if (!covers(el, slide)) break;
+    const [pictures, fills] = [picturesOf(el), fillsOf(el, colours)];
+    const opaque = fills.filter((f) => f.opaque).map((f) => f.swatch);
+    const reason: MissReason | null = showsText(el)
+      ? "text"
+      : pictures.length > 0 || opaque.length > 0
+        ? null
+        : fills.length > 0
+          ? "transparent fill"
+          : "no fill";
+    if (reason) {
+      missed = { start: el.start, end: el.end, reason };
+      break;
+    }
+    qualifying.push({ start: el.start, end: el.end, shapeIds: shapeIdsIn(el), pictures, fills: opaque });
+  }
+  return { qualifying, missed, somethingAbove: qualifying.length < shown.length };
+}
+
+/**
  * The covering backgrounds of a slide's top-level `elements` (bottom first),
  * fills resolved against the slide's `colours`.
  */
 export function coveringIn(elements: XmlElement[], slide: SlideSize, colours: Colours): CoveringBackground[] {
-  const shown = elements.filter((el) => !isHidden(el));
-  const run: CoveringBackground[] = [];
-  for (const el of shown) {
-    if (showsText(el) || !covers(el, slide)) break;
-    const [pictures, fills] = [picturesOf(el), opaqueFillsOf(el, colours)];
-    if (pictures.length === 0 && fills.length === 0) break;
-    run.push({ start: el.start, end: el.end, shapeIds: shapeIdsIn(el), pictures, fills });
-  }
+  const { qualifying, somethingAbove } = coveringRun(elements, slide, colours);
   // Nothing above the run: the elements are the slide's content.
-  return run.length < shown.length ? run : [];
+  return somethingAbove ? qualifying : [];
 }
 
 /** The covering backgrounds of a slide, bottom first; none for XML that is not a slide. */
