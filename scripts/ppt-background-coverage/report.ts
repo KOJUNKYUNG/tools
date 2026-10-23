@@ -39,7 +39,8 @@ const FORMS = [
 const NEAR_MISSES = ["text", "transparent fill", "no fill", "nothing above"] as const;
 /** Spec #105's collection matrix: the producers and purposes to cover. */
 const PRODUCERS = ["PowerPoint", "Google Slides", "Keynote", "Canva", "미리캔버스", "한쇼", "LibreOffice", "image-to-pptx"];
-const PURPOSES = ["sheet-music", "lyrics", "sermon", "lesson", "report", "template"];
+// Sermons read as presentations (template, report); retreat games are an event.
+const PURPOSES = ["sheet-music", "lyrics", "event", "lesson", "report", "template"];
 /** A background's kind by its fill element; `bgRef` names a theme style. */
 const BACKGROUND_KINDS = new Map([
   ["a:blipFill", "picture"],
@@ -73,6 +74,8 @@ interface DeckReport {
   /** Layout file names by the kind of their own background. */
   layoutBackgrounds: Map<string, string[]>;
   layoutCount: number;
+  /** Whether ppt-background already ran on it: a re-run input. */
+  rerun: boolean;
 }
 
 interface Tag {
@@ -131,6 +134,8 @@ async function analyse(file: string): Promise<DeckReport> {
     slideBackgrounds: new Map(),
     layoutBackgrounds: new Map(),
     layoutCount: pkg.layoutParts.length,
+    // The engine names its pictures so (`uniqueMediaName`).
+    rerun: pkg.parts.some((p) => p.startsWith("ppt/media/background_custom")),
   };
 
   for (const [i, part] of pkg.slideParts.entries()) {
@@ -199,7 +204,7 @@ function printDeck(d: DeckReport, tag: Tag | undefined) {
   console.log(`\n${d.file}`);
   line("producer", `${d.reportedProducer}${tag?.producer ? `  → tagged ${tag.producer}` : ""}`);
   line("purpose", tag?.purpose ?? "? (untagged)");
-  line("slides", `${d.slideCount} · ${aspect(d.slide)}`);
+  line("slides", `${d.slideCount} · ${aspect(d.slide)}${d.rerun ? " · ppt-background output (re-run input)" : ""}`);
   if (d.covering.length === 0) line("covering", "none");
   for (const g of d.covering) {
     line("covering", `${g.forms.join(" + ")}: slides ${slidesText(g.slides)}`);
@@ -219,6 +224,7 @@ function printDeck(d: DeckReport, tag: Tag | undefined) {
 function casesOf(d: DeckReport): string[] {
   return [
     ...new Set([
+      ...(d.rerun ? ["input: ppt-background output"] : []),
       ...d.covering.flatMap((g) => g.forms.map((f) => `covering: ${f}`)),
       ...(d.covering.some((g) => g.animatedOn.length > 0) ? ["covering: animated"] : []),
       ...[...d.nearMisses.keys()].map((r) => `near miss: ${r}`),
@@ -229,6 +235,7 @@ function casesOf(d: DeckReport): string[] {
 }
 
 const ALL_CASES = [
+  "input: ppt-background output",
   ...[...FORMS, "animated"].map((f) => `covering: ${f}`),
   ...NEAR_MISSES.map((r) => `near miss: ${r}`),
   ...SHOWN_KINDS.map((k) => `slide's own bg: ${k}`),
