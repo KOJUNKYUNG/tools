@@ -50,7 +50,7 @@ New fixtures need no bookkeeping: drop the file in the folder. To register a too
 Deck properties misreport the producer (Canva and 미리캔버스 write `Microsoft Office PowerPoint 14.0000`; Google Slides writes none) and never say the purpose, so tag decks in `coverage-tags.json` in the fixture folder (local, never committed), using the matrix's names (the producer and purpose lists at the top of `report.ts`):
 
 ```json
-{ "deck.pptx": { "producer": "Canva", "purpose": "lyrics" } }
+{ "deck.pptx": { "producer": "Canva", "purpose": "lyrics-text" } }
 ```
 
 The script is TypeScript run by Node itself (type stripping); `scripts/ppt-background-coverage/register.mjs` resolves the `@/` alias and extensionless imports, so it needs no extra package.

@@ -39,8 +39,10 @@ const FORMS = [
 const NEAR_MISSES = ["text", "transparent fill", "no fill", "nothing above"] as const;
 /** Spec #105's collection matrix: the producers and purposes to cover. */
 const PRODUCERS = ["PowerPoint", "Google Slides", "Keynote", "Canva", "미리캔버스", "한쇼", "LibreOffice", "image-to-pptx"];
-// Sermons read as presentations (template, report); retreat games are an event.
-const PURPOSES = ["sheet-music", "lyrics", "event", "lesson", "report", "template"];
+// Worship decks are either pictures of the score (music with its lyrics) or
+// lyrics typed as text over a background, when no score is at hand. Sermons
+// read as presentations (template, report); retreat games are an event.
+const PURPOSES = ["score-image", "lyrics-text", "event", "lesson", "report", "template"];
 /** A background's kind by its fill element; `bgRef` names a theme style. */
 const BACKGROUND_KINDS = new Map([
   ["a:blipFill", "picture"],
