@@ -62,11 +62,20 @@ export function topLevelElements(root: XmlElement | null): XmlElement[] | null {
 /** Every element in `el` (itself included) whose name matches `name`. */
 const named = (el: XmlElement, name: RegExp) => findAll(el, (e) => name.test(e.name));
 
-/** Whether the element is hidden (its own `cNvPr hidden`, "1" or "true"). */
+/**
+ * Whether the element is hidden: its own `cNvPr hidden` is "1" or "true",
+ * under whatever prefix its non-visual properties use (`p:nvSpPr`, an ink
+ * stroke's `p14:nvContentPartPr`).
+ */
 function isHidden(el: XmlElement): boolean {
-  const nv = el.children.find((c) => /^p:nv/.test(c.name));
-  const hidden = child(nv, "p:cNvPr")?.attrs.hidden;
+  const nv = el.children.find((c) => /^(?:[^:]+:)?nv\w*Pr$/.test(c.name));
+  const hidden = nv?.children.find((c) => /^(?:[^:]+:)?cNvPr$/.test(c.name))?.attrs.hidden;
   return hidden === "1" || hidden === "true";
+}
+
+/** Whether the element shows text: a text run with more than whitespace in it, outside hidden members. */
+function showsText(el: XmlElement): boolean {
+  return el.hasText && !isHidden(el) && (el.children.length === 0 || el.children.some(showsText));
 }
 
 /** Shape ids (`cNvPr` ids) in `el`, in document order: the element's own first. */
@@ -154,7 +163,7 @@ export function coveringIn(elements: XmlElement[], slide: SlideSize, colours: Co
   const shown = elements.filter((el) => !isHidden(el));
   const run: CoveringBackground[] = [];
   for (const el of shown) {
-    if (el.hasText || !covers(el, slide)) break;
+    if (showsText(el) || !covers(el, slide)) break;
     const [pictures, fills] = [picturesOf(el), opaqueFillsOf(el, colours)];
     if (pictures.length === 0 && fills.length === 0) break;
     run.push({ start: el.start, end: el.end, shapeIds: shapeIdsIn(el), pictures, fills });

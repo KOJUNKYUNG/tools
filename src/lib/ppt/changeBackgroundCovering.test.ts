@@ -305,6 +305,22 @@ describe("changeBackground ignores hidden elements", () => {
     expect(await topLevelIds(zip, 1)).toEqual(["2", "9"]);
   });
 
+  it("passes over the text of a hidden member", async () => {
+    const zip = await run([
+      lyricsOver(group(2, FULL, [filledShape(3, solidFill("000000")), hidden(textBox(4, "메모"))]), {}),
+    ]);
+    expect(await topLevelIds(zip, 1)).toEqual(["9"]);
+  });
+
+  it("does not count a hidden ink stroke as something above", async () => {
+    const ink =
+      `<p:contentPart r:id="rId20"><p14:nvContentPartPr><p14:cNvPr id="9" name="Ink 9" hidden="1"/>` +
+      `<p14:cNvContentPartPr/><p14:nvPr/></p14:nvContentPartPr><p14:xfrm><a:off x="0" y="0"/><a:ext cx="10" cy="10"/></p14:xfrm></p:contentPart>`;
+    const zip = await run([{ shapes: [picture(2, "rId10"), ink], pictures: { rId10: "score.png" } }]);
+    // The picture stays; the ink's own id sits under another prefix.
+    expect(await topLevelIds(zip, 1)).toEqual(["2", undefined]);
+  });
+
   it("keeps a group whose only opaque member is hidden", async () => {
     const zip = await run([
       lyricsOver(group(2, FULL, [hidden(filledShape(3, solidFill("000000"))), filledShape(4, "<a:noFill/>")]), {}),

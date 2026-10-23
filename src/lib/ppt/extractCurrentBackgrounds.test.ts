@@ -119,6 +119,16 @@ describe("extractCurrentBackgrounds shows fills as colour swatches", () => {
   });
 });
 
+describe("extractCurrentBackgrounds passes over hidden elements", () => {
+  it("does not show a hidden full-slide rectangle as the visible background", async () => {
+    const hiddenRect = filledShape(2, solidFill("1F2D3A")).replace('name="Rectangle 2"', 'name="Rectangle 2" hidden="1"');
+    const [only] = await analyse(
+      await testDeck([{ shapes: [hiddenRect, textBox(9, "가사")], background: solidBackground("FFFFFF") }]),
+    );
+    expect([only.key, only.source]).toEqual(["colour:#ffffff", "slide"]);
+  });
+});
+
 describe("extractCurrentBackgrounds shows a run of fills and pictures by its picture", () => {
   it("thumbnails the first picture when a fill lies under it, with no swatch", async () => {
     const deck = await testDeck([

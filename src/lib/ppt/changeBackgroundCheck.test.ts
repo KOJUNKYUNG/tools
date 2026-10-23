@@ -789,6 +789,20 @@ describe("checkPptBackground checks covering backgrounds", () => {
     });
   });
 
+  it("flags a hidden element under a covering background that was deleted with it", async () => {
+    const hiddenPicture = pictureElement(3, "rId11").replace('name="Picture 3"', 'name="Picture 3" hidden="1"');
+    const input = await testDeck([
+      {
+        shapes: [hiddenPicture, pictureElement(2, "rId10"), textBox(9, "가사")],
+        pictures: { rId10: "old.png", rId11: "spare.png" },
+      },
+    ]);
+    const output = await apply(input, allSlides);
+    expect(await properties(input, allSlides, output)).toEqual([]);
+    const tampered = await editSlide1(output, (xml) => xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/, ""));
+    expect(await quick(input, allSlides, tampered)).toContainEqual({ property: "element-missing", detail: `${SLIDE1} #3` });
+  });
+
   it("ignores an animation target the input already lacked", async () => {
     const input = await editSlide1(await coveredDeck(), (xml) =>
       xml.replace(/<p:bldP spid="9"/, '<p:bldP spid="77"'),
