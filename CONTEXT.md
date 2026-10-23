@@ -103,13 +103,14 @@ whose bounds cover at least 90% of the slide and which either holds a picture
 (a picture, a shape filled with a picture, or a group containing one) or is
 filled opaquely (a solid or gradient fill with no transparency, or a pattern
 fill, often a plain rectangle laid under everything; a shape without its own
-fill takes the one its style reference names in the theme). Elements qualify upwards from the
-bottom while consecutive ones do, and only with at least one element above
-them. A slide whose only element is one large picture holds content (a
-sheet-music slide from image-to-pptx, a lyrics image); a translucent overlay
-that darkens a photo for legible lyrics, a filled box holding text, a large
-element higher in the stack, or one under 90% (sheet music on a background,
-typically 60–80% of the slide) is content too. Decks exported from design
+fill takes the one its style reference names in the theme). Elements qualify
+upwards from the bottom while consecutive ones do, and only with at least one
+element above them. Hidden elements show nothing and are passed over. A slide
+whose only element is one large picture holds content (a sheet-music slide
+from image-to-pptx, a lyrics image); a translucent overlay that darkens a
+photo for legible lyrics, a filled box holding text, a large element higher in
+the stack, or one under 90% (sheet music on a background, typically 60–80% of
+the slide) is content too. Decks exported from design
 tools often carry one as a picture-filled shape or a group, and a picture may
 be mostly transparent (soft colour blobs), so a picture's transparency does
 not tell it from content. ppt-background deletes covering backgrounds on the

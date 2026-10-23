@@ -19,6 +19,11 @@
  * above it: a lone large picture is the slide's content (an image-to-pptx
  * sheet-music slide), not its background.
  *
+ * Hidden elements (`cNvPr hidden`, as the selection pane hides them) show
+ * nothing, so the rule passes over them: they never qualify, never end the
+ * run, never count as lying above it, and a hidden member never qualifies
+ * its group.
+ *
  * Unknown bounds (an element inheriting its frame, a turn other than a
  * quarter) never qualify: the rule errs toward keeping an element.
  */
@@ -57,6 +62,13 @@ export function topLevelElements(root: XmlElement | null): XmlElement[] | null {
 /** Every element in `el` (itself included) whose name matches `name`. */
 const named = (el: XmlElement, name: RegExp) => findAll(el, (e) => name.test(e.name));
 
+/** Whether the element is hidden (its own `cNvPr hidden`, "1" or "true"). */
+function isHidden(el: XmlElement): boolean {
+  const nv = el.children.find((c) => /^p:nv/.test(c.name));
+  const hidden = child(nv, "p:cNvPr")?.attrs.hidden;
+  return hidden === "1" || hidden === "true";
+}
+
 /** Shape ids (`cNvPr` ids) in `el`, in document order: the element's own first. */
 export function shapeIdsIn(el: XmlElement): string[] {
   return named(el, /(?:^|:)cNvPr$/).flatMap((c) => (c.attrs.id === undefined ? [] : [c.attrs.id]));
@@ -73,6 +85,7 @@ function blipIds(blipFill: XmlElement | undefined): string[] {
 
 /** The relationship ids of the pictures an element shows; empty when it holds none. */
 function picturesOf(el: XmlElement): string[] {
+  if (isHidden(el)) return [];
   switch (el.name) {
     case "p:pic": {
       const nvPr = child(child(el, "p:nvPicPr"), "p:nvPr");
@@ -93,6 +106,7 @@ function picturesOf(el: XmlElement): string[] {
  * of a group that takes the group's fill (`a:grpFill`) gets `groupFill`.
  */
 function opaqueFillsOf(el: XmlElement, colours: Colours, groupFill?: XmlElement): Swatch[] {
+  if (isHidden(el)) return [];
   switch (el.name) {
     case "p:sp": {
       const shown = shownFill(child(el, "p:spPr"), child(child(el, "p:style"), "a:fillRef"), colours, groupFill);
@@ -137,15 +151,16 @@ function covers(el: XmlElement, slide: SlideSize): boolean {
  * fills resolved against the slide's `colours`.
  */
 export function coveringIn(elements: XmlElement[], slide: SlideSize, colours: Colours): CoveringBackground[] {
+  const shown = elements.filter((el) => !isHidden(el));
   const run: CoveringBackground[] = [];
-  for (const el of elements) {
+  for (const el of shown) {
     if (el.hasText || !covers(el, slide)) break;
     const [pictures, fills] = [picturesOf(el), opaqueFillsOf(el, colours)];
     if (pictures.length === 0 && fills.length === 0) break;
     run.push({ start: el.start, end: el.end, shapeIds: shapeIdsIn(el), pictures, fills });
   }
   // Nothing above the run: the elements are the slide's content.
-  return run.length < elements.length ? run : [];
+  return run.length < shown.length ? run : [];
 }
 
 /** The covering backgrounds of a slide, bottom first; none for XML that is not a slide. */

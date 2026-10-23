@@ -279,6 +279,40 @@ describe("changeBackground deletes covering backgrounds on the target slides", (
   });
 });
 
+describe("changeBackground ignores hidden elements", () => {
+  /** The element hidden, as PowerPoint's selection pane writes it. */
+  const hidden = (el: string) => el.replace(/(<p:cNvPr id="\d+" name="[^"]*")/, '$1 hidden="1"');
+
+  it("keeps a hidden covering background: it hides nothing", async () => {
+    const zip = await run([lyricsOver(hidden(picture(2, "rId10")), { rId10: "a.png" })]);
+    expect(await topLevelIds(zip, 1)).toEqual(["2", "9"]);
+  });
+
+  it("walks past a hidden element at the bottom to the covering background above it", async () => {
+    const zip = await run([
+      {
+        shapes: [hidden(filledShape(2, solidFill("1F2D3A"))), picture(3, "rId10"), textBox(9, "가사")],
+        pictures: { rId10: "a.png" },
+      },
+    ]);
+    expect(await topLevelIds(zip, 1)).toEqual(["2", "9"]);
+  });
+
+  it("does not count a hidden element as something above", async () => {
+    const zip = await run([
+      { shapes: [picture(2, "rId10"), hidden(textBox(9, "메모"))], pictures: { rId10: "score.png" } },
+    ]);
+    expect(await topLevelIds(zip, 1)).toEqual(["2", "9"]);
+  });
+
+  it("keeps a group whose only opaque member is hidden", async () => {
+    const zip = await run([
+      lyricsOver(group(2, FULL, [hidden(filledShape(3, solidFill("000000"))), filledShape(4, "<a:noFill/>")]), {}),
+    ]);
+    expect(await topLevelIds(zip, 1)).toEqual(["2", "9"]);
+  });
+});
+
 describe("changeBackground deletes opaquely filled covering backgrounds", () => {
   const white = `<a:srgbClr val="FFFFFF"/>`;
   const navy = `<a:schemeClr val="tx2"><a:lumMod val="75000"/></a:schemeClr>`;
