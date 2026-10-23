@@ -153,6 +153,15 @@ export interface PptBackgroundToolLabels {
      * apply. Provisional copy ([임시]) until the user's visual QA closes spec #105.
      */
     coveringDelete: string;
+    /**
+     * The same toggle under a covering background without a picture, and the
+     * names of colour swatches: a solid colour, and any other fill (a
+     * gradient, a pattern or a colour that could not be resolved).
+     * Provisional copy ([임시]) until the user's visual QA closes spec #105.
+     */
+    coveringDeleteFill: string;
+    solidSwatch: string;
+    fillSwatch: string;
     slideCountTemplate: string;
     zoom: string;
     close: string;
@@ -695,6 +704,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       slideCountTemplate={labels.preview.slideCountTemplate}
                       emptyLabel={labels.preview.currentEmpty}
                       deleteLabel={labels.preview.coveringDelete}
+                      deleteFillLabel={labels.preview.coveringDeleteFill}
+                      swatchLabels={{ solid: labels.preview.solidSwatch, fill: labels.preview.fillSwatch }}
                       zoomLabel={labels.preview.zoom}
                       onZoom={() => setZoom("current")}
                     />

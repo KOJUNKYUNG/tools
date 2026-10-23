@@ -101,8 +101,9 @@ that acts as the slide's background and hides or tints the real one, so a new
 background would not show as chosen. It is a top-level element with no text
 whose bounds cover at least 90% of the slide and which either holds a picture
 (a picture, a shape filled with a picture, or a group containing one) or is
-filled opaquely (a solid or gradient fill with no transparency, often a
-plain rectangle laid under everything). Elements qualify upwards from the
+filled opaquely (a solid or gradient fill with no transparency, or a pattern
+fill, often a plain rectangle laid under everything; a shape without its own
+fill takes the one its style reference names in the theme). Elements qualify upwards from the
 bottom while consecutive ones do, and only with at least one element above
 them. A slide whose only element is one large picture holds content (a
 sheet-music slide from image-to-pptx, a lyrics image); a translucent overlay

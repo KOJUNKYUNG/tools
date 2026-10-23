@@ -13,7 +13,9 @@ import {
   topLevelElements,
   type CoveringBackground,
 } from "./coveringBackgrounds";
+import type { Colours } from "./fills";
 import { animationTargets } from "./slideAnimations";
+import { packagePartReader, slideColours, type ColoursOf } from "./slideColours";
 import { parseXml, type XmlElement } from "./xmlTree";
 
 export interface PptBackgroundRequest {
@@ -61,7 +63,8 @@ export interface PptBackgroundRequest {
  *   backgrounds deleted are held by the element properties below)
  *
  * Covering backgrounds (spec #105), on each target slide (every slide in
- * master mode), re-detected on the input with the shared rule. The rule is
+ * master mode), re-detected on the input with the shared rule, picture and
+ * fill forms alike (fills resolved through the input's theme). The rule is
  * the spec: these prove the engine applied it, not that it is right (the
  * regression set covers the rule itself). Elements are matched by their XML text: the
  * engine copies the ones it keeps verbatim, while shape ids may repeat. The
@@ -153,8 +156,9 @@ export const checkPptBackground: OutputChecker<
   }
 
   const keptGroups = new Set(request.keptCovering ?? []);
+  const coloursOf = slideColours(packagePartReader(before));
   violations.push(
-    ...(await coveringViolations(before, after, coveringChecked, await slideSize(before), keptGroups)),
+    ...(await coveringViolations(before, after, coveringChecked, await slideSize(before), keptGroups, coloursOf)),
   );
 
   const kept = await after.unusedRelationships(rewritten);
@@ -199,7 +203,8 @@ export const checkPptBackground: OutputChecker<
         const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
         if (inXml === null || outXml === null) continue;
         const elements = topLevelElements(parseXml(inXml));
-        if (elements && (await deletedCovering(before, part, elements, slide, keptGroups)).length > 0) continue;
+        const colours = await coloursOf(part, inXml);
+        if (elements && (await deletedCovering(before, part, elements, slide, colours, keptGroups)).length > 0) continue;
         if (outXml !== inXml.replace(OWN_BACKGROUND, "")) {
           violations.push({ property: "only-background-cleared", detail: part });
         }
@@ -239,16 +244,17 @@ async function slideSize(pkg: PptxPackage): Promise<{ w: number; h: number }> {
 
 /**
  * The covering backgrounds the engine must delete from an input slide, given
- * its top-level elements: none when the user keeps their group.
+ * its top-level elements and colours: none when the user keeps their group.
  */
 async function deletedCovering(
   before: PptxPackage,
   part: string,
   elements: XmlElement[],
   slide: SlideSize,
+  colours: Colours,
   keptGroups: ReadonlySet<string>,
 ): Promise<CoveringBackground[]> {
-  const covering = coveringIn(elements, slide);
+  const covering = coveringIn(elements, slide, colours);
   if (covering.length === 0 || keptGroups.size === 0) return covering;
   const targets = new Map((await before.relationships(part)).map((r) => [r.id, r.part]));
   return keptGroups.has(coveringGroupKey(covering, (id) => targets.get(id))) ? [] : covering;
@@ -261,6 +267,7 @@ async function coveringViolations(
   targets: readonly string[],
   slide: SlideSize,
   keptGroups: ReadonlySet<string>,
+  coloursOf: ColoursOf,
 ): Promise<Violation[]> {
   const violations: Violation[] = [];
   for (const part of targets) {
@@ -271,7 +278,8 @@ async function coveringViolations(
     const [inEls, outEls] = [topLevelElements(inRoot), topLevelElements(outRoot)];
     if (!inRoot || !outRoot || !inEls || !outEls) continue;
 
-    const covering = new Set((await deletedCovering(before, part, inEls, slide, keptGroups)).map((c) => c.start));
+    const colours = await coloursOf(part, inXml);
+    const covering = new Set((await deletedCovering(before, part, inEls, slide, colours, keptGroups)).map((c) => c.start));
     /** How many of the output's top-level elements have each XML text, not yet matched. */
     const unmatched = new Map<string, number>();
     for (const el of outEls) {

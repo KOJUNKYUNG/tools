@@ -8,9 +8,12 @@ import {
   FULL,
   SLIDE,
   clickAnimations,
+  filledShape,
+  gradientFill,
   group,
   picture,
   pictureShape,
+  solidFill,
   testDeck,
   textBox,
   type TestSlide,
@@ -273,5 +276,65 @@ describe("changeBackground deletes covering backgrounds on the target slides", (
     expect(await topLevelIds(second, 1)).toEqual(["9"]);
     // The earlier background is replaced: only the new picture is left.
     expect(mediaParts(second)).toEqual(["ppt/media/background_custom_1.jpeg"]);
+  });
+});
+
+describe("changeBackground deletes opaquely filled covering backgrounds", () => {
+  const white = `<a:srgbClr val="FFFFFF"/>`;
+  const navy = `<a:schemeClr val="tx2"><a:lumMod val="75000"/></a:schemeClr>`;
+
+  it("deletes an opaque solid rectangle", async () => {
+    const zip = await run([lyricsOver(filledShape(2, solidFill("1F2D3A")), {})]);
+    expect(await topLevelIds(zip, 1)).toEqual(["9"]);
+  });
+
+  it("deletes an opaque gradient and a rectangle filled by its style reference", async () => {
+    const zip = await run([
+      lyricsOver(filledShape(2, gradientFill([white, navy])), {}),
+      lyricsOver(filledShape(2, null), {}),
+    ]);
+    expect(await topLevelIds(zip, 1)).toEqual(["9"]);
+    expect(await topLevelIds(zip, 2)).toEqual(["9"]);
+  });
+
+  it("deletes a group of opaque rectangles, and one whose members take the group's fill", async () => {
+    const half = { ...FULL, w: SLIDE.w / 2 };
+    const zip = await run([
+      lyricsOver(
+        group(2, FULL, [filledShape(3, solidFill("000000")), filledShape(4, solidFill("FFFFFF", 30000), half)]),
+        {},
+      ),
+      lyricsOver(
+        group(2, FULL, [filledShape(3, "<a:grpFill/>")]).replace(
+          "</a:xfrm></p:grpSpPr>",
+          `</a:xfrm>${solidFill("336699")}</p:grpSpPr>`,
+        ),
+        {},
+      ),
+    ]);
+    expect(await topLevelIds(zip, 1)).toEqual(["9"]);
+    expect(await topLevelIds(zip, 2)).toEqual(["9"]);
+  });
+
+  it("keeps a translucent overlay, a shape with no fill, a filled box holding text and a gradient with a transparent stop", async () => {
+    const zip = await run([
+      lyricsOver(filledShape(2, solidFill("000000", 40000)), {}),
+      lyricsOver(filledShape(2, "<a:noFill/>"), {}),
+      lyricsOver(filledShape(2, solidFill("1F2D3A"), FULL, "제목"), {}),
+      lyricsOver(filledShape(2, gradientFill([white, `<a:srgbClr val="000000"><a:alpha val="0"/></a:srgbClr>`])), {}),
+    ]);
+    for (const n of [1, 2, 3, 4]) expect(await topLevelIds(zip, n)).toEqual(["2", "9"]);
+  });
+
+  it("keeps a group whose members take the group's fill when the group has none", async () => {
+    // The members' style reference would fill them; their explicit group fill wins.
+    const member = filledShape(3, null).replace("</p:spPr>", "<a:grpFill/></p:spPr>");
+    const zip = await run([lyricsOver(group(2, FULL, [member]), {})]);
+    expect(await topLevelIds(zip, 1)).toEqual(["2", "9"]);
+  });
+
+  it("keeps a lone filled rectangle with nothing above it", async () => {
+    const zip = await run([{ shapes: [filledShape(2, solidFill("1F2D3A"))] }]);
+    expect(await topLevelIds(zip, 1)).toEqual(["2"]);
   });
 });

@@ -16,6 +16,7 @@ import {
   type CoveringBackground,
 } from "./coveringBackgrounds";
 import { slideSizeFromXml } from "./getSlideAspect";
+import { slideColours, zipPartReader, type ColoursOf } from "./slideColours";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
 
@@ -241,8 +242,9 @@ interface GroupChange {
   /** 1-based whitelist over the slide order (sorted by trailing integer in the
    *  filename — matches extractCurrentBackgrounds). Undefined = all. */
   targetIndices1Based?: ReadonlySet<number>;
-  /** The slide's size, to delete covering backgrounds on each part; none for masters and layouts. */
+  /** The slide's size and each slide's colours, to delete covering backgrounds on each part; none for masters and layouts. */
   slideSize?: SlideSize;
+  coloursOf?: ColoursOf;
   /** Keys of the covering-background groups left in place. */
   keptCovering?: ReadonlySet<string>;
 }
@@ -260,7 +262,7 @@ function relTargets(relsXml: string | null, sourceDir: string): Map<string, stri
 async function processSlideGroup(
   zip: JSZip,
   dir: string,
-  { background, onEach, targetIndices1Based, slideSize, keptCovering }: GroupChange,
+  { background, onEach, targetIndices1Based, slideSize, coloursOf, keptCovering }: GroupChange,
 ): Promise<Set<string>> {
   /** Parts the replaced backgrounds pointed at, to delete once unreferenced. */
   const replaced = new Set<string>();
@@ -290,13 +292,13 @@ async function processSlideGroup(
 
     // The pictures of deleted covering backgrounds lose their relationships
     // below, with the replaced background's, once the part no longer names them.
-    if (slideSize) {
+    if (slideSize && coloursOf) {
       const kept = (covering: CoveringBackground[]) => {
         if (!keptCovering?.size) return false;
         const targets = relTargets(relsXml, dir);
         return keptCovering.has(coveringGroupKey(covering, (id) => targets.get(id)));
       };
-      slideXml = deleteCoveringBackgrounds(slideXml, slideSize, kept);
+      slideXml = deleteCoveringBackgrounds(slideXml, slideSize, await coloursOf(slidePath, slideXml), kept);
     }
 
     const oldIds = backgroundValues(slideXml);
@@ -469,6 +471,8 @@ export async function changeBackground({
 
   const mediaTarget = `../media/${mediaName}`;
   const progress = (done: number, total: number) => onProgress?.(Math.round((done / total) * 100));
+  // Read lazily: rewriting backgrounds changes no theme or colour map.
+  const coloursOf = slideColours(zipPartReader(zip));
   let replaced: Set<string>;
   if (mode === "master") {
     // The master shows the new background; everything above it that would
@@ -481,6 +485,7 @@ export async function changeBackground({
         background: "clear",
         onEach: progress,
         slideSize,
+        coloursOf,
         keptCovering: kept,
       })),
     ]);
@@ -497,6 +502,7 @@ export async function changeBackground({
       onEach: progress,
       targetIndices1Based: whitelist,
       slideSize,
+      coloursOf,
       keptCovering: kept,
     });
   }

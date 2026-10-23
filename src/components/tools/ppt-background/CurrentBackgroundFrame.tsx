@@ -21,8 +21,11 @@ interface CurrentBackgroundFrameProps {
   /** "슬라이드 {n}장" */
   slideCountTemplate: string;
   emptyLabel: string;
-  /** The delete toggle under a covering-background group. */
+  /** The delete toggle under a covering-background group, with a picture or without. */
   deleteLabel: string;
+  deleteFillLabel: string;
+  /** Names of a swatch: a solid colour, or a gradient or pattern. */
+  swatchLabels: { solid: string; fill: string };
   zoomLabel: string;
   onZoom: () => void;
 }
@@ -30,11 +33,13 @@ interface CurrentBackgroundFrameProps {
 export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
   const {
     caption, groups, thumbUrls, index, onIndex, checkedKeys, onToggleCheck, keptCovering, onToggleDelete,
-    aspect, slideCountTemplate, emptyLabel, deleteLabel, zoomLabel, onZoom,
+    aspect, slideCountTemplate, emptyLabel, deleteLabel, deleteFillLabel, swatchLabels, zoomLabel, onZoom,
   } = props;
   const group = groups[index];
   const url = group ? thumbUrls.get(group.key) ?? null : null;
   const checked = group ? checkedKeys.has(group.key) : false;
+  const swatch = url ? undefined : group?.swatch;
+  const toggleLabel = swatch ? deleteFillLabel : deleteLabel;
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -53,6 +58,27 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
             {url ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={url} alt={caption} className="size-full object-cover" />
+            ) : swatch ? (
+              /* The deck's own colour fills the frame; a gradient, a pattern
+                 or an unresolved colour shows as neutral hatching. The name
+                 sits on a fixed dark chip so it reads on any colour
+                 (DESIGN.md, on-content overlays). */
+              <div
+                className="flex size-full items-center justify-center"
+                style={{
+                  background:
+                    swatch === "fill"
+                      ? "repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--border) 6px 7px)"
+                      : swatch,
+                }}
+              >
+                <span
+                  className="rounded-md px-2 py-0.5 font-body text-[10px] font-medium text-white"
+                  style={{ background: "rgba(0,0,0,0.7)" }}
+                >
+                  {swatch === "fill" ? swatchLabels.fill : swatchLabels.solid}
+                </span>
+              </div>
             ) : (
               <div className="flex h-full items-center justify-center font-body text-[10.5px]" style={{ color: "var(--ink-soft)" }}>
                 {emptyLabel}
@@ -132,7 +158,7 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
       <label
         className="flex min-w-0 cursor-pointer select-none items-center gap-1.5 font-body text-[10.5px] leading-[1.35]"
         style={{ color: "var(--ink-soft)", visibility: group?.source === "covering" ? "visible" : "hidden" }}
-        title={deleteLabel}
+        title={toggleLabel}
       >
         <input
           type="checkbox"
@@ -142,7 +168,7 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
           onChange={() => group && onToggleDelete(group.key)}
           style={{ accentColor: "var(--emphasis)" }}
         />
-        <span className="truncate">{deleteLabel}</span>
+        <span className="truncate">{toggleLabel}</span>
       </label>
     </div>
   );

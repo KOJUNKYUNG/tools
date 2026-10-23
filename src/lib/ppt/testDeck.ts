@@ -46,6 +46,37 @@ export function pictureShape(id: number, relId: string, box: Box = FULL, text?: 
   );
 }
 
+/** A solid fill of colour `rgb` (hex), `alpha` per 100000 opaque when given. */
+export const solidFill = (rgb: string, alpha?: number) =>
+  `<a:solidFill><a:srgbClr val="${rgb}">${alpha === undefined ? "" : `<a:alpha val="${alpha}"/>`}</a:srgbClr></a:solidFill>`;
+
+/** A linear gradient through these colour elements (e.g. `<a:srgbClr val="FFFFFF"/>`). */
+export const gradientFill = (stops: string[]) =>
+  `<a:gradFill rotWithShape="1"><a:gsLst>` +
+  stops.map((clr, i) => `<a:gs pos="${Math.round((i * 100000) / Math.max(1, stops.length - 1))}">${clr}</a:gs>`).join("") +
+  `</a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill>`;
+
+/**
+ * A rectangle with this fill (`solidFill`, `gradientFill`, `<a:noFill/>`),
+ * holding `text` when given. Without a fill it takes the one its style
+ * reference names, as PowerPoint's default rectangle does: the theme's first
+ * fill style in Accent 1.
+ */
+export function filledShape(id: number, fill: string | null, box: Box = FULL, text?: string): string {
+  const style =
+    fill === null
+      ? `<p:style><a:lnRef idx="2"><a:schemeClr val="accent1"><a:shade val="50000"/></a:schemeClr></a:lnRef>` +
+        `<a:fillRef idx="1"><a:schemeClr val="accent1"/></a:fillRef>` +
+        `<a:effectRef idx="0"><a:schemeClr val="accent1"/></a:effectRef>` +
+        `<a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></p:style>`
+      : "";
+  return (
+    `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Rectangle ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>` +
+    `<p:spPr>${xfrm(box)}${rect}${fill ?? ""}</p:spPr>${style}` +
+    `${text === undefined ? "" : textBody(text)}</p:sp>`
+  );
+}
+
 /** A text box: the slide's content (lyrics, a title). */
 export function textBox(id: number, text: string, box: Box = LYRICS_BOX): string {
   return (

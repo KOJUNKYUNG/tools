@@ -2,7 +2,18 @@ import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { extractCurrentBackgrounds } from "./extractCurrentBackgrounds";
 import { groupBackgrounds } from "./groupBackgrounds";
-import { group, picture, pictureBackground, pictureShape, testDeck, textBox } from "./testDeck";
+import {
+  filledShape,
+  gradientFill,
+  group,
+  picture,
+  pictureBackground,
+  pictureShape,
+  solidBackground,
+  solidFill,
+  testDeck,
+  textBox,
+} from "./testDeck";
 
 /** The visible-background groups of a deck, as the preview shows them. */
 async function analyse(deck: Uint8Array) {
@@ -33,7 +44,8 @@ describe("extractCurrentBackgrounds reports each slide's visible background", ()
     expect(groups.map(({ key, source, slideIndexes }) => ({ key, source, slideIndexes }))).toEqual([
       { key: "covering:ppt/media/photo.png", source: "covering", slideIndexes: [1, 2] },
       { key: "covering:ppt/media/blob1.png|ppt/media/blob2.png", source: "covering", slideIndexes: [3] },
-      { key: "none", source: "none", slideIndexes: [4, 5] },
+      // The test deck's layout fills its background from the theme (Background 1: white).
+      { key: "colour:#ffffff", source: "layout", slideIndexes: [4, 5] },
     ]);
 
     // The thumbnail is the bottom-most covering element's (first) picture.
@@ -58,6 +70,70 @@ describe("extractCurrentBackgrounds reports each slide's visible background", ()
     expect(groups.map((g) => [g.key, g.slideIndexes])).toEqual([
       ["covering:ppt/media/blob1.png|ppt/media/blob2.png", [1, 2]],
     ]);
+  });
+});
+
+describe("extractCurrentBackgrounds shows fills as colour swatches", () => {
+  const lyrics = textBox(9, "가사");
+
+  it("groups slides by their solid background's resolved colour, theme colours included", async () => {
+    const themeBlue = `<p:bg><p:bgPr><a:solidFill><a:schemeClr val="accent1"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>`;
+    const darker15 = `<p:bg><p:bgPr><a:solidFill><a:schemeClr val="bg1"><a:lumMod val="85000"/></a:schemeClr></a:solidFill><a:effectLst/></p:bgPr></p:bg>`;
+    const groups = await analyse(
+      await testDeck([
+        { shapes: [lyrics], background: solidBackground("1F2D3A") },
+        // The Office theme's Accent 1.
+        { shapes: [lyrics], background: themeBlue },
+        { shapes: [lyrics], background: solidBackground("4472C4") },
+        // PowerPoint's "White, Background 1, Darker 15%".
+        { shapes: [lyrics], background: darker15 },
+        { shapes: [lyrics], background: `<p:bg><p:bgPr>${gradientFill(["<a:srgbClr val=\"FFFFFF\"/>", "<a:srgbClr val=\"000000\"/>"])}<a:effectLst/></p:bgPr></p:bg>` },
+        { shapes: [lyrics] },
+      ]),
+    );
+    expect(groups.map(({ key, source, swatch, slideIndexes }) => ({ key, source, swatch, slideIndexes }))).toEqual([
+      { key: "colour:#1f2d3a", source: "slide", swatch: "#1f2d3a", slideIndexes: [1] },
+      { key: "colour:#4472c4", source: "slide", swatch: "#4472c4", slideIndexes: [2, 3] },
+      { key: "colour:#d9d9d9", source: "slide", swatch: "#d9d9d9", slideIndexes: [4] },
+      { key: "colour:fill", source: "slide", swatch: "fill", slideIndexes: [5] },
+      { key: "colour:#ffffff", source: "layout", swatch: "#ffffff", slideIndexes: [6] },
+    ]);
+    expect(groups.every((g) => g.imageBlob === null)).toBe(true);
+  });
+
+  it("shows fill-only covering backgrounds as swatches, grouped by colour", async () => {
+    const groups = await analyse(
+      await testDeck([
+        { shapes: [filledShape(2, solidFill("1F2D3A")), lyrics] },
+        { shapes: [filledShape(2, solidFill("1f2d3a")), lyrics] },
+        // PowerPoint's default rectangle: the theme's first fill style in Accent 1.
+        { shapes: [filledShape(2, null), lyrics] },
+        { shapes: [filledShape(2, gradientFill(["<a:srgbClr val=\"FFFFFF\"/>", "<a:srgbClr val=\"000000\"/>"])), lyrics] },
+      ]),
+    );
+    expect(groups.map(({ key, source, swatch, slideIndexes }) => ({ key, source, swatch, slideIndexes }))).toEqual([
+      { key: "covering:#1f2d3a", source: "covering", swatch: "#1f2d3a", slideIndexes: [1, 2] },
+      { key: "covering:#4472c4", source: "covering", swatch: "#4472c4", slideIndexes: [3] },
+      { key: "covering:fill", source: "covering", swatch: "fill", slideIndexes: [4] },
+    ]);
+  });
+});
+
+describe("extractCurrentBackgrounds shows a run of fills and pictures by its picture", () => {
+  it("thumbnails the first picture when a fill lies under it, with no swatch", async () => {
+    const deck = await testDeck([
+      {
+        shapes: [filledShape(2, solidFill("1F2D3A")), picture(3, "rId10"), textBox(9, "가사")],
+        pictures: { rId10: "photo.png" },
+      },
+    ]);
+    const [only] = await analyse(deck);
+    expect(only.key).toBe("covering:#1f2d3a|ppt/media/photo.png");
+    expect(only.swatch).toBeUndefined();
+    const zip = await JSZip.loadAsync(deck);
+    expect(new Uint8Array(await only.imageBlob!.arrayBuffer())).toEqual(
+      await zip.file("ppt/media/photo.png")!.async("uint8array"),
+    );
   });
 });
 

@@ -193,6 +193,9 @@
           "selectedEmpty": "Pick a background",
           "currentEmpty": "No background",
           "coveringDelete": "Remove this picture on apply",
+          "coveringDeleteFill": "Remove this colour on apply",
+          "solidSwatch": "Solid colour",
+          "fillSwatch": "Fill",
           "slideCountTemplate": "{n} slides",
           "zoom": "Zoom",
           "close": "Close"

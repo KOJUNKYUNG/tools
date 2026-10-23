@@ -2,7 +2,10 @@ import JSZip from "jszip";
 import type { SlideSize } from "@/lib/image/slideImage";
 import { parseRelationships } from "@/lib/output-check/pptxPackage";
 import { coveringGroupKey, findCoveringBackgrounds } from "./coveringBackgrounds";
+import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
 import { slideSizeFromXml } from "./getSlideAspect";
+import { slideColours, zipPartReader, type PartReader } from "./slideColours";
+import { child, parseXml } from "./xmlTree";
 
 /**
  * A slide's visible background (CONTEXT.md): its covering backgrounds when it
@@ -15,10 +18,16 @@ export interface SlideBackground {
   source: "covering" | "slide" | "layout" | "master" | "none";
   /**
    * Resolved zip path of the background image part — the dedup key; for
-   * covering backgrounds, the bottom-most one's (first) picture, the
-   * thumbnail. null when source==="none".
+   * covering backgrounds, their first picture from the bottom, the
+   * thumbnail. null when it shows no picture.
    */
   imagePath: string | null;
+  /**
+   * What a background without a picture shows: a solid background's colour,
+   * a neutral swatch for a gradient or pattern; for covering backgrounds
+   * without any picture, the bottom-most one's first opaque fill.
+   */
+  swatch?: Swatch;
   /** For covering backgrounds: their group's key (`coveringGroupKey`), what the user keeps a group by. */
   coveringKey?: string;
 }
@@ -63,42 +72,50 @@ async function relationshipTargets(zip: JSZip, partPath: string): Promise<Map<st
   return new Map((await relationshipsOf(zip, partPath)).map((r) => [r.id, r.part]));
 }
 
-/** The first part `partPath` relates to by this relationship type (the URI's last segment). */
-async function relatedPart(zip: JSZip, partPath: string, type: string): Promise<string | null> {
-  return (await relationshipsOf(zip, partPath)).find((r) => r.type.endsWith(`/${type}`))?.part ?? null;
-}
-
 /** The slide's covering backgrounds as its visible background; null when it has none. */
 async function coveringBackground(
   zip: JSZip,
   slidePath: string,
   slideXml: string,
   slide: SlideSize,
-): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "coveringKey"> | null> {
-  const covering = findCoveringBackgrounds(slideXml, slide);
+  colours: Colours,
+): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "swatch" | "coveringKey"> | null> {
+  const covering = findCoveringBackgrounds(slideXml, slide, colours);
   if (covering.length === 0) return null;
   const targets = await relationshipTargets(zip, slidePath);
-  const thumbnail = covering[0].pictures.flatMap((id) => targets.get(id) ?? [])[0] ?? null;
+  const pictures = covering.flatMap((c) => c.pictures);
+  const thumbnail = pictures.flatMap((id) => targets.get(id) ?? [])[0] ?? null;
   return {
     imageBlob: thumbnail === null ? null : await mediaBlob(zip, thumbnail),
     imagePath: thumbnail,
+    // A fill under a covering picture is hidden by it: the picture shows.
+    ...(pictures.length === 0 && { swatch: covering[0].fills[0] }),
     coveringKey: coveringGroupKey(covering, (id) => targets.get(id)),
   };
 }
 
-/** The picture of a part's own background; null when it declares none, or no picture. */
-async function backgroundPicture(
+/**
+ * What a part's own background shows: its picture, or a swatch of its fill
+ * (its own, or the theme's background style it names); neither when it shows
+ * nothing readable. null when the part declares no background.
+ */
+async function ownBackground(
   zip: JSZip,
   partPath: string,
   partXml: string,
-): Promise<{ blob: Blob; path: string } | null> {
-  const bg = partXml.match(/<p:bg[\s>][\s\S]*?<\/p:bg>/)?.[0];
-  const relId = bg?.match(/r:embed="([^"]+)"/)?.[1];
-  if (!relId) return null;
-  const path = (await relationshipTargets(zip, partPath)).get(relId);
-  if (!path) return null;
-  const blob = await mediaBlob(zip, path);
-  return blob && { blob, path };
+  colours: Colours,
+): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "swatch"> | null> {
+  const bg = child(child(parseXml(partXml) ?? undefined, "p:cSld"), "p:bg");
+  if (!bg) return null;
+  const fill = fillChild(child(bg, "p:bgPr"));
+  const relId = fill?.name === "a:blipFill" ? child(fill, "a:blip")?.attrs["r:embed"] : undefined;
+  if (relId) {
+    const path = (await relationshipTargets(zip, partPath)).get(relId) ?? null;
+    const blob = path && (await mediaBlob(zip, path));
+    return blob ? { imageBlob: blob, imagePath: path } : { imageBlob: null, imagePath: null };
+  }
+  const shown = shownFill(child(bg, "p:bgPr"), child(bg, "p:bgRef"), colours);
+  return { imageBlob: null, imagePath: null, ...(shown && { swatch: shown.swatch }) };
 }
 
 export async function extractCurrentBackgrounds(
@@ -123,6 +140,8 @@ export async function extractCurrentBackgrounds(
   const presXml = await zip.file("ppt/presentation.xml")?.async("text");
   const slideSize = (presXml && slideSizeFromXml(presXml)) || { w: 12192000, h: 6858000 };
   const results: SlideBackground[] = [];
+  const reader: PartReader = zipPartReader(zip);
+  const coloursOf = slideColours(reader);
 
   for (let i = 0; i < slideFiles.length; i++) {
     const slidePath = slideFiles[i];
@@ -137,15 +156,18 @@ export async function extractCurrentBackgrounds(
       imagePath: null,
     };
 
-    const covering = await coveringBackground(zip, slidePath, slideXml, slideSize);
+    // The slide's colours resolve its layout's and master's backgrounds too: they show on it.
+    const colours = await coloursOf(slidePath, slideXml);
+    const covering = await coveringBackground(zip, slidePath, slideXml, slideSize, colours);
     if (covering) {
       results.push({ ...bg, ...covering, source: "covering" });
       continue;
     }
 
-    // Its own background, else the layout's, else the master's.
-    const layoutPath = await relatedPart(zip, slidePath, "slideLayout");
-    const masterPath = layoutPath && (await relatedPart(zip, layoutPath, "slideMaster"));
+    // Its own background, else the layout's, else the master's: the first
+    // that declares one, whatever it shows.
+    const layoutPath = await reader.related(slidePath, "slideLayout");
+    const masterPath = layoutPath && (await reader.related(layoutPath, "slideMaster"));
     const chain: [SlideBackground["source"], string | null][] = [
       ["slide", slidePath],
       ["layout", layoutPath],
@@ -153,9 +175,9 @@ export async function extractCurrentBackgrounds(
     ];
     for (const [source, partPath] of chain) {
       const partXml = partPath && (await zip.file(partPath)?.async("text"));
-      const picture = partXml && (await backgroundPicture(zip, partPath, partXml));
-      if (picture) {
-        Object.assign(bg, { imageBlob: picture.blob, imagePath: picture.path, source });
+      const own = partXml ? await ownBackground(zip, partPath, partXml, colours) : null;
+      if (own) {
+        if (own.imagePath || own.swatch) Object.assign(bg, own, { source });
         break;
       }
     }

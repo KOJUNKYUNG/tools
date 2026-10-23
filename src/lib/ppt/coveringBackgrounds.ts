@@ -9,7 +9,9 @@
  * - holds no text (no non-empty text run anywhere in it),
  * - holds a picture: a picture element, a shape filled with a picture, or a
  *   group containing either (the picture's transparency does not matter;
- *   a video or sound is not a picture), and
+ *   a video or sound is not a picture), or is filled opaquely: a shape whose
+ *   own fill, or the fill its style reference names in the theme, is opaque
+ *   (`fills.ts`), or a group with such a member, and
  * - covers at least 90% of the slide's area with its bounds (their part on
  *   the slide; a group by its own bounds).
  * Qualifying elements form a run from the bottom, ending at the first that
@@ -22,6 +24,7 @@
  */
 
 import type { SlideSize } from "@/lib/image/slideImage";
+import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
 import { animationCuts, cutSpans, type Span } from "./slideAnimations";
 import { child, findAll, parseXml, type XmlElement } from "./xmlTree";
 
@@ -31,6 +34,8 @@ export interface CoveringBackground extends Span {
   shapeIds: string[];
   /** Relationship ids of its pictures, in document order. */
   pictures: string[];
+  /** What its opaque fills show (a shape's, or a group's members'), in document order. */
+  fills: Swatch[];
 }
 
 /** The share of the slide's area an element must cover, as a fraction. */
@@ -83,6 +88,27 @@ function picturesOf(el: XmlElement): string[] {
   }
 }
 
+/**
+ * What the opaque fills of an element show; empty when it has none. A member
+ * of a group that takes the group's fill (`a:grpFill`) gets `groupFill`.
+ */
+function opaqueFillsOf(el: XmlElement, colours: Colours, groupFill?: XmlElement): Swatch[] {
+  switch (el.name) {
+    case "p:sp": {
+      const shown = shownFill(child(el, "p:spPr"), child(child(el, "p:style"), "a:fillRef"), colours, groupFill);
+      return shown?.opaque ? [shown.swatch] : [];
+    }
+    case "p:grpSp": {
+      // A group's own group fill passes on the enclosing group's.
+      const own = fillChild(child(el, "p:grpSpPr"));
+      const fill = own?.name === "a:grpFill" ? groupFill : own;
+      return el.children.flatMap((c) => opaqueFillsOf(c, colours, fill));
+    }
+    default:
+      return [];
+  }
+}
+
 /** An element's bounds on the slide (EMU), after a quarter turn; null when unknown. */
 function boundsOf(el: XmlElement): { x: number; y: number; w: number; h: number } | null {
   const props = el.name === "p:grpSp" ? child(el, "p:grpSpPr") : child(el, "p:spPr");
@@ -106,29 +132,34 @@ function covers(el: XmlElement, slide: SlideSize): boolean {
   return across > 0 && down > 0 && across * down * COVER.den >= slide.w * slide.h * COVER.num;
 }
 
-/** The covering backgrounds of a slide's top-level `elements` (bottom first). */
-export function coveringIn(elements: XmlElement[], slide: SlideSize): CoveringBackground[] {
+/**
+ * The covering backgrounds of a slide's top-level `elements` (bottom first),
+ * fills resolved against the slide's `colours`.
+ */
+export function coveringIn(elements: XmlElement[], slide: SlideSize, colours: Colours): CoveringBackground[] {
   const run: CoveringBackground[] = [];
   for (const el of elements) {
-    const pictures = el.hasText ? [] : picturesOf(el);
-    if (pictures.length === 0 || !covers(el, slide)) break;
-    run.push({ start: el.start, end: el.end, shapeIds: shapeIdsIn(el), pictures });
+    if (el.hasText || !covers(el, slide)) break;
+    const [pictures, fills] = [picturesOf(el), opaqueFillsOf(el, colours)];
+    if (pictures.length === 0 && fills.length === 0) break;
+    run.push({ start: el.start, end: el.end, shapeIds: shapeIdsIn(el), pictures, fills });
   }
   // Nothing above the run: the elements are the slide's content.
   return run.length < elements.length ? run : [];
 }
 
 /** The covering backgrounds of a slide, bottom first; none for XML that is not a slide. */
-export function findCoveringBackgrounds(slideXml: string, slide: SlideSize): CoveringBackground[] {
+export function findCoveringBackgrounds(slideXml: string, slide: SlideSize, colours: Colours): CoveringBackground[] {
   const elements = topLevelElements(parseXml(slideXml));
-  return elements ? coveringIn(elements, slide) : [];
+  return elements ? coveringIn(elements, slide, colours) : [];
 }
 
 /**
  * The key of the covering-background group a slide's covering backgrounds
  * belong to: the set of picture parts they use, whatever relationship ids
- * name them. The preview groups slides by it and the user keeps a group by
- * it, so the engine and the output check derive it the same way.
+ * name them, and of what their opaque fills show (`#rrggbb` or `fill`, never
+ * a part name). The preview groups slides by it and the user keeps a group
+ * by it, so the engine and the output check derive it the same way.
  * `partOf` resolves a relationship id of the slide to its part name.
  */
 export function coveringGroupKey(
@@ -136,7 +167,10 @@ export function coveringGroupKey(
   partOf: (relId: string) => string | null | undefined,
 ): string {
   // OPC part names compare case-insensitively.
-  const parts = covering.flatMap((c) => c.pictures.flatMap((id) => partOf(id)?.toLowerCase() ?? []));
+  const parts = covering.flatMap((c) => [
+    ...c.pictures.flatMap((id) => partOf(id)?.toLowerCase() ?? []),
+    ...c.fills,
+  ]);
   return `covering:${[...new Set(parts)].sort().join("|")}`;
 }
 
@@ -148,11 +182,12 @@ export function coveringGroupKey(
 export function deleteCoveringBackgrounds(
   slideXml: string,
   slide: SlideSize,
+  colours: Colours,
   keep: (covering: CoveringBackground[]) => boolean,
 ): string {
   const root = parseXml(slideXml);
   const elements = topLevelElements(root);
-  const covering = elements ? coveringIn(elements, slide) : [];
+  const covering = elements ? coveringIn(elements, slide, colours) : [];
   if (!root || covering.length === 0 || keep(covering)) return slideXml;
   const ids = new Set(covering.flatMap((c) => c.shapeIds));
   return cutSpans(slideXml, [...covering, ...animationCuts(root, ids)]);

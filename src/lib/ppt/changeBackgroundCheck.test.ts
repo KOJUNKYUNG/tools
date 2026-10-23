@@ -8,7 +8,15 @@ import { testPng } from "@/lib/image/testPng";
 import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { changeBackground } from "./changeBackground";
-import { clickAnimations, picture as pictureElement, solidBackground, testDeck, textBox } from "./testDeck";
+import {
+  clickAnimations,
+  filledShape,
+  picture as pictureElement,
+  solidBackground,
+  solidFill,
+  testDeck,
+  textBox,
+} from "./testDeck";
 import {
   checkPptBackground,
   type PptBackgroundRequest,
@@ -786,6 +794,47 @@ describe("checkPptBackground checks covering backgrounds", () => {
       xml.replace(/<p:bldP spid="9"/, '<p:bldP spid="77"'),
     );
     expect(await properties(input, allSlides, await apply(input, allSlides))).toEqual([]);
+  });
+});
+
+describe("checkPptBackground checks fill-form covering backgrounds", () => {
+  /** Slide 1: a plain rectangle under the lyrics, filled by its style reference; slide 2: a solid one, kept. */
+  const filledDeck = () =>
+    testDeck([
+      { shapes: [filledShape(2, null), textBox(9, "1절")], timing: clickAnimations([2, 9]) },
+      { shapes: [filledShape(2, solidFill("1F2D3A")), textBox(9, "2절")] },
+    ]);
+  const keepSolid = (mode: Intent["mode"]): Intent => ({ source: newBgBytes, mode, keptCovering: ["covering:#1f2d3a"] });
+  const SLIDE1 = "ppt/slides/slide1.xml";
+  const SLIDE2 = "ppt/slides/slide2.xml";
+
+  it.each(["all-slides", "master"] as const)("passes the engine's output (%s)", async (mode) => {
+    const input = await filledDeck();
+    expect(await properties(input, keepSolid(mode), await apply(input, keepSolid(mode)))).toEqual([]);
+  });
+
+  it("flags a rectangle filled by its style reference left in place", async () => {
+    const input = await filledDeck();
+    const output = await mutate(await apply(input, keepSolid("all-slides")), async (zip) => {
+      const xml = await zip.file(SLIDE1)!.async("text");
+      zip.file(SLIDE1, xml.replace("</p:grpSpPr>", `</p:grpSpPr>${filledShape(2, null)}`));
+    });
+    expect(await quick(input, keepSolid("all-slides"), output)).toContainEqual({
+      property: "covering-background-kept",
+      detail: `${SLIDE1} #2`,
+    });
+  });
+
+  it("flags a kept solid rectangle that was deleted", async () => {
+    const input = await filledDeck();
+    const output = await mutate(await apply(input, keepSolid("all-slides")), async (zip) => {
+      const xml = await zip.file(SLIDE2)!.async("text");
+      zip.file(SLIDE2, xml.replace(/<p:sp><p:nvSpPr><p:cNvPr id="2"[\s\S]*?<\/p:sp>/, ""));
+    });
+    expect(await quick(input, keepSolid("all-slides"), output)).toContainEqual({
+      property: "element-missing",
+      detail: `${SLIDE2} #2`,
+    });
   });
 });
 
