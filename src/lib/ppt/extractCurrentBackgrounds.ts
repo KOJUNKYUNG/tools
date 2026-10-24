@@ -3,7 +3,7 @@ import type { SlideSize } from "@/lib/image/slideImage";
 import { parseRelationships } from "@/lib/output-check/pptxPackage";
 import { coveringGroupKey, findCoveringBackgrounds } from "./coveringBackgrounds";
 import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
-import { slideSizeFromXml } from "./getSlideAspect";
+import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { slideColours, zipPartReader, type PartReader } from "./slideColours";
 import { child, parseXml } from "./xmlTree";
 
@@ -138,7 +138,7 @@ export async function extractCurrentBackgrounds(
   });
 
   const presXml = await zip.file("ppt/presentation.xml")?.async("text");
-  const slideSize = (presXml && slideSizeFromXml(presXml)) || { w: 12192000, h: 6858000 };
+  const slideSize = (presXml && slideSizeFromXml(presXml)) || DEFAULT_SLIDE;
   const results: SlideBackground[] = [];
   const reader: PartReader = zipPartReader(zip);
   const coloursOf = slideColours(reader);

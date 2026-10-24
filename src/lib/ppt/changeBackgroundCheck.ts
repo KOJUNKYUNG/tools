@@ -6,6 +6,7 @@ import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import type { SlideSize } from "@/lib/image/slideImage";
 import type { BgMode } from "./changeBackground";
+import { DEFAULT_SLIDE } from "./getSlideAspect";
 import {
   coveringGroupKey,
   coveringIn,
@@ -157,9 +158,8 @@ export const checkPptBackground: OutputChecker<
 
   const keptGroups = new Set(request.keptCovering ?? []);
   const coloursOf = slideColours(packagePartReader(before));
-  violations.push(
-    ...(await coveringViolations(before, after, coveringChecked, await slideSize(before), keptGroups, coloursOf)),
-  );
+  const covering = await coveringViolations(before, after, coveringChecked, await slideSize(before), keptGroups, coloursOf);
+  violations.push(...covering.violations);
 
   const kept = await after.unusedRelationships(rewritten);
   if (kept.length > 0) {
@@ -198,13 +198,10 @@ export const checkPptBackground: OutputChecker<
     }
 
     if (request.mode === "master") {
-      const slide = await slideSize(before);
-      for (const part of [...before.layoutParts, ...before.slideParts]) {
+      // Slides with covering backgrounds deleted are held by the element properties.
+      for (const part of [...before.layoutParts, ...before.slideParts].filter((p) => !covering.deletedOn.has(p))) {
         const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
         if (inXml === null || outXml === null) continue;
-        const elements = topLevelElements(parseXml(inXml));
-        const colours = await coloursOf(part, inXml);
-        if (elements && (await deletedCovering(before, part, elements, slide, colours, keptGroups)).length > 0) continue;
         if (outXml !== inXml.replace(OWN_BACKGROUND, "")) {
           violations.push({ property: "only-background-cleared", detail: part });
         }
@@ -229,9 +226,6 @@ export const checkPptBackground: OutputChecker<
 
 /** A part's own background, as the part declares it. */
 const OWN_BACKGROUND = /<p:bg[\s>][\s\S]*?<\/p:bg>/;
-
-/** PowerPoint's default slide (16:9) when the deck does not declare one. */
-const DEFAULT_SLIDE = { w: 12192000, h: 6858000 };
 
 async function slideSize(pkg: PptxPackage): Promise<{ w: number; h: number }> {
   const bytes = await pkg.read("ppt/presentation.xml");
@@ -260,7 +254,10 @@ async function deletedCovering(
   return keptGroups.has(coveringGroupKey(covering, (id) => targets.get(id))) ? [] : covering;
 }
 
-/** The covering-background properties of the given slides. */
+/**
+ * The covering-background properties of the given slides, and the slides on
+ * which the engine must have deleted covering backgrounds.
+ */
 async function coveringViolations(
   before: PptxPackage,
   after: PptxPackage,
@@ -268,8 +265,9 @@ async function coveringViolations(
   slide: SlideSize,
   keptGroups: ReadonlySet<string>,
   coloursOf: ColoursOf,
-): Promise<Violation[]> {
+): Promise<{ violations: Violation[]; deletedOn: Set<string> }> {
   const violations: Violation[] = [];
+  const deletedOn = new Set<string>();
   for (const part of targets) {
     const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
     // Unreadable or malformed parts are structural defects, reported above.
@@ -280,6 +278,7 @@ async function coveringViolations(
 
     const colours = await coloursOf(part, inXml);
     const covering = new Set((await deletedCovering(before, part, inEls, slide, colours, keptGroups)).map((c) => c.start));
+    if (covering.size > 0) deletedOn.add(part);
     /** How many of the output's top-level elements have each XML text, not yet matched. */
     const unmatched = new Map<string, number>();
     for (const el of outEls) {
@@ -310,7 +309,7 @@ async function coveringViolations(
     };
     violations.push(...notInherited(missingTargets(outRoot, outEls), missingTargets(inRoot, inEls)));
   }
-  return violations;
+  return { violations, deletedOn };
 }
 
 /** An element's own shape id. */

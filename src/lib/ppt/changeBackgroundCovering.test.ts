@@ -96,6 +96,36 @@ describe("changeBackground deletes covering backgrounds on the target slides", (
     expect(await slideXml(zip, 1)).toMatch(/<p:bg><p:bgPr><a:blipFill/);
   });
 
+  it("drops every relationship only the deleted element named, and the parts they alone used", async () => {
+    // A photo with an artistic effect (its HD photo layer) and a hyperlink.
+    const photo = picture(2, "rId10")
+      .replace(`name="Picture 2"/>`, `name="Picture 2"><a:hlinkClick r:id="rId13"/></p:cNvPr>`)
+      .replace(
+        `<a:blip r:embed="rId10"/>`,
+        `<a:blip r:embed="rId10"><a:extLst><a:ext uri="{BEBA8EAE-BF5A-486C-A8C5-ECC9F3942E4B}">` +
+          `<a14:imgProps xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main"><a14:imgLayer r:embed="rId12"/>` +
+          `</a14:imgProps></a:ext></a:extLst></a:blip>`,
+      );
+    const deck = await JSZip.loadAsync(await testDeck([lyricsOver(photo, { rId10: "old.png" })]));
+    const relsPath = "ppt/slides/_rels/slide1.xml.rels";
+    deck.file("ppt/media/old.wdp", new Uint8Array([1, 2, 3]));
+    deck.file(
+      relsPath,
+      (await deck.file(relsPath)!.async("text")).replace(
+        "</Relationships>",
+        `<Relationship Id="rId12" Type="http://schemas.microsoft.com/office/2007/relationships/hdphoto" Target="../media/old.wdp"/>` +
+          `<Relationship Id="rId13" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" ` +
+          `Target="https://example.org/" TargetMode="External"/></Relationships>`,
+      ),
+    );
+    const zip = await runOn(await deck.generateAsync({ type: "uint8array" }));
+
+    expect(await topLevelIds(zip, 1)).toEqual(["9"]);
+    const rels = await zip.file(relsPath)!.async("text");
+    expect(rels).not.toMatch(/rId1[23]/);
+    expect(mediaParts(zip)).toEqual(["ppt/media/background_custom.jpeg"]);
+  });
+
   it("deletes a covering picture-filled shape and a covering group", async () => {
     const blobs = group(2, { x: -600000, y: -300000, w: 11000000, h: 6500000 }, [
       pictureShape(3, "rId10", { x: 0, y: 0, w: 5000000, h: 5000000 }),

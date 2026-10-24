@@ -15,7 +15,7 @@ import {
   deleteCoveringBackgrounds,
   type CoveringBackground,
 } from "./coveringBackgrounds";
-import { slideSizeFromXml } from "./getSlideAspect";
+import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { slideColours, zipPartReader, type ColoursOf } from "./slideColours";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
@@ -99,6 +99,11 @@ const RELATIONSHIP = /<Relationship\b[^>]*?(?:\/>|>[\s\S]*?<\/Relationship>)/g;
 function relAttr(rel: string, name: string): string | undefined {
   const m = rel.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`));
   return m ? (m[1] ?? m[2]) : undefined;
+}
+
+/** Ids of the relationships in a `.rels` part. */
+function relIds(relsXml: string): string[] {
+  return (relsXml.match(RELATIONSHIP) ?? []).flatMap((rel) => relAttr(rel, "Id") ?? []);
 }
 
 /** Ids of the image relationships in a `.rels` part. */
@@ -290,18 +295,24 @@ async function processSlideGroup(
     const relsFile = zip.file(relsPath);
     let relsXml = relsFile ? await relsFile.async("text") : null;
 
-    // The pictures of deleted covering backgrounds lose their relationships
-    // below, with the replaced background's, once the part no longer names them.
+    // Deleted covering backgrounds lose their relationships below, with the
+    // replaced background's: every one only they named, whatever its type
+    // (the picture, an HD photo layer, a hyperlink).
+    let deletedIds: string[] = [];
     if (slideSize && coloursOf) {
       const kept = (covering: CoveringBackground[]) => {
         if (!keptCovering?.size) return false;
         const targets = relTargets(relsXml, dir);
         return keptCovering.has(coveringGroupKey(covering, (id) => targets.get(id)));
       };
+      const before = slideXml;
       slideXml = deleteCoveringBackgrounds(slideXml, slideSize, await coloursOf(slidePath, slideXml), kept);
+      if (slideXml !== before) {
+        deletedIds = relIds(relsXml ?? "").filter((id) => namesRelId(before, id) && !namesRelId(slideXml, id));
+      }
     }
 
-    const oldIds = backgroundValues(slideXml);
+    const oldIds = [...backgroundValues(slideXml), ...deletedIds];
     let relId: string | undefined;
     if (background === "clear") {
       slideXml = slideXml.replace(BACKGROUND, "");
@@ -432,9 +443,9 @@ function loadImageSize(file: File): Promise<{ w: number; h: number }> {
 
 async function getSlideSize(zip: JSZip): Promise<SlideSize> {
   const presFile = zip.file("ppt/presentation.xml");
-  if (!presFile) return { w: 12192000, h: 6858000 };
+  if (!presFile) return DEFAULT_SLIDE;
 
-  return slideSizeFromXml(await presFile.async("text")) ?? { w: 12192000, h: 6858000 };
+  return slideSizeFromXml(await presFile.async("text")) ?? DEFAULT_SLIDE;
 }
 
 export async function changeBackground({

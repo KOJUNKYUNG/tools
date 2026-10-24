@@ -22,6 +22,9 @@ export function aspectFromSldSz(cx: number, cy: number): SlideAspect {
   return { kind: "other", ratio };
 }
 
+/** PowerPoint's default slide (16:9, EMU), for a deck that declares no size. */
+export const DEFAULT_SLIDE = { w: 12192000, h: 6858000 };
+
 /**
  * The slide size `<p:sldSz>` declares in presentation.xml, its attributes in
  * any order; null when it is missing or not positive.

@@ -21,7 +21,7 @@ import {
   type CoveringBackground,
 } from "@/lib/ppt/coveringBackgrounds";
 import { fillChild } from "@/lib/ppt/fills";
-import { slideSizeFromXml } from "@/lib/ppt/getSlideAspect";
+import { DEFAULT_SLIDE, slideSizeFromXml } from "@/lib/ppt/getSlideAspect";
 import { animationTargets } from "@/lib/ppt/slideAnimations";
 import { packagePartReader, slideColours } from "@/lib/ppt/slideColours";
 import { child, parseXml, type XmlElement } from "@/lib/ppt/xmlTree";
@@ -51,7 +51,8 @@ const BACKGROUND_KINDS = new Map([
   ["a:pattFill", "pattern"],
   ["a:noFill", "no fill"],
 ]);
-const SHOWN_KINDS = ["picture", "solid", "gradient", "pattern", "theme style"];
+/** The kinds a background can show, as the summary lists them. */
+const SHOWN_KINDS = [...[...BACKGROUND_KINDS.values()].filter((k) => k !== "no fill"), "theme style"];
 
 type Form = (typeof FORMS)[number];
 type NearMiss = (typeof NEAR_MISSES)[number];
@@ -123,7 +124,7 @@ async function analyse(file: string): Promise<DeckReport> {
   const pkg = await openPptxPackage(new Uint8Array(await readFile(file)));
   if (!pkg) throw new Error(`not a readable deck: ${file}`);
   const presentation = await pkg.text("ppt/presentation.xml");
-  const slide = (presentation && slideSizeFromXml(presentation)) || { w: 12192000, h: 6858000 };
+  const slide = (presentation && slideSizeFromXml(presentation)) || DEFAULT_SLIDE;
   const coloursOf = slideColours(packagePartReader(pkg));
   const groups = new Map<string, CoveringGroup>();
   const report: DeckReport = {
@@ -195,7 +196,7 @@ function aspect({ w, h }: SlideSize): string {
     ["16:9", 16 / 9],
     ["16:10", 16 / 10],
     ["4:3", 4 / 3],
-  ] as const;
+  ] as const; // keeps each pair a [name, ratio] tuple
   const name = named.find(([, v]) => Math.abs(v - r) < 0.01)?.[0] ?? r.toFixed(3);
   const cm = (emu: number) => (emu / 360000).toFixed(2);
   return `${name}, ${cm(w)} × ${cm(h)} cm`;
