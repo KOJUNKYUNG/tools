@@ -150,14 +150,13 @@ export interface PptBackgroundToolLabels {
     currentEmpty: string;
     /**
      * The toggle under a covering-background group: delete its picture on
-     * apply. Provisional copy ([임시]) until the user's visual QA closes spec #105.
+     * apply.
      */
     coveringDelete: string;
     /**
      * The same toggle under a covering background without a picture, and the
      * names of colour swatches: a solid colour, and any other fill (a
      * gradient, a pattern or a colour that could not be resolved).
-     * Provisional copy ([임시]) until the user's visual QA closes spec #105.
      */
     coveringDeleteFill: string;
     solidSwatch: string;
