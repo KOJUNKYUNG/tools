@@ -171,7 +171,12 @@
           "categoryNature": "Nature",
           "categoryTexture": "Texture",
           "categoryPattern": "Pattern",
-          "empty": "No images in this category"
+          "empty": "No images in this category",
+          "titles": {
+            "gradient-green": "Green",
+            "gradient-red": "Red",
+            "gradient-yellow": "Yellow"
+          }
         },
         "action": {
           "apply": "Apply",

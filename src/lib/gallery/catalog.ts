@@ -12,7 +12,7 @@ const OWN: GallerySource = { kind: "own" };
 function image(
   category: GalleryCategory,
   name: string,
-  fields: { title: string; ext?: "jpg" | "svg"; width?: number; height?: number; source: GallerySource; tags?: string[] },
+  fields: { ext?: "jpg" | "svg"; width?: number; height?: number; source: GallerySource; tags?: string[] },
 ): GalleryImage {
   const { ext = "jpg", width = 2560, height = 1440, ...rest } = fields;
   return {
@@ -30,7 +30,7 @@ function image(
 const LEGACY_SIZE = { width: 1920, height: 1080 };
 
 export const GALLERY_IMAGES: GalleryImage[] = [
-  image("gradient", "green", { title: "Green", ...LEGACY_SIZE, source: OWN, tags: ["soft", "blue", "green"] }),
-  image("gradient", "red", { title: "Red", ...LEGACY_SIZE, source: OWN, tags: ["warm", "red"] }),
-  image("gradient", "yellow", { title: "Yellow", ...LEGACY_SIZE, source: OWN, tags: ["warm", "yellow"] }),
+  image("gradient", "green", { ...LEGACY_SIZE, source: OWN, tags: ["soft", "blue", "green"] }),
+  image("gradient", "red", { ...LEGACY_SIZE, source: OWN, tags: ["warm", "red"] }),
+  image("gradient", "yellow", { ...LEGACY_SIZE, source: OWN, tags: ["warm", "yellow"] }),
 ];

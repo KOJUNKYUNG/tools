@@ -171,7 +171,12 @@
           "categoryNature": "자연",
           "categoryTexture": "질감",
           "categoryPattern": "패턴",
-          "empty": "해당 카테고리에 이미지가 없습니다"
+          "empty": "해당 카테고리에 이미지가 없습니다",
+          "titles": {
+            "gradient-green": "초록",
+            "gradient-red": "빨강",
+            "gradient-yellow": "노랑"
+          }
         },
         "action": {
           "apply": "변경하기",

@@ -126,6 +126,8 @@ export interface PptBackgroundToolLabels {
     categoryAll: string;
     categoryByKey: Record<GalleryCategory, string>;
     empty: string;
+    /** Image titles by gallery id. */
+    titles: Record<string, string>;
   };
   action: {
     apply: string;

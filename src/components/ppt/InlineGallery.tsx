@@ -31,6 +31,8 @@ interface InlineGalleryProps {
     categoryAll: string;
     categoryByKey: Record<GalleryCategory, string>;
     empty: string;
+    /** Image titles by gallery id, in the page language. */
+    titles: Record<string, string>;
   };
 }
 
@@ -169,7 +171,7 @@ export function InlineGallery({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={img.thumbnailUrl}
-                        alt={img.title}
+                        alt={labels.titles[img.id]}
                         className="size-full object-cover"
                       />
                       {isSelected && (
@@ -186,7 +188,7 @@ export function InlineGallery({
                         className="truncate font-body text-[11px] font-medium"
                         style={{ color: "var(--ink-strong)" }}
                       >
-                        {img.title}
+                        {labels.titles[img.id]}
                       </p>
                     </div>
                   </button>

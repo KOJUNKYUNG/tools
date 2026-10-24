@@ -45,6 +45,7 @@ interface BackgroundPickerProps {
       categoryAll: string;
       categoryByKey: Record<GalleryCategory, string>;
       empty: string;
+      titles: Record<string, string>;
     };
   };
 }

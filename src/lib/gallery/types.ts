@@ -27,8 +27,6 @@ export type GallerySource =
 export interface GalleryImage {
   id: string;
   category: GalleryCategory;
-  /** Display title. Not i18n'd at the mock stage; revisit when Supabase lands. */
-  title: string;
   /** Site path of the original under `public/`. */
   url: string;
   /** Site path of the 480 × 270 JPEG thumbnail under `public/`. */
