@@ -30,12 +30,14 @@ export interface PptxPackage {
   slideParts: string[];
   /** `ppt/slideMasters/*.xml`, same ordering. */
   masterParts: string[];
+  /** `ppt/slideLayouts/*.xml`, same ordering. */
+  layoutParts: string[];
   /** Raw bytes of a part (null when absent or unreadable). */
   read(part: string): Promise<Uint8Array | null>;
   /** A part's text (null when absent or unreadable). */
   text(part: string): Promise<string | null>;
-  /** The relationships `part` declares, in `.rels` order (none without a `.rels`). */
-  relationships(part: string): Promise<Relationship[]>;
+  /** The relationships `part` declares, in `.rels` order (none without a `.rels`); shared, so read-only. */
+  relationships(part: string): Promise<readonly Relationship[]>;
   /** A part's size as stored in the zip (null when absent or not indexable). */
   storedSize(part: string): number | null;
   /**
@@ -118,7 +120,7 @@ function decodePartName(name: string): string {
 }
 
 /** Resolve a relationship target against its source directory. Null if it escapes the package. */
-function resolveTarget(sourceDir: string, target: string): string | null {
+export function resolveTarget(sourceDir: string, target: string): string | null {
   const bare = decodePartName(target.split("#")[0]);
   const segments = bare.startsWith("/")
     ? []
@@ -137,6 +139,16 @@ function resolveTarget(sourceDir: string, target: string): string | null {
   return segments.join("/");
 }
 
+/** `load` computed once per key: the package's parts never change once opened. */
+function memo<T>(load: (key: string) => Promise<T>): (key: string) => Promise<T> {
+  const byKey = new Map<string, Promise<T>>();
+  return (key) => {
+    let found = byKey.get(key);
+    if (!found) byKey.set(key, (found = load(key)));
+    return found;
+  };
+}
+
 /** The `.rels` part that holds a part's relationships. */
 export function relsPartOf(part: string): string {
   const slash = part.lastIndexOf("/");
@@ -144,11 +156,30 @@ export function relsPartOf(part: string): string {
 }
 
 export interface Relationship {
-  id: string;
-  type: string;
+  readonly id: string;
+  readonly type: string;
   /** Resolved part name, or null for an external or unresolvable target. */
-  part: string | null;
-  external: boolean;
+  readonly part: string | null;
+  readonly external: boolean;
+}
+
+/**
+ * The relationships a `.rels` part's XML declares, in order, their targets
+ * resolved against `sourceDir` (the source part's directory), whatever order
+ * and quotes their attributes take. One parser for every reader, so keys
+ * built from targets (covering-background groups) agree everywhere.
+ */
+export function parseRelationships(relsXml: string, sourceDir: string): Relationship[] {
+  return [...relsXml.matchAll(/<Relationship\b[^>]*>/g)].map((m) => {
+    const a = attrs(m[0]);
+    const external = a.TargetMode === "External";
+    return {
+      id: a.Id ?? "",
+      type: a.Type ?? "",
+      external,
+      part: external || !a.Target ? null : resolveTarget(sourceDir, a.Target),
+    };
+  });
 }
 
 const zipOf = new WeakMap<PptxPackage, ZipReader>();
@@ -160,36 +191,19 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
   const parts = zip.names;
   // OPC part names compare case-insensitively.
   const byLowerName = new Map(parts.map((p) => [p.toLowerCase(), p]));
-  const textCache = new Map<string, Promise<string | null>>();
-
   /** A part's text; null when absent or its zip data is corrupt. */
-  const text = (part: string): Promise<string | null> => {
-    let cached = textCache.get(part);
-    if (!cached) {
-      cached = zip.text(part);
-      textCache.set(part, cached);
-    }
-    return cached;
-  };
+  const text = memo((part: string): Promise<string | null> => zip.text(part));
 
-  const relationshipsOf = async (relsPart: string): Promise<Relationship[]> => {
+  // Parsed once per `.rels` part: checks ask for a slide's relationships
+  // several times, and design-tool slides carry hundreds of them.
+  const relationshipsOf = memo(async (relsPart: string): Promise<readonly Relationship[]> => {
     const xml = await text(relsPart);
     if (xml === null) return [];
     const sourceDir = relsPart.match(RELS_PART)?.[1] ?? "";
-    const rels: Relationship[] = [];
-    for (const m of xml.matchAll(/<Relationship\b[^>]*>/g)) {
-      const a = attrs(m[0]);
-      const external = a.TargetMode === "External";
-      const resolved = external || !a.Target ? null : resolveTarget(sourceDir, a.Target);
-      rels.push({
-        id: a.Id ?? "",
-        type: a.Type ?? "",
-        external,
-        part: resolved === null ? null : (byLowerName.get(resolved.toLowerCase()) ?? resolved),
-      });
-    }
-    return rels;
-  };
+    return parseRelationships(xml, sourceDir).map((rel) =>
+      rel.part === null ? rel : { ...rel, part: byLowerName.get(rel.part.toLowerCase()) ?? rel.part },
+    );
+  });
 
   const relsParts = parts.filter((p) => RELS_PART.test(p));
   let index: ReturnType<typeof indexZip> | undefined;
@@ -205,6 +219,7 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
     parts,
     slideParts: partsIn(parts, "ppt/slides"),
     masterParts: partsIn(parts, "ppt/slideMasters"),
+    layoutParts: partsIn(parts, "ppt/slideLayouts"),
 
     read(part) {
       return zip.bytes(part);

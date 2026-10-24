@@ -148,6 +148,19 @@ export interface PptBackgroundToolLabels {
     currentCaptionTemplate: string;
     selectedEmpty: string;
     currentEmpty: string;
+    /**
+     * The toggle under a covering-background group: delete its picture on
+     * apply.
+     */
+    coveringDelete: string;
+    /**
+     * The same toggle under a covering background without a picture, and the
+     * names of colour swatches: a solid colour, and any other fill (a
+     * gradient, a pattern or a colour that could not be resolved).
+     */
+    coveringDeleteFill: string;
+    solidSwatch: string;
+    fillSwatch: string;
     slideCountTemplate: string;
     zoom: string;
     close: string;
@@ -193,6 +206,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [groupThumbUrls, setGroupThumbUrls] = useState<Map<string, string>>(new Map());
   const [curIndex, setCurIndex] = useState(0);
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
+  /** Covering-background groups whose delete toggle is off: the engine keeps them. */
+  const [keptCovering, setKeptCovering] = useState<Set<string>>(new Set());
   const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
   const [zoom, setZoom] = useState<null | "selected" | "current">(null);
 
@@ -234,6 +249,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             ? [...selectedSlides].sort((a, b) => a - b)
             : undefined,
         crop: crop ?? undefined,
+        keptCovering: [...keptCovering],
         onProgress,
       }),
     onDownload: (bytes) => {
@@ -287,6 +303,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       clearPick();
       setMode("all-slides");
       setCheckedKeys(new Set());
+      setKeptCovering(new Set());
       setSelectedSlides(new Set());
       setZoom(null);
       setPptxFilesRaw(files);
@@ -317,11 +334,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setGroupThumbUrls(new Map());
       setCurIndex(0);
       setCheckedKeys(new Set());
+      setKeptCovering(new Set());
       setSelectedSlides(new Set());
       return;
     }
     setCurIndex(0);
     setCheckedKeys(new Set());
+    setKeptCovering(new Set());
     setSelectedSlides(new Set());
     let cancelled = false;
 
@@ -467,6 +486,15 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     },
     [checkedKeys, groups],
   );
+
+  const onToggleDelete = useCallback((key: string) => {
+    setKeptCovering((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   // Editing the range directly (typing, 전체, 초기화) detaches it from the
   // current-background checkboxes.
@@ -669,9 +697,14 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       onIndex={setCurIndex}
                       checkedKeys={checkedKeys}
                       onToggleCheck={onToggleCheck}
+                      keptCovering={keptCovering}
+                      onToggleDelete={onToggleDelete}
                       aspect={aspectCss}
                       slideCountTemplate={labels.preview.slideCountTemplate}
                       emptyLabel={labels.preview.currentEmpty}
+                      deleteLabel={labels.preview.coveringDelete}
+                      deleteFillLabel={labels.preview.coveringDeleteFill}
+                      swatchLabels={{ solid: labels.preview.solidSwatch, fill: labels.preview.fillSwatch }}
                       zoomLabel={labels.preview.zoom}
                       onZoom={() => setZoom("current")}
                     />

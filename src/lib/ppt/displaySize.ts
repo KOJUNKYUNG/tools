@@ -30,13 +30,14 @@
  * A picture used several times takes its largest width and its largest
  * height, each over all its uses, so no use gets fewer pixels than it shows.
  *
- * Hand-rolled XML reading (no DOMParser) so it runs in Node as in the
- * browser. A use is counted from the raw text, independently of the parse:
+ * The XML is read with the shared tree reader (`xmlTree`). A use is counted
+ * from the raw text, independently of the parse:
  * every attribute value naming a picture's relationship id is one use, and a
  * picture is sized only when each of those is a use the reader interpreted.
  */
 
 import { openPptxPackage, relsPartOf, type PptxPackage } from "@/lib/output-check/pptxPackage";
+import { child, parseXml, type XmlElement } from "./xmlTree";
 
 /** A picture's displayed extent, both sides in slide widths. */
 export interface DisplaySize {
@@ -52,41 +53,7 @@ const DRAWN_PARTS: [RegExp, string][] = [
   [/^ppt\/slideMasters\/[^/]+\.xml$/i, "p:sldMaster"],
 ];
 const drawnRoot = (part: string) => DRAWN_PARTS.find(([re]) => re.test(part))?.[1];
-const ATTR = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 const ATTR_VALUES = /=\s*(?:"([^"]*)"|'([^']*)')/g;
-const TOKEN =
-  /<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>|<!DOCTYPE[^>]*>|<(\/?)([^\s/>]+)((?:\s+[^\s=/>]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>/g;
-
-interface XmlElement {
-  name: string;
-  attrs: Record<string, string>;
-  children: XmlElement[];
-}
-
-/** The root element, or null for XML whose tags do not nest. */
-function parseXml(xml: string): XmlElement | null {
-  const top: XmlElement = { name: "", attrs: {}, children: [] };
-  const stack = [top];
-  for (const m of xml.matchAll(TOKEN)) {
-    const [, closing, name, attrText, selfClosing] = m;
-    if (name === undefined) continue; // comment, declaration, CDATA
-    const parent = stack[stack.length - 1];
-    if (closing) {
-      if (stack.length === 1 || parent.name !== name) return null;
-      stack.pop();
-      continue;
-    }
-    const attrs: Record<string, string> = {};
-    for (const a of attrText.matchAll(ATTR)) attrs[a[1]] = a[2] ?? a[3];
-    const element: XmlElement = { name, attrs, children: [] };
-    parent.children.push(element);
-    if (!selfClosing) stack.push(element);
-  }
-  return stack.length === 1 && top.children.length === 1 ? top.children[0] : null;
-}
-
-const child = (el: XmlElement | undefined, name: string) =>
-  el?.children.find((c) => c.name === name);
 
 /** A width and height in EMU. */
 type Extent = [number, number];

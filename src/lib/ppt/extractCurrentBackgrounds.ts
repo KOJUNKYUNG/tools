@@ -1,64 +1,121 @@
 import JSZip from "jszip";
+import type { SlideSize } from "@/lib/image/slideImage";
+import { parseRelationships } from "@/lib/output-check/pptxPackage";
+import { coveringGroupKey, findCoveringBackgrounds } from "./coveringBackgrounds";
+import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
+import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
+import { slideColours, zipPartReader, type PartReader } from "./slideColours";
+import { child, parseXml } from "./xmlTree";
 
+/**
+ * A slide's visible background (CONTEXT.md): its covering backgrounds when it
+ * has any, else its own background, its layout's or its master's.
+ */
 export interface SlideBackground {
   slideIndex: number;
   slideName: string;
   imageBlob: Blob | null;
-  source: "slide" | "layout" | "master" | "none";
-  /** Resolved zip path of the background image part — the dedup key. null when source==="none". */
+  source: "covering" | "slide" | "layout" | "master" | "none";
+  /**
+   * Resolved zip path of the background image part — the dedup key; for
+   * covering backgrounds, their first picture from the bottom, the
+   * thumbnail. null when it shows no picture.
+   */
   imagePath: string | null;
+  /**
+   * What a background without a picture shows: a solid background's colour,
+   * a neutral swatch for a gradient or pattern; for covering backgrounds
+   * without any picture, the bottom-most one's first opaque fill.
+   */
+  swatch?: Swatch;
+  /** For covering backgrounds: their group's key (`coveringGroupKey`), what the user keeps a group by. */
+  coveringKey?: string;
 }
 
-async function resolveBlipImage(
-  zip: JSZip,
-  xmlDir: string,
-  xmlFileName: string,
-  slideXml: string,
-): Promise<{ blob: Blob; path: string } | null> {
-  const bgMatch = slideXml.match(/<p:bg[\s>][\s\S]*?<\/p:bg>/);
-  if (!bgMatch) return null;
+const MIME_BY_EXT: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  bmp: "image/bmp",
+  svg: "image/svg+xml",
+  emf: "image/x-emf",
+  wmf: "image/x-wmf",
+};
 
-  const embedMatch = bgMatch[0].match(/r:embed="([^"]+)"/);
-  if (!embedMatch) return null;
+async function mediaBlob(zip: JSZip, path: string): Promise<Blob | null> {
+  const file = zip.file(path);
+  if (!file) return null;
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  return new Blob([await file.async("arraybuffer")], { type: MIME_BY_EXT[ext] ?? "application/octet-stream" });
+}
 
-  const relId = embedMatch[1];
-  const relsPath = `${xmlDir}/_rels/${xmlFileName}.rels`;
-  const relsFile = zip.file(relsPath);
-  if (!relsFile) return null;
+interface PartRelationship {
+  id: string;
+  type: string;
+  /** The target as a zip path. */
+  part: string;
+}
 
-  const relsXml = await relsFile.async("text");
-  const relPattern = new RegExp(
-    `<Relationship[^>]*Id="${relId}"[^>]*Target="([^"]+)"`,
+/** A part's internal relationships, read whatever order their attributes come in. */
+async function relationshipsOf(zip: JSZip, partPath: string): Promise<PartRelationship[]> {
+  const slash = partPath.lastIndexOf("/");
+  const dir = partPath.slice(0, slash);
+  const relsXml = await zip.file(`${dir}/_rels/${partPath.slice(slash + 1)}.rels`)?.async("text");
+  return parseRelationships(relsXml ?? "", dir).flatMap(({ id, type, part }) =>
+    id && part !== null ? [{ id, type, part }] : [],
   );
-  const relMatch = relsXml.match(relPattern);
-  if (!relMatch) return null;
+}
 
-  let targetPath = relMatch[1];
-  if (targetPath.startsWith("../")) {
-    const parts = xmlDir.split("/");
-    parts.pop();
-    targetPath = parts.join("/") + "/" + targetPath.replace("../", "");
-  } else if (!targetPath.startsWith("ppt/")) {
-    targetPath = `${xmlDir}/${targetPath}`;
-  }
+/** The internal relationship targets of a part, by id, as zip paths. */
+async function relationshipTargets(zip: JSZip, partPath: string): Promise<Map<string, string>> {
+  return new Map((await relationshipsOf(zip, partPath)).map((r) => [r.id, r.part]));
+}
 
-  const imageFile = zip.file(targetPath);
-  if (!imageFile) return null;
-
-  const data = await imageFile.async("arraybuffer");
-  const ext = targetPath.split(".").pop()?.toLowerCase() ?? "";
-  const mimeMap: Record<string, string> = {
-    png: "image/png",
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    gif: "image/gif",
-    bmp: "image/bmp",
-    svg: "image/svg+xml",
-    emf: "image/x-emf",
-    wmf: "image/x-wmf",
+/** The slide's covering backgrounds as its visible background; null when it has none. */
+async function coveringBackground(
+  zip: JSZip,
+  slidePath: string,
+  slideXml: string,
+  slide: SlideSize,
+  colours: Colours,
+): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "swatch" | "coveringKey"> | null> {
+  const covering = findCoveringBackgrounds(slideXml, slide, colours);
+  if (covering.length === 0) return null;
+  const targets = await relationshipTargets(zip, slidePath);
+  const pictures = covering.flatMap((c) => c.pictures);
+  const thumbnail = pictures.flatMap((id) => targets.get(id) ?? [])[0] ?? null;
+  return {
+    imageBlob: thumbnail === null ? null : await mediaBlob(zip, thumbnail),
+    imagePath: thumbnail,
+    // A fill under a covering picture is hidden by it: the picture shows.
+    ...(pictures.length === 0 && { swatch: covering[0].fills[0] }),
+    coveringKey: coveringGroupKey(covering, (id) => targets.get(id)),
   };
-  const blob = new Blob([data], { type: mimeMap[ext] ?? "application/octet-stream" });
-  return { blob, path: targetPath };
+}
+
+/**
+ * What a part's own background shows: its picture, or a swatch of its fill
+ * (its own, or the theme's background style it names); neither when it shows
+ * nothing readable. null when the part declares no background.
+ */
+async function ownBackground(
+  zip: JSZip,
+  partPath: string,
+  partXml: string,
+  colours: Colours,
+): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "swatch"> | null> {
+  const bg = child(child(parseXml(partXml) ?? undefined, "p:cSld"), "p:bg");
+  if (!bg) return null;
+  const fill = fillChild(child(bg, "p:bgPr"));
+  const relId = fill?.name === "a:blipFill" ? child(fill, "a:blip")?.attrs["r:embed"] : undefined;
+  if (relId) {
+    const path = (await relationshipTargets(zip, partPath)).get(relId) ?? null;
+    const blob = path && (await mediaBlob(zip, path));
+    return blob ? { imageBlob: blob, imagePath: path } : { imageBlob: null, imagePath: null };
+  }
+  const shown = shownFill(child(bg, "p:bgPr"), child(bg, "p:bgRef"), colours);
+  return { imageBlob: null, imagePath: null, ...(shown && { swatch: shown.swatch }) };
 }
 
 export async function extractCurrentBackgrounds(
@@ -80,7 +137,11 @@ export async function extractCurrentBackgrounds(
     return numA - numB;
   });
 
+  const presXml = await zip.file("ppt/presentation.xml")?.async("text");
+  const slideSize = (presXml && slideSizeFromXml(presXml)) || DEFAULT_SLIDE;
   const results: SlideBackground[] = [];
+  const reader: PartReader = zipPartReader(zip);
+  const coloursOf = slideColours(reader);
 
   for (let i = 0; i < slideFiles.length; i++) {
     const slidePath = slideFiles[i];
@@ -95,70 +156,29 @@ export async function extractCurrentBackgrounds(
       imagePath: null,
     };
 
-    const directBg = await resolveBlipImage(zip, "ppt/slides", `slide${slideNum}.xml`, slideXml);
-    if (directBg) {
-      bg.imageBlob = directBg.blob;
-      bg.imagePath = directBg.path;
-      bg.source = "slide";
-      results.push(bg);
+    // The slide's colours resolve its layout's and master's backgrounds too: they show on it.
+    const colours = await coloursOf(slidePath, slideXml);
+    const covering = await coveringBackground(zip, slidePath, slideXml, slideSize, colours);
+    if (covering) {
+      results.push({ ...bg, ...covering, source: "covering" });
       continue;
     }
 
-    const relsPath = `ppt/slides/_rels/slide${slideNum}.xml.rels`;
-    const relsFile = zip.file(relsPath);
-    if (relsFile) {
-      const relsXml = await relsFile.async("text");
-      const layoutRelMatch = relsXml.match(
-        /<Relationship[^>]*Type="[^"]*slideLayout"[^>]*Target="([^"]+)"/,
-      );
-      if (layoutRelMatch) {
-        let layoutPath = layoutRelMatch[1];
-        if (layoutPath.startsWith("../")) {
-          layoutPath = "ppt/" + layoutPath.replace("../", "");
-        }
-        const layoutFile = zip.file(layoutPath);
-        if (layoutFile) {
-          const layoutXml = await layoutFile.async("text");
-          const layoutDir = layoutPath.substring(0, layoutPath.lastIndexOf("/"));
-          const layoutFileName = layoutPath.split("/").pop()!;
-          const layoutBg = await resolveBlipImage(zip, layoutDir, layoutFileName, layoutXml);
-          if (layoutBg) {
-            bg.imageBlob = layoutBg.blob;
-            bg.imagePath = layoutBg.path;
-            bg.source = "layout";
-            results.push(bg);
-            continue;
-          }
-
-          const layoutRelsPath = `${layoutDir}/_rels/${layoutFileName}.rels`;
-          const layoutRelsFile = zip.file(layoutRelsPath);
-          if (layoutRelsFile) {
-            const layoutRelsXml = await layoutRelsFile.async("text");
-            const masterRelMatch = layoutRelsXml.match(
-              /<Relationship[^>]*Type="[^"]*slideMaster"[^>]*Target="([^"]+)"/,
-            );
-            if (masterRelMatch) {
-              let masterPath = masterRelMatch[1];
-              if (masterPath.startsWith("../")) {
-                masterPath = "ppt/" + masterPath.replace("../", "");
-              }
-              const masterFile = zip.file(masterPath);
-              if (masterFile) {
-                const masterXml = await masterFile.async("text");
-                const masterDir = masterPath.substring(0, masterPath.lastIndexOf("/"));
-                const masterFileName = masterPath.split("/").pop()!;
-                const masterBg = await resolveBlipImage(zip, masterDir, masterFileName, masterXml);
-                if (masterBg) {
-                  bg.imageBlob = masterBg.blob;
-                  bg.imagePath = masterBg.path;
-                  bg.source = "master";
-                  results.push(bg);
-                  continue;
-                }
-              }
-            }
-          }
-        }
+    // Its own background, else the layout's, else the master's: the first
+    // that declares one, whatever it shows.
+    const layoutPath = await reader.related(slidePath, "slideLayout");
+    const masterPath = layoutPath && (await reader.related(layoutPath, "slideMaster"));
+    const chain: [SlideBackground["source"], string | null][] = [
+      ["slide", slidePath],
+      ["layout", layoutPath],
+      ["master", masterPath],
+    ];
+    for (const [source, partPath] of chain) {
+      const partXml = partPath && (await zip.file(partPath)?.async("text"));
+      const own = partXml ? await ownBackground(zip, partPath, partXml, colours) : null;
+      if (own) {
+        if (own.imagePath || own.swatch) Object.assign(bg, own, { source });
+        break;
       }
     }
 

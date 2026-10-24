@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
+import { parseRelationships } from "@/lib/output-check/pptxPackage";
 import { zipCompressionMethods } from "@/lib/output-check/zipReader";
 import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
@@ -9,7 +10,13 @@ import {
   type SlideSize,
 } from "@/lib/image/slideImage";
 import { checkPptBackground } from "./changeBackgroundCheck";
-import { slideSizeFromXml } from "./getSlideAspect";
+import {
+  coveringGroupKey,
+  deleteCoveringBackgrounds,
+  type CoveringBackground,
+} from "./coveringBackgrounds";
+import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
+import { slideColours, zipPartReader, type ColoursOf } from "./slideColours";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
 
@@ -21,6 +28,8 @@ export interface ChangeBackgroundOptions {
   targetSlides?: number[];
   /** The Background crop, in the picture's upright pixels; centred and as large as possible when absent. */
   crop?: CropRect;
+  /** Keys of the covering-background groups the user keeps (`coveringGroupKey`); none by default. */
+  keptCovering?: readonly string[];
   onProgress?: (pct: number) => void;
   /** The picture preparer; tests and Node stand one in for the canvas. */
   prepare?: PrepareSlideImage;
@@ -53,7 +62,7 @@ function getContentType(ext: string): string {
  * Generate a relationship ID that doesn't conflict with existing ones.
  */
 function nextRelId(relsXml: string): string {
-  const matches = relsXml.matchAll(/Id="rId(\d+)"/g);
+  const matches = relsXml.matchAll(/\bId\s*=\s*["']rId(\d+)["']/g);
   let max = 0;
   for (const m of matches) {
     const n = parseInt(m[1], 10);
@@ -61,6 +70,9 @@ function nextRelId(relsXml: string): string {
   }
   return `rId${max + 1}`;
 }
+
+/** A part's declared background. */
+const BACKGROUND = /<p:bg[\s>][\s\S]*?<\/p:bg>/;
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -73,7 +85,7 @@ function escapeRegExp(s: string): string {
  * no relationship and are ignored.
  */
 function backgroundValues(partXml: string): Set<string> {
-  const bg = partXml.match(/<p:bg[\s>][\s\S]*?<\/p:bg>/)?.[0] ?? "";
+  const bg = partXml.match(BACKGROUND)?.[0] ?? "";
   return new Set([...bg.matchAll(/=\s*(?:"([^"]*)"|'([^']*)')/g)].map((m) => m[1] ?? m[2]));
 }
 
@@ -87,6 +99,11 @@ const RELATIONSHIP = /<Relationship\b[^>]*?(?:\/>|>[\s\S]*?<\/Relationship>)/g;
 function relAttr(rel: string, name: string): string | undefined {
   const m = rel.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`));
   return m ? (m[1] ?? m[2]) : undefined;
+}
+
+/** Ids of the relationships in a `.rels` part. */
+function relIds(relsXml: string): string[] {
+  return (relsXml.match(RELATIONSHIP) ?? []).flatMap((rel) => relAttr(rel, "Id") ?? []);
 }
 
 /** Ids of the image relationships in a `.rels` part. */
@@ -155,24 +172,10 @@ function addRelationship(
   return relsXml.replace("</Relationships>", `${rel}\n</Relationships>`);
 }
 
-function ensureRelsFile(
-  zip: JSZip,
-  slideDir: string,
-  slideFileName: string,
-): { path: string; xml: string } {
-  const relsPath = `${slideDir}/_rels/${slideFileName}.rels`;
-  const existing = zip.file(relsPath);
-
-  if (existing) {
-    return { path: relsPath, xml: "" };
-  }
-
-  const emptyRels =
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
-    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n' +
-    "</Relationships>";
-  return { path: relsPath, xml: emptyRels };
-}
+const EMPTY_RELS =
+  '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+  '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n' +
+  "</Relationships>";
 
 /**
  * Insert or replace <p:bg> inside <p:cSld>. The picture already has the
@@ -188,9 +191,8 @@ function setBackground(slideXml: string, relId: string): string {
     `<a:effectLst/>` +
     `</p:bgPr></p:bg>`;
 
-  const bgPattern = /<p:bg[\s>][\s\S]*?<\/p:bg>/;
-  if (bgPattern.test(slideXml)) {
-    return slideXml.replace(bgPattern, bgXml);
+  if (BACKGROUND.test(slideXml)) {
+    return slideXml.replace(BACKGROUND, bgXml);
   }
 
   const cSldMatch = slideXml.match(/<p:cSld[^>]*>/);
@@ -238,14 +240,34 @@ function slideOrdinal(path: string): number {
   return m ? parseInt(m[1], 10) : 0;
 }
 
+interface GroupChange {
+  /** The new background's media target, or "clear" to remove the part's own background (it then shows what it inherits). */
+  background: string | "clear";
+  onEach?: (done: number, total: number) => void;
+  /** 1-based whitelist over the slide order (sorted by trailing integer in the
+   *  filename — matches extractCurrentBackgrounds). Undefined = all. */
+  targetIndices1Based?: ReadonlySet<number>;
+  /** The slide's size and each slide's colours, to delete covering backgrounds on each part; none for masters and layouts. */
+  slideSize?: SlideSize;
+  coloursOf?: ColoursOf;
+  /** Keys of the covering-background groups left in place. */
+  keptCovering?: ReadonlySet<string>;
+}
+
+/**
+ * The internal targets of a `.rels` part's relationships, by id, as zip part
+ * names, resolved as the preview resolves them so both derive the same
+ * covering-group keys.
+ */
+function relTargets(relsXml: string | null, sourceDir: string): Map<string, string | null> {
+  return new Map(parseRelationships(relsXml ?? "", sourceDir).map((r) => [r.id, r.part]));
+}
+
+/** Change the background of each part in `dir`; returns the parts the replaced backgrounds pointed at. */
 async function processSlideGroup(
   zip: JSZip,
   dir: string,
-  mediaTarget: string,
-  onEach?: (done: number, total: number) => void,
-  /** 1-based whitelist over the slide order (sorted by trailing integer in the
-   *  filename — matches extractCurrentBackgrounds). Undefined = all. */
-  targetIndices1Based?: ReadonlySet<number>,
+  { background, onEach, targetIndices1Based, slideSize, coloursOf, keptCovering }: GroupChange,
 ): Promise<Set<string>> {
   /** Parts the replaced backgrounds pointed at, to delete once unreferenced. */
   const replaced = new Set<string>();
@@ -269,37 +291,54 @@ async function processSlideGroup(
     const slidePath = filtered[i];
     const slideFileName = slidePath.split("/").pop()!;
     let slideXml = await zip.file(slidePath)!.async("text");
+    const relsPath = `${dir}/_rels/${slideFileName}.rels`;
+    const relsFile = zip.file(relsPath);
+    let relsXml = relsFile ? await relsFile.async("text") : null;
 
-    slideXml = ensureNamespaces(slideXml);
-
-    const { path: relsPath, xml: emptyRels } = ensureRelsFile(
-      zip,
-      dir,
-      slideFileName,
-    );
-    let relsXml =
-      emptyRels || (await zip.file(relsPath)!.async("text"));
-
-    // Taken before the old relationship is removed, so an id is never reused.
-    const relId = nextRelId(relsXml);
-    relsXml = addRelationship(relsXml, relId, mediaTarget);
-
-    const oldIds = backgroundValues(slideXml);
-    slideXml = setBackground(slideXml, relId);
-
-    // Drop the replaced background's relationships (its picture, plus any
-    // SVG or linked variant), or their images stay embedded and the deck
-    // grows on every re-application. Image relationships the part names
-    // nowhere go too: earlier versions of this tool left them behind. A part
-    // that still names an id elsewhere (the same image as a picture) keeps it.
-    for (const oldId of new Set([...oldIds, ...imageRelIds(relsXml)])) {
-      if (oldId === relId || namesRelId(slideXml, oldId)) continue;
-      const removed = removeRelationship(relsXml, oldId, dir);
-      relsXml = removed.xml;
-      if (removed.target) replaced.add(removed.target);
+    // Deleted covering backgrounds lose their relationships below, with the
+    // replaced background's: every one only they named, whatever its type
+    // (the picture, an HD photo layer, a hyperlink).
+    let deletedIds: string[] = [];
+    if (slideSize && coloursOf) {
+      const kept = (covering: CoveringBackground[]) => {
+        if (!keptCovering?.size) return false;
+        const targets = relTargets(relsXml, dir);
+        return keptCovering.has(coveringGroupKey(covering, (id) => targets.get(id)));
+      };
+      const before = slideXml;
+      slideXml = deleteCoveringBackgrounds(slideXml, slideSize, await coloursOf(slidePath, slideXml), kept);
+      if (slideXml !== before) {
+        deletedIds = relIds(relsXml ?? "").filter((id) => namesRelId(before, id) && !namesRelId(slideXml, id));
+      }
     }
 
-    zip.file(relsPath, relsXml);
+    const oldIds = [...backgroundValues(slideXml), ...deletedIds];
+    let relId: string | undefined;
+    if (background === "clear") {
+      slideXml = slideXml.replace(BACKGROUND, "");
+    } else {
+      // A part without relationships only needs one to show the new picture.
+      relsXml ??= EMPTY_RELS;
+      // Taken before the old relationship is removed, so an id is never reused.
+      relId = nextRelId(relsXml);
+      relsXml = addRelationship(relsXml, relId, background);
+      slideXml = setBackground(ensureNamespaces(slideXml), relId);
+    }
+
+    if (relsXml !== null) {
+      // Drop the replaced background's relationships (its picture, plus any
+      // SVG or linked variant), or their images stay embedded and the deck
+      // grows on every re-application. Image relationships the part names
+      // nowhere go too: earlier versions of this tool left them behind. A part
+      // that still names an id elsewhere (the same image as a picture) keeps it.
+      for (const oldId of new Set([...oldIds, ...imageRelIds(relsXml)])) {
+        if (oldId === relId || namesRelId(slideXml, oldId)) continue;
+        const removed = removeRelationship(relsXml, oldId, dir);
+        relsXml = removed.xml;
+        if (removed.target) replaced.add(removed.target);
+      }
+      zip.file(relsPath, relsXml);
+    }
     zip.file(slidePath, slideXml);
 
     onEach?.(i + 1, filtered.length);
@@ -404,9 +443,9 @@ function loadImageSize(file: File): Promise<{ w: number; h: number }> {
 
 async function getSlideSize(zip: JSZip): Promise<SlideSize> {
   const presFile = zip.file("ppt/presentation.xml");
-  if (!presFile) return { w: 12192000, h: 6858000 };
+  if (!presFile) return DEFAULT_SLIDE;
 
-  return slideSizeFromXml(await presFile.async("text")) ?? { w: 12192000, h: 6858000 };
+  return slideSizeFromXml(await presFile.async("text")) ?? DEFAULT_SLIDE;
 }
 
 export async function changeBackground({
@@ -415,9 +454,11 @@ export async function changeBackground({
   mode,
   targetSlides,
   crop,
+  keptCovering = [],
   onProgress,
   prepare = prepareSlideImage,
 }: ChangeBackgroundOptions): Promise<Uint8Array> {
+  const kept = new Set(keptCovering);
   const arrayBuffer = await pptxFile.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
 
@@ -439,19 +480,27 @@ export async function changeBackground({
 
   await ensureContentType(zip, ext);
 
+  const mediaTarget = `../media/${mediaName}`;
+  const progress = (done: number, total: number) => onProgress?.(Math.round((done / total) * 100));
+  // Read lazily: rewriting backgrounds changes no theme or colour map.
+  const coloursOf = slideColours(zipPartReader(zip));
   let replaced: Set<string>;
   if (mode === "master") {
-    const mediaTarget = `../media/${mediaName}`;
-    replaced = await processSlideGroup(
-      zip,
-      "ppt/slideMasters",
-      mediaTarget,
-      (done, total) => {
-        onProgress?.(Math.round((done / total) * 100));
-      },
-    );
+    // The master shows the new background; everything above it that would
+    // hide it goes, so it shows on every slide, like "all slides", and on
+    // slides added later.
+    replaced = new Set([
+      ...(await processSlideGroup(zip, "ppt/slideMasters", { background: mediaTarget })),
+      ...(await processSlideGroup(zip, "ppt/slideLayouts", { background: "clear" })),
+      ...(await processSlideGroup(zip, "ppt/slides", {
+        background: "clear",
+        onEach: progress,
+        slideSize,
+        coloursOf,
+        keptCovering: kept,
+      })),
+    ]);
   } else {
-    const mediaTarget = `../media/${mediaName}`;
     let whitelist: Set<number> | undefined;
     if (mode === "specific-slides") {
       if (!targetSlides || targetSlides.length === 0) {
@@ -459,15 +508,14 @@ export async function changeBackground({
       }
       whitelist = new Set(targetSlides);
     }
-    replaced = await processSlideGroup(
-      zip,
-      "ppt/slides",
-      mediaTarget,
-      (done, total) => {
-        onProgress?.(Math.round((done / total) * 100));
-      },
-      whitelist,
-    );
+    replaced = await processSlideGroup(zip, "ppt/slides", {
+      background: mediaTarget,
+      onEach: progress,
+      targetIndices1Based: whitelist,
+      slideSize,
+      coloursOf,
+      keptCovering: kept,
+    });
   }
 
   await removeUnreferencedParts(zip, replaced);
@@ -501,6 +549,7 @@ export async function changeBackground({
           background: prepared.bytes,
           mode,
           targetSlides,
+          keptCovering,
         },
         out,
         "quick",

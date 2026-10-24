@@ -9,6 +9,15 @@ import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { changeBackground } from "./changeBackground";
 import {
+  clickAnimations,
+  filledShape,
+  picture as pictureElement,
+  solidBackground,
+  solidFill,
+  testDeck,
+  textBox,
+} from "./testDeck";
+import {
   checkPptBackground,
   type PptBackgroundRequest,
 } from "./changeBackgroundCheck";
@@ -48,6 +57,7 @@ async function apply(deck: Uint8Array, intent: Intent): Promise<Uint8Array> {
     mode: intent.mode,
     targetSlides: intent.targetSlides,
     crop: intent.crop,
+    keptCovering: intent.keptCovering,
     prepare: standInPrepare,
   });
 }
@@ -325,7 +335,8 @@ describe("checkPptBackground flags broken output", () => {
         ),
       );
     });
-    expect(await properties(input, request, broken)).toEqual(["relationship-unused"]);
+    // An untargeted layout that changed is reported as well.
+    expect(await properties(input, request, broken)).toEqual(["relationship-unused", "non-target-unchanged"]);
     expect(await quick(input, request, broken)).toEqual([]);
   });
 
@@ -667,5 +678,243 @@ describe("checkPptBackground does not blame the tool for the input", () => {
       zip.generateAsync({ type: "uint8array" }),
     );
     expect(await properties(input, allSlides, rewritten)).toEqual(["size-bound"]);
+  });
+});
+
+describe("checkPptBackground checks covering backgrounds", () => {
+  /** Slide 1: an old background picture under the lyrics, the lyrics animated. */
+  const coveredDeck = () =>
+    testDeck([
+      {
+        shapes: [pictureElement(2, "rId10"), textBox(9, "가사")],
+        pictures: { rId10: "old.png" },
+        timing: clickAnimations([9]),
+      },
+    ]);
+  const SLIDE1 = "ppt/slides/slide1.xml";
+
+  /** Rewrite slide 1 of `deck`. */
+  const editSlide1 = (deck: Uint8Array, edit: (xml: string) => string) =>
+    mutate(deck, async (zip) => {
+      zip.file(SLIDE1, edit(await zip.file(SLIDE1)!.async("text")));
+    });
+
+  it("passes the engine's output", async () => {
+    const input = await coveredDeck();
+    const output = await apply(input, allSlides);
+    expect(await properties(input, allSlides, output)).toEqual([]);
+  });
+
+  it("passes a deck whose covering background shares a shape id with the content", async () => {
+    // Producers write duplicate ids; PowerPoint repairs them silently.
+    const input = await testDeck([
+      { shapes: [pictureElement(2, "rId10"), textBox(2, "가사")], pictures: { rId10: "old.png" } },
+    ]);
+    const output = await apply(input, allSlides);
+    expect(await properties(input, allSlides, output)).toEqual([]);
+  });
+
+  it("flags a covering background left on a target slide", async () => {
+    const input = await coveredDeck();
+    const output = await editSlide1(await apply(input, allSlides), (xml) =>
+      xml.replace("</p:grpSpPr>", `</p:grpSpPr>${pictureElement(2, "rId10")}`),
+    );
+    expect(await quick(input, allSlides, output)).toContainEqual({
+      property: "covering-background-kept",
+      detail: `${SLIDE1} #2`,
+    });
+  });
+
+  it("flags another top-level element missing from a target slide", async () => {
+    const input = await coveredDeck();
+    const output = await editSlide1(await apply(input, allSlides), (xml) =>
+      xml.replace(/<p:sp>[\s\S]*?<\/p:sp>/, ""),
+    );
+    expect(await quick(input, allSlides, output)).toContainEqual({
+      property: "element-missing",
+      detail: `${SLIDE1} #9`,
+    });
+  });
+
+  it("flags an animation naming a shape the slide does not have", async () => {
+    const input = await coveredDeck();
+    const output = await editSlide1(await apply(input, allSlides), (xml) =>
+      xml.replace(/<p:bldP spid="9"/, '<p:bldP spid="2"'),
+    );
+    expect(await quick(input, allSlides, output)).toEqual([
+      { property: "animation-target-missing", detail: `${SLIDE1} spid 2` },
+    ]);
+  });
+
+  describe("with a group the user keeps", () => {
+    /** Slide 1's covering background is kept, slide 2's is deleted. */
+    const twoGroups = () =>
+      testDeck([
+        { shapes: [pictureElement(2, "rId10"), textBox(9, "1절")], pictures: { rId10: "keep.png" } },
+        { shapes: [pictureElement(2, "rId10"), textBox(9, "2절")], pictures: { rId10: "old.png" } },
+      ]);
+    const keeping = (mode: Intent["mode"]): Intent => ({
+      source: newBgBytes,
+      mode,
+      keptCovering: ["covering:ppt/media/keep.png"],
+    });
+
+    it.each(["all-slides", "master"] as const)("passes the engine's output (%s)", async (mode) => {
+      const input = await twoGroups();
+      expect(await properties(input, keeping(mode), await apply(input, keeping(mode)))).toEqual([]);
+    });
+
+    it("flags a kept covering background that was deleted", async () => {
+      const input = await twoGroups();
+      const output = await editSlide1(await apply(input, keeping("all-slides")), (xml) =>
+        xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/, ""),
+      );
+      expect(await quick(input, keeping("all-slides"), output)).toContainEqual({
+        property: "element-missing",
+        detail: `${SLIDE1} #2`,
+      });
+    });
+
+    it("flags a covering background of another group left in place", async () => {
+      const input = await twoGroups();
+      const output = await mutate(await apply(input, keeping("all-slides")), async (zip) => {
+        const part = "ppt/slides/slide2.xml";
+        const xml = await zip.file(part)!.async("text");
+        zip.file(part, xml.replace("</p:grpSpPr>", `</p:grpSpPr>${pictureElement(2, "rId10")}`));
+      });
+      expect(await quick(input, keeping("all-slides"), output)).toContainEqual({
+        property: "covering-background-kept",
+        detail: "ppt/slides/slide2.xml #2",
+      });
+    });
+  });
+
+  it("flags a hidden element under a covering background that was deleted with it", async () => {
+    const hiddenPicture = pictureElement(3, "rId11").replace('name="Picture 3"', 'name="Picture 3" hidden="1"');
+    const input = await testDeck([
+      {
+        shapes: [hiddenPicture, pictureElement(2, "rId10"), textBox(9, "가사")],
+        pictures: { rId10: "old.png", rId11: "spare.png" },
+      },
+    ]);
+    const output = await apply(input, allSlides);
+    expect(await properties(input, allSlides, output)).toEqual([]);
+    const tampered = await editSlide1(output, (xml) => xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/, ""));
+    expect(await quick(input, allSlides, tampered)).toContainEqual({ property: "element-missing", detail: `${SLIDE1} #3` });
+  });
+
+  it("ignores an animation target the input already lacked", async () => {
+    const input = await editSlide1(await coveredDeck(), (xml) =>
+      xml.replace(/<p:bldP spid="9"/, '<p:bldP spid="77"'),
+    );
+    expect(await properties(input, allSlides, await apply(input, allSlides))).toEqual([]);
+  });
+});
+
+describe("checkPptBackground checks fill-form covering backgrounds", () => {
+  /** Slide 1: a plain rectangle under the lyrics, filled by its style reference; slide 2: a solid one, kept. */
+  const filledDeck = () =>
+    testDeck([
+      { shapes: [filledShape(2, null), textBox(9, "1절")], timing: clickAnimations([2, 9]) },
+      { shapes: [filledShape(2, solidFill("1F2D3A")), textBox(9, "2절")] },
+    ]);
+  const keepSolid = (mode: Intent["mode"]): Intent => ({ source: newBgBytes, mode, keptCovering: ["covering:#1f2d3a"] });
+  const SLIDE1 = "ppt/slides/slide1.xml";
+  const SLIDE2 = "ppt/slides/slide2.xml";
+
+  it.each(["all-slides", "master"] as const)("passes the engine's output (%s)", async (mode) => {
+    const input = await filledDeck();
+    expect(await properties(input, keepSolid(mode), await apply(input, keepSolid(mode)))).toEqual([]);
+  });
+
+  it("flags a rectangle filled by its style reference left in place", async () => {
+    const input = await filledDeck();
+    const output = await mutate(await apply(input, keepSolid("all-slides")), async (zip) => {
+      const xml = await zip.file(SLIDE1)!.async("text");
+      zip.file(SLIDE1, xml.replace("</p:grpSpPr>", `</p:grpSpPr>${filledShape(2, null)}`));
+    });
+    expect(await quick(input, keepSolid("all-slides"), output)).toContainEqual({
+      property: "covering-background-kept",
+      detail: `${SLIDE1} #2`,
+    });
+  });
+
+  it("flags a kept solid rectangle that was deleted", async () => {
+    const input = await filledDeck();
+    const output = await mutate(await apply(input, keepSolid("all-slides")), async (zip) => {
+      const xml = await zip.file(SLIDE2)!.async("text");
+      zip.file(SLIDE2, xml.replace(/<p:sp><p:nvSpPr><p:cNvPr id="2"[\s\S]*?<\/p:sp>/, ""));
+    });
+    expect(await quick(input, keepSolid("all-slides"), output)).toContainEqual({
+      property: "element-missing",
+      detail: `${SLIDE2} #2`,
+    });
+  });
+});
+
+describe("checkPptBackground checks master mode", () => {
+  const masterMode: Intent = { source: newBgBytes, mode: "master" };
+  const SLIDE2 = "ppt/slides/slide2.xml";
+  const LAYOUT1 = "ppt/slideLayouts/slideLayout1.xml";
+
+  /** Put `bg` back as the part's own background. */
+  const declareBackground = (deck: Uint8Array, part: string, bg: string) =>
+    mutate(deck, async (zip) => {
+      const xml = await zip.file(part)!.async("text");
+      zip.file(part, xml.replace(/(<p:cSld\b[^>]*>)/, `$1${bg}`));
+    });
+  const solid = solidBackground("1F3864");
+
+  it("flags a slide that keeps its own background", async () => {
+    const input = await syntheticDeck();
+    const output = await declareBackground(await apply(input, masterMode), SLIDE2, solid);
+    expect(await quick(input, masterMode, output)).toEqual([
+      { property: "own-background-kept", detail: SLIDE2 },
+    ]);
+  });
+
+  it("flags a layout that keeps its own background", async () => {
+    const input = await syntheticDeck();
+    const output = await declareBackground(await apply(input, masterMode), LAYOUT1, solid);
+    expect(await quick(input, masterMode, output)).toEqual([
+      { property: "own-background-kept", detail: LAYOUT1 },
+    ]);
+  });
+
+  it("flags a covering background left on any slide", async () => {
+    const input = await testDeck([
+      { shapes: [textBox(9, "제목")] },
+      { shapes: [pictureElement(2, "rId10"), textBox(9, "가사")], pictures: { rId10: "old.png" } },
+    ]);
+    const output = await mutate(await apply(input, masterMode), async (zip) => {
+      const xml = await zip.file(SLIDE2)!.async("text");
+      zip.file(SLIDE2, xml.replace("</p:grpSpPr>", `</p:grpSpPr>${pictureElement(2, "rId10")}`));
+    });
+    expect(await quick(input, masterMode, output)).toContainEqual({
+      property: "covering-background-kept",
+      detail: `${SLIDE2} #2`,
+    });
+  });
+
+  it("flags a slide or layout changed beyond its own background, at full depth only", async () => {
+    const input = await syntheticDeck();
+    const output = await mutate(await apply(input, masterMode), async (zip) => {
+      for (const part of [SLIDE2, LAYOUT1]) {
+        const xml = await zip.file(part)!.async("text");
+        zip.file(part, xml.replace("</p:spTree>", `${textBox(77, "덧붙임")}</p:spTree>`));
+      }
+    });
+    expect(await quick(input, masterMode, output)).toEqual([]);
+    expect(await checkPptBackground(input, await requestFor(masterMode), output, "full")).toEqual([
+      { property: "only-background-cleared", detail: LAYOUT1 },
+      { property: "only-background-cleared", detail: SLIDE2 },
+    ]);
+  });
+
+  it("flags a layout changed in another mode, at full depth only", async () => {
+    const input = await syntheticDeck();
+    const output = await declareBackground(await apply(input, allSlides), LAYOUT1, solid);
+    expect(await quick(input, allSlides, output)).toEqual([]);
+    expect(await properties(input, allSlides, output)).toEqual(["non-target-unchanged"]);
   });
 });

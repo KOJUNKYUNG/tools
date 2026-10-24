@@ -4,7 +4,20 @@ import { openPptxPackage, relsPartOf, type PptxPackage } from "@/lib/output-chec
 import { pngAlphaUsed } from "@/lib/output-check/pngAlpha";
 import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { CropRect } from "@/lib/image/maxFitCrop";
+import type { SlideSize } from "@/lib/image/slideImage";
 import type { BgMode } from "./changeBackground";
+import { DEFAULT_SLIDE } from "./getSlideAspect";
+import {
+  coveringGroupKey,
+  coveringIn,
+  shapeIdsIn,
+  topLevelElements,
+  type CoveringBackground,
+} from "./coveringBackgrounds";
+import type { Colours } from "./fills";
+import { animationTargets } from "./slideAnimations";
+import { packagePartReader, slideColours, type ColoursOf } from "./slideColours";
+import { parseXml, type XmlElement } from "./xmlTree";
 
 export interface PptBackgroundRequest {
   /** The picture the user picked, as uploaded. */
@@ -16,6 +29,8 @@ export interface PptBackgroundRequest {
   mode: BgMode;
   /** 1-based slide indices, for `specific-slides`. */
   targetSlides?: number[];
+  /** Keys of the covering-background groups the user keeps (`coveringGroupKey`). */
+  keptCovering?: readonly string[];
 }
 
 /**
@@ -29,8 +44,8 @@ export interface PptBackgroundRequest {
  * - ⚡ `replaced-background-kept`: no target part keeps an image relationship
  *   it no longer uses, i.e. the replaced background's (a part that still
  *   shows that image elsewhere through the same id keeps it legitimately)
- * - `non-target-unchanged`: every slide and master the user did not target,
- *   and its relationships, are byte-identical to the input
+ * - `non-target-unchanged`: every slide, layout and master the tool does not
+ *   rewrite, and its relationships, are byte-identical to the input
  * - `relationship-unused` / `media-unreferenced`: no part anywhere keeps an
  *   unused image relationship, and no media part is left that nothing
  *   references, so a replaced background's image is deleted once unused.
@@ -38,6 +53,29 @@ export interface PptBackgroundRequest {
  *   already enforces.
  * - `size-bound`: output ≤ input + new image − removed parts + a margin for
  *   the rewritten XML, so re-applying never grows the deck
+ *
+ * Master mode (spec #105) clears what would hide the master's background:
+ *
+ * - ⚡ `own-background-kept`: a slide or layout still declares its own
+ *   background
+ * - `only-background-cleared`: each layout, and each slide without covering
+ *   backgrounds to delete (none, or a kept group), is its input with its own
+ *   background removed and nothing else changed (slides with covering
+ *   backgrounds deleted are held by the element properties below)
+ *
+ * Covering backgrounds (spec #105), on each target slide (every slide in
+ * master mode), re-detected on the input with the shared rule, picture and
+ * fill forms alike (fills resolved through the input's theme). The rule is
+ * the spec: these prove the engine applied it, not that it is right (the
+ * regression set covers the rule itself). Elements are matched by their XML text: the
+ * engine copies the ones it keeps verbatim, while shape ids may repeat. The
+ * covering backgrounds of a group the user keeps (#109) count as other
+ * elements: they must stay.
+ *
+ * - ⚡ `covering-background-kept`: a covering background is still there
+ * - ⚡ `element-missing`: another top-level element is gone
+ * - ⚡ `animation-target-missing`: an animation or build entry names a shape
+ *   the slide does not have (the deck would need repair)
  *
  * The prepared picture (spec #98), re-derived from the source picture, the
  * crop and the input's slide size, never from the engine's numbers:
@@ -104,9 +142,28 @@ export const checkPptBackground: OutputChecker<
     }
   }
 
-  const kept = await after.unusedRelationships(targets);
+  // Master mode also rewrites every slide (covering backgrounds deleted, own
+  // background cleared) and every layout (own background cleared).
+  const coveringChecked = request.mode === "master" ? before.slideParts : targets;
+  const rewritten =
+    request.mode === "master" ? [...targets, ...coveringChecked, ...before.layoutParts] : targets;
+
+  if (request.mode === "master") {
+    for (const part of [...after.slideParts, ...after.layoutParts]) {
+      if (OWN_BACKGROUND.test((await after.text(part)) ?? "")) {
+        violations.push({ property: "own-background-kept", detail: part });
+      }
+    }
+  }
+
+  const keptGroups = new Set(request.keptCovering ?? []);
+  const coloursOf = slideColours(packagePartReader(before));
+  const covering = await coveringViolations(before, after, coveringChecked, await slideSize(before), keptGroups, coloursOf);
+  violations.push(...covering.violations);
+
+  const kept = await after.unusedRelationships(rewritten);
   if (kept.length > 0) {
-    const replaced = notInherited(kept, await before.unusedRelationships(targets));
+    const replaced = notInherited(kept, await before.unusedRelationships(rewritten));
     for (const v of replaced) {
       violations.push({ property: "replaced-background-kept", detail: v.detail });
     }
@@ -140,9 +197,20 @@ export const checkPptBackground: OutputChecker<
       });
     }
 
-    const targetSet = new Set(targets);
-    const untouched = [...before.slideParts, ...before.masterParts].filter(
-      (p) => !targetSet.has(p),
+    if (request.mode === "master") {
+      // Slides with covering backgrounds deleted are held by the element properties.
+      for (const part of [...before.layoutParts, ...before.slideParts].filter((p) => !covering.deletedOn.has(p))) {
+        const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
+        if (inXml === null || outXml === null) continue;
+        if (outXml !== inXml.replace(OWN_BACKGROUND, "")) {
+          violations.push({ property: "only-background-cleared", detail: part });
+        }
+      }
+    }
+
+    const rewrittenSet = new Set(rewritten);
+    const untouched = [...before.slideParts, ...before.layoutParts, ...before.masterParts].filter(
+      (p) => !rewrittenSet.has(p),
     );
     for (const part of untouched) {
       for (const p of [part, relsPartOf(part)]) {
@@ -156,8 +224,8 @@ export const checkPptBackground: OutputChecker<
   return violations;
 };
 
-/** PowerPoint's default slide (16:9) when the deck does not declare one. */
-const DEFAULT_SLIDE = { w: 12192000, h: 6858000 };
+/** A part's own background, as the part declares it. */
+const OWN_BACKGROUND = /<p:bg[\s>][\s\S]*?<\/p:bg>/;
 
 async function slideSize(pkg: PptxPackage): Promise<{ w: number; h: number }> {
   const bytes = await pkg.read("ppt/presentation.xml");
@@ -167,6 +235,85 @@ async function slideSize(pkg: PptxPackage): Promise<{ w: number; h: number }> {
   const [w, h] = [attr("cx"), attr("cy")];
   return w > 0 && h > 0 ? { w, h } : DEFAULT_SLIDE;
 }
+
+/**
+ * The covering backgrounds the engine must delete from an input slide, given
+ * its top-level elements and colours: none when the user keeps their group.
+ */
+async function deletedCovering(
+  before: PptxPackage,
+  part: string,
+  elements: XmlElement[],
+  slide: SlideSize,
+  colours: Colours,
+  keptGroups: ReadonlySet<string>,
+): Promise<CoveringBackground[]> {
+  const covering = coveringIn(elements, slide, colours);
+  if (covering.length === 0 || keptGroups.size === 0) return covering;
+  const targets = new Map((await before.relationships(part)).map((r) => [r.id, r.part]));
+  return keptGroups.has(coveringGroupKey(covering, (id) => targets.get(id))) ? [] : covering;
+}
+
+/**
+ * The covering-background properties of the given slides, and the slides on
+ * which the engine must have deleted covering backgrounds.
+ */
+async function coveringViolations(
+  before: PptxPackage,
+  after: PptxPackage,
+  targets: readonly string[],
+  slide: SlideSize,
+  keptGroups: ReadonlySet<string>,
+  coloursOf: ColoursOf,
+): Promise<{ violations: Violation[]; deletedOn: Set<string> }> {
+  const violations: Violation[] = [];
+  const deletedOn = new Set<string>();
+  for (const part of targets) {
+    const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
+    // Unreadable or malformed parts are structural defects, reported above.
+    if (inXml === null || outXml === null) continue;
+    const [inRoot, outRoot] = [parseXml(inXml), parseXml(outXml)];
+    const [inEls, outEls] = [topLevelElements(inRoot), topLevelElements(outRoot)];
+    if (!inRoot || !outRoot || !inEls || !outEls) continue;
+
+    const colours = await coloursOf(part, inXml);
+    const covering = new Set((await deletedCovering(before, part, inEls, slide, colours, keptGroups)).map((c) => c.start));
+    if (covering.size > 0) deletedOn.add(part);
+    /** How many of the output's top-level elements have each XML text, not yet matched. */
+    const unmatched = new Map<string, number>();
+    for (const el of outEls) {
+      const text = outXml.slice(el.start, el.end);
+      unmatched.set(text, (unmatched.get(text) ?? 0) + 1);
+    }
+    /** Matches an input element to an equal output one; false when none is left. */
+    const match = (el: XmlElement) => {
+      const text = inXml.slice(el.start, el.end);
+      const n = unmatched.get(text) ?? 0;
+      if (n > 0) unmatched.set(text, n - 1);
+      return n > 0;
+    };
+    const detail = (el: XmlElement) => `${part} #${ownId(el) ?? el.name}`;
+    // Elements that stay first, so one equal to a covering background is never taken for it.
+    for (const el of inEls.filter((e) => !covering.has(e.start))) {
+      if (!match(el)) violations.push({ property: "element-missing", detail: detail(el) });
+    }
+    for (const el of inEls.filter((e) => covering.has(e.start))) {
+      if (match(el)) violations.push({ property: "covering-background-kept", detail: detail(el) });
+    }
+
+    const missingTargets = (root: XmlElement, els: XmlElement[]) => {
+      const shapes = new Set(els.flatMap(shapeIdsIn));
+      return [...new Set(animationTargets(root))]
+        .filter((id) => !shapes.has(id))
+        .map((id) => ({ property: "animation-target-missing", detail: `${part} spid ${id}` }));
+    };
+    violations.push(...notInherited(missingTargets(outRoot, outEls), missingTargets(inRoot, inEls)));
+  }
+  return { violations, deletedOn };
+}
+
+/** An element's own shape id. */
+const ownId = (el: XmlElement): string | undefined => shapeIdsIn(el)[0];
 
 async function preparationViolations(
   before: PptxPackage,

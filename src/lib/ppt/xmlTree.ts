@@ -1,0 +1,107 @@
+/**
+ * The shared slide XML tree reader for the ppt tools: slides, layouts and
+ * masters read into an element tree. Hand-rolled (no DOMParser) so it runs in
+ * Node as in the browser.
+ *
+ * Each element also carries its source range in the raw XML, so a caller can
+ * cut it out exactly, and whether it holds text a viewer sees: a text run
+ * with anything but whitespace, in the element or anywhere inside it. A text
+ * run is any element named `t` under any prefix: DrawingML's `a:t` (in a run
+ * or a field) whatever prefix a producer binds, and equation text (`m:t`).
+ * Reading too much as text only keeps an element that might have gone.
+ */
+
+const ATTR = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+const TOKEN =
+  /<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[([\s\S]*?)\]\]>|<!DOCTYPE[^>]*>|<(\/?)([^\s/>]+)((?:\s+[^\s=/>]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>/g;
+/** A text run's element name, under any prefix. */
+const TEXT_RUN = /^(?:[^:]+:)?t$/;
+/** A character reference, or any other entity reference (never whitespace). */
+const REFERENCE = /&#(\d+);|&#x([0-9a-f]+);|&[^;\s]*;/gi;
+
+export interface XmlElement {
+  name: string;
+  attrs: Record<string, string>;
+  children: XmlElement[];
+  /** Where the element starts and ends in the raw XML: `xml.slice(start, end)` is its text. */
+  start: number;
+  end: number;
+  /** Whether it, or anything inside it, holds a text run with more than whitespace. */
+  hasText: boolean;
+}
+
+/** Whether raw character data holds anything but whitespace once its references are read. */
+const showsText = (data: string) =>
+  /\S/.test(
+    data.replace(REFERENCE, (_, dec?: string, hex?: string) => {
+      const code = dec ? Number(dec) : hex ? parseInt(hex, 16) : NaN;
+      // Out-of-range references are not whitespace either.
+      return code <= 0x10ffff ? String.fromCodePoint(code) : "&";
+    }),
+  );
+
+/** The root element, or null for XML whose tags do not nest. */
+export function parseXml(xml: string): XmlElement | null {
+  const top: XmlElement = { name: "", attrs: {}, children: [], start: 0, end: xml.length, hasText: false };
+  const stack = [top];
+  let dataStart = 0;
+  for (const m of xml.matchAll(TOKEN)) {
+    const [token, cdata, closing, name, attrText, selfClosing] = m;
+    // Character data between tokens, or a CDATA section, belongs to the open element.
+    if (TEXT_RUN.test(stack[stack.length - 1].name) && showsText((cdata ?? "") + xml.slice(dataStart, m.index))) {
+      for (const open of stack) open.hasText = true;
+    }
+    dataStart = m.index + token.length;
+    if (name === undefined) continue; // comment, declaration, CDATA
+    const parent = stack[stack.length - 1];
+    if (closing) {
+      if (stack.length === 1 || parent.name !== name) return null;
+      parent.end = m.index + token.length;
+      stack.pop();
+      continue;
+    }
+    const attrs: Record<string, string> = {};
+    for (const a of attrText.matchAll(ATTR)) attrs[a[1]] = a[2] ?? a[3];
+    const element: XmlElement = {
+      name,
+      attrs,
+      children: [],
+      start: m.index,
+      end: m.index + token.length,
+      hasText: false,
+    };
+    parent.children.push(element);
+    if (!selfClosing) stack.push(element);
+  }
+  return stack.length === 1 && top.children.length === 1 ? top.children[0] : null;
+}
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * The first element named `name` in `xml`, parsed on its own (its source
+ * range is then within it, not the whole XML); undefined when absent or not
+ * well-formed. For reading one small element of a large part without parsing
+ * the rest; an element nesting another of its own name is not supported.
+ */
+export function firstElementNamed(xml: string | null | undefined, name: string): XmlElement | undefined {
+  const n = escapeRegExp(name);
+  const open = xml?.match(new RegExp(`<${n}(?:\\s+[^\\s=/>]+\\s*=\\s*(?:"[^"]*"|'[^']*'))*\\s*(/?)>`));
+  if (!xml || !open || open.index === undefined) return undefined;
+  const at = open.index;
+  if (open[1]) return parseXml(open[0]) ?? undefined;
+  const close = new RegExp(`</${n}\\s*>`, "g");
+  close.lastIndex = at + open[0].length;
+  const end = close.exec(xml);
+  return end ? (parseXml(xml.slice(at, end.index + end[0].length)) ?? undefined) : undefined;
+}
+
+export const child = (el: XmlElement | undefined, name: string) =>
+  el?.children.find((c) => c.name === name);
+
+/** Every element in `el` (itself included) that passes `test`, in document order. */
+export function findAll(el: XmlElement, test: (e: XmlElement) => boolean, out: XmlElement[] = []): XmlElement[] {
+  if (test(el)) out.push(el);
+  for (const c of el.children) findAll(c, test, out);
+  return out;
+}

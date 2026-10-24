@@ -13,23 +13,33 @@ interface CurrentBackgroundFrameProps {
   onIndex: (next: number) => void;
   checkedKeys: Set<string>;
   onToggleCheck: (key: string) => void;
+  /** Covering-background groups whose delete toggle is off. */
+  keptCovering: Set<string>;
+  onToggleDelete: (key: string) => void;
   /** aspect-ratio value, e.g. "16 / 9" | "4 / 3" */
   aspect: string;
   /** "슬라이드 {n}장" */
   slideCountTemplate: string;
   emptyLabel: string;
+  /** The delete toggle under a covering-background group, with a picture or without. */
+  deleteLabel: string;
+  deleteFillLabel: string;
+  /** Names of a swatch: a solid colour, or a gradient or pattern. */
+  swatchLabels: { solid: string; fill: string };
   zoomLabel: string;
   onZoom: () => void;
 }
 
 export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
   const {
-    caption, groups, thumbUrls, index, onIndex, checkedKeys, onToggleCheck,
-    aspect, slideCountTemplate, emptyLabel, zoomLabel, onZoom,
+    caption, groups, thumbUrls, index, onIndex, checkedKeys, onToggleCheck, keptCovering, onToggleDelete,
+    aspect, slideCountTemplate, emptyLabel, deleteLabel, deleteFillLabel, swatchLabels, zoomLabel, onZoom,
   } = props;
   const group = groups[index];
   const url = group ? thumbUrls.get(group.key) ?? null : null;
   const checked = group ? checkedKeys.has(group.key) : false;
+  const swatch = url ? undefined : group?.swatch;
+  const toggleLabel = swatch ? deleteFillLabel : deleteLabel;
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -48,6 +58,19 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
             {url ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={url} alt={caption} className="size-full object-cover" />
+            ) : swatch ? (
+              /* The deck's own colour fills the frame; a gradient, a pattern
+                 or an unresolved colour shows as neutral hatching. Its name
+                 sits above the slide count (below). */
+              <div
+                className="size-full"
+                style={{
+                  background:
+                    swatch === "fill"
+                      ? "repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--border) 6px 7px)"
+                      : swatch,
+                }}
+              />
             ) : (
               <div className="flex h-full items-center justify-center font-body text-[10.5px]" style={{ color: "var(--ink-soft)" }}>
                 {emptyLabel}
@@ -64,7 +87,9 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
               style={{
                 background: checked ? "var(--emphasis)" : "color-mix(in oklch, var(--surface) 55%, transparent)",
                 borderColor: checked ? "var(--emphasis)" : "color-mix(in oklch, var(--surface) 85%, transparent)",
-                color: "var(--mono-0)",
+                // The mark takes the surface colour, the emphasis fill's opposite
+                // in either theme (as .btn-download), so it shows in dark mode too.
+                color: "var(--surface)",
                 backdropFilter: "blur(3px)",
               }}
             >
@@ -107,11 +132,22 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
               </div>
             )}
 
-            <div
-              className="absolute bottom-1.5 right-1.5 rounded-[4px] px-2 py-0.5 font-body text-[10px] font-medium"
-              style={{ background: "color-mix(in oklch, var(--surface) 82%, transparent)", color: "var(--ink-strong)", backdropFilter: "blur(4px)" }}
-            >
-              {template(slideCountTemplate, { n: group.slideIndexes.length })}
+            <div className="absolute bottom-1.5 right-1.5 flex flex-col items-end gap-1">
+              {swatch && (
+                /* A fixed dark chip, so the name reads on any colour (DESIGN.md, on-content overlays). */
+                <span
+                  className="rounded-[4px] px-2 py-0.5 font-body text-[10px] font-medium text-white"
+                  style={{ background: "rgba(0,0,0,0.7)" }}
+                >
+                  {swatch === "fill" ? swatchLabels.fill : swatchLabels.solid}
+                </span>
+              )}
+              <div
+                className="rounded-[4px] px-2 py-0.5 font-body text-[10px] font-medium"
+                style={{ background: "color-mix(in oklch, var(--surface) 82%, transparent)", color: "var(--ink-strong)", backdropFilter: "blur(4px)" }}
+              >
+                {template(slideCountTemplate, { n: group.slideIndexes.length })}
+              </div>
             </div>
           </>
         ) : (
@@ -120,6 +156,25 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
           </div>
         )}
       </div>
+      {/* The delete toggle of a covering-background group: one line always
+          reserved under the picture, so paging between groups never moves
+          anything; outside the picture, apart from the top-left check that
+          selects the group's slides. */}
+      <label
+        className="flex min-w-0 cursor-pointer select-none items-center gap-1.5 font-body text-[10.5px] leading-[1.35]"
+        style={{ color: "var(--ink-soft)", visibility: group?.source === "covering" ? "visible" : "hidden" }}
+        title={toggleLabel}
+      >
+        <input
+          type="checkbox"
+          className="size-3 shrink-0"
+          checked={group ? !keptCovering.has(group.key) : false}
+          disabled={group?.source !== "covering"}
+          onChange={() => group && onToggleDelete(group.key)}
+          style={{ accentColor: "var(--emphasis)" }}
+        />
+        <span className="truncate">{toggleLabel}</span>
+      </label>
     </div>
   );
 }
