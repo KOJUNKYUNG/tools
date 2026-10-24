@@ -60,25 +60,17 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
               <img src={url} alt={caption} className="size-full object-cover" />
             ) : swatch ? (
               /* The deck's own colour fills the frame; a gradient, a pattern
-                 or an unresolved colour shows as neutral hatching. The name
-                 sits on a fixed dark chip so it reads on any colour
-                 (DESIGN.md, on-content overlays). */
+                 or an unresolved colour shows as neutral hatching. Its name
+                 sits above the slide count (below). */
               <div
-                className="flex size-full items-center justify-center"
+                className="size-full"
                 style={{
                   background:
                     swatch === "fill"
                       ? "repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--border) 6px 7px)"
                       : swatch,
                 }}
-              >
-                <span
-                  className="rounded-md px-2 py-0.5 font-body text-[10px] font-medium text-white"
-                  style={{ background: "rgba(0,0,0,0.7)" }}
-                >
-                  {swatch === "fill" ? swatchLabels.fill : swatchLabels.solid}
-                </span>
-              </div>
+              />
             ) : (
               <div className="flex h-full items-center justify-center font-body text-[10.5px]" style={{ color: "var(--ink-soft)" }}>
                 {emptyLabel}
@@ -95,7 +87,9 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
               style={{
                 background: checked ? "var(--emphasis)" : "color-mix(in oklch, var(--surface) 55%, transparent)",
                 borderColor: checked ? "var(--emphasis)" : "color-mix(in oklch, var(--surface) 85%, transparent)",
-                color: "var(--mono-0)",
+                // The mark takes the surface colour, the emphasis fill's opposite
+                // in either theme (as .btn-download), so it shows in dark mode too.
+                color: "var(--surface)",
                 backdropFilter: "blur(3px)",
               }}
             >
@@ -138,11 +132,22 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
               </div>
             )}
 
-            <div
-              className="absolute bottom-1.5 right-1.5 rounded-[4px] px-2 py-0.5 font-body text-[10px] font-medium"
-              style={{ background: "color-mix(in oklch, var(--surface) 82%, transparent)", color: "var(--ink-strong)", backdropFilter: "blur(4px)" }}
-            >
-              {template(slideCountTemplate, { n: group.slideIndexes.length })}
+            <div className="absolute bottom-1.5 right-1.5 flex flex-col items-end gap-1">
+              {swatch && (
+                /* A fixed dark chip, so the name reads on any colour (DESIGN.md, on-content overlays). */
+                <span
+                  className="rounded-[4px] px-2 py-0.5 font-body text-[10px] font-medium text-white"
+                  style={{ background: "rgba(0,0,0,0.7)" }}
+                >
+                  {swatch === "fill" ? swatchLabels.fill : swatchLabels.solid}
+                </span>
+              )}
+              <div
+                className="rounded-[4px] px-2 py-0.5 font-body text-[10px] font-medium"
+                style={{ background: "color-mix(in oklch, var(--surface) 82%, transparent)", color: "var(--ink-strong)", backdropFilter: "blur(4px)" }}
+              >
+                {template(slideCountTemplate, { n: group.slideIndexes.length })}
+              </div>
             </div>
           </>
         ) : (
