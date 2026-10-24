@@ -169,7 +169,8 @@
           "categoryAll": "All",
           "categoryGradient": "Gradient",
           "categoryNature": "Nature",
-          "categoryObject": "Object",
+          "categoryTexture": "Texture",
+          "categoryPattern": "Pattern",
           "empty": "No images in this category"
         },
         "action": {

@@ -12,7 +12,8 @@ export function getPptBackgroundLabels(
   const categoryByKey: Record<GalleryCategory, string> = {
     gradient: p.gallery.categoryGradient,
     nature: p.gallery.categoryNature,
-    object: p.gallery.categoryObject,
+    texture: p.gallery.categoryTexture,
+    pattern: p.gallery.categoryPattern,
   };
 
   return {

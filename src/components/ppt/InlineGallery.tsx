@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon, ChevronDownIcon, GalleryHorizontalEndIcon } from "lucide-react";
-import { MOCK_IMAGES } from "@/lib/gallery/mockData";
+import { GALLERY_IMAGES } from "@/lib/gallery/catalog";
 import {
   GALLERY_CATEGORIES,
   type GalleryCategory,
@@ -61,8 +61,8 @@ export function InlineGallery({
   }, [forceCollapsed]);
 
   const filtered = useMemo(() => {
-    if (category === "all") return MOCK_IMAGES;
-    return MOCK_IMAGES.filter((img) => img.category === category);
+    if (category === "all") return GALLERY_IMAGES;
+    return GALLERY_IMAGES.filter((img) => img.category === category);
   }, [category]);
 
   const open = forceOpen || expanded;
@@ -92,7 +92,7 @@ export function InlineGallery({
             />
             <span className="font-ko text-[13px] font-medium">{labels.heading}</span>
             <span className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
-              {template(labels.countSuffixTemplate, { n: MOCK_IMAGES.length })}
+              {template(labels.countSuffixTemplate, { n: GALLERY_IMAGES.length })}
             </span>
           </div>
           <ChevronDownIcon
