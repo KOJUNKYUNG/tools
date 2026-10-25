@@ -8,7 +8,7 @@
 // 1280 × 720 CSS px at pixel ratio 2 (2560 × 1440), the way the playground
 // shows it on a high-DPI screen; `frame` fixes the time of animated shaders.
 //
-// Run: pnpm gallery:shaders [--only=name,name] [--out=dir]
+// Run: pnpm gallery:shaders [--only=name,name] [--out=dir] [--specs=file.json]
 // Needs Chrome (CHROME_PATH overrides); WebGL runs on SwiftShader headless.
 
 import { createServer } from "node:http";
@@ -40,7 +40,7 @@ const server = createServer(async (req, res) => {
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}/`;
 
-const specs = JSON.parse(await readFile(join(here, "shaders.json"), "utf8")).filter(
+const specs = JSON.parse(await readFile(args.specs ?? join(here, "shaders.json"), "utf8")).filter(
   (s) => !only || only.includes(s.name),
 );
 const chrome = await openHeadless(origin, [
