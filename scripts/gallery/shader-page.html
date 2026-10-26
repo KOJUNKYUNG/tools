@@ -8,62 +8,9 @@
 <div id="mount"></div>
 <script type="module">
 // Renders one Paper shader still for scripts/gallery/render-shaders.mjs.
-// The package is served at /shaders/ from node_modules.
-import * as paper from "/shaders/index.js";
+import { renderStillPng } from "/paper-still.js";
 
-const frames = (n) => new Promise((resolve) => {
-  const step = () => (n-- <= 0 ? resolve() : requestAnimationFrame(step));
-  requestAnimationFrame(step);
-});
-const color = (v) => paper.getShaderColorFromString(v);
-
-/**
- * spec: { shader: "grainGradient", cssWidth, cssHeight, pixelRatio, frame,
- *         colors: [...], colorBack?, shape?, fit?, scale?, rotation?, offsetX?, offsetY?, ...params }
- * Params use the React component's prop names (softness, intensity, noise…),
- * so props copied from the Paper playground drop straight in.
- */
-window.render = async (spec) => {
-  const { shader, cssWidth, cssHeight, pixelRatio, frame = 0, colors = [], shape, ...rest } = spec;
-  const fragment = paper[`${shader}FragmentShader`];
-  if (!fragment) throw new Error(`unknown shader ${shader}`);
-  const sizing = { ...paper.defaultObjectSizing };
-  const uniforms = { u_noiseTexture: paper.getShaderNoiseTexture() };
-  await uniforms.u_noiseTexture.decode();
-  if (colors.length) {
-    uniforms.u_colors = colors.map(color);
-    uniforms.u_colorsCount = colors.length;
-  }
-  if (shape !== undefined) {
-    const shapes = paper[`${shader[0].toUpperCase()}${shader.slice(1)}Shapes`];
-    uniforms.u_shape = typeof shape === "string" ? shapes[shape] : shape;
-    if (uniforms.u_shape === undefined) throw new Error(`unknown shape ${shape}`);
-  }
-  for (const [key, value] of Object.entries(rest)) {
-    if (key in sizing) sizing[key] = value;
-    else uniforms[`u_${key}`] = typeof value === "string" && value.startsWith("#") ? color(value) : value;
-  }
-  for (const [key, value] of Object.entries(sizing)) {
-    uniforms[`u_${key}`] = key === "fit" ? paper.ShaderFitOptions[value] : value;
-  }
-  const el = document.getElementById("mount");
-  el.style.width = `${cssWidth}px`;
-  el.style.height = `${cssHeight}px`;
-  const width = cssWidth * pixelRatio;
-  const height = cssHeight * pixelRatio;
-  const mount = new paper.ShaderMount(el, fragment, uniforms, { preserveDrawingBuffer: true }, 0, frame, pixelRatio, width * height);
-  try {
-    for (let i = 0; i < 100 && mount.canvasElement.width !== width; i++) await frames(1);
-    if (mount.canvasElement.width !== width || mount.canvasElement.height !== height) {
-      throw new Error(`canvas is ${mount.canvasElement.width} × ${mount.canvasElement.height}, not ${width} × ${height}`);
-    }
-    await frames(2);
-    return mount.canvasElement.toDataURL("image/png");
-  } finally {
-    mount.dispose();
-    el.replaceChildren();
-  }
-};
+window.render = (spec) => renderStillPng(document.getElementById("mount"), spec);
 window.ready = true;
 </script>
 </body>

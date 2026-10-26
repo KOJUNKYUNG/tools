@@ -1,0 +1,4818 @@
+{
+ "source": "@paper-design/shaders-react@0.0.82 (Apache-2.0, Lost Coast Labs)",
+ "version": "0.0.82",
+ "shaders": {
+  "colorPanels": {
+   "component": "ColorPanels",
+   "fragment": "colorPanelsFragmentShader",
+   "sizing": "object",
+   "noiseTexture": false,
+   "props": {
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 7,
+     "doc": "Up to 7 RGBA colors used to color the panels"
+    },
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "angle1": {
+     "uniform": "u_angle1",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Skew angle applied to all panes (-1 to 1)"
+    },
+    "angle2": {
+     "uniform": "u_angle2",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Skew angle applied to all panes (-1 to 1)"
+    },
+    "length": {
+     "uniform": "u_length",
+     "kind": "number",
+     "min": 0,
+     "max": 3,
+     "doc": "Panel length relative to total height (0 to 3)"
+    },
+    "edges": {
+     "uniform": "u_edges",
+     "kind": "number",
+     "doc": "Color highlight on the panels edges"
+    },
+    "blur": {
+     "uniform": "u_blur",
+     "kind": "number",
+     "min": 0,
+     "max": 0.5,
+     "doc": "Side blur, 0 for sharp edges (0 to 0.5)"
+    },
+    "fadeIn": {
+     "uniform": "u_fadeIn",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Transparency near central axis (0 to 1)"
+    },
+    "fadeOut": {
+     "uniform": "u_fadeOut",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Transparency near viewer (0 to 1)"
+    },
+    "density": {
+     "uniform": "u_density",
+     "kind": "number",
+     "min": 0.25,
+     "max": 7,
+     "doc": "Angle between every 2 panels (0.25 to 7)"
+    },
+    "gradient": {
+     "uniform": "u_gradient",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Color mixing within a panel, 0 = solid, 1 = gradient, needs 2+ colors (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "contain",
+      "scale": 0.8,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.5,
+      "frame": 0,
+      "colors": [
+       "#ff9d00",
+       "#fd4f30",
+       "#809bff",
+       "#6d2eff",
+       "#333aff",
+       "#f15cff",
+       "#ffd557"
+      ],
+      "colorBack": "#000000",
+      "angle1": 0,
+      "angle2": 0,
+      "length": 1.1,
+      "edges": false,
+      "blur": 0,
+      "fadeIn": 1,
+      "fadeOut": 0.3,
+      "gradient": 0,
+      "density": 3
+     }
+    },
+    {
+     "name": "Glass",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 112,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colors": [
+       "#00cfff",
+       "#ff2d55",
+       "#34c759",
+       "#af52de"
+      ],
+      "colorBack": "#ffffff00",
+      "angle1": 0.3,
+      "angle2": 0.3,
+      "length": 1,
+      "edges": true,
+      "blur": 0.25,
+      "fadeIn": 0.85,
+      "fadeOut": 0.3,
+      "gradient": 0,
+      "density": 1.6
+     }
+    },
+    {
+     "name": "Gradient",
+     "params": {
+      "fit": "contain",
+      "scale": 1.72,
+      "rotation": 270,
+      "offsetX": 0.18,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.5,
+      "frame": 0,
+      "colors": [
+       "#f2ff00",
+       "#00000000",
+       "#00000000",
+       "#5a0283",
+       "#005eff"
+      ],
+      "colorBack": "#8ffff2",
+      "angle1": 0.4,
+      "angle2": 0.4,
+      "length": 3,
+      "edges": false,
+      "blur": 0.5,
+      "fadeIn": 1,
+      "fadeOut": 0.39,
+      "gradient": 0.78,
+      "density": 1.65
+     }
+    },
+    {
+     "name": "Opening",
+     "params": {
+      "fit": "contain",
+      "scale": 2.32,
+      "rotation": 360,
+      "offsetX": -0.3,
+      "offsetY": 0.6,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 2,
+      "frame": 0,
+      "colors": [
+       "#00ffff"
+      ],
+      "colorBack": "#570044",
+      "angle1": -1,
+      "angle2": -1,
+      "length": 0.52,
+      "edges": false,
+      "blur": 0,
+      "fadeIn": 0,
+      "fadeOut": 1,
+      "gradient": 0,
+      "density": 2.21
+     }
+    }
+   ]
+  },
+  "dithering": {
+   "component": "Dithering",
+   "fragment": "ditheringFragmentShader",
+   "sizing": "pattern",
+   "noiseTexture": false,
+   "props": {
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colorFront": {
+     "uniform": "u_colorFront",
+     "kind": "color",
+     "doc": "Foreground (ink) color in RGBA"
+    },
+    "shape": {
+     "uniform": "u_shape",
+     "kind": "enum",
+     "enum": "DitheringShapes",
+     "options": [
+      "simplex",
+      "warp",
+      "dots",
+      "wave",
+      "ripple",
+      "swirl",
+      "sphere"
+     ],
+     "doc": "Shape pattern type (1 = simplex, 2 = warp, 3 = dots, 4 = wave, 5 = ripple, 6 = swirl, 7 = sphere)"
+    },
+    "type": {
+     "uniform": "u_type",
+     "kind": "enum",
+     "enum": "DitheringTypes",
+     "options": [
+      "random",
+      "2x2",
+      "4x4",
+      "8x8"
+     ],
+     "doc": "Dithering type (1 = random, 2 = 2x2 Bayer, 3 = 4x4 Bayer, 4 = 8x8 Bayer)"
+    },
+    "size": {
+     "uniform": "u_pxSize",
+     "kind": "number",
+     "min": 0.5,
+     "max": 20,
+     "doc": "Pixel size of dithering grid (0.5 to 20)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "none",
+      "scale": 0.6,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colorFront": "#00b2ff",
+      "shape": "sphere",
+      "type": "4x4",
+      "size": 2
+     }
+    },
+    {
+     "name": "Warp",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#301c2a",
+      "colorFront": "#56ae6c",
+      "shape": "warp",
+      "type": "4x4",
+      "size": 2.5
+     }
+    },
+    {
+     "name": "Sine Wave",
+     "params": {
+      "fit": "none",
+      "scale": 1.2,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#730d54",
+      "colorFront": "#00becc",
+      "shape": "wave",
+      "type": "4x4",
+      "size": 11
+     }
+    },
+    {
+     "name": "Ripple",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#603520",
+      "colorFront": "#c67953",
+      "shape": "ripple",
+      "type": "2x2",
+      "size": 3
+     }
+    },
+    {
+     "name": "Bugs",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colorFront": "#008000",
+      "shape": "dots",
+      "type": "random",
+      "size": 9
+     }
+    },
+    {
+     "name": "Swirl",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#00000000",
+      "colorFront": "#47a8e1",
+      "shape": "swirl",
+      "type": "8x8",
+      "size": 2
+     }
+    }
+   ]
+  },
+  "dotGrid": {
+   "component": "DotGrid",
+   "fragment": "dotGridFragmentShader",
+   "sizing": "pattern",
+   "noiseTexture": false,
+   "props": {
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colorFill": {
+     "uniform": "u_colorFill",
+     "kind": "color",
+     "doc": "Shape fill color in RGBA"
+    },
+    "colorStroke": {
+     "uniform": "u_colorStroke",
+     "kind": "color",
+     "doc": "Shape stroke color in RGBA, needs strokeWidth > 0"
+    },
+    "size": {
+     "uniform": "u_dotSize",
+     "kind": "number",
+     "min": 1,
+     "max": 100,
+     "doc": "Base size of each shape in pixels (1 to 100)"
+    },
+    "gapX": {
+     "uniform": "u_gapX",
+     "kind": "number",
+     "min": 2,
+     "max": 500,
+     "doc": "Pattern horizontal spacing in pixels (2 to 500)"
+    },
+    "gapY": {
+     "uniform": "u_gapY",
+     "kind": "number",
+     "min": 2,
+     "max": 500,
+     "doc": "Pattern vertical spacing in pixels (2 to 500)"
+    },
+    "strokeWidth": {
+     "uniform": "u_strokeWidth",
+     "kind": "number",
+     "min": 0,
+     "max": 50,
+     "doc": "Outline stroke width in pixels, needs colorStroke alpha > 0 (0 to 50)"
+    },
+    "sizeRange": {
+     "uniform": "u_sizeRange",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Random variation in shape size, 0 = uniform, higher = random up to base size (0 to 1)"
+    },
+    "opacityRange": {
+     "uniform": "u_opacityRange",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Random variation in shape opacity, 0 = opaque, higher = semi-transparent (0 to 1)"
+    },
+    "shape": {
+     "uniform": "u_shape",
+     "kind": "enum",
+     "enum": "DotGridShapes",
+     "options": [
+      "circle",
+      "diamond",
+      "square",
+      "triangle"
+     ],
+     "doc": "Shape type (0 = circle, 1 = diamond, 2 = square, 3 = triangle)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorBack": "#000000",
+      "colorFill": "#ffffff",
+      "colorStroke": "#ffaa00",
+      "size": 2,
+      "gapX": 32,
+      "gapY": 32,
+      "strokeWidth": 0,
+      "sizeRange": 0,
+      "opacityRange": 0,
+      "shape": "circle"
+     }
+    },
+    {
+     "name": "Triangles",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorBack": "#ffffff",
+      "colorFill": "#ffffff",
+      "colorStroke": "#808080",
+      "size": 5,
+      "gapX": 32,
+      "gapY": 32,
+      "strokeWidth": 1,
+      "sizeRange": 0,
+      "opacityRange": 0,
+      "shape": "triangle"
+     }
+    },
+    {
+     "name": "Tree line",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorBack": "#f4fce7",
+      "colorFill": "#052e19",
+      "colorStroke": "#000000",
+      "size": 8,
+      "gapX": 20,
+      "gapY": 90,
+      "strokeWidth": 0,
+      "sizeRange": 1,
+      "opacityRange": 0.6,
+      "shape": "circle"
+     }
+    },
+    {
+     "name": "Wallpaper",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorBack": "#204030",
+      "colorFill": "#000000",
+      "colorStroke": "#bd955b",
+      "size": 9,
+      "gapX": 32,
+      "gapY": 32,
+      "strokeWidth": 1,
+      "sizeRange": 0,
+      "opacityRange": 0,
+      "shape": "diamond"
+     }
+    }
+   ]
+  },
+  "dotOrbit": {
+   "component": "DotOrbit",
+   "fragment": "dotOrbitFragmentShader",
+   "sizing": "pattern",
+   "noiseTexture": true,
+   "props": {
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 10,
+     "doc": "Up to 10 base colors in RGBA"
+    },
+    "size": {
+     "uniform": "u_size",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Dot radius relative to cell size (0 to 1)"
+    },
+    "sizeRange": {
+     "uniform": "u_sizeRange",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Random variation in shape size, 0 = uniform, higher = random up to base size (0 to 1)"
+    },
+    "spreading": {
+     "uniform": "u_spreading",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Maximum orbit distance around cell center, dots are static at 0 (0 to 1)"
+    },
+    "stepsPerColor": {
+     "uniform": "u_stepsPerColor",
+     "kind": "number",
+     "min": 1,
+     "max": 4,
+     "doc": "Number of extra colors between base colors, 1 = N colors, 2 = 2×N, etc., needs 2+ colors (1 to 4)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1.5,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colors": [
+       "#ffc96b",
+       "#ff6200",
+       "#ff2f00",
+       "#421100",
+       "#1a0000"
+      ],
+      "size": 1,
+      "sizeRange": 0,
+      "spreading": 1,
+      "stepsPerColor": 4
+     }
+    },
+    {
+     "name": "Bubbles",
+     "params": {
+      "fit": "none",
+      "scale": 1.64,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.4,
+      "frame": 0,
+      "colors": [
+       "#D0D2D5"
+      ],
+      "colorBack": "#989CA4",
+      "stepsPerColor": 2,
+      "size": 0.9,
+      "sizeRange": 0.7,
+      "spreading": 1
+     }
+    },
+    {
+     "name": "Shine",
+     "params": {
+      "fit": "none",
+      "scale": 0.4,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.1,
+      "frame": 0,
+      "colors": [
+       "#ffffff",
+       "#006aff",
+       "#fff675"
+      ],
+      "colorBack": "#000000",
+      "stepsPerColor": 4,
+      "size": 0.3,
+      "sizeRange": 0.2,
+      "spreading": 1
+     }
+    },
+    {
+     "name": "Hallucinatory",
+     "params": {
+      "fit": "none",
+      "scale": 0.5,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 5,
+      "frame": 0,
+      "colors": [
+       "#000000"
+      ],
+      "colorBack": "#ffe500",
+      "stepsPerColor": 2,
+      "size": 0.65,
+      "sizeRange": 0,
+      "spreading": 0.3
+     }
+    }
+   ]
+  },
+  "godRays": {
+   "component": "GodRays",
+   "fragment": "godRaysFragmentShader",
+   "sizing": "object",
+   "noiseTexture": true,
+   "props": {
+    "colorBloom": {
+     "uniform": "u_colorBloom",
+     "kind": "color",
+     "doc": "Color overlay blended with the rays in RGBA, needs bloom > 0"
+    },
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 5,
+     "doc": "Up to 5 ray colors in RGBA"
+    },
+    "density": {
+     "uniform": "u_density",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "The number of rays (0 to 1)"
+    },
+    "spotty": {
+     "uniform": "u_spotty",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "The length of the rays, higher = more spots/shorter rays (0 to 1)"
+    },
+    "midIntensity": {
+     "uniform": "u_midIntensity",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Brightness/intensity of the central glow, needs midSize > 0 (0 to 1)"
+    },
+    "midSize": {
+     "uniform": "u_midSize",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Size of the circular glow shape in the center, needs midIntensity > 0 (0 to 1)"
+    },
+    "intensity": {
+     "uniform": "u_intensity",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Visibility/strength of the rays (0 to 1)"
+    },
+    "bloom": {
+     "uniform": "u_bloom",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of the bloom/overlay effect, 0 = alpha blend, 1 = additive blend (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": -0.55,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorBack": "#000000",
+      "colorBloom": "#0000ff",
+      "colors": [
+       "#a600ff6e",
+       "#6200fff0",
+       "#ffffff",
+       "#33fff5"
+      ],
+      "density": 0.3,
+      "spotty": 0.3,
+      "midIntensity": 0.4,
+      "midSize": 0.2,
+      "intensity": 0.8,
+      "bloom": 0.4,
+      "speed": 0.75,
+      "frame": 0
+     }
+    },
+    {
+     "name": "Warp",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorBack": "#000000",
+      "colorBloom": "#222288",
+      "colors": [
+       "#ff47d4",
+       "#ff8c00",
+       "#ffffff"
+      ],
+      "density": 0.45,
+      "spotty": 0.15,
+      "midIntensity": 0.4,
+      "midSize": 0.33,
+      "intensity": 0.79,
+      "bloom": 0.4,
+      "speed": 2,
+      "frame": 0
+     }
+    },
+    {
+     "name": "Linear",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0.2,
+      "offsetY": -0.8,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorBack": "#000000",
+      "colorBloom": "#eeeeee",
+      "colors": [
+       "#ffffff1f",
+       "#ffffff3d",
+       "#ffffff29"
+      ],
+      "density": 0.41,
+      "spotty": 0.25,
+      "midSize": 0.1,
+      "midIntensity": 0.75,
+      "intensity": 0.79,
+      "bloom": 1,
+      "speed": 0.5,
+      "frame": 0
+     }
+    },
+    {
+     "name": "Ether",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": -0.6,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorBack": "#090f1d",
+      "colorBloom": "#ffffff",
+      "colors": [
+       "#148effa6",
+       "#c4dffebe",
+       "#232a47"
+      ],
+      "density": 0.03,
+      "spotty": 0.77,
+      "midSize": 0.1,
+      "midIntensity": 0.6,
+      "intensity": 0.6,
+      "bloom": 0.6,
+      "speed": 1,
+      "frame": 0
+     }
+    }
+   ]
+  },
+  "grainGradient": {
+   "component": "GrainGradient",
+   "fragment": "grainGradientFragmentShader",
+   "sizing": "pattern",
+   "noiseTexture": true,
+   "props": {
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 7,
+     "doc": "Up to 7 gradient colors in RGBA"
+    },
+    "softness": {
+     "uniform": "u_softness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Color transition sharpness, 0 = hard edge, 1 = smooth gradient (0 to 1)"
+    },
+    "intensity": {
+     "uniform": "u_intensity",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Distortion between color bands (0 to 1)"
+    },
+    "noise": {
+     "uniform": "u_noise",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Grainy noise overlay (0 to 1)"
+    },
+    "shape": {
+     "uniform": "u_shape",
+     "kind": "enum",
+     "enum": "GrainGradientShapes",
+     "options": [
+      "wave",
+      "dots",
+      "truchet",
+      "corners",
+      "ripple",
+      "blob",
+      "sphere"
+     ],
+     "doc": "Shape type (1 = wave, 2 = dots, 3 = truchet, 4 = corners, 5 = ripple, 6 = blob, 7 = sphere)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colors": [
+       "#7300ff",
+       "#eba8ff",
+       "#00bfff",
+       "#2a00ff"
+      ],
+      "softness": 0.5,
+      "intensity": 0.5,
+      "noise": 0.25,
+      "shape": "corners"
+     }
+    },
+    {
+     "name": "Wave",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#000a0f",
+      "colors": [
+       "#c4730b",
+       "#bdad5f",
+       "#d8ccc7"
+      ],
+      "softness": 0.7,
+      "intensity": 0.15,
+      "noise": 0.5,
+      "shape": "wave"
+     }
+    },
+    {
+     "name": "Dots",
+     "params": {
+      "fit": "none",
+      "scale": 0.6,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#0a0000",
+      "colors": [
+       "#6f0000",
+       "#0080ff",
+       "#f2ebc9",
+       "#33cc33"
+      ],
+      "softness": 1,
+      "intensity": 1,
+      "noise": 0.7,
+      "shape": "dots"
+     }
+    },
+    {
+     "name": "Truchet",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#0a0000",
+      "colors": [
+       "#6f2200",
+       "#eabb7c",
+       "#39b523"
+      ],
+      "softness": 0,
+      "intensity": 0.2,
+      "noise": 1,
+      "shape": "truchet"
+     }
+    },
+    {
+     "name": "Ripple",
+     "params": {
+      "fit": "contain",
+      "scale": 0.5,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#140a00",
+      "colors": [
+       "#6f2d00",
+       "#88ddae",
+       "#2c0b1d"
+      ],
+      "softness": 0.5,
+      "intensity": 0.5,
+      "noise": 0.5,
+      "shape": "ripple"
+     }
+    },
+    {
+     "name": "Blob",
+     "params": {
+      "fit": "contain",
+      "scale": 1.3,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#0f0e18",
+      "colors": [
+       "#3e6172",
+       "#a49b74",
+       "#568c50"
+      ],
+      "softness": 0,
+      "intensity": 0.15,
+      "noise": 0.5,
+      "shape": "blob"
+     }
+    }
+   ]
+  },
+  "meshGradient": {
+   "component": "MeshGradient",
+   "fragment": "meshGradientFragmentShader",
+   "sizing": "object",
+   "noiseTexture": false,
+   "props": {
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 10,
+     "doc": "Up to 10 color spots in RGBA"
+    },
+    "distortion": {
+     "uniform": "u_distortion",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Power of organic noise distortion (0 to 1)"
+    },
+    "swirl": {
+     "uniform": "u_swirl",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Power of vortex distortion (0 to 1)"
+    },
+    "grainMixer": {
+     "uniform": "u_grainMixer",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of grain distortion applied to shape edges (0 to 1)"
+    },
+    "grainOverlay": {
+     "uniform": "u_grainOverlay",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Post-processing black/white grain overlay (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colors": [
+       "#e0eaff",
+       "#241d9a",
+       "#f75092",
+       "#9f50d3"
+      ],
+      "distortion": 0.8,
+      "swirl": 0.1,
+      "grainMixer": 0,
+      "grainOverlay": 0
+     }
+    },
+    {
+     "name": "Ink",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 90,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colors": [
+       "#ffffff",
+       "#000000"
+      ],
+      "distortion": 1,
+      "swirl": 0.2,
+      "grainMixer": 0,
+      "grainOverlay": 0
+     }
+    },
+    {
+     "name": "Purple",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.6,
+      "frame": 0,
+      "colors": [
+       "#aaa7d7",
+       "#3c2b8e"
+      ],
+      "distortion": 1,
+      "swirl": 1,
+      "grainMixer": 0,
+      "grainOverlay": 0
+     }
+    },
+    {
+     "name": "Beach",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.1,
+      "frame": 0,
+      "colors": [
+       "#bcecf6",
+       "#00aaff",
+       "#00f7ff",
+       "#ffd447"
+      ],
+      "distortion": 0.8,
+      "swirl": 0.35,
+      "grainMixer": 0,
+      "grainOverlay": 0
+     }
+    }
+   ]
+  },
+  "metaballs": {
+   "component": "Metaballs",
+   "fragment": "metaballsFragmentShader",
+   "sizing": "object",
+   "noiseTexture": true,
+   "props": {
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 8,
+     "doc": "Up to 8 base colors in RGBA, applied to the balls in order (colors beyond u_count are unused)"
+    },
+    "size": {
+     "uniform": "u_size",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Size of the balls (0 to 1)"
+    },
+    "count": {
+     "uniform": "u_count",
+     "kind": "number",
+     "min": 1,
+     "max": 20,
+     "doc": "Number of balls, fractional values shrink the last ball (1 to 20)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colors": [
+       "#6e33cc",
+       "#ff5500",
+       "#ffc105",
+       "#ffc800",
+       "#f585ff"
+      ],
+      "count": 10,
+      "size": 0.83
+     }
+    },
+    {
+     "name": "Ink Drops",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 2,
+      "frame": 0,
+      "colorBack": "#ffffff00",
+      "colors": [
+       "#000000"
+      ],
+      "count": 18,
+      "size": 0.1
+     }
+    },
+    {
+     "name": "Solar",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colors": [
+       "#ffc800",
+       "#ff5500",
+       "#ffc105"
+      ],
+      "colorBack": "#102f84",
+      "count": 7,
+      "size": 0.75
+     }
+    },
+    {
+     "name": "Background",
+     "params": {
+      "fit": "contain",
+      "scale": 4,
+      "rotation": 0,
+      "offsetX": -0.3,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.5,
+      "frame": 0,
+      "colors": [
+       "#ae00ff",
+       "#00ff95",
+       "#ffc105"
+      ],
+      "colorBack": "#2a273f",
+      "count": 13,
+      "size": 0.81
+     }
+    }
+   ]
+  },
+  "neuroNoise": {
+   "component": "NeuroNoise",
+   "fragment": "neuroNoiseFragmentShader",
+   "sizing": "pattern",
+   "noiseTexture": false,
+   "props": {
+    "colorFront": {
+     "uniform": "u_colorFront",
+     "kind": "color",
+     "doc": "Graphics highlight color in RGBA"
+    },
+    "colorMid": {
+     "uniform": "u_colorMid",
+     "kind": "color",
+     "doc": "Graphics main color in RGBA"
+    },
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "brightness": {
+     "uniform": "u_brightness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Luminosity of the crossing points (0 to 1)"
+    },
+    "contrast": {
+     "uniform": "u_contrast",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Sharpness of the transition between colorMid and colorBack (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorFront": "#ffffff",
+      "colorMid": "#47a6ff",
+      "colorBack": "#000000",
+      "brightness": 0.05,
+      "contrast": 0.3
+     }
+    },
+    {
+     "name": "Sensation",
+     "params": {
+      "fit": "none",
+      "scale": 3,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorFront": "#00c8ff",
+      "colorMid": "#fbff00",
+      "colorBack": "#8b42ff",
+      "brightness": 0.19,
+      "contrast": 0.12
+     }
+    },
+    {
+     "name": "Bloodstream",
+     "params": {
+      "fit": "none",
+      "scale": 0.7,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorFront": "#ff0000",
+      "colorMid": "#ff0000",
+      "colorBack": "#ffffff",
+      "brightness": 0.24,
+      "contrast": 0.17
+     }
+    },
+    {
+     "name": "Ghost",
+     "params": {
+      "fit": "none",
+      "scale": 0.55,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorFront": "#ffffff",
+      "colorMid": "#000000",
+      "colorBack": "#ffffff",
+      "brightness": 0,
+      "contrast": 1
+     }
+    }
+   ]
+  },
+  "perlinNoise": {
+   "component": "PerlinNoise",
+   "fragment": "perlinNoiseFragmentShader",
+   "sizing": "pattern",
+   "noiseTexture": false,
+   "props": {
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colorFront": {
+     "uniform": "u_colorFront",
+     "kind": "color",
+     "doc": "Foreground color in RGBA"
+    },
+    "proportion": {
+     "uniform": "u_proportion",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Blend point between two colors, 0.5 = equal distribution (0 to 1)"
+    },
+    "softness": {
+     "uniform": "u_softness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Color transition sharpness, 0 = hard edge, 1 = smooth gradient (0 to 1)"
+    },
+    "octaveCount": {
+     "uniform": "u_octaveCount",
+     "kind": "number",
+     "min": 1,
+     "max": 8,
+     "doc": "Perlin noise octaves number, more octaves for more detailed patterns (1 to 8)"
+    },
+    "persistence": {
+     "uniform": "u_persistence",
+     "kind": "number",
+     "min": 0.3,
+     "max": 1,
+     "doc": "Roughness, falloff between octaves, needs octaveCount > 1 (0.3 to 1)"
+    },
+    "lacunarity": {
+     "uniform": "u_lacunarity",
+     "kind": "number",
+     "min": 1.5,
+     "max": 10,
+     "doc": "Frequency step, defines how compressed the pattern is, needs octaveCount > 1 (1.5 to 10)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.5,
+      "frame": 0,
+      "colorBack": "#632ad5",
+      "colorFront": "#fccff7",
+      "proportion": 0.35,
+      "softness": 0.1,
+      "octaveCount": 1,
+      "persistence": 1,
+      "lacunarity": 1.5
+     }
+    },
+    {
+     "name": "Nintendo Water",
+     "params": {
+      "fit": "none",
+      "scale": 5,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.4,
+      "frame": 0,
+      "colorBack": "#2d69d4",
+      "colorFront": "#d1eefc",
+      "proportion": 0.42,
+      "softness": 0,
+      "octaveCount": 2,
+      "persistence": 0.55,
+      "lacunarity": 1.8
+     }
+    },
+    {
+     "name": "Moss",
+     "params": {
+      "fit": "none",
+      "scale": 6.666666666666667,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.02,
+      "frame": 0,
+      "colorBack": "#05ff4a",
+      "colorFront": "#262626",
+      "proportion": 0.65,
+      "softness": 0.35,
+      "octaveCount": 6,
+      "persistence": 1,
+      "lacunarity": 2.55
+     }
+    },
+    {
+     "name": "Worms",
+     "params": {
+      "fit": "none",
+      "scale": 0.9,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#ffffff00",
+      "colorFront": "#595959",
+      "proportion": 0.5,
+      "softness": 0,
+      "octaveCount": 1,
+      "persistence": 1,
+      "lacunarity": 1.5
+     }
+    }
+   ]
+  },
+  "pulsingBorder": {
+   "component": "PulsingBorder",
+   "fragment": "pulsingBorderFragmentShader",
+   "sizing": "object",
+   "noiseTexture": true,
+   "props": {
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 5,
+     "doc": "Up to 5 spot colors in RGBA"
+    },
+    "roundness": {
+     "uniform": "u_roundness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Border radius (0 to 1)"
+    },
+    "thickness": {
+     "uniform": "u_thickness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Border base width (0 to 1)"
+    },
+    "marginLeft": {
+     "uniform": "u_marginLeft",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Distance from the left edge to the effect (0 to 1)"
+    },
+    "marginRight": {
+     "uniform": "u_marginRight",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Distance from the right edge to the effect (0 to 1)"
+    },
+    "marginTop": {
+     "uniform": "u_marginTop",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Distance from the top edge to the effect (0 to 1)"
+    },
+    "marginBottom": {
+     "uniform": "u_marginBottom",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Distance from the bottom edge to the effect (0 to 1)"
+    },
+    "aspectRatio": {
+     "uniform": "u_aspectRatio",
+     "kind": "enum",
+     "enum": "PulsingBorderAspectRatios",
+     "options": [
+      "auto",
+      "square"
+     ],
+     "doc": "Aspect ratio mode (0 = auto, 1 = square)"
+    },
+    "softness": {
+     "uniform": "u_softness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Border edge sharpness, 0 = hard edge, 1 = smooth gradient (0 to 1)"
+    },
+    "intensity": {
+     "uniform": "u_intensity",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Thickness of individual color spots (0 to 1)"
+    },
+    "bloom": {
+     "uniform": "u_bloom",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Power of glow, 0 = normal blending, 1 = additive blending (0 to 1)"
+    },
+    "spots": {
+     "uniform": "u_spots",
+     "kind": "number",
+     "min": 1,
+     "max": 4,
+     "doc": "Number of spots added for each color (1 to 4)"
+    },
+    "spotSize": {
+     "uniform": "u_spotSize",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Angular size of spots (0 to 1)"
+    },
+    "pulse": {
+     "uniform": "u_pulse",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Optional pulsing animation intensity (0 to 1)"
+    },
+    "smoke": {
+     "uniform": "u_smoke",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Optional noisy shape extending the border (0 to 1)"
+    },
+    "smokeSize": {
+     "uniform": "u_smokeSize",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Size of the smoke effect, needs smoke > 0 (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "contain",
+      "scale": 0.6,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colors": [
+       "#0dc1fd",
+       "#d915ef",
+       "#ff3f2ecc"
+      ],
+      "roundness": 0.25,
+      "thickness": 0.1,
+      "margin": 0,
+      "marginLeft": 0,
+      "marginRight": 0,
+      "marginTop": 0,
+      "marginBottom": 0,
+      "aspectRatio": "auto",
+      "softness": 0.75,
+      "intensity": 0.2,
+      "bloom": 0.25,
+      "spots": 4,
+      "spotSize": 0.5,
+      "pulse": 0.25,
+      "smoke": 0.3,
+      "smokeSize": 0.6
+     }
+    },
+    {
+     "name": "Circle",
+     "params": {
+      "fit": "contain",
+      "scale": 0.6,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "aspectRatio": "square",
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colors": [
+       "#0dc1fd",
+       "#d915ef",
+       "#ff3f2ecc"
+      ],
+      "roundness": 1,
+      "margin": 0,
+      "marginLeft": 0,
+      "marginRight": 0,
+      "marginTop": 0,
+      "marginBottom": 0,
+      "thickness": 0,
+      "softness": 0.75,
+      "intensity": 0.2,
+      "bloom": 0.45,
+      "spots": 3,
+      "spotSize": 0.4,
+      "pulse": 0.5,
+      "smoke": 1,
+      "smokeSize": 0
+     }
+    },
+    {
+     "name": "Northern lights",
+     "params": {
+      "fit": "contain",
+      "scale": 1.1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.18,
+      "frame": 0,
+      "colors": [
+       "#4c4794",
+       "#774a7d",
+       "#12694a",
+       "#0aff78",
+       "#4733cc"
+      ],
+      "colorBack": "#0c182c",
+      "roundness": 0,
+      "thickness": 1,
+      "softness": 1,
+      "margin": 0,
+      "marginLeft": 0,
+      "marginRight": 0,
+      "marginTop": 0,
+      "marginBottom": 0,
+      "aspectRatio": "auto",
+      "intensity": 0.1,
+      "bloom": 0.2,
+      "spots": 4,
+      "spotSize": 0.25,
+      "pulse": 0,
+      "smoke": 0.32,
+      "smokeSize": 0.5
+     }
+    },
+    {
+     "name": "Solid line",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colors": [
+       "#81ADEC"
+      ],
+      "colorBack": "#00000000",
+      "roundness": 0,
+      "thickness": 0.05,
+      "margin": 0,
+      "marginLeft": 0,
+      "marginRight": 0,
+      "marginTop": 0,
+      "marginBottom": 0,
+      "aspectRatio": "auto",
+      "softness": 0,
+      "intensity": 0,
+      "bloom": 0.15,
+      "spots": 4,
+      "spotSize": 1,
+      "pulse": 0,
+      "smoke": 0,
+      "smokeSize": 0
+     }
+    }
+   ]
+  },
+  "simplexNoise": {
+   "component": "SimplexNoise",
+   "fragment": "simplexNoiseFragmentShader",
+   "sizing": "pattern",
+   "noiseTexture": false,
+   "props": {
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 10,
+     "doc": "Up to 10 base colors in RGBA"
+    },
+    "stepsPerColor": {
+     "uniform": "u_stepsPerColor",
+     "kind": "number",
+     "min": 1,
+     "max": 10,
+     "doc": "Number of extra colors between base colors, 1 = N colors, 2 = 2×N, etc., needs 2+ colors (1 to 10)"
+    },
+    "softness": {
+     "uniform": "u_softness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Color transition sharpness, 0 = hard edge, 1 = smooth gradient, needs 2+ colors (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "none",
+      "scale": 0.6,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.5,
+      "frame": 0,
+      "colors": [
+       "#4449CF",
+       "#FFD1E0",
+       "#F94446",
+       "#FFD36B",
+       "#FFFFFF"
+      ],
+      "stepsPerColor": 2,
+      "softness": 0
+     }
+    },
+    {
+     "name": "Spots",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.6,
+      "frame": 0,
+      "colors": [
+       "#ff7b00",
+       "#f9ffeb",
+       "#320d82"
+      ],
+      "stepsPerColor": 1,
+      "softness": 0
+     }
+    },
+    {
+     "name": "First contact",
+     "params": {
+      "fit": "none",
+      "scale": 0.2,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 2,
+      "frame": 0,
+      "colors": [
+       "#e8cce6",
+       "#120d22",
+       "#442c44",
+       "#e6baba",
+       "#fff5f5"
+      ],
+      "stepsPerColor": 2,
+      "softness": 0
+     }
+    },
+    {
+     "name": "Bubblegum",
+     "params": {
+      "fit": "none",
+      "scale": 1.6,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 2,
+      "frame": 0,
+      "colors": [
+       "#ffffff",
+       "#ff9e9e",
+       "#5f57ff",
+       "#00f7ff"
+      ],
+      "stepsPerColor": 1,
+      "softness": 1
+     }
+    }
+   ]
+  },
+  "smokeRing": {
+   "component": "SmokeRing",
+   "fragment": "smokeRingFragmentShader",
+   "sizing": "object",
+   "noiseTexture": true,
+   "props": {
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 10,
+     "doc": "Up to 10 gradient colors in RGBA"
+    },
+    "noiseScale": {
+     "uniform": "u_noiseScale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 5,
+     "doc": "Noise frequency (0.01 to 5)"
+    },
+    "thickness": {
+     "uniform": "u_thickness",
+     "kind": "number",
+     "min": 0.01,
+     "max": 1,
+     "doc": "Thickness of the ring shape (0.01 to 1)"
+    },
+    "radius": {
+     "uniform": "u_radius",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Radius of the ring shape (0 to 1)"
+    },
+    "innerShape": {
+     "uniform": "u_innerShape",
+     "kind": "number",
+     "min": 0,
+     "max": 4,
+     "doc": "Ring inner fill amount, needs radius > 0 (0 to 4)"
+    },
+    "noiseIterations": {
+     "uniform": "u_noiseIterations",
+     "kind": "number",
+     "min": 1,
+     "max": 8,
+     "doc": "Number of noise layers, more layers gives more details (1 to 8)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "contain",
+      "scale": 0.8,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.5,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colors": [
+       "#ffffff"
+      ],
+      "noiseScale": 3,
+      "noiseIterations": 8,
+      "radius": 0.25,
+      "thickness": 0.65,
+      "innerShape": 0.7
+     }
+    },
+    {
+     "name": "Line",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colors": [
+       "#4540a4",
+       "#1fe8ff"
+      ],
+      "noiseScale": 1.1,
+      "noiseIterations": 2,
+      "radius": 0.38,
+      "thickness": 0.01,
+      "innerShape": 0.88,
+      "speed": 4
+     }
+    },
+    {
+     "name": "Solar",
+     "params": {
+      "fit": "contain",
+      "scale": 2,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 1,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colors": [
+       "#ffffff",
+       "#ffca0a",
+       "#fc6203",
+       "#fc620366"
+      ],
+      "noiseScale": 2,
+      "noiseIterations": 3,
+      "radius": 0.4,
+      "thickness": 0.8,
+      "innerShape": 4
+     }
+    },
+    {
+     "name": "Cloud",
+     "params": {
+      "fit": "contain",
+      "scale": 2.5,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "frame": 0,
+      "colorBack": "#81ADEC",
+      "colors": [
+       "#ffffff"
+      ],
+      "noiseScale": 3,
+      "noiseIterations": 10,
+      "radius": 0.5,
+      "thickness": 0.65,
+      "innerShape": 0.85,
+      "speed": 0.5
+     }
+    }
+   ]
+  },
+  "spiral": {
+   "component": "Spiral",
+   "fragment": "spiralFragmentShader",
+   "sizing": "pattern",
+   "noiseTexture": false,
+   "props": {
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colorFront": {
+     "uniform": "u_colorFront",
+     "kind": "color",
+     "doc": "Foreground (ink) color in RGBA"
+    },
+    "density": {
+     "uniform": "u_density",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Spacing falloff simulating perspective, 0 = flat spiral (0 to 1)"
+    },
+    "distortion": {
+     "uniform": "u_distortion",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Power of shape distortion applied along the spiral (0 to 1)"
+    },
+    "strokeWidth": {
+     "uniform": "u_strokeWidth",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Thickness of spiral curve (0 to 1)"
+    },
+    "strokeTaper": {
+     "uniform": "u_strokeTaper",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "How much stroke loses width away from center, 0 = full visibility (0 to 1)"
+    },
+    "strokeCap": {
+     "uniform": "u_strokeCap",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Extra stroke width at the center, needs strokeWidth ≠ 0.5 (0 to 1)"
+    },
+    "noiseFrequency": {
+     "uniform": "u_noiseFrequency",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Noise frequency, needs noise > 0 (0 to 1)"
+    },
+    "noise": {
+     "uniform": "u_noise",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Noise distortion applied over the canvas, needs noiseFrequency > 0 (0 to 1)"
+    },
+    "softness": {
+     "uniform": "u_softness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Color transition sharpness, 0 = hard edge, 1 = smooth gradient (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorBack": "#001429",
+      "colorFront": "#79D1FF",
+      "density": 1,
+      "distortion": 0,
+      "strokeWidth": 0.5,
+      "strokeTaper": 0,
+      "strokeCap": 0,
+      "noise": 0,
+      "noiseFrequency": 0,
+      "softness": 0,
+      "speed": 1,
+      "frame": 0
+     }
+    },
+    {
+     "name": "Jungle",
+     "params": {
+      "fit": "none",
+      "scale": 1.3,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "density": 0.5,
+      "colorBack": "#a0ef2a",
+      "colorFront": "#288b18",
+      "distortion": 0,
+      "strokeWidth": 0.5,
+      "strokeTaper": 0,
+      "strokeCap": 0,
+      "noise": 1,
+      "noiseFrequency": 0.25,
+      "softness": 0,
+      "speed": 0.75,
+      "frame": 0
+     }
+    },
+    {
+     "name": "Droplet",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorBack": "#effafe",
+      "colorFront": "#bf40a0",
+      "density": 0.9,
+      "distortion": 0,
+      "strokeWidth": 0.75,
+      "strokeTaper": 0.18,
+      "strokeCap": 1,
+      "noise": 0.74,
+      "noiseFrequency": 0.33,
+      "softness": 0.02,
+      "speed": 1,
+      "frame": 0
+     }
+    },
+    {
+     "name": "Swirl",
+     "params": {
+      "fit": "none",
+      "scale": 0.45,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorBack": "#b3e6d9",
+      "colorFront": "#1a2b4d",
+      "density": 0.2,
+      "distortion": 0,
+      "strokeWidth": 0.5,
+      "strokeTaper": 0,
+      "strokeCap": 0,
+      "noise": 0,
+      "noiseFrequency": 0.3,
+      "softness": 0.5,
+      "speed": 1,
+      "frame": 0
+     }
+    }
+   ]
+  },
+  "staticMeshGradient": {
+   "component": "StaticMeshGradient",
+   "fragment": "staticMeshGradientFragmentShader",
+   "sizing": "object",
+   "noiseTexture": false,
+   "props": {
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 10,
+     "doc": "Up to 10 gradient colors in RGBA"
+    },
+    "positions": {
+     "uniform": "u_positions",
+     "kind": "number",
+     "min": 0,
+     "max": 100,
+     "doc": "Color spots placement seed (0 to 100)"
+    },
+    "waveX": {
+     "uniform": "u_waveX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of sine wave distortion along X axis (0 to 1)"
+    },
+    "waveXShift": {
+     "uniform": "u_waveXShift",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Phase offset applied to the X-axis wave, needs waveX > 0 (0 to 1)"
+    },
+    "waveY": {
+     "uniform": "u_waveY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of sine wave distortion along Y axis (0 to 1)"
+    },
+    "waveYShift": {
+     "uniform": "u_waveYShift",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Phase offset applied to the Y-axis wave, needs waveY > 0 (0 to 1)"
+    },
+    "mixing": {
+     "uniform": "u_mixing",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Blending behavior, 0 = hard stripes, 0.5 = smooth, 1 = gradual blend (0 to 1)"
+    },
+    "grainMixer": {
+     "uniform": "u_grainMixer",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of grain distortion applied to shape edges (0 to 1)"
+    },
+    "grainOverlay": {
+     "uniform": "u_grainOverlay",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Post-processing black/white grain overlay (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 270,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colors": [
+       "#ffad0a",
+       "#6200ff",
+       "#e2a3ff",
+       "#ff99fd"
+      ],
+      "positions": 2,
+      "waveX": 1,
+      "waveXShift": 0.6,
+      "waveY": 1,
+      "waveYShift": 0.21,
+      "mixing": 0.93,
+      "grainMixer": 0,
+      "grainOverlay": 0
+     }
+    },
+    {
+     "name": "1960s",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colors": [
+       "#000000",
+       "#082400",
+       "#b1aa91",
+       "#8e8c15"
+      ],
+      "positions": 42,
+      "waveX": 0.45,
+      "waveXShift": 0,
+      "waveY": 1,
+      "waveYShift": 0,
+      "mixing": 0,
+      "grainMixer": 0.37,
+      "grainOverlay": 0.78
+     }
+    },
+    {
+     "name": "Sunset",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colors": [
+       "#264653",
+       "#9c2b2b",
+       "#f4a261",
+       "#ffffff"
+      ],
+      "positions": 0,
+      "waveX": 0.6,
+      "waveXShift": 0.7,
+      "waveY": 0.7,
+      "waveYShift": 0.7,
+      "mixing": 0.5,
+      "grainMixer": 0,
+      "grainOverlay": 0
+     }
+    },
+    {
+     "name": "Sea",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colors": [
+       "#013b65",
+       "#03738c",
+       "#a3d3ff",
+       "#f2faef"
+      ],
+      "positions": 0,
+      "waveX": 0.53,
+      "waveXShift": 0,
+      "waveY": 0.95,
+      "waveYShift": 0.64,
+      "mixing": 0.5,
+      "grainMixer": 0,
+      "grainOverlay": 0
+     }
+    }
+   ]
+  },
+  "staticRadialGradient": {
+   "component": "StaticRadialGradient",
+   "fragment": "staticRadialGradientFragmentShader",
+   "sizing": "object",
+   "noiseTexture": false,
+   "props": {
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 10,
+     "doc": "Up to 10 gradient colors in RGBA"
+    },
+    "radius": {
+     "uniform": "u_radius",
+     "kind": "number",
+     "min": 0,
+     "max": 3,
+     "doc": "Size of the shape (0 to 3)"
+    },
+    "focalDistance": {
+     "uniform": "u_focalDistance",
+     "kind": "number",
+     "min": 0,
+     "max": 3,
+     "doc": "Distance of the focal point from center (0 to 3)"
+    },
+    "focalAngle": {
+     "uniform": "u_focalAngle",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Angle of the focal point in degrees, needs focalDistance > 0 (0 to 360)"
+    },
+    "falloff": {
+     "uniform": "u_falloff",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Gradient decay, 0 = equal color distribution (-1 to 1)"
+    },
+    "mixing": {
+     "uniform": "u_mixing",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Blending behavior, 0 = hard stripes, 1 = smooth gradient (0 to 1)"
+    },
+    "distortion": {
+     "uniform": "u_distortion",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of radial distortion (0 to 1)"
+    },
+    "distortionShift": {
+     "uniform": "u_distortionShift",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Radial distortion offset, needs distortion > 0 (-1 to 1)"
+    },
+    "distortionFreq": {
+     "uniform": "u_distortionFreq",
+     "kind": "number",
+     "min": 0,
+     "max": 20,
+     "doc": "Radial distortion frequency, needs distortion > 0 (0 to 20)"
+    },
+    "grainMixer": {
+     "uniform": "u_grainMixer",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of grain distortion applied to shape edges (0 to 1)"
+    },
+    "grainOverlay": {
+     "uniform": "u_grainOverlay",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Post-processing black/white grain overlay (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colors": [
+       "#00bbff",
+       "#00ffe1",
+       "#ffffff"
+      ],
+      "radius": 0.8,
+      "focalDistance": 0.99,
+      "focalAngle": 0,
+      "falloff": 0.24,
+      "mixing": 0.5,
+      "distortion": 0,
+      "distortionShift": 0,
+      "distortionFreq": 12,
+      "grainMixer": 0,
+      "grainOverlay": 0
+     }
+    },
+    {
+     "name": "Lo-Fi",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#2e1f27",
+      "colors": [
+       "#d72638",
+       "#3f88c5",
+       "#f49d37"
+      ],
+      "radius": 1,
+      "focalDistance": 0,
+      "focalAngle": 0,
+      "falloff": 0.9,
+      "mixing": 0.7,
+      "distortion": 0,
+      "distortionShift": 0,
+      "distortionFreq": 12,
+      "grainMixer": 1,
+      "grainOverlay": 0.5
+     }
+    },
+    {
+     "name": "Cross Section",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#3d348b",
+      "colors": [
+       "#7678ed",
+       "#f7b801",
+       "#f18701",
+       "#37a066"
+      ],
+      "radius": 1,
+      "focalDistance": 0,
+      "focalAngle": 0,
+      "falloff": 0,
+      "mixing": 0,
+      "distortion": 1,
+      "distortionShift": 0,
+      "distortionFreq": 12,
+      "grainMixer": 0,
+      "grainOverlay": 0
+     }
+    },
+    {
+     "name": "Radial",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#264653",
+      "colors": [
+       "#9c2b2b",
+       "#f4a261",
+       "#ffffff"
+      ],
+      "radius": 1,
+      "focalDistance": 0,
+      "focalAngle": 0,
+      "falloff": 0,
+      "mixing": 1,
+      "distortion": 0,
+      "distortionShift": 0,
+      "distortionFreq": 12,
+      "grainMixer": 0,
+      "grainOverlay": 0
+     }
+    }
+   ]
+  },
+  "swirl": {
+   "component": "Swirl",
+   "fragment": "swirlFragmentShader",
+   "sizing": "object",
+   "noiseTexture": false,
+   "props": {
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 10,
+     "doc": "Up to 10 stripe colors in RGBA"
+    },
+    "bandCount": {
+     "uniform": "u_bandCount",
+     "kind": "number",
+     "min": 0,
+     "max": 15,
+     "doc": "Number of color bands, 0 = concentric ripples (0 to 15)"
+    },
+    "twist": {
+     "uniform": "u_twist",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Vortex power, 0 = straight sectoral shapes (0 to 1)"
+    },
+    "center": {
+     "uniform": "u_center",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "How far from the center the swirl colors begin to appear, needs twist > 0 (0 to 1)"
+    },
+    "proportion": {
+     "uniform": "u_proportion",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Blend point between colors, 0.5 = equal distribution (0 to 1)"
+    },
+    "softness": {
+     "uniform": "u_softness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Color transition sharpness, 0 = hard edge, 1 = smooth gradient (0 to 1)"
+    },
+    "noiseFrequency": {
+     "uniform": "u_noiseFrequency",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Noise frequency, needs noise > 0 (0 to 1)"
+    },
+    "noise": {
+     "uniform": "u_noise",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of noise distortion, needs noiseFrequency > 0 (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.32,
+      "frame": 0,
+      "colorBack": "#330000",
+      "colors": [
+       "#ffd1d1",
+       "#ff8a8a",
+       "#660000"
+      ],
+      "bandCount": 4,
+      "twist": 0.1,
+      "center": 0.2,
+      "proportion": 0.5,
+      "softness": 0,
+      "noiseFrequency": 0.4,
+      "noise": 0.2
+     }
+    },
+    {
+     "name": "007",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#E9E7DA",
+      "colors": [
+       "#000000"
+      ],
+      "bandCount": 5,
+      "twist": 0.3,
+      "center": 0,
+      "proportion": 0,
+      "softness": 0,
+      "noiseFrequency": 0.5,
+      "noise": 0
+     }
+    },
+    {
+     "name": "Opening",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": -0.4,
+      "offsetY": 1,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.5,
+      "frame": 0,
+      "colorBack": "#ff8b61",
+      "colors": [
+       "#fefff0",
+       "#ffd8bd",
+       "#ff8b61"
+      ],
+      "bandCount": 2,
+      "twist": 0.3,
+      "center": 0.2,
+      "proportion": 0.5,
+      "softness": 0,
+      "noiseFrequency": 0,
+      "noise": 0
+     }
+    },
+    {
+     "name": "Candy",
+     "params": {
+      "fit": "contain",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colorBack": "#ffcd66",
+      "colors": [
+       "#6bbceb",
+       "#d7b3ff",
+       "#ff9fff"
+      ],
+      "bandCount": 2,
+      "twist": 0.15,
+      "center": 0.2,
+      "proportion": 0.5,
+      "softness": 1,
+      "noiseFrequency": 0.5,
+      "noise": 0
+     }
+    }
+   ]
+  },
+  "voronoi": {
+   "component": "Voronoi",
+   "fragment": "voronoiFragmentShader",
+   "sizing": "pattern",
+   "noiseTexture": true,
+   "props": {
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 5,
+     "doc": "Up to 5 base cell colors in RGBA"
+    },
+    "stepsPerColor": {
+     "uniform": "u_stepsPerColor",
+     "kind": "number",
+     "min": 1,
+     "max": 3,
+     "doc": "Number of extra colors between base colors, 1 = N colors, 2 = 2×N, etc., needs 2+ colors (1 to 3)"
+    },
+    "colorGlow": {
+     "uniform": "u_colorGlow",
+     "kind": "color",
+     "doc": "Color tint for radial inner shadow inside cells in RGBA, needs glow > 0"
+    },
+    "colorGap": {
+     "uniform": "u_colorGap",
+     "kind": "color",
+     "doc": "Color used for cell borders/gaps in RGBA"
+    },
+    "distortion": {
+     "uniform": "u_distortion",
+     "kind": "number",
+     "min": 0,
+     "max": 0.5,
+     "doc": "Strength of noise-driven displacement of cell centers (0 to 0.5)"
+    },
+    "gap": {
+     "uniform": "u_gap",
+     "kind": "number",
+     "min": 0,
+     "max": 0.1,
+     "doc": "Width of the border/gap between cells (0 to 0.1)"
+    },
+    "glow": {
+     "uniform": "u_glow",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of the radial inner shadow inside cells, needs colorGlow alpha > 0 (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "none",
+      "scale": 0.5,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.5,
+      "frame": 0,
+      "colors": [
+       "#ff8247",
+       "#ffe53d"
+      ],
+      "stepsPerColor": 3,
+      "colorGlow": "#ffffff",
+      "colorGap": "#2e0000",
+      "distortion": 0.4,
+      "gap": 0.04,
+      "glow": 0
+     }
+    },
+    {
+     "name": "Lights",
+     "params": {
+      "fit": "none",
+      "scale": 3.3,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.5,
+      "frame": 0,
+      "colors": [
+       "#fffffffc",
+       "#bbff00",
+       "#00ffff"
+      ],
+      "colorGlow": "#ff00d0",
+      "colorGap": "#ff00d0",
+      "stepsPerColor": 2,
+      "distortion": 0.38,
+      "gap": 0,
+      "glow": 1
+     }
+    },
+    {
+     "name": "Cells",
+     "params": {
+      "fit": "none",
+      "scale": 0.5,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.5,
+      "frame": 0,
+      "colors": [
+       "#ffffff"
+      ],
+      "stepsPerColor": 1,
+      "colorGlow": "#ffffff",
+      "colorGap": "#000000",
+      "distortion": 0.5,
+      "gap": 0.03,
+      "glow": 0.8
+     }
+    },
+    {
+     "name": "Bubbles",
+     "params": {
+      "fit": "none",
+      "scale": 0.75,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0.5,
+      "frame": 0,
+      "colors": [
+       "#83c9fb"
+      ],
+      "stepsPerColor": 1,
+      "colorGlow": "#ffffff",
+      "colorGap": "#ffffff",
+      "distortion": 0.4,
+      "gap": 0,
+      "glow": 1
+     }
+    }
+   ]
+  },
+  "warp": {
+   "component": "Warp",
+   "fragment": "warpFragmentShader",
+   "sizing": "pattern",
+   "noiseTexture": true,
+   "props": {
+    "colors": {
+     "uniform": "u_colors",
+     "kind": "colors",
+     "max": 10,
+     "doc": "Up to 10 gradient colors in RGBA"
+    },
+    "proportion": {
+     "uniform": "u_proportion",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Blend point between colors, 0.5 = equal distribution (0 to 1)"
+    },
+    "softness": {
+     "uniform": "u_softness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Color transition sharpness, 0 = hard edge, 1 = smooth gradient (0 to 1)"
+    },
+    "distortion": {
+     "uniform": "u_distortion",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of noise-based distortion (0 to 1)"
+    },
+    "swirl": {
+     "uniform": "u_swirl",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of the swirl distortion, needs swirlIterations > 1 (0 to 1)"
+    },
+    "swirlIterations": {
+     "uniform": "u_swirlIterations",
+     "kind": "number",
+     "min": 2,
+     "max": 20,
+     "doc": "Number of layered swirl passes as an integer, needs swirl > 0 (2 to 20)"
+    },
+    "shapeScale": {
+     "uniform": "u_shapeScale",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Zoom level of the base pattern (0 to 1)"
+    },
+    "shape": {
+     "uniform": "u_shape",
+     "kind": "enum",
+     "enum": "WarpPatterns",
+     "options": [
+      "checks",
+      "stripes",
+      "edge"
+     ],
+     "doc": "Base pattern type (0 = checks, 1 = stripes, 2 = edge)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "none",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 1,
+      "frame": 0,
+      "colors": [
+       "#121212",
+       "#9470ff",
+       "#121212",
+       "#8838ff"
+      ],
+      "proportion": 0.45,
+      "softness": 1,
+      "distortion": 0.25,
+      "swirl": 0.8,
+      "swirlIterations": 10,
+      "shapeScale": 0.1,
+      "shape": "checks"
+     }
+    },
+    {
+     "name": "Cauldron Pot",
+     "params": {
+      "fit": "none",
+      "scale": 0.9,
+      "rotation": 160,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 10,
+      "frame": 0,
+      "colors": [
+       "#a7e58b",
+       "#324472",
+       "#0a180d"
+      ],
+      "proportion": 0.64,
+      "softness": 1.5,
+      "distortion": 0.2,
+      "swirl": 0.86,
+      "swirlIterations": 7,
+      "shapeScale": 0.6,
+      "shape": "edge"
+     }
+    },
+    {
+     "name": "Live Ink",
+     "params": {
+      "fit": "none",
+      "scale": 1.2,
+      "rotation": 44,
+      "offsetX": 0,
+      "offsetY": -0.3,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 2.5,
+      "frame": 0,
+      "colors": [
+       "#111314",
+       "#9faeab",
+       "#f3fee7",
+       "#f3fee7"
+      ],
+      "proportion": 0.05,
+      "softness": 0,
+      "distortion": 0.25,
+      "swirl": 0.8,
+      "swirlIterations": 10,
+      "shapeScale": 0.28,
+      "shape": "checks"
+     }
+    },
+    {
+     "name": "Kelp",
+     "params": {
+      "fit": "none",
+      "scale": 0.8,
+      "rotation": 50,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 20,
+      "frame": 0,
+      "colors": [
+       "#dbff8f",
+       "#404f3e",
+       "#091316"
+      ],
+      "proportion": 0.67,
+      "softness": 0,
+      "distortion": 0,
+      "swirl": 0.2,
+      "swirlIterations": 3,
+      "shapeScale": 1,
+      "shape": "stripes"
+     }
+    },
+    {
+     "name": "Nectar",
+     "params": {
+      "fit": "none",
+      "scale": 2,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0.6,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 4.2,
+      "frame": 0,
+      "colors": [
+       "#151310",
+       "#d3a86b",
+       "#f0edea"
+      ],
+      "proportion": 0.24,
+      "softness": 1,
+      "distortion": 0.21,
+      "swirl": 0.57,
+      "swirlIterations": 10,
+      "shapeScale": 0.75,
+      "shape": "edge"
+     }
+    },
+    {
+     "name": "Passion",
+     "params": {
+      "fit": "none",
+      "scale": 2.5,
+      "rotation": 1.35,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 3,
+      "frame": 0,
+      "colors": [
+       "#3b1515",
+       "#954751",
+       "#ffc085"
+      ],
+      "proportion": 0.5,
+      "softness": 1,
+      "distortion": 0.09,
+      "swirl": 0.9,
+      "swirlIterations": 6,
+      "shapeScale": 0.25,
+      "shape": "checks"
+     }
+    }
+   ]
+  },
+  "waves": {
+   "component": "Waves",
+   "fragment": "wavesFragmentShader",
+   "sizing": "pattern",
+   "noiseTexture": false,
+   "props": {
+    "colorFront": {
+     "uniform": "u_colorFront",
+     "kind": "color",
+     "doc": "Foreground color in RGBA"
+    },
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "shape": {
+     "uniform": "u_shape",
+     "kind": "number",
+     "min": 0,
+     "max": 3,
+     "doc": "Line shape, 0 = zigzag, 1 = sine, 2-3 = irregular waves, fractional values morph between shapes, needs amplitude > 0, frequency > 0 (0 to 3)"
+    },
+    "frequency": {
+     "uniform": "u_frequency",
+     "kind": "number",
+     "min": 0,
+     "max": 2,
+     "doc": "Wave frequency, needs amplitude > 0 (0 to 2)"
+    },
+    "amplitude": {
+     "uniform": "u_amplitude",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Wave amplitude, at frequency = 0 it only shifts the lines (0 to 1)"
+    },
+    "spacing": {
+     "uniform": "u_spacing",
+     "kind": "number",
+     "min": 0,
+     "max": 2,
+     "doc": "Space between every two wavy lines (0 to 2)"
+    },
+    "proportion": {
+     "uniform": "u_proportion",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Blend point between front and back colors, 0.5 = equal distribution (0 to 1)"
+    },
+    "softness": {
+     "uniform": "u_softness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Color transition sharpness, 0 = hard edge, 1 = smooth gradient (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number",
+     "doc": "Virtual width of the graphic before it's scaled to fit the canvas"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number",
+     "doc": "Virtual height of the graphic before it's scaled to fit the canvas"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "none",
+      "scale": 0.6,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorFront": "#ffbb00",
+      "colorBack": "#000000",
+      "shape": 0,
+      "frequency": 0.5,
+      "amplitude": 0.5,
+      "spacing": 1.2,
+      "proportion": 0.1,
+      "softness": 0
+     }
+    },
+    {
+     "name": "Groovy",
+     "params": {
+      "fit": "none",
+      "scale": 5,
+      "rotation": 90,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorFront": "#fcfcee",
+      "colorBack": "#ff896b",
+      "shape": 3,
+      "frequency": 0.2,
+      "amplitude": 0.25,
+      "spacing": 1.17,
+      "proportion": 0.57,
+      "softness": 0
+     }
+    },
+    {
+     "name": "Tangled up",
+     "params": {
+      "fit": "none",
+      "scale": 0.5,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorFront": "#133a41",
+      "colorBack": "#c2d8b6",
+      "shape": 2.07,
+      "frequency": 0.44,
+      "amplitude": 0.57,
+      "spacing": 1.05,
+      "proportion": 0.75,
+      "softness": 0
+     }
+    },
+    {
+     "name": "Ride the wave",
+     "params": {
+      "fit": "none",
+      "scale": 1.7,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "colorFront": "#fdffe6",
+      "colorBack": "#1f1f1f",
+      "shape": 2.25,
+      "frequency": 0.2,
+      "amplitude": 1,
+      "spacing": 1.25,
+      "proportion": 1,
+      "softness": 0
+     }
+    }
+   ]
+  }
+ }
+}
