@@ -185,7 +185,8 @@ Don't propose them as features:
 
 - **Accounts / login / auth** (Clerk keys exist in `.env` as placeholders only).
 - **Server-side storage or a hosted background-image gallery** (Supabase
-  placeholders only; the in-app gallery is local-only Mock data).
+  placeholders only; the in-app gallery is local files in `public/gallery/`,
+  listed in `src/lib/gallery/catalog.ts`).
 - **Paid / Pro tiers or payment** — Ontab is free; AdSense is the sole
   (deprioritized) monetization path.
 - **Server-side format conversions** (PDF → Word / Excel / PPT). All processing
