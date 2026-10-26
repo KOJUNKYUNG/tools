@@ -1,21 +1,21 @@
 // Makes the gallery's files in public/gallery/ from the catalog
 // (src/lib/gallery/catalog.ts), to the spec's quality bar:
-//   - an original: 2560 × 1440 JPEG q82 (mozjpeg), sRGB, no metadata;
-//   - a thumbnail: 480 × 270 JPEG q75;
+//   - an original: 2560 × 1440, JPEG q90 (mozjpeg; q82 visibly shifted colour)
+//     or lossless PNG where the catalog says .png, sRGB, no metadata;
+//   - a thumbnail: 480 × 270 JPEG q75 (at most 40 KB);
 //   - public/gallery/CREDITS.md, written from the catalog's sources.
 // Inputs live in scripts/gallery/sources/{category}/{name}.{png,jpg,jpeg,webp,tif,tiff}
 // (gitignored: CC0 originals are re-downloadable from the URL the catalog
-// records; our own Paper exports are kept by their maker). A pattern's SVG is
-// written by hand into public/ and only gets its thumbnail here. The three
-// legacy gradients have no source: their committed JPEG is the original, so
-// only its metadata is stripped, losslessly.
+// records; gradients and patterns are rendered there by pnpm gallery:shaders
+// from shaders.json). The three legacy gradients have no source: their
+// committed JPEG is the original, so only its metadata is stripped, losslessly.
 //
 // Run: pnpm gallery:build [--only=id,id]
 // catalog.test.ts then holds every file to the bar (sizes, bytes, metadata).
 
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 import { GALLERY_IMAGES } from "@/lib/gallery/catalog";
@@ -29,7 +29,7 @@ const SOURCE_EXTS = ["png", "jpg", "jpeg", "webp", "tif", "tiff"];
 
 const only = process.argv.find((a) => a.startsWith("--only="))?.slice(7).split(",");
 
-const ORIGINAL = { quality: 82, mozjpeg: true } as const;
+const ORIGINAL = { quality: 90, mozjpeg: true } as const;
 const THUMB = { width: 480, height: 270, quality: 75 } as const;
 
 function sourceFor(img: GalleryImage): string | null {
@@ -65,18 +65,17 @@ function stripJpegMetadata(buf: Buffer): Buffer {
 }
 
 async function writeThumbnail(input: string | Buffer, img: GalleryImage) {
-  await sharp(input)
+  await open(input)
     .resize(THUMB.width, THUMB.height, { fit: "cover" })
     .jpeg({ quality: THUMB.quality, mozjpeg: true })
     .toFile(join(PUBLIC, img.thumbnailUrl));
 }
 
+/** Sources can exceed sharp's default pixel limit (a 16k × 16k texture scan). */
+const open = (input: string | Buffer) => sharp(input, { limitInputPixels: false });
+
 async function build(img: GalleryImage): Promise<string> {
   const out = join(PUBLIC, img.url);
-  if (img.url.endsWith(".svg")) {
-    await writeThumbnail(await readFile(out), img);
-    return "thumbnail from SVG";
-  }
   const source = sourceFor(img);
   if (!source) {
     if (!existsSync(out)) throw new Error(`no source in ${join(SOURCES, img.category)} and no committed original`);
@@ -84,17 +83,15 @@ async function build(img: GalleryImage): Promise<string> {
     await writeThumbnail(out, img);
     return "metadata stripped (no source)";
   }
-  const meta = await sharp(source).rotate().metadata();
+  const meta = await open(source).metadata();
   const [w, h] = meta.orientation && meta.orientation >= 5 ? [meta.height!, meta.width!] : [meta.width!, meta.height!];
   if (w < img.width || h < img.height) {
     throw new Error(`source is ${w} × ${h}, smaller than ${img.width} × ${img.height}; never enlarged`);
   }
   // sharp converts to sRGB and drops all metadata unless told to keep it.
-  const original = await sharp(source)
-    .rotate()
-    .resize(img.width, img.height, { fit: "cover", position: "attention" })
-    .jpeg(ORIGINAL)
-    .toBuffer();
+  const resized = open(source).rotate().resize(img.width, img.height, { fit: "cover", position: "attention" });
+  const original = await (img.url.endsWith(".png") ? resized.png({ compressionLevel: 9 }) : resized.jpeg(ORIGINAL)).toBuffer();
+  await mkdir(dirname(out), { recursive: true });
   await writeFile(out, original);
   await writeThumbnail(original, img);
   return `from ${source.slice(SOURCES.length)}`;
