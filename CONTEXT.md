@@ -146,6 +146,17 @@ The target audience: the five [target users](#target-users). They do not
 know what "rasterize" means and will not read a tutorial. UI text and
 defaults assume zero domain literacy.
 
+### Finished in the tool
+A tool's own job is complete when its file comes out: the user never has to
+open PowerPoint (or any other program) to finish or adjust what the tool did.
+A tool may write a PowerPoint feature into the file (a native background
+transparency, a solid fill) as the way it does its job; "the user can set it in
+PowerPoint" is never the reason a tool leaves something out. What remains for
+the user in PowerPoint is their own content: editing text, changing or
+reordering slides.
+_Avoid_: justifying a gap or a design by an adjustment the user would make
+afterwards in PowerPoint.
+
 ### Target users
 Who Ontab is for, and the work each brings. A tool's **feature-scope check**
 (`docs/agents/workflow.md`) and backlog ranking test ideas against this table,
