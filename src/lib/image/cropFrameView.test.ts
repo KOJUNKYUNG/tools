@@ -54,3 +54,15 @@ describe("pointInSource", () => {
     expect(pointInSource({ x: 32, y: 60 }, box, source)).toEqual({ x: 192, y: 0 });
   });
 });
+
+describe("frameInBox and pointInSource", () => {
+  it("read each other back on a pillarboxed portrait picture", () => {
+    // 3024 × 4032 in a 640 × 320 element: box 240 × 320 at x 200.
+    const source = { w: 3024, h: 4032 };
+    const box = containBox({ w: 640, h: 320 }, source);
+    const crop = { x: 756, y: 1008, width: 1512, height: 2016 };
+    const frame = frameInBox(crop, box, source);
+    expect(frame).toEqual({ x: 260, y: 80, w: 120, h: 160 });
+    expect(pointInSource({ x: frame.x, y: frame.y }, box, source)).toEqual({ x: 756, y: 1008 });
+  });
+});

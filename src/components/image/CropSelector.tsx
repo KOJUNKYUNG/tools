@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
-import { containBox, frameInBox, pointInSource, type Box } from "@/lib/image/cropFrameView";
+import { EMPTY_BOX, containBox, frameInBox, pointInSource, type Box } from "@/lib/image/cropFrameView";
 import { cropFits, maxFitCrop, type CropRect, type ImageDims } from "@/lib/image/maxFitCrop";
 import {
   aspectLockedResize,
@@ -87,7 +87,7 @@ export function CropSelector({
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
-  const [displayBox, setDisplayBox] = useState<Box>({ x: 0, y: 0, w: 0, h: 0 });
+  const [displayBox, setDisplayBox] = useState<Box>(EMPTY_BOX);
   const [crop, setCrop] = useState<CropRect>({ x: 0, y: 0, width: 0, height: 0 });
   const [dragging, setDragging] = useState(false);
   // Where the drag began, already read as source pixels.
@@ -141,9 +141,7 @@ export function CropSelector({
   }, [imgNatural]);
 
   const ready = sourceW > 0 && sourceH > 0 && displayBox.w > 0 && displayBox.h > 0;
-  const displayCrop = ready
-    ? frameInBox(crop, displayBox, source)
-    : { x: 0, y: 0, w: 0, h: 0 };
+  const displayCrop = ready ? frameInBox(crop, displayBox, source) : EMPTY_BOX;
 
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     e.preventDefault();

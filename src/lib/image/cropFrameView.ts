@@ -8,7 +8,8 @@ export interface Box {
   h: number;
 }
 
-const EMPTY: Box = { x: 0, y: 0, w: 0, h: 0 };
+/** No box yet: a size is still unknown. */
+export const EMPTY_BOX: Box = { x: 0, y: 0, w: 0, h: 0 };
 
 /**
  * Where a picture of `picture`'s aspect sits inside an element of `element`
@@ -17,7 +18,7 @@ const EMPTY: Box = { x: 0, y: 0, w: 0, h: 0 };
  */
 export function containBox(element: ImageDims, picture: ImageDims): Box {
   if (element.w <= 0 || element.h <= 0 || picture.w <= 0 || picture.h <= 0) {
-    return EMPTY;
+    return EMPTY_BOX;
   }
   const pictureRatio = picture.w / picture.h;
   // Element wider than the picture → height-limited, bars left and right.
