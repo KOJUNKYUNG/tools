@@ -6,7 +6,16 @@ import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
 import { GALLERY_IMAGES } from "./catalog";
 import { renderCredits } from "./credits";
-import { applyEdit, controlsFor, isColourProp, isEdited, startEdit, type RecipeEdit, type SliderRange } from "./recipeEdit";
+import {
+  applyEdit,
+  controlsFor,
+  isColourProp,
+  isEdited,
+  SLIDERS,
+  startEdit,
+  type RecipeEdit,
+  type SliderRange,
+} from "./recipeEdit";
 import { paperRecipe } from "./recipes";
 import type { GalleryCategory } from "./types";
 
@@ -119,14 +128,18 @@ describe("gallery catalog", () => {
         const drawn = applyEdit(recipe, { ...start, ...edit });
         return Object.keys(drawn).filter((prop) => JSON.stringify(drawn[prop]) !== JSON.stringify(recipe[prop]));
       };
-      expect(moved({ size: controls.size!.max }), img.id).toEqual(["scale"]);
-      for (const slider of ["grain", "softness"] as const) {
+      for (const slider of SLIDERS) {
         const range = controls[slider];
         if (!range) continue;
         const props = moved({ [slider]: start[slider] === range.max ? range.min : range.max });
+        if (slider === "size") expect(props, img.id).toEqual(["scale"]);
         expect(props.length, `${img.id}.${slider}`).toBeGreaterThan(0);
         for (const prop of props) {
-          expect(table[prop], `${img.id}.${prop}`).toMatchObject({ kind: "number", min: range.min, max: range.max });
+          // Set in the recipe: a missing one would be drawn from 0, not Paper's default.
+          expect(typeof recipe[prop], `${img.id}.${prop} in the recipe`).toBe("number");
+          expect(table[prop], `${img.id}.${prop}`).toMatchObject({ kind: "number" });
+          // Size is a share of the recipe's scale; Paper's documented scale range is not a clamp.
+          if (slider !== "size") expect(table[prop], `${img.id}.${prop}`).toMatchObject({ min: range.min, max: range.max });
         }
       }
     }
@@ -142,7 +155,7 @@ describe("gallery catalog", () => {
       // props) would change the drawing before the user touches it.
       expect(isEdited(recipe, start), img.id).toBe(false);
       const controls = controlsFor(recipe);
-      for (const slider of ["size", "grain", "softness"] as const) {
+      for (const slider of SLIDERS) {
         const range = controls[slider];
         if (!range) continue;
         expect(start[slider], `${img.id}.${slider}`).toBeGreaterThanOrEqual(range.min);

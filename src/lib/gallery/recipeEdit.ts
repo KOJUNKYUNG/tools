@@ -25,6 +25,10 @@ export interface RecipeEdit {
   softness: number;
 }
 
+/** The edit's sliders besides the colour family, in the order the edit area shows them. */
+export const SLIDERS = ["size", "grain", "softness"] as const;
+export type Slider = (typeof SLIDERS)[number];
+
 /** A slider's range, in the unit its edit value holds. */
 export interface SliderRange {
   min: number;
@@ -133,8 +137,8 @@ export function controlsFor(recipe: PaperRecipe): RecipeControls {
   };
 }
 
-// Slider props hold numbers (the gallery catalog test reads each one against
-// Paper's prop table).
+// Slider props hold numbers (the gallery catalog test holds every recipe to
+// having each one, as a number of Paper's prop table).
 const numberProp = (recipe: PaperRecipe, prop: string | undefined | null): number =>
   prop ? ((recipe[prop] as number | undefined) ?? 0) : 0;
 

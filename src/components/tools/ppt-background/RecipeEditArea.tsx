@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import { ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { template } from "@/lib/common/template";
-import type { ColourChip, RecipeControls, RecipeEdit, SliderRange } from "@/lib/gallery/recipeEdit";
+import { SLIDERS, type ColourChip, type RecipeControls, type RecipeEdit, type Slider, type SliderRange } from "@/lib/gallery/recipeEdit";
 
 export interface RecipeEditLabels {
   /** The area's toggle. */
@@ -59,10 +59,6 @@ export interface RecipeEditProps {
   locked: boolean;
   labels: RecipeEditLabels;
 }
-
-/** The edit's sliders after the colour family, in the order the area shows them. */
-type Slider = "size" | "grain" | "softness";
-const SLIDERS: Slider[] = ["size", "grain", "softness"];
 
 const GROUP_LABEL = "font-mono text-[10px] font-medium uppercase tracking-[0.08em]";
 
