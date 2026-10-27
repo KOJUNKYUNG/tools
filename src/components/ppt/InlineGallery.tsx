@@ -13,6 +13,17 @@ import { template } from "@/lib/common/template";
 
 type CategoryFilter = "all" | GalleryCategory;
 
+/** The gallery's text in the page language; tools pass it through unchanged. */
+export interface GalleryLabels {
+  heading: string;            // "배경 갤러리" / "Background gallery"
+  countSuffixTemplate: string;  // e.g. "({n}개 이미지)"
+  categoryAll: string;
+  categoryByKey: Record<GalleryCategory, string>;
+  empty: string;
+  /** Image titles by gallery id. */
+  titles: Record<string, string>;
+}
+
 interface InlineGalleryProps {
   onSelect: (image: GalleryImage) => void;
   selectedImageId?: string | null;
@@ -25,15 +36,7 @@ interface InlineGalleryProps {
    * BackgroundPicker, which renders the category tabs itself (v5 layout).
    */
   category?: CategoryFilter;
-  labels: {
-    heading: string;            // "배경 갤러리" / "Background gallery"
-    countSuffixTemplate: string;  // e.g. "({n}개 이미지)"
-    categoryAll: string;
-    categoryByKey: Record<GalleryCategory, string>;
-    empty: string;
-    /** Image titles by gallery id, in the page language. */
-    titles: Record<string, string>;
-  };
+  labels: GalleryLabels;
 }
 
 export function InlineGallery({
@@ -171,6 +174,8 @@ export function InlineGallery({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={img.thumbnailUrl}
+                        loading="lazy"
+                        decoding="async"
                         alt={labels.titles[img.id]}
                         className="size-full object-cover"
                       />

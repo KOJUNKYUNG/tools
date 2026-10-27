@@ -335,6 +335,7 @@ function parseJsx(text) {
   const component = text.match(/<\s*([A-Z]\w*)/)?.[1];
   if (!component) throw new Error("<MeshGradient ... /> 같은 코드를 붙여 넣어 주세요.");
   const props = {};
+  const skipped = [];
   const body = text.slice(text.indexOf(component) + component.length);
   let i = 0;
   while (i < body.length) {
@@ -357,18 +358,25 @@ function parseJsx(text) {
       raw = body.slice(i + 1, j).trim().replace(/'/g, '"').replace(/,\s*]/g, "]");
       i = j + 1;
     } else continue;
-    try { props[m[1]] = JSON.parse(raw); } catch { /* skip expressions we cannot read */ }
+    // JSON covers strings, arrays and most numbers; Number() takes JS-only forms like .5.
+    let value;
+    try { value = JSON.parse(raw); } catch { value = /^[-+]?(\d+\.?\d*|\.\d+)$/.test(raw) ? Number(raw) : undefined; }
+    if (value === undefined) skipped.push(m[1]);
+    else props[m[1]] = value;
   }
   for (const k of ["width", "height", "style", "className", "speed"]) delete props[k];
-  return { shader: shaderKey(component), props };
+  return { shader: shaderKey(component), props, skipped };
 }
 $("import").addEventListener("click", async () => {
   try {
-    const { shader, props } = parseJsx($("paste").value);
+    const { shader, props, skipped } = parseJsx($("paste").value);
     const frame = props.frame;
     delete props.frame;
     await load(shader, props, frame ?? 0);
-    status(frame === undefined ? "불러왔습니다. 코드에 frame이 없어 0에서 시작합니다." : "불러왔습니다.");
+    const notes = [];
+    if (frame === undefined) notes.push("코드에 frame이 없어 0에서 시작합니다.");
+    if (skipped.length) notes.push(`읽지 못한 값은 프리셋 값을 썼습니다: ${skipped.join(", ")}.`);
+    status(["불러왔습니다.", ...notes].join(" "));
   } catch (e) { status(e.message); }
 });
 

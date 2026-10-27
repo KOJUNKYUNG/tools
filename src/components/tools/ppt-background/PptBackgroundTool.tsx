@@ -26,6 +26,7 @@ import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
 import { BackgroundPicker } from "./BackgroundPicker";
+import type { GalleryLabels } from "@/components/ppt/InlineGallery";
 import { SelectedBackgroundFrame } from "./SelectedBackgroundFrame";
 import { CurrentBackgroundFrame } from "./CurrentBackgroundFrame";
 import { PreviewLightbox } from "@/components/common/PreviewLightbox";
@@ -88,15 +89,7 @@ export interface PptBackgroundToolLabels {
     backToGallery: string;
     blurNotice: string;
   };
-  gallery: {
-    heading: string;
-    countSuffixTemplate: string;
-    categoryAll: string;
-    categoryByKey: Record<GalleryCategory, string>;
-    empty: string;
-    /** Image titles by gallery id. */
-    titles: Record<string, string>;
-  };
+  gallery: GalleryLabels;
   action: {
     apply: string;
     applyDisabledHint: string;

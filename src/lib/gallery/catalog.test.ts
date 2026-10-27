@@ -56,6 +56,7 @@ describe("gallery catalog", () => {
       expect(meta.exif).toBeUndefined();
       expect(meta.icc).toBeUndefined();
       expect(meta.xmp).toBeUndefined();
+      expect(meta.iptc).toBeUndefined();
     },
   );
 

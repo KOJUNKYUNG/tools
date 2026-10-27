@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { CropSelector } from "@/components/image/CropSelector";
-import { InlineGallery } from "@/components/ppt/InlineGallery";
+import { InlineGallery, type GalleryLabels } from "@/components/ppt/InlineGallery";
 import type { Dictionary } from "@/i18n/config";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import {
@@ -39,14 +39,7 @@ interface BackgroundPickerProps {
     backToGallery: string;
     pictureAlt: string;
     handles: Dictionary["common"]["resizeHandles"];
-    gallery: {
-      heading: string;
-      countSuffixTemplate: string;
-      categoryAll: string;
-      categoryByKey: Record<GalleryCategory, string>;
-      empty: string;
-      titles: Record<string, string>;
-    };
+    gallery: GalleryLabels;
   };
 }
 

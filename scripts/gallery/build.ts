@@ -42,8 +42,10 @@ function sourceFor(img: GalleryImage): string | null {
 }
 
 /**
- * Drop a JPEG's APP1 (EXIF / XMP) and APP2 (ICC) segments without touching
- * the compressed image data, so a legacy original is not re-encoded.
+ * Drop a JPEG's metadata segments (APP1–APP13 and APP15: EXIF, XMP, ICC,
+ * IPTC…; COM comments) without touching the compressed image data, so a
+ * legacy original is not re-encoded. APP0 (JFIF) and APP14 (Adobe colour
+ * transform) stay: decoders read them.
  */
 function stripJpegMetadata(buf: Buffer): Buffer {
   if (buf[0] !== 0xff || buf[1] !== 0xd8) throw new Error("not a JPEG");
@@ -51,6 +53,8 @@ function stripJpegMetadata(buf: Buffer): Buffer {
   let i = 2;
   while (i < buf.length) {
     if (buf[i] !== 0xff) throw new Error(`bad JPEG marker at ${i}`);
+    // Any number of 0xFF fill bytes may precede a marker.
+    while (buf[i + 1] === 0xff) i++;
     const marker = buf[i + 1];
     // Start of scan: the rest is image data.
     if (marker === 0xda) {
@@ -58,7 +62,8 @@ function stripJpegMetadata(buf: Buffer): Buffer {
       break;
     }
     const len = buf.readUInt16BE(i + 2);
-    if (marker !== 0xe1 && marker !== 0xe2) parts.push(buf.subarray(i, i + 2 + len));
+    const metadata = (marker >= 0xe1 && marker <= 0xed) || marker === 0xef || marker === 0xfe;
+    if (!metadata) parts.push(buf.subarray(i, i + 2 + len));
     i += 2 + len;
   }
   return Buffer.concat(parts);
@@ -76,12 +81,16 @@ const open = (input: string | Buffer) => sharp(input, { limitInputPixels: false 
 
 async function build(img: GalleryImage): Promise<string> {
   const out = join(PUBLIC, img.url);
-  const source = sourceFor(img);
-  if (!source) {
-    if (!existsSync(out)) throw new Error(`no source in ${join(SOURCES, img.category)} and no committed original`);
+  if (img.source.kind === "own") {
+    if (!existsSync(out)) throw new Error("the committed original is missing");
     await writeFile(out, stripJpegMetadata(await readFile(out)));
     await writeThumbnail(out, img);
-    return "metadata stripped (no source)";
+    return "metadata stripped (own original, no source)";
+  }
+  const source = sourceFor(img);
+  if (!source) {
+    const hint = img.source.kind === "paper" ? "run pnpm gallery:shaders" : `download ${img.source.url}`;
+    throw new Error(`no source ${join(img.category, img.name)}.* in ${SOURCES}; ${hint}`);
   }
   const meta = await open(source).metadata();
   if (!meta.width || !meta.height) throw new Error("source has no pixel size");

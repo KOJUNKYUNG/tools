@@ -29,9 +29,16 @@ const server = await startGalleryServer({
     }
     if (req.method === "PUT") {
       const specs = JSON.parse(await body(req));
-      const ok = Array.isArray(specs) && specs.every((s) => s && typeof s.name === "string" && /^[a-z0-9-]+$/.test(s.name) && typeof s.shader === "string");
+      // render-shaders writes to sources/{category}/{name}.png, so both must be safe path parts.
+      const ok =
+        Array.isArray(specs) &&
+        specs.every(
+          (s) =>
+            s && typeof s.name === "string" && /^[a-z0-9-]+$/.test(s.name) && typeof s.shader === "string" &&
+            (s.category === undefined || s.category === "gradient" || s.category === "pattern"),
+        );
       if (!ok) {
-        res.writeHead(400).end("Each spec needs a lowercase name (a-z, 0-9, -) and a shader.");
+        res.writeHead(400).end("Each spec needs a lowercase name (a-z, 0-9, -), a shader, and category gradient or pattern.");
         return true;
       }
       await writeFile(SPECS, JSON.stringify(specs, null, 2) + "\n");
