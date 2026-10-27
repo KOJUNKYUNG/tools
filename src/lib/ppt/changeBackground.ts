@@ -9,7 +9,7 @@ import {
   type PrepareSlideImage,
   type SlideSize,
 } from "@/lib/image/slideImage";
-import { checkPptBackground } from "./changeBackgroundCheck";
+import { checkPptBackground, type RequestedBackground } from "./changeBackgroundCheck";
 import {
   coveringGroupKey,
   deleteCoveringBackgrounds,
@@ -20,14 +20,31 @@ import { slideColours, zipPartReader, type ColoursOf } from "./slideColours";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
 
+/** "No background": the theme's background colour, as PowerPoint fills a blank slide. */
+export const NO_BACKGROUND_FILL = '<a:solidFill><a:schemeClr val="bg1"/></a:solidFill>';
+
+/** The background the user picked. */
+export type NewBackground =
+  | {
+      kind: "picture";
+      file: File;
+      /** The Background crop, in the picture's upright pixels; centred and as large as possible when absent. */
+      crop?: CropRect;
+    }
+  /** A solid colour, as six hex digits (`1F2A44`). */
+  | { kind: "colour"; rgb: string }
+  /** The theme's background colour, as on a blank slide of a new deck. */
+  | { kind: "none" };
+
+/** A new background that is not a picture: a solid colour, or none (the theme's). */
+export type FillBackground = Exclude<NewBackground, { kind: "picture" }>;
+
 export interface ChangeBackgroundOptions {
   pptxFile: File;
-  bgImage: File;
+  background: NewBackground;
   mode: BgMode;
   /** 1-based slide indices. Required when mode === "specific-slides". */
   targetSlides?: number[];
-  /** The Background crop, in the picture's upright pixels; centred and as large as possible when absent. */
-  crop?: CropRect;
   /** Keys of the covering-background groups the user keeps (`coveringGroupKey`); none by default. */
   keptCovering?: readonly string[];
   onProgress?: (pct: number) => void;
@@ -177,20 +194,24 @@ const EMPTY_RELS =
   '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n' +
   "</Relationships>";
 
-/**
- * Insert or replace <p:bg> inside <p:cSld>. The picture already has the
- * slide's aspect, so it fills the slide exactly, with no fill offsets.
- */
-function setBackground(slideXml: string, relId: string): string {
-  const bgXml =
-    `<p:bg><p:bgPr>` +
-    `<a:blipFill dpi="0" rotWithShape="1">` +
-    `<a:blip r:embed="${relId}"/>` +
-    `<a:stretch><a:fillRect/></a:stretch>` +
-    `</a:blipFill>` +
-    `<a:effectLst/>` +
-    `</p:bgPr></p:bg>`;
+/** A `<p:bg>` painting the part with this DrawingML fill. */
+const fillBackground = (fill: string) => `<p:bg><p:bgPr>${fill}<a:effectLst/></p:bgPr></p:bg>`;
 
+/**
+ * The `<p:bg>` showing the picture of relationship `relId`. The picture
+ * already has the slide's aspect, so it fills the slide exactly, with no fill
+ * offsets.
+ */
+const pictureBackground = (relId: string) =>
+  fillBackground(
+    `<a:blipFill dpi="0" rotWithShape="1">` +
+      `<a:blip r:embed="${relId}"/>` +
+      `<a:stretch><a:fillRect/></a:stretch>` +
+      `</a:blipFill>`,
+  );
+
+/** Insert or replace <p:bg> inside <p:cSld>. */
+function setBackground(slideXml: string, bgXml: string): string {
   if (BACKGROUND.test(slideXml)) {
     return slideXml.replace(BACKGROUND, bgXml);
   }
@@ -235,14 +256,22 @@ function ensureNamespaces(xml: string): string {
  * (e.g. "ppt/slides/slide12.xml" → 12, "ppt/slideMasters/slideMaster3.xml" → 3).
  * Falls back to 0 if no match — sorted-stable for non-conforming names.
  */
-function slideOrdinal(path: string): number {
+export function slideOrdinal(path: string): number {
   const m = path.match(/(\d+)\.xml$/);
   return m ? parseInt(m[1], 10) : 0;
 }
 
+/** What a part's own background becomes. */
+type PartBackground =
+  /** The picture at this media target. */
+  | { media: string }
+  /** This `<p:bg>`, which names no relationship. */
+  | { bg: string }
+  /** None: the part shows what it inherits. */
+  | "clear";
+
 interface GroupChange {
-  /** The new background's media target, or "clear" to remove the part's own background (it then shows what it inherits). */
-  background: string | "clear";
+  background: PartBackground;
   onEach?: (done: number, total: number) => void;
   /** 1-based whitelist over the slide order (sorted by trailing integer in the
    *  filename — matches extractCurrentBackgrounds). Undefined = all. */
@@ -316,13 +345,15 @@ async function processSlideGroup(
     let relId: string | undefined;
     if (background === "clear") {
       slideXml = slideXml.replace(BACKGROUND, "");
+    } else if ("bg" in background) {
+      slideXml = setBackground(ensureNamespaces(slideXml), background.bg);
     } else {
       // A part without relationships only needs one to show the new picture.
       relsXml ??= EMPTY_RELS;
       // Taken before the old relationship is removed, so an id is never reused.
       relId = nextRelId(relsXml);
-      relsXml = addRelationship(relsXml, relId, background);
-      slideXml = setBackground(ensureNamespaces(slideXml), relId);
+      relsXml = addRelationship(relsXml, relId, background.media);
+      slideXml = setBackground(ensureNamespaces(slideXml), pictureBackground(relId));
     }
 
     if (relsXml !== null) {
@@ -450,37 +481,54 @@ async function getSlideSize(zip: JSZip): Promise<SlideSize> {
 
 export async function changeBackground({
   pptxFile,
-  bgImage,
+  background,
   mode,
   targetSlides,
-  crop,
   keptCovering = [],
   onProgress,
   prepare = prepareSlideImage,
 }: ChangeBackgroundOptions): Promise<Uint8Array> {
+  // The picker only gives `#rrggbb`; anything else would be written into the
+  // deck as is, and PowerPoint could not open it.
+  if (background.kind === "colour" && !/^[0-9A-F]{6}$/i.test(background.rgb)) {
+    throw new Error(`not a solid colour: ${background.rgb}`);
+  }
   const kept = new Set(keptCovering);
   const arrayBuffer = await pptxFile.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
 
-  const [imgSize, slideSize] = await Promise.all([
-    loadImageSize(bgImage),
-    getSlideSize(zip),
-  ]);
-  const source = new Uint8Array(await bgImage.arrayBuffer());
-  const prepared = await prepare(
-    bgImage,
-    crop ?? maxFitCrop(imgSize, slideSize.w, slideSize.h),
-    slideSize,
-  );
+  const slideSize = await getSlideSize(zip);
+  let partBackground: PartBackground;
+  let requested: RequestedBackground;
+  if (background.kind === "picture") {
+    const { file, crop } = background;
+    const imgSize = await loadImageSize(file);
+    const source = new Uint8Array(await file.arrayBuffer());
+    const prepared = await prepare(
+      file,
+      crop ?? maxFitCrop(imgSize, slideSize.w, slideSize.h),
+      slideSize,
+    );
 
-  const ext = prepared.format;
-  const mediaName = uniqueMediaName(zip, ext);
-  // PNG and JPEG are already compressed; deflating them again buys little.
-  zip.file(`ppt/media/${mediaName}`, prepared.bytes, { compression: "STORE" });
+    const ext = prepared.format;
+    const mediaName = uniqueMediaName(zip, ext);
+    // PNG and JPEG are already compressed; deflating them again buys little.
+    zip.file(`ppt/media/${mediaName}`, prepared.bytes, { compression: "STORE" });
+    await ensureContentType(zip, ext);
 
-  await ensureContentType(zip, ext);
-
-  const mediaTarget = `../media/${mediaName}`;
+    partBackground = { media: `../media/${mediaName}` };
+    requested = { kind: "picture", source, crop, prepared: prepared.bytes };
+  } else {
+    // "No background" is written, not cleared: a cleared slide would show
+    // whatever its layout or master carries, a picture included. The theme
+    // colour itself (bg1, not its current value) keeps following the theme.
+    const fill =
+      background.kind === "colour"
+        ? `<a:solidFill><a:srgbClr val="${background.rgb}"/></a:solidFill>`
+        : NO_BACKGROUND_FILL;
+    partBackground = { bg: fillBackground(fill) };
+    requested = background;
+  }
   const progress = (done: number, total: number) => onProgress?.(Math.round((done / total) * 100));
   // Read lazily: rewriting backgrounds changes no theme or colour map.
   const coloursOf = slideColours(zipPartReader(zip));
@@ -490,7 +538,7 @@ export async function changeBackground({
     // hide it goes, so it shows on every slide, like "all slides", and on
     // slides added later.
     replaced = new Set([
-      ...(await processSlideGroup(zip, "ppt/slideMasters", { background: mediaTarget })),
+      ...(await processSlideGroup(zip, "ppt/slideMasters", { background: partBackground })),
       ...(await processSlideGroup(zip, "ppt/slideLayouts", { background: "clear" })),
       ...(await processSlideGroup(zip, "ppt/slides", {
         background: "clear",
@@ -509,7 +557,7 @@ export async function changeBackground({
       whitelist = new Set(targetSlides);
     }
     replaced = await processSlideGroup(zip, "ppt/slides", {
-      background: mediaTarget,
+      background: partBackground,
       onEach: progress,
       targetIndices1Based: whitelist,
       slideSize,
@@ -544,9 +592,7 @@ export async function changeBackground({
       checkPptBackground(
         input,
         {
-          source,
-          crop,
-          background: prepared.bytes,
+          background: requested,
           mode,
           targetSlides,
           keptCovering,

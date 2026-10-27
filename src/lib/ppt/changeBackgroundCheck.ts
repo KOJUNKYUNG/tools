@@ -17,15 +17,26 @@ import {
 import type { Colours } from "./fills";
 import { animationTargets } from "./slideAnimations";
 import { packagePartReader, slideColours, type ColoursOf } from "./slideColours";
-import { parseXml, type XmlElement } from "./xmlTree";
+import { child, firstElementNamed, parseXml, type XmlElement } from "./xmlTree";
+
+/** The background the user asked for, as the checker re-derives it. */
+export type RequestedBackground =
+  | {
+      kind: "picture";
+      /** The picture the user picked, as uploaded. */
+      source: Uint8Array;
+      /** The Background crop in the source's upright pixels; absent = centred, as large as possible. */
+      crop?: CropRect;
+      /** The prepared picture the engine embedded. */
+      prepared: Uint8Array;
+    }
+  /** A solid colour, as six hex digits. */
+  | { kind: "colour"; rgb: string }
+  /** The theme's background colour (`bg1`). */
+  | { kind: "none" };
 
 export interface PptBackgroundRequest {
-  /** The picture the user picked, as uploaded. */
-  source: Uint8Array;
-  /** The Background crop in the source's upright pixels; absent = centred, as large as possible. */
-  crop?: CropRect;
-  /** The prepared picture the engine embedded. */
-  background: Uint8Array;
+  background: RequestedBackground;
   mode: BgMode;
   /** 1-based slide indices, for `specific-slides`. */
   targetSlides?: number[];
@@ -40,7 +51,9 @@ export interface PptBackgroundRequest {
  *   XML, `[Content_Types]` coverage, relationship targets resolve
  * - ⚡ `slide-count`: same number of slides as the input
  * - ⚡ `target-background`: each target slide (or the master) declares the
- *   new image as its background
+ *   new image as its background; for a solid colour, that plain colour, and
+ *   for no background, the theme's plain `bg1` (not a cleared background,
+ *   which would show what the layout or master carries)
  * - ⚡ `replaced-background-kept`: no target part keeps an image relationship
  *   it no longer uses, i.e. the replaced background's (a part that still
  *   shows that image elsewhere through the same id keeps it legitimately)
@@ -51,7 +64,7 @@ export interface PptBackgroundRequest {
  *   references, so a replaced background's image is deleted once unused.
  *   Media something still references must stay, which `relationship-target`
  *   already enforces.
- * - `size-bound`: output ≤ input + new image − removed parts + a margin for
+ * - `size-bound`: output ≤ input + new image (none for a fill) − removed parts + a margin for
  *   the rewritten XML, so re-applying never grows the deck
  *
  * Master mode (spec #105) clears what would hide the master's background:
@@ -78,7 +91,8 @@ export interface PptBackgroundRequest {
  *   the slide does not have (the deck would need repair)
  *
  * The prepared picture (spec #98), re-derived from the source picture, the
- * crop and the input's slide size, never from the engine's numbers:
+ * crop and the input's slide size, never from the engine's numbers (a solid
+ * colour or no background has none):
  *
  * - ⚡ `background-aspect`: the slide's aspect, within 1 px on both sides
  * - ⚡ `background-cap`: within a 4K screen in the slide's orientation,
@@ -107,7 +121,8 @@ export const checkPptBackground: OutputChecker<
   if (!after) return [{ property: "zip", detail: "output is not a readable zip" }];
   if (!before) return [];
 
-  const violations: Violation[] = await preparationViolations(before, request);
+  const violations: Violation[] =
+    request.background.kind === "picture" ? await preparationViolations(before, request.background) : [];
 
   const defects = await after.structuralDefects(before);
   if (defects.length > 0) {
@@ -130,15 +145,25 @@ export const checkPptBackground: OutputChecker<
         ? before.slideParts
         : before.slideParts.filter((_, i) => request.targetSlides?.includes(i + 1));
 
-  const backgrounds = await after.backgroundMedia(targets);
-  const isNewImage = new Map<string, boolean>();
-  for (const part of targets) {
-    const media = backgrounds.get(part) ?? null;
-    if (media !== null && !isNewImage.has(media)) {
-      isNewImage.set(media, sameBytes(await after.read(media), request.background));
+  const { background } = request;
+  if (background.kind === "picture") {
+    const backgrounds = await after.backgroundMedia(targets);
+    const isNewImage = new Map<string, boolean>();
+    for (const part of targets) {
+      const media = backgrounds.get(part) ?? null;
+      if (media !== null && !isNewImage.has(media)) {
+        isNewImage.set(media, sameBytes(await after.read(media), background.prepared));
+      }
+      if (media === null || !isNewImage.get(media)) {
+        violations.push({ property: "target-background", detail: part });
+      }
     }
-    if (media === null || !isNewImage.get(media)) {
-      violations.push({ property: "target-background", detail: part });
+  } else {
+    const wanted = background.kind === "colour" ? `#${background.rgb.toUpperCase()}` : "bg1";
+    for (const part of targets) {
+      if (ownSolidColour(await after.text(part)) !== wanted) {
+        violations.push({ property: "target-background", detail: part });
+      }
     }
   }
 
@@ -189,7 +214,8 @@ export const checkPptBackground: OutputChecker<
     // adds zip headers: 4 KiB plus 1% of the input covers both (real decks
     // land within +0.02%), while a replaced image left behind exceeds it.
     const margin = 4096 + input.byteLength / 100;
-    const bound = input.byteLength + request.background.byteLength - removed + margin;
+    const added = request.background.kind === "picture" ? request.background.prepared.byteLength : 0;
+    const bound = input.byteLength + added - removed + margin;
     if (output.byteLength > bound) {
       violations.push({
         property: "size-bound",
@@ -226,6 +252,19 @@ export const checkPptBackground: OutputChecker<
 
 /** A part's own background, as the part declares it. */
 const OWN_BACKGROUND = /<p:bg[\s>][\s\S]*?<\/p:bg>/;
+
+/**
+ * The plain solid colour a part's own background declares: `#RRGGBB`, or a
+ * scheme colour's name (`bg1`); null for any other background, or a colour
+ * with modifiers (they change it).
+ */
+function ownSolidColour(partXml: string | null): string | null {
+  const fill = child(child(firstElementNamed(partXml, "p:bg"), "p:bgPr"), "a:solidFill");
+  const colour = fill?.children.length === 1 ? fill.children[0] : undefined;
+  if (!colour || colour.children.length > 0) return null;
+  if (colour.name === "a:srgbClr") return `#${colour.attrs.val?.toUpperCase()}`;
+  return colour.name === "a:schemeClr" ? (colour.attrs.val ?? null) : null;
+}
 
 async function slideSize(pkg: PptxPackage): Promise<{ w: number; h: number }> {
   const bytes = await pkg.read("ppt/presentation.xml");
@@ -317,9 +356,9 @@ const ownId = (el: XmlElement): string | undefined => shapeIdsIn(el)[0];
 
 async function preparationViolations(
   before: PptxPackage,
-  request: PptBackgroundRequest,
+  request: Extract<RequestedBackground, { kind: "picture" }>,
 ): Promise<Violation[]> {
-  const header = readImageHeader(request.background);
+  const header = readImageHeader(request.prepared);
   if (!header || header.format === "webp") {
     return [{ property: "background-format", detail: header ? header.format : "unreadable" }];
   }

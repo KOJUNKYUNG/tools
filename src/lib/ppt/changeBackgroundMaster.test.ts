@@ -35,7 +35,7 @@ afterAll(() => {
 async function runOn(deck: Uint8Array, mode: BgMode): Promise<Uint8Array> {
   return changeBackground({
     pptxFile: new File([new Uint8Array(deck)], "deck.pptx"),
-    bgImage: new File([new Uint8Array(PHOTO)], "photo.jpg"),
+    background: { kind: "picture", file: new File([new Uint8Array(PHOTO)], "photo.jpg") },
     mode,
     prepare: standInPrepare,
   });

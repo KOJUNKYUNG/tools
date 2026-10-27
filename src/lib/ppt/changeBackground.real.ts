@@ -91,9 +91,12 @@ async function requests(
     await extractCurrentBackgrounds(new File([new Uint8Array(input)], "deck.pptx")),
   ).find((g) => g.source === "covering");
   const prepared = async (crop: CropRect, source = PHOTO) => ({
-    source,
-    crop,
-    background: (await standInPrepare(new Blob([new Uint8Array(source)]), crop, slide)).bytes,
+    background: {
+      kind: "picture" as const,
+      source,
+      crop,
+      prepared: (await standInPrepare(new Blob([new Uint8Array(source)]), crop, slide)).bytes,
+    },
   });
   return [
     {
@@ -116,6 +119,14 @@ async function requests(
         targetSlides: firstAndLast,
       },
     },
+    // Fills carry no picture: the request is what the engine is given.
+    { label: "all-slides, solid colour", request: { background: { kind: "colour", rgb: "1F2A44" }, mode: "all-slides" } },
+    { label: "master, solid colour", request: { background: { kind: "colour", rgb: "F5F0E6" }, mode: "master" } },
+    { label: "master, no background", request: { background: { kind: "none" }, mode: "master" } },
+    {
+      label: `specific-slides ${firstAndLast.join(",")}, no background`,
+      request: { background: { kind: "none" }, mode: "specific-slides", targetSlides: firstAndLast },
+    },
     ...(covering
       ? [
           {
@@ -131,13 +142,19 @@ realFileSuite({
   tool: "ppt-background",
   extensions: [".pptx"],
   requests,
-  run: (input, request, fileName) =>
+  run: (input, { background, ...request }, fileName) =>
     changeBackground({
       pptxFile: new File([new Uint8Array(input)], fileName),
-      bgImage: new File([new Uint8Array(request.source)], "photo.png"),
+      background:
+        background.kind === "picture"
+          ? {
+              kind: "picture",
+              file: new File([new Uint8Array(background.source)], "photo.png"),
+              crop: background.crop,
+            }
+          : background,
       mode: request.mode,
       targetSlides: request.targetSlides,
-      crop: request.crop,
       keptCovering: request.keptCovering,
       prepare: standInPrepare,
     }),

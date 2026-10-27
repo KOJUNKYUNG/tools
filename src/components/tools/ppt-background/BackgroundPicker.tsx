@@ -10,8 +10,11 @@ import {
   type GalleryCategory,
   type GalleryImage,
 } from "@/lib/gallery/types";
+import type { FillBackground } from "@/lib/ppt/changeBackground";
+import { SolidColourGrid, type SolidColourLabels } from "./SolidColourGrid";
 
-type CategoryFilter = "all" | GalleryCategory;
+/** A gallery filter, or the "단색" tab after them. */
+type CategoryFilter = "all" | GalleryCategory | "solid";
 
 /** The frame over the picked picture, shown in place of the gallery. */
 export interface BackgroundFrame {
@@ -34,12 +37,20 @@ interface BackgroundPickerProps {
   uploadBusy?: boolean;
   /** When set, the frame replaces the category tabs and the gallery. */
   frame?: BackgroundFrame | null;
+  /** The picked solid colour or "no background". */
+  fill: FillBackground | null;
+  onFillSelect: (fill: FillBackground) => void;
+  /** The colour "no background" shows on this deck (`#rrggbb`). */
+  themeBackground: string;
+  /** A run is using the picked fill: the "단색" tab shows it and nothing responds. */
+  fillLocked: boolean;
   labels: {
     uploadLabel: string;
     backToGallery: string;
     pictureAlt: string;
     handles: Dictionary["common"]["resizeHandles"];
     gallery: GalleryLabels;
+    solid: SolidColourLabels & { tab: string };
   };
 }
 
@@ -49,9 +60,20 @@ export function BackgroundPicker({
   onDirectUpload,
   uploadBusy = false,
   frame = null,
+  fill,
+  onFillSelect,
+  themeBackground,
+  fillLocked,
   labels,
 }: BackgroundPickerProps) {
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
+  // A run holding a fill shows it, as a picture run shows its locked frame
+  // (a gallery left open under it would take a new pick), and the tab stays
+  // after the run, where the kept pick is.
+  if (fillLocked && activeCategory !== "solid") setActiveCategory("solid");
+  /** The last "직접 선택" colour, kept while other tiles or tabs are picked. */
+  const [custom, setCustom] = useState<string | null>(null);
+  const [customPicked, setCustomPicked] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -79,6 +101,7 @@ export function BackgroundPicker({
               active={activeCategory === "all"}
               onClick={() => setActiveCategory("all")}
               label={labels.gallery.categoryAll}
+              disabled={fillLocked}
             />
             {GALLERY_CATEGORIES.map((cat) => (
               <CategoryTab
@@ -86,14 +109,21 @@ export function BackgroundPicker({
                 active={activeCategory === cat}
                 onClick={() => setActiveCategory(cat)}
                 label={labels.gallery.categoryByKey[cat]}
+                disabled={fillLocked}
               />
             ))}
+            <CategoryTab
+              active={activeCategory === "solid"}
+              onClick={() => setActiveCategory("solid")}
+              label={labels.solid.tab}
+              disabled={fillLocked}
+            />
           </div>
         )}
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          disabled={uploadBusy || !!frame?.locked}
+          disabled={uploadBusy || !!frame?.locked || fillLocked}
           aria-busy={uploadBusy}
           className="subtle-action mb-1 shrink-0 rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
         >
@@ -128,6 +158,20 @@ export function BackgroundPicker({
             handleLabels={labels.handles}
             readOnly={frame.locked}
           />
+        ) : activeCategory === "solid" ? (
+          <SolidColourGrid
+            value={fill}
+            onSelect={(next, fromCustom) => {
+              setCustomPicked(fromCustom);
+              onFillSelect(next);
+            }}
+            themeBackground={themeBackground}
+            custom={custom}
+            customPicked={customPicked}
+            onCustom={setCustom}
+            locked={fillLocked}
+            labels={labels.solid}
+          />
         ) : (
           <InlineGallery
             onSelect={onGallerySelect}
@@ -146,15 +190,18 @@ function CategoryTab({
   active,
   onClick,
   label,
+  disabled = false,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className="border-b-2 px-2 py-1.5 font-body text-[11.5px] font-medium transition-colors"
       style={{
         color: active ? "var(--ink-strong)" : "var(--ink-soft)",

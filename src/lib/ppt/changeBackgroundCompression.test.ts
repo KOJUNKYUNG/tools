@@ -53,7 +53,7 @@ describe("changeBackground keeps the deck's compression", () => {
     const input = await deck();
     const output = await changeBackground({
       pptxFile: new File([new Uint8Array(input)], "deck.pptx"),
-      bgImage: new File([BG], "bg.png"),
+      background: { kind: "picture", file: new File([BG], "bg.png") },
       mode: "all-slides",
       prepare: standInPrepare,
     });
@@ -65,7 +65,7 @@ describe("changeBackground keeps the deck's compression", () => {
     const input = await deck();
     const output = await changeBackground({
       pptxFile: new File([new Uint8Array(input)], "deck.pptx"),
-      bgImage: new File([BG], "bg.png"),
+      background: { kind: "picture", file: new File([BG], "bg.png") },
       mode: "all-slides",
       prepare: standInPrepare,
     });

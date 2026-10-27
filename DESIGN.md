@@ -373,8 +373,15 @@ replace the file; multi-file tools keep their in-body add / remove controls).
   text, `--ink-soft` placeholder; focus shows a 2px `--emphasis` outline.
 - **Slider** (e.g. opacity) — track `--border`, fill + thumb `--ink-strong`
   (replaces the old blue `accentColor`).
-- **Gallery / thumbnail selection** — selected item gets an `--emphasis` outline
-  and badge (replaces the old blue selection badge).
+- **Gallery / thumbnail selection** — selected item gets a 2px `--emphasis` ring
+  and badge (replaces the old blue selection badge), drawn by
+  `TileSelectionMark` (`components/ppt/GalleryTile.tsx`, which also holds the
+  tile shell) as a layer above the picture so the ring is even all
+  round; the badge has a `--surface` rim so it shows on a swatch of its own
+  colour. Colour swatches (the ppt-background "단색" tab) are gallery tiles:
+  same grid, size and marks, plus a hairline under the swatch; the swatch
+  itself is content and keeps its real colour (palette exception). "No
+  background" crosses its swatch with a thin slash (Office's "no fill" mark).
 - **Preview frame** — the letterbox uses `--surface-2` (Mist / Ink, theme-aware);
   the document *inside* is the palette exception and renders original colors. A
   rendered white output page (e.g. image-to-pdf A4/custom) stays fixed white
