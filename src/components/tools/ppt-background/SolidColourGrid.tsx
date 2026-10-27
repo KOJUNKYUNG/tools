@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { PipetteIcon } from "lucide-react";
 import { galleryTileClass, galleryTileStyle, TileSelectionMark } from "@/components/ppt/GalleryTile";
 import type { FillBackground } from "@/lib/ppt/changeBackground";
@@ -33,11 +34,14 @@ export interface SolidColourLabels {
 
 interface SolidColourGridProps {
   value: FillBackground | null;
-  onSelect: (fill: FillBackground) => void;
+  /** `fromCustom`: picked with "직접 선택", which then shows as the pick even for a preset's colour. */
+  onSelect: (fill: FillBackground, fromCustom: boolean) => void;
   /** The colour "no background" shows on this deck (`#rrggbb`). */
   themeBackground: string;
   /** The last colour picked with "직접 선택", as six hex digits. */
   custom: string | null;
+  /** The current pick came from "직접 선택". */
+  customPicked: boolean;
   onCustom: (rgb: string) => void;
   /** A run is using the pick: shown as is and nothing responds. */
   locked: boolean;
@@ -54,32 +58,56 @@ export function SolidColourGrid({
   onSelect,
   themeBackground,
   custom,
+  customPicked,
   onCustom,
   locked,
   labels,
 }: SolidColourGridProps) {
   const selectedRgb = value?.kind === "colour" ? value.rgb : null;
-  const presetSelected = SOLID_PRESETS.some((p) => p.rgb === selectedRgb);
+  // A colour picked with "직접 선택" selects that tile, even when a preset has it.
+  const customSelected =
+    selectedRgb !== null &&
+    selectedRgb === custom &&
+    (customPicked || !SOLID_PRESETS.some((p) => p.rgb === selectedRgb));
+  const selectedKey = customSelected ? "custom" : value?.kind === "none" ? "none" : selectedRgb;
+
+  // The pick stays in view: back on this tab, or under a run, a pick lower
+  // down (black) would otherwise sit below the fold. Only the grid scrolls.
+  const gridRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const grid = gridRef.current;
+    const tile = grid?.querySelector<HTMLElement>('[data-selected="true"]');
+    if (!grid || !tile) return;
+    const top = tile.getBoundingClientRect().top - grid.getBoundingClientRect().top + grid.scrollTop;
+    if (top < grid.scrollTop) grid.scrollTop = top;
+    else if (top + tile.offsetHeight > grid.scrollTop + grid.clientHeight) {
+      grid.scrollTop = top + tile.offsetHeight - grid.clientHeight + 12;
+    }
+  }, [selectedKey]);
 
   return (
     <div
+      ref={gridRef}
       className="grid h-full min-h-0 grid-cols-2 gap-2 overflow-y-auto px-4 pb-3 pt-3 sm:grid-cols-3"
       style={{ gridAutoRows: "min-content", alignContent: "start" }}
     >
       <Tile
         label={labels.custom}
         colour={custom ? `#${custom}` : null}
-        selected={selectedRgb !== null && !presetSelected}
+        selected={customSelected}
         disabled={locked}
         // The native picker opens over the tile; picking the colour it
         // already holds fires no change, so a click re-selects it.
-        onClick={() => custom && onSelect({ kind: "colour", rgb: custom })}
+        onClick={() => custom && onSelect({ kind: "colour", rgb: custom }, true)}
         picker={{
-          value: `#${(custom ?? "FFFFFF").toLowerCase()}`,
+          // A first pick starts from the current colour, else mid grey: the
+          // picker reports only a change, so its starting colour cannot be
+          // picked as is.
+          value: `#${(custom ?? selectedRgb ?? "808080").toLowerCase()}`,
           onChange: (hex) => {
             const rgb = hex.replace("#", "").toUpperCase();
             onCustom(rgb);
-            onSelect({ kind: "colour", rgb });
+            onSelect({ kind: "colour", rgb }, true);
           },
         }}
       />
@@ -90,16 +118,16 @@ export function SolidColourGrid({
         none
         selected={value?.kind === "none"}
         disabled={locked}
-        onClick={() => onSelect({ kind: "none" })}
+        onClick={() => onSelect({ kind: "none" }, false)}
       />
       {SOLID_PRESETS.map((p) => (
         <Tile
           key={p.id}
           label={labels.colours[p.id]}
           colour={`#${p.rgb}`}
-          selected={selectedRgb === p.rgb}
+          selected={!customSelected && selectedRgb === p.rgb}
           disabled={locked}
-          onClick={() => onSelect({ kind: "colour", rgb: p.rgb })}
+          onClick={() => onSelect({ kind: "colour", rgb: p.rgb }, false)}
         />
       ))}
     </div>
@@ -156,11 +184,12 @@ function Tile({
     </>
   );
   const className = `${galleryTileClass} disabled:cursor-default`;
+  const marks = { "data-selected": selected };
   const style = galleryTileStyle(selected);
 
   if (picker) {
     return (
-      <label className={className} style={style} title={title}>
+      <label className={className} style={style} title={title} {...marks}>
         {body}
         <input
           type="color"
@@ -180,6 +209,7 @@ function Tile({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={selected}
+      {...marks}
       title={title}
       className={className}
       style={style}

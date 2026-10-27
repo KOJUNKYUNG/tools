@@ -66,12 +66,14 @@ export function BackgroundPicker({
   fillLocked,
   labels,
 }: BackgroundPickerProps) {
-  const [chosenCategory, setActiveCategory] = useState<CategoryFilter>("all");
-  // A run holding a fill shows it, as a picture run shows its locked frame:
-  // a gallery left open under it would take a new pick.
-  const activeCategory = fillLocked ? "solid" : chosenCategory;
+  const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
+  // A run holding a fill shows it, as a picture run shows its locked frame
+  // (a gallery left open under it would take a new pick), and the tab stays
+  // after the run, where the kept pick is.
+  if (fillLocked && activeCategory !== "solid") setActiveCategory("solid");
   /** The last "직접 선택" colour, kept while other tiles or tabs are picked. */
   const [custom, setCustom] = useState<string | null>(null);
+  const [customPicked, setCustomPicked] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -159,9 +161,13 @@ export function BackgroundPicker({
         ) : activeCategory === "solid" ? (
           <SolidColourGrid
             value={fill}
-            onSelect={onFillSelect}
+            onSelect={(next, fromCustom) => {
+              setCustomPicked(fromCustom);
+              onFillSelect(next);
+            }}
             themeBackground={themeBackground}
             custom={custom}
+            customPicked={customPicked}
             onCustom={setCustom}
             locked={fillLocked}
             labels={labels.solid}
