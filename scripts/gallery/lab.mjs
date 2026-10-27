@@ -1,5 +1,5 @@
 // The shader lab: pick a Paper shader, tune its props and the frame on the
-// exact 1280 × 720 still the gallery renders, and save it to shaders.json for
+// gallery's 1280 × 720 composition, and save it to shaders.json for
 // pnpm gallery:shaders. Local only (127.0.0.1).
 //
 // Run: pnpm gallery:lab   then open http://127.0.0.1:4320/ (GALLERY_LAB_PORT overrides)

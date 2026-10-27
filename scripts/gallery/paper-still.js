@@ -7,7 +7,10 @@
 
 import * as paper from "/shaders/index.js";
 
-/** The still every gallery gradient is drawn at: 1280 × 720 CSS px at 2× = 2560 × 1440. */
+/**
+ * The composition every gallery gradient is drawn at: 1280 × 720 CSS px. The lab
+ * previews it at 2×; gallery originals render it at 3× (3840 × 2160).
+ */
 export const STILL = { cssWidth: 1280, cssHeight: 720, pixelRatio: 2 };
 
 let catalog;

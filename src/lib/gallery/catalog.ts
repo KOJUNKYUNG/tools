@@ -21,7 +21,7 @@ function image(
   name: string,
   fields: { ext?: "jpg" | "png"; width?: number; height?: number; source: GallerySource; tags?: string[] },
 ): GalleryImage {
-  const { ext = "jpg", width = 2560, height = 1440, ...rest } = fields;
+  const { ext = "jpg", width = 3840, height = 2160, ...rest } = fields;
   return {
     id: `${category}-${name}`,
     category,
@@ -33,7 +33,13 @@ function image(
   };
 }
 
-/** Made before the gallery spec at 1920 × 1080; kept at that size, never enlarged. */
+/**
+ * Originals are 4K (3840 × 2160) so a crop of half the width still fills a
+ * Full HD screen. Pictures whose source is smaller keep the source's size,
+ * never enlarged.
+ */
+
+/** Made before the gallery spec at 1920 × 1080; kept at that size. */
 const LEGACY_SIZE = { width: 1920, height: 1080 };
 
 /** Pixel art: lossless PNG is both exact and smaller than JPEG here. */
@@ -66,7 +72,7 @@ export const GALLERY_IMAGES: GalleryImage[] = [
   image("nature", "kosciuszko-ridge", { source: cc0(`${COMMONS}Main_Range_Track,_Kosciuszko_National_Park_35.jpg`, "Dhx1") }),
   image("nature", "chepino-valley", { source: cc0(`${COMMONS}Chepino_Valley_Landscape.jpg`, "Nannoyani") }),
   image("nature", "herradura-sea", { source: cc0(`${COMMONS}La_Herradura,_horizon_hobbie_cat,_Andalusia,_Spain.jpg`, "Jebulon") }),
-  image("nature", "dordogne-meadow", { source: cc0(`${COMMONS}Prairie_fleurie_Dordogne.jpg`, "Jebulon") }),
+  image("nature", "dordogne-meadow", { width: 3008, height: 1692, source: cc0(`${COMMONS}Prairie_fleurie_Dordogne.jpg`, "Jebulon") }),
   image("nature", "kalkense-dusk", {
     source: cc0(`${COMMONS}Spontaneous_gathering_of_solar_eclipse_watchers,_Kalkense_Meersen,_Laarne,_August_12,_2026.jpg`, "DimiTalen"),
   }),
@@ -79,6 +85,8 @@ export const GALLERY_IMAGES: GalleryImage[] = [
     source: cc0(`${COMMONS}Denim_fabric_03_ao_8k_(Rico_Cilliers_and_colormass_via_Poly_Haven).jpg`, "Rico Cilliers, colormass (Poly Haven)"),
   }),
   image("texture", "grey-concrete", {
+    width: 2656,
+    height: 1494,
     source: cc0(
       `${COMMONS}Eroded_top_edge_light_grey_painted_bumpy_moderately_discolored_grubby_grungy_concrete_building_wall_texture.jpg`,
       "Sisters.seamless",

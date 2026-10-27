@@ -6,10 +6,11 @@
 // in paper-props.json (meshGradient, dotGrid…) or its React component name
 // (MeshGradient, DotGrid…), and the props are the React component's, so props
 // copied from shaders.paper.design or saved from the lab (pnpm gallery:lab)
-// mean the same here. The still is drawn at 1280 × 720 CSS px at 2× (2560 × 1440)
-// by paper-still.js; `frame` fixes the moment of an animated shader.
+// mean the same here. The still is drawn at 1280 × 720 CSS px by paper-still.js,
+// at 3× by default (3840 × 2160, the gallery's 4K originals); `frame` fixes the
+// moment of an animated shader.
 //
-// Run: pnpm gallery:shaders [--only=name,name] [--out=dir] [--specs=file.json] [--pixel-ratio=2]
+// Run: pnpm gallery:shaders [--only=name,name] [--out=dir] [--specs=file.json] [--pixel-ratio=3]
 // Needs Chrome (CHROME_PATH overrides); WebGL runs on SwiftShader headless.
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -21,7 +22,7 @@ import { startGalleryServer } from "./server.mjs";
 const here = fileURLToPath(new URL(".", import.meta.url));
 const args = Object.fromEntries(process.argv.slice(2).map((a) => a.replace(/^--/, "").split("=")));
 const only = args.only?.split(",");
-const pixelRatio = Number(args["pixel-ratio"] ?? 2);
+const pixelRatio = Number(args["pixel-ratio"] ?? 3);
 const outDirFor = (spec) => args.out ?? join(here, "sources", spec.category ?? "gradient");
 
 const specs = JSON.parse(await readFile(args.specs ?? join(here, "shaders.json"), "utf8")).filter(

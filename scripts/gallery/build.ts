@@ -1,6 +1,7 @@
 // Makes the gallery's files in public/gallery/ from the catalog
 // (src/lib/gallery/catalog.ts), to the spec's quality bar:
-//   - an original: 2560 × 1440, JPEG q90 (mozjpeg; q82 visibly shifted colour)
+//   - an original at the catalog's size (4K, or the source's own size when
+//     smaller), JPEG q90 (mozjpeg; q82 visibly shifted colour)
 //     or lossless PNG where the catalog says .png, sRGB, no metadata;
 //   - a thumbnail: 480 × 270 JPEG q75 (at most 40 KB);
 //   - public/gallery/CREDITS.md, written from the catalog's sources.

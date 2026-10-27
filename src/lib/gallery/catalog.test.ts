@@ -14,28 +14,33 @@ const onDisk = (url: string) => path.join(publicDir, url);
 /** Gradients made before the gallery spec, kept at the size they were made. */
 const LEGACY = new Set(["gradient-green", "gradient-red", "gradient-yellow"]);
 
+/** Photos whose source is under 4K at 16:9; kept at the source's size, never enlarged. */
+const SMALLER_SOURCE = new Set(["nature-dordogne-meadow", "texture-grey-concrete"]);
+
 const KB = 1024;
 /**
- * Per-file ceiling for originals, set from the chosen set (2026-10-27): a
- * background is stored once per deck, and the largest picks were about 230 KB
- * (shader art) and 1.3 MB (detailed photos) at quality 90.
+ * Per-file ceiling for originals, set from the chosen set at 4K (2026-10-27):
+ * a background is stored once per deck, and the largest picks were about
+ * 380 KB (shader art) and 1.75 MB (detailed photos) at quality 90.
  */
 const BUDGET: Record<GalleryCategory, number> = {
-  gradient: 300 * KB,
-  pattern: 300 * KB,
-  nature: 1536 * KB,
-  texture: 1536 * KB,
+  gradient: 512 * KB,
+  pattern: 512 * KB,
+  nature: 2048 * KB,
+  texture: 2048 * KB,
 };
 
 describe("gallery catalog", () => {
   it.each(GALLERY_IMAGES.map((img) => [img.id, img] as const))(
-    "%s: the original is on disk at the spec's resolution",
+    "%s: the original is on disk at its declared 16:9 size, 4K unless its source is smaller",
     async (id, img) => {
       expect(existsSync(onDisk(img.url))).toBe(true);
       const meta = await sharp(onDisk(img.url)).metadata();
-      const expected = LEGACY.has(id) ? [1920, 1080] : [2560, 1440];
-      expect([meta.width, meta.height]).toEqual(expected);
-      expect([img.width, img.height]).toEqual(expected);
+      expect([meta.width, meta.height]).toEqual([img.width, img.height]);
+      expect(img.width * 9).toBe(img.height * 16);
+      if (LEGACY.has(id)) expect(img.width).toBe(1920);
+      else if (!SMALLER_SOURCE.has(id)) expect(img.width).toBe(3840);
+      else expect(img.width).toBeGreaterThanOrEqual(2560);
     },
   );
 
