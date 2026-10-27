@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ToolHeader } from "@/components/common/ToolHeader";
 import { FileUpload } from "@/components/common/FileUpload";
@@ -23,6 +23,9 @@ import { normalizeImageFile } from "@/lib/image/heic";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import { belowFullHd } from "@/lib/image/slideImage";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
+import { paperRecipe } from "@/lib/gallery/recipes";
+import { applyEdit, controlsFor, isEdited, startEdit, type RecipeEdit } from "@/lib/gallery/recipeEdit";
+import { drawRecipeFile, webgl2Available } from "@/lib/gallery/drawRecipe";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
 import { BackgroundPicker } from "./BackgroundPicker";
@@ -34,6 +37,8 @@ import { PptBackgroundResult } from "./PptBackgroundResult";
 import { PptConversionGuide, type ConversionMethodLabels } from "./PptConversionGuide";
 import type { SolidColourLabels } from "./SolidColourGrid";
 import { themeBackground } from "@/lib/ppt/themeBackground";
+import type { RecipeEditLabels } from "./RecipeEditArea";
+import { useRecipePreview } from "./useRecipePreview";
 
 const PPTX_ACCEPT = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
@@ -92,6 +97,8 @@ export interface PptBackgroundToolLabels {
     blurNotice: string;
   };
   gallery: GalleryLabels;
+  /** The recipe edit under the frame of a Paper gallery item. */
+  edit: RecipeEditLabels;
   solid: SolidColourLabels & {
     tab: string;
     /** The note over the "no background" preview. */
@@ -170,6 +177,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [fill, setFill] = useState<FillBackground | null>(null);
   /** The colour "no background" shows on the loaded deck. */
   const [themeBg, setThemeBg] = useState<string | null>(null);
+  /** The recipe edit of the picked Paper gallery item; null = as the recipe is. */
+  const [edit, setEdit] = useState<RecipeEdit | null>(null);
+  /** The edit area under the frame is open (closed by default). */
+  const [editOpen, setEditOpen] = useState(false);
 
   // Redesigned workspace state.
   const [slideAspect, setSlideAspect] = useState<SlideAspect>({
@@ -193,6 +204,15 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         : `${slideAspect.ratio}`;
 
   const bgFile = bgFiles[0] ?? null;
+  // Only a Paper gallery item has a recipe to edit; photos, legacy gradients
+  // and uploads are used as they are.
+  const recipe = galleryImage?.source.kind === "paper" ? paperRecipe(galleryImage.name) : null;
+  const recipeEdit = useMemo(() => (recipe ? (edit ?? startEdit(recipe)) : null), [recipe, edit]);
+  /** What an edited pick draws; null when the gallery file itself applies. */
+  const editedProps = useMemo(
+    () => (recipe && recipeEdit && isEdited(recipe, recipeEdit) ? applyEdit(recipe, recipeEdit) : null),
+    [recipe, recipeEdit],
+  );
   const groupThumbUrlsRef = useRef(groupThumbUrls);
   groupThumbUrlsRef.current = groupThumbUrls;
   // Mirror bgPreviewUrl into a ref so the unmount cleanup (which has an empty
@@ -213,10 +233,16 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     retry,
     download,
   } = useToolProcessor<Uint8Array>({
-    processor: (files, onProgress) =>
+    processor: async (files, onProgress) =>
       changeBackground({
         pptxFile: files[0],
-        background: fill ?? { kind: "picture", file: bgFile!, crop: crop ?? undefined },
+        // An edited pick is drawn now, at the gallery file's size, so the
+        // frame set on the file applies to it as is.
+        background: fill ?? {
+          kind: "picture",
+          file: editedProps ? await drawRecipeFile(editedProps) : bgFile!,
+          crop: crop ?? undefined,
+        },
         mode,
         targetSlides:
           mode === "specific-slides"
@@ -256,6 +282,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     setCrop(null);
     setFraming(false);
     setFill(null);
+    setEdit(null);
+    setEditOpen(false);
   }, [showPreview]);
 
   /** Pick a solid colour or "no background": the picture pick goes. */
@@ -383,6 +411,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setNormalizing(false);
       setFill(null);
       setGalleryImage(image);
+      setEdit(null);
+      setEditOpen(false);
       // Until the picture arrives nothing can be framed or applied: the old
       // picture and its frame must not meet the new thumbnail.
       setBgFiles([]);
@@ -443,6 +473,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setFill(null);
       setBgFiles([file]);
       setGalleryImage(null);
+      setEdit(null);
+      setEditOpen(false);
       setCrop(null);
       showPreview(URL.createObjectURL(file));
       setFraming(true);
@@ -451,6 +483,17 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   );
 
   const totalSlides = currentBgs.length;
+
+  // The live preview of an edit stands in for the gallery file wherever the
+  // pick is shown; Paper Shaders load once the edit area opens.
+  const editAvailable = !!recipe && webgl2Available();
+  const editPreviewUrl = useRecipePreview(
+    editAvailable && bgFile && (editOpen || editedProps) ? recipe : null,
+    editedProps,
+  );
+  const shownUrl = (editedProps && editPreviewUrl) || bgPreviewUrl;
+  /** The size the frame is held in when a smaller preview is shown. */
+  const pickSize = galleryImage ? { w: galleryImage.width, h: galleryImage.height } : undefined;
   // "No background" shows the deck's theme colour; white until it is read.
   const noneColour = themeBg ?? "#ffffff";
   const fillColour = !fill ? null : fill.kind === "colour" ? `#${fill.rgb}` : noneColour;
@@ -516,7 +559,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // Zoom source URL: selected-bg preview or the current group's thumb.
   const currentGroup = groups[curIndex];
   const currentThumbUrl = currentGroup ? groupThumbUrls.get(currentGroup.key) ?? null : null;
-  const zoomSrc = zoom === "selected" ? bgPreviewUrl : zoom === "current" ? currentThumbUrl : null;
+  const zoomSrc = zoom === "selected" ? shownUrl : zoom === "current" ? currentThumbUrl : null;
 
   // When the .ppt rejection guide is showing, give the empty-state body itself
   // a definite 50vh height so its flex-1 children (the accordion in particular)
@@ -643,14 +686,31 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 // While a run uses the picture (running, done or failed) its
                 // frame is shown locked; `다시 하기` goes back to edit it.
                 frame={
-                  (framing || status !== "idle") && bgPreviewUrl
+                  (framing || status !== "idle") && bgPreviewUrl && shownUrl
                     ? {
-                        imageUrl: bgPreviewUrl,
+                        imageUrl: shownUrl,
+                        pictureKey: bgPreviewUrl,
+                        sourceSize: pickSize,
                         ratio: slideAspect.ratio,
                         crop,
                         onCropChange: setCrop,
                         onBack: () => setFraming(false),
                         locked: status !== "idle",
+                        edit:
+                          recipe && recipeEdit && bgFile
+                            ? {
+                                available: editAvailable,
+                                open: editOpen,
+                                onOpenChange: setEditOpen,
+                                controls: controlsFor(recipe),
+                                edit: recipeEdit,
+                                onEdit: setEdit,
+                                edited: !!editedProps,
+                                onReset: () => setEdit(null),
+                                locked: status !== "idle",
+                                labels: labels.edit,
+                              }
+                            : null,
                       }
                     : null
                 }
@@ -679,7 +739,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   <div className="flex items-start gap-3.5">
                     <SelectedBackgroundFrame
                       caption={labels.preview.selectedCaption}
-                      previewUrl={bgPreviewUrl}
+                      previewUrl={shownUrl}
+                      sourceSize={pickSize}
                       aspect={aspectCss}
                       emptyLabel={labels.preview.selectedEmpty}
                       zoomLabel={labels.preview.zoom}
@@ -796,6 +857,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   }
                   aspect={aspectCss}
                   crop={zoom === "selected" ? crop : null}
+                  sourceSize={zoom === "selected" ? pickSize : undefined}
                   closeLabel={labels.preview.close}
                   onClose={() => setZoom(null)}
                 />

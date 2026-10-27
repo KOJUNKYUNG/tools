@@ -67,6 +67,11 @@ interface CropSelectorProps {
   initialCrop?: CropRect | null;
   /** Shows the frame without handles and ignores drags, e.g. while a run uses it. */
   readOnly?: boolean;
+  /**
+   * The picture's height limit as a CSS length, in place of the default 20rem,
+   * e.g. one that follows the room a parent leaves it.
+   */
+  maxImageHeight?: string;
 }
 
 function sameRect(a: CropRect, b: CropRect): boolean {
@@ -83,6 +88,7 @@ export function CropSelector({
   handleLabels,
   initialCrop = null,
   readOnly = false,
+  maxImageHeight,
 }: CropSelectorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -220,7 +226,8 @@ export function CropSelector({
           ref={imgRef}
           src={imageUrl}
           alt={alt}
-          className="block h-auto max-h-80 w-full object-contain"
+          className={maxImageHeight ? "block h-auto w-full object-contain" : "block h-auto max-h-80 w-full object-contain"}
+          style={maxImageHeight ? { maxHeight: maxImageHeight } : undefined}
           onLoad={handleImgLoad}
           draggable={false}
         />

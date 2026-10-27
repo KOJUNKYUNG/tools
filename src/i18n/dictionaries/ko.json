@@ -221,6 +221,12 @@
             "pattern-swirl-2": "소용돌이 띠"
           }
         },
+        "recipeEdit": {
+          "heading": "편집",
+          "hue": "색 계열",
+          "reset": "원래대로",
+          "unavailable": "이 브라우저는 WebGL2를 지원하지 않아 그림을 편집할 수 없어요. 고른 그림은 그대로 쓸 수 있어요."
+        },
         "solid": {
           "tab": "단색",
           "none": "배경 없음",

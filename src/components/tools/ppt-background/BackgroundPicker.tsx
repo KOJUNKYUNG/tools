@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { CropSelector } from "@/components/image/CropSelector";
 import { InlineGallery, type GalleryLabels } from "@/components/ppt/InlineGallery";
 import type { Dictionary } from "@/i18n/config";
-import type { CropRect } from "@/lib/image/maxFitCrop";
+import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
 import {
   GALLERY_CATEGORIES,
   type GalleryCategory,
@@ -12,13 +12,22 @@ import {
 } from "@/lib/gallery/types";
 import type { FillBackground } from "@/lib/ppt/changeBackground";
 import { SolidColourGrid, type SolidColourLabels } from "./SolidColourGrid";
+import { RecipeEditArea, type RecipeEditProps } from "./RecipeEditArea";
 
 /** A gallery filter, or the "단색" tab after them. */
 type CategoryFilter = "all" | GalleryCategory | "solid";
 
 /** The frame over the picked picture, shown in place of the gallery. */
 export interface BackgroundFrame {
+  /** The picture shown under the frame: the picked file, or a live preview of its edit. */
   imageUrl: string;
+  /**
+   * The picked picture, whatever is shown: a new one starts from the centred
+   * frame, while the shown picture changing (an edit) keeps the frame.
+   */
+  pictureKey: string;
+  /** The picked picture's size, which the frame is held in, when known before it loads. */
+  sourceSize?: ImageDims;
   /** The slide's width / height: the frame's locked aspect. */
   ratio: number;
   /** The frame set before, kept when the user comes back to this picture. */
@@ -27,6 +36,8 @@ export interface BackgroundFrame {
   onBack: () => void;
   /** A run is using the frame: it is shown as is and nothing here responds. */
   locked: boolean;
+  /** The recipe edit under the frame, for a Paper gallery item only. */
+  edit?: RecipeEditProps | null;
 }
 
 interface BackgroundPickerProps {
@@ -146,18 +157,28 @@ export function BackgroundPicker({
           the remaining panel height, so switching never resizes the tool. */}
       <div className="min-h-0 flex-1">
         {frame ? (
-          // Keyed by picture: a new picture starts from the centred frame.
-          <CropSelector
-            key={frame.imageUrl}
-            imageUrl={frame.imageUrl}
-            alt={labels.pictureAlt}
-            targetWidth={frame.ratio}
-            targetHeight={1}
-            initialCrop={frame.crop}
-            onCropChange={frame.onCropChange}
-            handleLabels={labels.handles}
-            readOnly={frame.locked}
-          />
+          <div className="flex h-full min-h-0 flex-col gap-2.5">
+            {/* The picture takes the room the edit area leaves (a size
+                container, read as cqh), so the frame never runs under it. */}
+            <div className="min-h-0 flex-1 [container-type:size]">
+              {/* Keyed by picture: a new picture starts from the centred frame. */}
+              <CropSelector
+                key={frame.pictureKey}
+                imageUrl={frame.imageUrl}
+                sourceSize={frame.sourceSize}
+                alt={labels.pictureAlt}
+                targetWidth={frame.ratio}
+                targetHeight={1}
+                initialCrop={frame.crop}
+                onCropChange={frame.onCropChange}
+                handleLabels={labels.handles}
+                readOnly={frame.locked}
+                // The selector draws a 1 px border around the picture.
+                maxImageHeight="min(20rem, calc(100cqh - 2px))"
+              />
+            </div>
+            {frame.edit ? <RecipeEditArea {...frame.edit} /> : null}
+          </div>
         ) : activeCategory === "solid" ? (
           <SolidColourGrid
             value={fill}

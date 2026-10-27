@@ -2,7 +2,7 @@
 "use client";
 
 import { CroppedImage } from "@/components/image/CroppedImage";
-import type { CropRect } from "@/lib/image/maxFitCrop";
+import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
 
 interface SelectedBackgroundFrameProps {
   caption: string;
@@ -14,6 +14,8 @@ interface SelectedBackgroundFrameProps {
   onZoom: () => void;
   /** The Background crop; until it is known the picture is centred to fill. */
   crop: CropRect | null;
+  /** The size `crop` is held in, when the preview is a smaller stand-in (an edit's live preview). */
+  sourceSize?: ImageDims;
   /** Opens the frame over the picture again. */
   onSelect?: () => void;
   /** A picked solid colour (CSS), shown in place of a picture. */
@@ -30,6 +32,7 @@ export function SelectedBackgroundFrame({
   zoomLabel,
   onZoom,
   crop,
+  sourceSize,
   onSelect,
   colour = null,
   colourNote,
@@ -64,7 +67,7 @@ export function SelectedBackgroundFrame({
               <button type="button" onClick={onSelect} aria-label={caption} className="absolute inset-0" />
             ) : null}
             {crop ? (
-              <CroppedImage src={previewUrl} alt={caption} crop={crop} className="pointer-events-none size-full" />
+              <CroppedImage src={previewUrl} alt={caption} crop={crop} sourceSize={sourceSize} className="pointer-events-none size-full" />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewUrl} alt={caption} className="pointer-events-none size-full object-cover" />

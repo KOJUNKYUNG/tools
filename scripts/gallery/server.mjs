@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 const here = fileURLToPath(new URL(".", import.meta.url));
 const DIST = fileURLToPath(new URL("../../node_modules/@paper-design/shaders/dist/", import.meta.url));
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".json": "application/json", ".map": "application/json" };
-const SHARED = { "/paper-still.js": "paper-still.js", "/paper-props.json": "paper-props.json" };
+const SHARED = { "/paper-still.js": "paper-still.js", "/paper-draw.js": "paper-draw.js", "/paper-props.json": "paper-props.json" };
 
 /**
  * Serve `page` (a file in scripts/gallery/) at / on 127.0.0.1. `handle(req, res, path)`

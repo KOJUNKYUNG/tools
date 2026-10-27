@@ -6,6 +6,8 @@ import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
 import { GALLERY_IMAGES } from "./catalog";
 import { renderCredits } from "./credits";
+import { isColourProp } from "./recipeEdit";
+import { paperRecipe } from "./recipes";
 import type { GalleryCategory } from "./types";
 
 const publicDir = path.resolve(__dirname, "../../../public");
@@ -13,6 +15,11 @@ const onDisk = (url: string) => path.join(publicDir, url);
 
 const recipes: { name: string; category?: string }[] = JSON.parse(
   readFileSync(path.resolve(__dirname, "../../../scripts/gallery/shaders.json"), "utf8"),
+);
+
+/** Paper's prop → uniform table (`scripts/gallery/extract-paper-props.mjs`). */
+const paperProps: { shaders: Record<string, { props: Record<string, { kind: string }> }> } = JSON.parse(
+  readFileSync(path.resolve(__dirname, "../../../scripts/gallery/paper-props.json"), "utf8"),
 );
 
 const KB = 1024;
@@ -76,6 +83,19 @@ describe("gallery catalog", () => {
     const drawn = GALLERY_IMAGES.filter((img) => img.source.kind === "paper").map((img) => `${img.category}/${img.name}`);
     const recipeKeys = recipes.map((r) => `${r.category ?? "gradient"}/${r.name}`);
     expect(drawn.sort()).toEqual(recipeKeys.sort());
+  });
+
+  it("the app finds each Paper-drawn image's recipe, and reads its colours the way Paper's prop table does", () => {
+    for (const img of GALLERY_IMAGES.filter((i) => i.source.kind === "paper")) {
+      const recipe = paperRecipe(img.name);
+      expect(recipe?.category ?? "gradient", img.id).toBe(img.category);
+      const table = paperProps.shaders[recipe!.shader]?.props;
+      expect(table, `${img.id}: ${recipe!.shader} in paper-props.json`).toBeDefined();
+      for (const prop of Object.keys(recipe!)) {
+        const kind = table[prop]?.kind;
+        expect(isColourProp(prop), `${img.id}.${prop}`).toBe(kind === "color" || kind === "colors");
+      }
+    }
   });
 
   it("CREDITS.md is the one the catalog writes, listing every CC0 original", () => {

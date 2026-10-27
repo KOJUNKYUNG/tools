@@ -1,13 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { CropRect } from "@/lib/image/maxFitCrop";
+import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
 
 interface CroppedImageProps {
   src: string;
   alt: string;
   /** The part to show, in the picture's upright pixels. */
   crop: CropRect;
+  /**
+   * The size of the picture `crop` is held in, when `src` is a smaller
+   * stand-in of the same aspect (a live preview of an edit); defaults to
+   * `src`'s own size.
+   */
+  sourceSize?: ImageDims;
   className?: string;
 }
 
@@ -17,7 +23,7 @@ interface CroppedImageProps {
  * max-w-full`, sizes itself to the crop's aspect like an image. Nothing is
  * re-encoded, so it follows every move of a crop frame.
  */
-export function CroppedImage({ src, alt, crop, className }: CroppedImageProps) {
+export function CroppedImage({ src, alt, crop, sourceSize, className }: CroppedImageProps) {
   const [natural, setNatural] = useState<{ src: string; w: number; h: number } | null>(null);
 
   useEffect(() => {
@@ -32,7 +38,7 @@ export function CroppedImage({ src, alt, crop, className }: CroppedImageProps) {
     };
   }, [src]);
 
-  const size = natural?.src === src ? natural : null;
+  const size = sourceSize ?? (natural?.src === src ? natural : null);
   return (
     <svg
       role="img"

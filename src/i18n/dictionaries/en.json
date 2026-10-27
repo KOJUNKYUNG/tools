@@ -221,6 +221,12 @@
             "pattern-swirl-2": "Swirl bands"
           }
         },
+        "recipeEdit": {
+          "heading": "Edit",
+          "hue": "Colour family",
+          "reset": "Reset",
+          "unavailable": "This browser can't edit pictures (no WebGL2 support). You can still use the picture as it is."
+        },
         "solid": {
           "tab": "Solid",
           "none": "No background",
