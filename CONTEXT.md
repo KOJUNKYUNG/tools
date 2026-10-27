@@ -146,6 +146,21 @@ follow the same apply scope and covering-background toggle.
 _Avoid_: "transparent" or "remove background" (the slide is never left
 without a background).
 
+### Recipe edit
+A change the user makes to a gallery gradient or pattern before applying it:
+its colours, size, grain and softness, which the browser applies by drawing
+the gallery item's Paper Shaders recipe (`scripts/gallery/shaders.json`)
+anew. Only Paper items have a recipe; photos and the three legacy gradients
+are used as they are. An unedited pick is the gallery file itself, never a
+fresh drawing (a GPU drawing differs slightly from the file); an edited one
+is drawn at the file's composition and size and then cropped like any
+picture. Grain and softness here are the shader's own, changing how the
+shape is drawn; effects laid over a finished picture belong to the filter
+set. Where WebGL2 is missing the edit is not offered; a failed drawing of
+an edit is an error, never a silent fall back to the unedited file.
+_Avoid_: "customising the gallery file" (the file is never changed); calling
+Paper's grain a filter.
+
 ### Alias
 A slug kept live for SEO / backwards compatibility that renders a different
 **canonical** tool, declared via `aliasOf` in the registry. Today: `pdf-merge`,
