@@ -723,6 +723,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                                 controls: controlsFor(recipe),
                                 edit: recipeEdit,
                                 onHueShift: (degrees) => changeEdit((e) => ({ ...e, hueShift: degrees })),
+                                onSlider: (slider, value) => changeEdit((e) => ({ ...e, [slider]: value })),
                                 chips: colourChips(recipe, recipeEdit),
                                 canAddColour: canAddColour(recipe, recipeEdit),
                                 onColour: (id, hex) => changeEdit((e) => setColour(recipe, e, id, hex)),

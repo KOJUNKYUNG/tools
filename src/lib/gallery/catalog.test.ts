@@ -6,7 +6,7 @@ import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
 import { GALLERY_IMAGES } from "./catalog";
 import { renderCredits } from "./credits";
-import { controlsFor, isColourProp } from "./recipeEdit";
+import { applyEdit, controlsFor, isColourProp, isEdited, startEdit, type RecipeEdit, type SliderRange } from "./recipeEdit";
 import { paperRecipe } from "./recipes";
 import type { GalleryCategory } from "./types";
 
@@ -104,6 +104,51 @@ describe("gallery catalog", () => {
       const list = paperProps.shaders[recipe.shader].props.colors;
       const max = recipe.colors && list?.max ? Math.min(list.max, 6) : null;
       expect(controlsFor(recipe).maxColours, img.id).toBe(max);
+    }
+  });
+
+  it("every recipe's shader has sliders, each writing number props of Paper's table on Paper's range", () => {
+    for (const img of GALLERY_IMAGES.filter((i) => i.source.kind === "paper")) {
+      const recipe = paperRecipe(img.name)!;
+      const table = paperProps.shaders[recipe.shader].props;
+      const controls = controlsFor(recipe);
+      expect(controls.size, `${img.id}: ${recipe.shader} in the slider table`).not.toBeNull();
+      // Each slider at its top: the props it moves are the ones that change.
+      const start = startEdit(recipe);
+      const moved = (edit: Partial<RecipeEdit>) => {
+        const drawn = applyEdit(recipe, { ...start, ...edit });
+        return Object.keys(drawn).filter((prop) => JSON.stringify(drawn[prop]) !== JSON.stringify(recipe[prop]));
+      };
+      expect(moved({ size: controls.size!.max }), img.id).toEqual(["scale"]);
+      for (const slider of ["grain", "softness"] as const) {
+        const range = controls[slider];
+        if (!range) continue;
+        const props = moved({ [slider]: start[slider] === range.max ? range.min : range.max });
+        expect(props.length, `${img.id}.${slider}`).toBeGreaterThan(0);
+        for (const prop of props) {
+          expect(table[prop], `${img.id}.${prop}`).toMatchObject({ kind: "number", min: range.min, max: range.max });
+        }
+      }
+    }
+  });
+
+  it("every recipe starts unedited, each slider at its own value inside the range and on a step", () => {
+    const onStep = (value: number, { min, step }: SliderRange) =>
+      Math.abs((value - min) / step - Math.round((value - min) / step)) < 1e-9;
+    for (const img of GALLERY_IMAGES.filter((i) => i.source.kind === "paper")) {
+      const recipe = paperRecipe(img.name)!;
+      const start = startEdit(recipe);
+      // A slider whose props differ in the recipe (one grain slider, two mesh
+      // props) would change the drawing before the user touches it.
+      expect(isEdited(recipe, start), img.id).toBe(false);
+      const controls = controlsFor(recipe);
+      for (const slider of ["size", "grain", "softness"] as const) {
+        const range = controls[slider];
+        if (!range) continue;
+        expect(start[slider], `${img.id}.${slider}`).toBeGreaterThanOrEqual(range.min);
+        expect(start[slider], `${img.id}.${slider}`).toBeLessThanOrEqual(range.max);
+        expect(onStep(start[slider], range), `${img.id}.${slider} = ${start[slider]}`).toBe(true);
+      }
     }
   });
 

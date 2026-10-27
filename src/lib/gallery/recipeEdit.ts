@@ -17,6 +17,12 @@ export interface RecipeEdit {
   colours: Record<string, PickedColour>;
   /** Colours added after the recipe's `colors` list, in order. */
   added: PickedColour[];
+  /** Times the recipe's `scale`. */
+  size: number;
+  /** The grain props' value (ignored where the shader has no grain slider). */
+  grain: number;
+  /** The softness prop's value (ignored where the shader has no softness slider). */
+  softness: number;
 }
 
 /** A slider's range, in the unit its edit value holds. */
@@ -32,6 +38,12 @@ export interface RecipeControls {
   hue: SliderRange;
   /** How many colours the `colors` list may hold; null where the shader has no list (no "+"). */
   maxColours: number | null;
+  /** Times the recipe's `scale`, on every recipe of a known shader. */
+  size: SliderRange | null;
+  /** The shader's own grain; null where it has none (the slider is hidden). */
+  grain: SliderRange | null;
+  /** The shader's own softness; null where it has none (the slider is hidden). */
+  softness: SliderRange | null;
 }
 
 /** One colour of the recipe as the edit area shows it. */
@@ -66,17 +78,77 @@ const PAPER_MAX_COLOURS: Record<string, number> = {
   swirl: 10,
 };
 
+/** The props a shader's grain and softness sliders write. */
+interface ShaderSliders {
+  /** Moved together by the one grain slider; empty where the shader has no grain. */
+  grain: string[];
+  /** `softness`, or `mixing` where the shader has that instead; null where it has neither. */
+  softness: string | null;
+}
+
+/**
+ * Each gallery shader's grain and softness props (CONTEXT "Recipe edit"), all
+ * on Paper's 0 to 1 range. Deliberately left out: perlin `octaveCount`, smoke
+ * ring `noiseScale`, voronoi `glow` (detail, shape and glow, not grain or
+ * softness). The gallery catalog test holds every recipe's shader to an entry
+ * here and every prop to paper-props.json.
+ */
+const SHADER_SLIDERS: Record<string, ShaderSliders> = {
+  meshGradient: { grain: ["grainMixer", "grainOverlay"], softness: null },
+  staticMeshGradient: { grain: ["grainMixer", "grainOverlay"], softness: "mixing" },
+  staticRadialGradient: { grain: ["grainMixer", "grainOverlay"], softness: "mixing" },
+  grainGradient: { grain: ["noise"], softness: "softness" },
+  spiral: { grain: ["noise"], softness: "softness" },
+  swirl: { grain: ["noise"], softness: "softness" },
+  warp: { grain: [], softness: "softness" },
+  waves: { grain: [], softness: "softness" },
+  perlinNoise: { grain: [], softness: "softness" },
+  simplexNoise: { grain: [], softness: "softness" },
+  godRays: { grain: [], softness: null },
+  dithering: { grain: [], softness: null },
+  dotGrid: { grain: [], softness: null },
+  dotOrbit: { grain: [], softness: null },
+  voronoi: { grain: [], softness: null },
+  smokeRing: { grain: [], softness: null },
+};
+
+const SIZE: SliderRange = { min: 0.5, max: 2, step: 0.05 };
+// Fine enough for every recipe's own value to sit on a step (mixing 0.775).
+const UNIT: SliderRange = { min: 0, max: 1, step: 0.005 };
+
+/** The props `recipe`'s sliders write; null for a shader without an entry (no sliders). */
+function slidersOf(recipe: PaperRecipe): ShaderSliders | null {
+  return SHADER_SLIDERS[recipe.shader] ?? null;
+}
+
 export function controlsFor(recipe: PaperRecipe): RecipeControls {
   const paperMax = PAPER_MAX_COLOURS[recipe.shader];
+  const sliders = slidersOf(recipe);
   return {
     hue: { min: -180, max: 180, step: 1 },
     maxColours: Array.isArray(recipe.colors) && paperMax ? Math.min(paperMax, MAX_COLOURS) : null,
+    size: sliders ? SIZE : null,
+    grain: sliders?.grain.length ? UNIT : null,
+    softness: sliders?.softness ? UNIT : null,
   };
 }
 
-/** An edit that starts from the recipe as it is. */
-export function startEdit(_recipe: PaperRecipe): RecipeEdit {
-  return { hueShift: 0, colours: {}, added: [] };
+// Slider props hold numbers (the gallery catalog test reads each one against
+// Paper's prop table).
+const numberProp = (recipe: PaperRecipe, prop: string | undefined | null): number =>
+  prop ? ((recipe[prop] as number | undefined) ?? 0) : 0;
+
+/** An edit that starts from the recipe as it is: every slider at the recipe's own value. */
+export function startEdit(recipe: PaperRecipe): RecipeEdit {
+  const sliders = slidersOf(recipe);
+  return {
+    hueShift: 0,
+    colours: {},
+    added: [],
+    size: 1,
+    grain: numberProp(recipe, sliders?.grain[0]),
+    softness: numberProp(recipe, sliders?.softness),
+  };
 }
 
 /**
@@ -170,18 +242,30 @@ export function isEdited(recipe: PaperRecipe, edit: RecipeEdit): boolean {
   return applyEdit(recipe, edit) !== recipe;
 }
 
+/** The slider props `edit` draws, by prop: only those of sliders the shader has. */
+function sliderValues(recipe: PaperRecipe, edit: RecipeEdit): Record<string, number> {
+  const sliders = slidersOf(recipe);
+  if (!sliders) return {};
+  const values: Record<string, number> = { scale: numberProp(recipe, "scale") * edit.size };
+  for (const prop of sliders.grain) values[prop] = edit.grain;
+  if (sliders.softness) values[sliders.softness] = edit.softness;
+  return values;
+}
+
 /** The props to draw: the recipe with the edit applied (the recipe itself when it draws the same). */
 export function applyEdit(recipe: PaperRecipe, edit: RecipeEdit): PaperRecipe {
   const chips = colourChips(recipe, edit);
   const drawnOf = (prop: string) => chips.find((c) => c.id === prop)!.colour;
   const list = chips.filter((c) => c.id.startsWith("colors.")).map((c) => c.colour);
+  const values = sliderValues(recipe, edit);
   const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
   const unchanged =
     singleProps(recipe).every((prop) => same(drawnOf(prop), recipe[prop] as string)) &&
     list.length === recipeList(recipe).length &&
-    list.every((c, i) => same(c, recipeList(recipe)[i]));
+    list.every((c, i) => same(c, recipeList(recipe)[i])) &&
+    Object.entries(values).every(([prop, value]) => value === numberProp(recipe, prop));
   if (unchanged) return recipe;
-  const drawn: PaperRecipe = { ...recipe };
+  const drawn: PaperRecipe = { ...recipe, ...values };
   for (const prop of singleProps(recipe)) drawn[prop] = drawnOf(prop);
   if (Array.isArray(recipe.colors)) drawn.colors = list;
   return drawn;

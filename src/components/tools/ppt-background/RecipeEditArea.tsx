@@ -5,13 +5,19 @@ import { flushSync } from "react-dom";
 import { ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { template } from "@/lib/common/template";
-import type { ColourChip, RecipeControls, RecipeEdit } from "@/lib/gallery/recipeEdit";
+import type { ColourChip, RecipeControls, RecipeEdit, SliderRange } from "@/lib/gallery/recipeEdit";
 
 export interface RecipeEditLabels {
   /** The area's toggle. */
   heading: string;
   /** The colour-family (hue) slider. */
   hue: string;
+  /** The size slider: the recipe's `scale`. */
+  size: string;
+  /** The grain slider, where the shader has grain. */
+  grain: string;
+  /** The softness slider, where the shader has softness. */
+  softness: string;
   /** The row of colour chips. */
   colours: string;
   /** A chip's name, `{n}` its place in the row. */
@@ -35,6 +41,8 @@ export interface RecipeEditProps {
   controls: RecipeControls;
   edit: RecipeEdit;
   onHueShift: (degrees: number) => void;
+  /** A size, grain or softness slider moved to `value` (in its edit value's unit). */
+  onSlider: (slider: Slider, value: number) => void;
   /** Every colour of the recipe and the added ones, as drawn. */
   chips: ColourChip[];
   /** "+" is offered: the colour list is below its maximum. */
@@ -52,6 +60,10 @@ export interface RecipeEditProps {
   labels: RecipeEditLabels;
 }
 
+/** The edit's sliders after the colour family, in the order the area shows them. */
+type Slider = "size" | "grain" | "softness";
+const SLIDERS: Slider[] = ["size", "grain", "softness"];
+
 const GROUP_LABEL = "font-mono text-[10px] font-medium uppercase tracking-[0.08em]";
 
 export function RecipeEditArea({
@@ -61,6 +73,7 @@ export function RecipeEditArea({
   controls,
   edit,
   onHueShift,
+  onSlider,
   chips,
   canAddColour,
   onColour,
@@ -72,7 +85,6 @@ export function RecipeEditArea({
   labels,
 }: RecipeEditProps) {
   const chipRow = useRef<HTMLDivElement>(null);
-  const hueId = useId();
   if (!available) {
     return (
       <p className="font-body text-[10.5px] leading-[1.35]" style={{ color: "var(--ink-soft)" }}>
@@ -80,7 +92,6 @@ export function RecipeEditArea({
       </p>
     );
   }
-  const { hue } = controls;
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
@@ -112,25 +123,14 @@ export function RecipeEditArea({
       {open && (
         // Labels in one column, so each control starts at the same place.
         <div className="grid items-center gap-x-2.5 gap-y-2" style={{ gridTemplateColumns: "auto minmax(0, 1fr)" }}>
-          <label htmlFor={hueId} className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
-            {labels.hue}
-          </label>
-          <div className="flex min-w-0 items-center gap-2.5">
-            <input
-              id={hueId}
-              type="range"
-              min={hue.min}
-              max={hue.max}
-              step={hue.step}
-              value={edit.hueShift}
-              disabled={locked}
-              onChange={(e) => onHueShift(Number(e.target.value))}
-              className="min-w-0 flex-1 accent-[color:var(--emphasis)]"
-            />
-            <span className="w-9 shrink-0 text-right font-body text-[11px] tabular-nums" style={{ color: "var(--ink-strong)" }}>
-              {`${edit.hueShift > 0 ? "+" : ""}${edit.hueShift}°`}
-            </span>
-          </div>
+          <SliderRow
+            label={labels.hue}
+            range={controls.hue}
+            value={edit.hueShift}
+            shown={`${edit.hueShift > 0 ? "+" : ""}${edit.hueShift}°`}
+            locked={locked}
+            onChange={onHueShift}
+          />
 
           <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
             {labels.colours}
@@ -166,9 +166,70 @@ export function RecipeEditArea({
               </button>
             )}
           </div>
+
+          {SLIDERS.map((slider) => {
+            const range = controls[slider];
+            // Hidden where the shader lacks the value: it would change nothing.
+            if (!range) return null;
+            return (
+              <SliderRow
+                key={slider}
+                label={labels[slider]}
+                range={range}
+                value={edit[slider]}
+                // Size is a share of the recipe's; grain and softness run 0 to 100.
+                shown={`${Math.round(edit[slider] * 100)}${slider === "size" ? "%" : ""}`}
+                locked={locked}
+                onChange={(value) => onSlider(slider, value)}
+              />
+            );
+          })}
         </div>
       )}
     </div>
+  );
+}
+
+/** A labelled slider with its value, on one row of the area's grid. */
+function SliderRow({
+  label,
+  range,
+  value,
+  shown,
+  locked,
+  onChange,
+}: {
+  label: string;
+  range: SliderRange;
+  value: number;
+  /** The value as the row shows it. */
+  shown: string;
+  locked: boolean;
+  onChange: (value: number) => void;
+}) {
+  const id = useId();
+  return (
+    <>
+      <label htmlFor={id} className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+        {label}
+      </label>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <input
+          id={id}
+          type="range"
+          min={range.min}
+          max={range.max}
+          step={range.step}
+          value={value}
+          disabled={locked}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="min-w-0 flex-1 accent-[color:var(--emphasis)]"
+        />
+        <span className="w-9 shrink-0 text-right font-body text-[11px] tabular-nums" style={{ color: "var(--ink-strong)" }}>
+          {shown}
+        </span>
+      </div>
+    </>
   );
 }
 

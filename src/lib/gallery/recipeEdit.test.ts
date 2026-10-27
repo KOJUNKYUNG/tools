@@ -233,6 +233,87 @@ describe("recipe edit", () => {
     expect(isEdited(mesh, startEdit(mesh))).toBe(false);
   });
 
+  it("offers size on every shader, grain and softness only where the shader has them", () => {
+    const offered = (name: string) => {
+      const c = controlsFor(recipe(name));
+      return { size: !!c.size, grain: !!c.grain, softness: !!c.softness };
+    };
+    // A gradient with grain and no softness, gradients with both, a pattern
+    // with softness only, and a size-only pattern.
+    expect(offered("mesh-4c")).toEqual({ size: true, grain: true, softness: false });
+    expect(offered("staticmesh-2c")).toEqual({ size: true, grain: true, softness: true });
+    expect(offered("staticradial-1")).toEqual({ size: true, grain: true, softness: true });
+    expect(offered("grain-1")).toEqual({ size: true, grain: true, softness: true });
+    expect(offered("spiral-1")).toEqual({ size: true, grain: true, softness: true });
+    expect(offered("swirl-1")).toEqual({ size: true, grain: true, softness: true });
+    expect(offered("warp-1")).toEqual({ size: true, grain: false, softness: true });
+    expect(offered("waves-1")).toEqual({ size: true, grain: false, softness: true });
+    expect(offered("perlin-1")).toEqual({ size: true, grain: false, softness: true });
+    expect(offered("simplex")).toEqual({ size: true, grain: false, softness: true });
+    for (const name of ["godrays", "dithering-1", "dot-1", "dot-3", "voronoi-1", "cloud"]) {
+      expect(offered(name), name).toEqual({ size: true, grain: false, softness: false });
+    }
+  });
+
+  it("ranges size from half to twice the recipe's, and grain and softness over Paper's 0 to 1", () => {
+    const mesh = recipe("staticmesh-2c");
+    const c = controlsFor(mesh);
+    expect([c.size!.min, c.size!.max]).toEqual([0.5, 2]);
+    expect([c.grain!.min, c.grain!.max]).toEqual([0, 1]);
+    expect([c.softness!.min, c.softness!.max]).toEqual([0, 1]);
+  });
+
+  it("starts each slider at the recipe's own value", () => {
+    // staticmesh-2c: mixing 0.85, no grain; grain-2: softness 0.67.
+    const mesh = startEdit(recipe("staticmesh-2c"));
+    expect([mesh.size, mesh.grain, mesh.softness]).toEqual([1, 0, 0.85]);
+    expect(startEdit(recipe("grain-2")).softness).toBe(0.67);
+  });
+
+  it("scales the recipe's scale by the size", () => {
+    // warp-1 is drawn at scale 0.8.
+    const warp = recipe("warp-1");
+    expect(applyEdit(warp, { ...startEdit(warp), size: 2 }).scale).toBe(1.6);
+    expect(applyEdit(warp, { ...startEdit(warp), size: 0.5 }).scale).toBe(0.4);
+  });
+
+  it("moves both of a mesh gradient's grain props with the grain, and the noise elsewhere", () => {
+    const mesh = recipe("mesh-4c");
+    const grained = applyEdit(mesh, { ...startEdit(mesh), grain: 0.4 });
+    expect([grained.grainMixer, grained.grainOverlay]).toEqual([0.4, 0.4]);
+    expect({ ...grained, grainMixer: 0, grainOverlay: 0 }).toEqual(mesh);
+    const grain = recipe("grain-1");
+    expect(applyEdit(grain, { ...startEdit(grain), grain: 0.3 }).noise).toBe(0.3);
+    const swirl = recipe("swirl-1");
+    expect(applyEdit(swirl, { ...startEdit(swirl), grain: 0.3 }).noise).toBe(0.3);
+  });
+
+  it("moves softness where the shader has it, and mixing where it has that instead", () => {
+    const warp = recipe("warp-1");
+    expect(applyEdit(warp, { ...startEdit(warp), softness: 0.6 }).softness).toBe(0.6);
+    const mesh = recipe("staticmesh-2c");
+    const drawn = applyEdit(mesh, { ...startEdit(mesh), softness: 0.2 });
+    expect(drawn.mixing).toBe(0.2);
+    expect(drawn).not.toHaveProperty("softness");
+  });
+
+  it("draws nothing different for a slider the shader lacks", () => {
+    const dither = recipe("dithering-1");
+    expect(applyEdit(dither, { ...startEdit(dither), grain: 0.5, softness: 0.5 })).toBe(dither);
+    const mesh = recipe("mesh-4c");
+    expect(isEdited(mesh, { ...startEdit(mesh), softness: 0.5 })).toBe(false);
+  });
+
+  it("counts a slider moved back to the recipe's value as unedited", () => {
+    const mesh = recipe("staticradial-1");
+    const start = startEdit(mesh);
+    for (const moved of [{ size: 1.5 }, { grain: 0.2 }, { softness: 0.1 }]) {
+      expect(isEdited(mesh, { ...start, ...moved })).toBe(true);
+    }
+    // Back by hand to the recipe's mixing 0.775, grain 0 and size 1.
+    expect(isEdited(mesh, { ...start, size: 1, grain: 0, softness: 0.775 })).toBe(false);
+  });
+
   it("adds an opaque colour after a transparent one, since the picker has no transparency", () => {
     // solar's last colour is #fc620366.
     const solar = recipe("solar");

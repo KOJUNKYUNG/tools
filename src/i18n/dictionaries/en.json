@@ -224,6 +224,9 @@
         "recipeEdit": {
           "heading": "Edit",
           "hue": "Colour family",
+          "size": "Size",
+          "grain": "Grain",
+          "softness": "Softness",
           "colours": "Colours",
           "colourTemplate": "Colour {n}",
           "addColour": "Add a colour",
