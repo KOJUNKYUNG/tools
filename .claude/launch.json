@@ -4,25 +4,19 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "dev"
-      ],
+      "runtimeArgs": ["dev"],
       "port": 3000
     },
     {
       "name": "measure-ppt-ratios",
       "runtimeExecutable": "node",
-      "runtimeArgs": [
-        "scripts/measure-ppt-ratios/serve.mjs"
-      ],
+      "runtimeArgs": ["scripts/measure-ppt-ratios/serve.mjs"],
       "port": 4310
     },
     {
       "name": "gallery-lab",
       "runtimeExecutable": "node",
-      "runtimeArgs": [
-        "scripts/gallery/lab.mjs"
-      ],
+      "runtimeArgs": ["scripts/gallery/lab.mjs"],
       "port": 4320
     }
   ]

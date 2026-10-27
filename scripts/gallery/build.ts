@@ -34,9 +34,8 @@ const ORIGINAL = { quality: 90, mozjpeg: true } as const;
 const THUMB = { width: 480, height: 270, quality: 75 } as const;
 
 function sourceFor(img: GalleryImage): string | null {
-  const name = img.url.split("/").pop()!.replace(/\.[^.]+$/, "");
   for (const ext of SOURCE_EXTS) {
-    const p = join(SOURCES, img.category, `${name}.${ext}`);
+    const p = join(SOURCES, img.category, `${img.name}.${ext}`);
     if (existsSync(p)) return p;
   }
   return null;
@@ -85,13 +84,14 @@ async function build(img: GalleryImage): Promise<string> {
     return "metadata stripped (no source)";
   }
   const meta = await open(source).metadata();
-  const [w, h] = meta.orientation && meta.orientation >= 5 ? [meta.height!, meta.width!] : [meta.width!, meta.height!];
+  if (!meta.width || !meta.height) throw new Error("source has no pixel size");
+  const [w, h] = meta.orientation && meta.orientation >= 5 ? [meta.height, meta.width] : [meta.width, meta.height];
   if (w < img.width || h < img.height) {
     throw new Error(`source is ${w} × ${h}, smaller than ${img.width} × ${img.height}; never enlarged`);
   }
   // sharp converts to sRGB and drops all metadata unless told to keep it.
   const resized = open(source).rotate().resize(img.width, img.height, { fit: "cover", position: "attention" });
-  const original = await (img.url.endsWith(".png") ? resized.png({ compressionLevel: 9 }) : resized.jpeg(ORIGINAL)).toBuffer();
+  const original = await (img.format === "png" ? resized.png({ compressionLevel: 9 }) : resized.jpeg(ORIGINAL)).toBuffer();
   await mkdir(dirname(out), { recursive: true });
   await writeFile(out, original);
   await writeThumbnail(original, img);
@@ -107,7 +107,7 @@ for (const img of GALLERY_IMAGES) {
     console.log(`${img.id.padEnd(24)} ${kb.toFixed(0).padStart(4)} KB  ${how}`);
   } catch (e) {
     failed++;
-    console.error(`${img.id.padEnd(24)} FAILED: ${(e as Error).message}`);
+    console.error(`${img.id.padEnd(24)} FAILED: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 await writeFile(join(PUBLIC, "gallery", "CREDITS.md"), renderCredits(GALLERY_IMAGES));

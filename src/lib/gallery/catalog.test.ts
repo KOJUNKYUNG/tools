@@ -11,11 +11,9 @@ import type { GalleryCategory } from "./types";
 const publicDir = path.resolve(__dirname, "../../../public");
 const onDisk = (url: string) => path.join(publicDir, url);
 
-/** Gradients made before the gallery spec, kept at the size they were made. */
-const LEGACY = new Set(["gradient-green", "gradient-red", "gradient-yellow"]);
-
-/** Photos whose source is under 4K at 16:9; kept at the source's size, never enlarged. */
-const SMALLER_SOURCE = new Set(["nature-dordogne-meadow", "texture-grey-concrete"]);
+const recipes: { name: string; category?: string }[] = JSON.parse(
+  readFileSync(path.resolve(__dirname, "../../../scripts/gallery/shaders.json"), "utf8"),
+);
 
 const KB = 1024;
 /**
@@ -33,14 +31,17 @@ const BUDGET: Record<GalleryCategory, number> = {
 describe("gallery catalog", () => {
   it.each(GALLERY_IMAGES.map((img) => [img.id, img] as const))(
     "%s: the original is on disk at its declared 16:9 size, 4K unless its source is smaller",
-    async (id, img) => {
+    async (_, img) => {
       expect(existsSync(onDisk(img.url))).toBe(true);
       const meta = await sharp(onDisk(img.url)).metadata();
       expect([meta.width, meta.height]).toEqual([img.width, img.height]);
       expect(img.width * 9).toBe(img.height * 16);
-      if (LEGACY.has(id)) expect(img.width).toBe(1920);
-      else if (!SMALLER_SOURCE.has(id)) expect(img.width).toBe(3840);
+      // Own pictures predate the gallery spec and stay at the size they were
+      // made; Paper renders at 4K; a photo is 4K unless its source is smaller.
+      if (img.source.kind === "own") expect(img.width).toBe(1920);
+      else if (img.source.kind === "paper") expect(img.width).toBe(3840);
       else expect(img.width).toBeGreaterThanOrEqual(2560);
+      expect(img.width).toBeLessThanOrEqual(3840);
     },
   );
 
@@ -50,7 +51,8 @@ describe("gallery catalog", () => {
       const file = onDisk(img.url);
       expect(statSync(file).size).toBeLessThanOrEqual(BUDGET[img.category]);
       const meta = await sharp(file).metadata();
-      expect(meta.format).toBe(img.url.endsWith(".png") ? "png" : "jpeg");
+      expect(meta.format).toBe(img.format);
+      expect(meta.space).toBe("srgb");
       expect(meta.exif).toBeUndefined();
       expect(meta.icc).toBeUndefined();
       expect(meta.xmp).toBeUndefined();
@@ -68,6 +70,12 @@ describe("gallery catalog", () => {
       expect(statSync(file).size).toBeLessThanOrEqual(40 * KB);
     },
   );
+
+  it("every Paper-drawn image has the recipe of the same name, and every recipe is in the gallery", () => {
+    const drawn = GALLERY_IMAGES.filter((img) => img.source.kind === "paper").map((img) => `${img.category}/${img.name}`);
+    const recipeKeys = recipes.map((r) => `${r.category ?? "gradient"}/${r.name}`);
+    expect(drawn.sort()).toEqual(recipeKeys.sort());
+  });
 
   it("CREDITS.md is the one the catalog writes, listing every CC0 original", () => {
     const credits = readFileSync(path.join(publicDir, "gallery", "CREDITS.md"), "utf8");

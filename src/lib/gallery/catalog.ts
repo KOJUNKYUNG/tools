@@ -11,6 +11,7 @@ import type { GalleryCategory, GalleryImage, GallerySource } from "./types";
  */
 
 const OWN: GallerySource = { kind: "own" };
+const PAPER: GallerySource = { kind: "paper" };
 
 function cc0(url: string, author: string): GallerySource {
   return { kind: "cc0", url, author, license: "CC0 1.0", retrieved: "2026-10-26" };
@@ -19,13 +20,15 @@ function cc0(url: string, author: string): GallerySource {
 function image(
   category: GalleryCategory,
   name: string,
-  fields: { ext?: "jpg" | "png"; width?: number; height?: number; source: GallerySource; tags?: string[] },
+  fields: { format?: "jpeg" | "png"; width?: number; height?: number; source: GallerySource },
 ): GalleryImage {
-  const { ext = "jpg", width = 3840, height = 2160, ...rest } = fields;
+  const { format = "jpeg", width = 3840, height = 2160, ...rest } = fields;
   return {
     id: `${category}-${name}`,
     category,
-    url: `/gallery/${category}/${name}.${ext}`,
+    name,
+    format,
+    url: `/gallery/${category}/${name}.${format === "png" ? "png" : "jpg"}`,
     thumbnailUrl: `/gallery/${category}/${name}-thumb.jpg`,
     width,
     height,
@@ -43,30 +46,30 @@ function image(
 const LEGACY_SIZE = { width: 1920, height: 1080 };
 
 /** Pixel art: lossless PNG is both exact and smaller than JPEG here. */
-const PNG = { ext: "png" } as const;
+const PNG = { format: "png" } as const;
 
 const COMMONS = "https://commons.wikimedia.org/wiki/File:";
 
 export const GALLERY_IMAGES: GalleryImage[] = [
   // ── gradient ────────────────────────────────────────────────
-  image("gradient", "green", { ...LEGACY_SIZE, source: OWN, tags: ["soft", "blue", "green"] }),
-  image("gradient", "red", { ...LEGACY_SIZE, source: OWN, tags: ["warm", "red"] }),
-  image("gradient", "yellow", { ...LEGACY_SIZE, source: OWN, tags: ["warm", "yellow"] }),
-  image("gradient", "mesh-3c", { source: OWN }),
-  image("gradient", "mesh-4c", { source: OWN }),
-  image("gradient", "staticmesh-4c", { source: OWN }),
-  image("gradient", "staticmesh-5c", { source: OWN }),
-  image("gradient", "staticmesh-2c", { source: OWN }),
-  image("gradient", "staticradial-1", { source: OWN }),
-  image("gradient", "staticradial-2", { source: OWN }),
-  image("gradient", "godrays", { source: OWN }),
-  image("gradient", "warp-2", { source: OWN }),
-  image("gradient", "grain-2", { source: OWN }),
-  image("gradient", "simplex", { source: OWN }),
-  image("gradient", "cloud", { source: OWN }),
-  image("gradient", "solar", { source: OWN }),
-  image("gradient", "spiral-1", { source: OWN }),
-  image("gradient", "spiral-2", { source: OWN }),
+  image("gradient", "green", { ...LEGACY_SIZE, source: OWN }),
+  image("gradient", "red", { ...LEGACY_SIZE, source: OWN }),
+  image("gradient", "yellow", { ...LEGACY_SIZE, source: OWN }),
+  image("gradient", "mesh-3c", { source: PAPER }),
+  image("gradient", "mesh-4c", { source: PAPER }),
+  image("gradient", "staticmesh-4c", { source: PAPER }),
+  image("gradient", "staticmesh-5c", { source: PAPER }),
+  image("gradient", "staticmesh-2c", { source: PAPER }),
+  image("gradient", "staticradial-1", { source: PAPER }),
+  image("gradient", "staticradial-2", { source: PAPER }),
+  image("gradient", "godrays", { source: PAPER }),
+  image("gradient", "warp-2", { source: PAPER }),
+  image("gradient", "grain-2", { source: PAPER }),
+  image("gradient", "simplex", { source: PAPER }),
+  image("gradient", "cloud", { source: PAPER }),
+  image("gradient", "solar", { source: PAPER }),
+  image("gradient", "spiral-1", { source: PAPER }),
+  image("gradient", "spiral-2", { source: PAPER }),
 
   // ── nature ──────────────────────────────────────────────────
   image("nature", "kosciuszko-ridge", { source: cc0(`${COMMONS}Main_Range_Track,_Kosciuszko_National_Park_35.jpg`, "Dhx1") }),
@@ -98,20 +101,20 @@ export const GALLERY_IMAGES: GalleryImage[] = [
   }),
 
   // ── pattern ─────────────────────────────────────────────────
-  image("pattern", "dithering-1", { ...PNG, source: OWN }),
-  image("pattern", "dithering-2", { ...PNG, source: OWN }),
-  image("pattern", "warp-1", { source: OWN }),
-  image("pattern", "warp-3", { source: OWN }),
-  image("pattern", "grain-1", { source: OWN }),
-  image("pattern", "voronoi-1", { source: OWN }),
-  image("pattern", "voronoi-2", { source: OWN }),
-  image("pattern", "waves-1", { source: OWN }),
-  image("pattern", "waves-2", { source: OWN }),
-  image("pattern", "dot-1", { ...PNG, source: OWN }),
-  image("pattern", "dot-2", { source: OWN }),
-  image("pattern", "dot-3", { source: OWN }),
-  image("pattern", "perlin-1", { source: OWN }),
-  image("pattern", "perlin-2", { source: OWN }),
-  image("pattern", "swirl-1", { source: OWN }),
-  image("pattern", "swirl-2", { source: OWN }),
+  image("pattern", "dithering-1", { ...PNG, source: PAPER }),
+  image("pattern", "dithering-2", { ...PNG, source: PAPER }),
+  image("pattern", "warp-1", { source: PAPER }),
+  image("pattern", "warp-3", { source: PAPER }),
+  image("pattern", "grain-1", { source: PAPER }),
+  image("pattern", "voronoi-1", { source: PAPER }),
+  image("pattern", "voronoi-2", { source: PAPER }),
+  image("pattern", "waves-1", { source: PAPER }),
+  image("pattern", "waves-2", { source: PAPER }),
+  image("pattern", "dot-1", { ...PNG, source: PAPER }),
+  image("pattern", "dot-2", { source: PAPER }),
+  image("pattern", "dot-3", { source: PAPER }),
+  image("pattern", "perlin-1", { source: PAPER }),
+  image("pattern", "perlin-2", { source: PAPER }),
+  image("pattern", "swirl-1", { source: PAPER }),
+  image("pattern", "swirl-2", { source: PAPER }),
 ];

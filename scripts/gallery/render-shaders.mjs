@@ -16,7 +16,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { openHeadless } from "../lib/headlessChrome.mjs";
+import { openHeadless, waitFor } from "../lib/headlessChrome.mjs";
 import { startGalleryServer } from "./server.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -39,9 +39,7 @@ const chrome = await openHeadless(server.origin, [
 ]);
 let failed = 0;
 try {
-  for (let i = 0; i < 100 && !(await chrome.evaluate("window.ready === true")); i++) {
-    await new Promise((r) => setTimeout(r, 100));
-  }
+  await waitFor(() => chrome.evaluate("window.ready === true"), "the render page");
   for (const spec of specs) {
     try {
       const dataUrl = await chrome.evaluate(`window.render(${JSON.stringify(spec)}, ${pixelRatio})`);
