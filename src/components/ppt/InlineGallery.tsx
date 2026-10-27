@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckIcon, ChevronDownIcon, GalleryHorizontalEndIcon } from "lucide-react";
+import { ChevronDownIcon, GalleryHorizontalEndIcon } from "lucide-react";
+import { selectedTileBorder, TileSelectionMark } from "./TileSelectionMark";
 import { GALLERY_IMAGES } from "@/lib/gallery/catalog";
 import {
   GALLERY_CATEGORIES,
@@ -164,10 +165,8 @@ export function InlineGallery({
                     className="group relative overflow-hidden rounded-[6px] border text-left transition-colors"
                     style={{
                       background: "var(--surface-2)",
-                      borderColor: "var(--border)",
+                      borderColor: isSelected ? selectedTileBorder : "var(--border)",
                       borderWidth: 1,
-                      outline: isSelected ? "2px solid var(--emphasis)" : undefined,
-                      outlineOffset: isSelected ? "-2px" : undefined,
                     }}
                   >
                     <div className="relative aspect-video overflow-hidden">
@@ -179,14 +178,6 @@ export function InlineGallery({
                         alt={labels.titles[img.id]}
                         className="size-full object-cover"
                       />
-                      {isSelected && (
-                        <div
-                          className="absolute right-1.5 top-1.5 flex size-5 items-center justify-center rounded-full"
-                          style={{ background: "var(--emphasis)", color: "var(--surface)" }}
-                        >
-                          <CheckIcon className="size-3" />
-                        </div>
-                      )}
                     </div>
                     <div className="px-2 py-1.5">
                       <p
@@ -196,6 +187,7 @@ export function InlineGallery({
                         {labels.titles[img.id]}
                       </p>
                     </div>
+                    {isSelected && <TileSelectionMark />}
                   </button>
                 );
               })}

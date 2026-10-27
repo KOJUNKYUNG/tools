@@ -1,23 +1,28 @@
 "use client";
 
-import { CheckIcon, PipetteIcon } from "lucide-react";
+import { PipetteIcon } from "lucide-react";
+import { selectedTileBorder, TileSelectionMark } from "@/components/ppt/TileSelectionMark";
 import type { NewBackground } from "@/lib/ppt/changeBackground";
 
 /** A background that is not a picture: a solid colour, or none (the theme's). */
 export type FillBackground = Exclude<NewBackground, { kind: "picture" }>;
 
-/** The preset colours, in grid order. [임시] list: the user settles it. */
+/**
+ * The preset colours, in grid order: white through the light colours, then
+ * the dark colours, the most saturated first, down to black. [임시] list: the
+ * user settles it.
+ */
 export const SOLID_PRESETS = [
-  { id: "black", rgb: "000000" },
   { id: "white", rgb: "FFFFFF" },
-  { id: "navy", rgb: "1F2A44" },
-  { id: "charcoal", rgb: "3A3A3A" },
-  { id: "lightGrey", rgb: "E7E6E6" },
   { id: "ivory", rgb: "F5F0E6" },
-  { id: "wine", rgb: "6B1E2E" },
-  { id: "forest", rgb: "1E4D3A" },
+  { id: "lightGrey", rgb: "E7E6E6" },
   { id: "skyBlue", rgb: "DCEAF7" },
   { id: "blush", rgb: "F6E1E1" },
+  { id: "wine", rgb: "6B1E2E" },
+  { id: "forest", rgb: "1E4D3A" },
+  { id: "navy", rgb: "1F2A44" },
+  { id: "charcoal", rgb: "3A3A3A" },
+  { id: "black", rgb: "000000" },
 ] as const;
 
 export type SolidPresetId = (typeof SOLID_PRESETS)[number]["id"];
@@ -43,7 +48,7 @@ interface SolidColourGridProps {
 }
 
 /**
- * The "단색" tab: "no background", the preset colours, then a free pick. A
+ * The "단색" tab: a free pick, "no background", then the preset colours. A
  * pick applies as is (no crop step). Tiles share the gallery's grid, size and
  * selection marks, so switching tabs never resizes the pane.
  */
@@ -65,24 +70,6 @@ export function SolidColourGrid({
       style={{ gridAutoRows: "min-content", alignContent: "start" }}
     >
       <Tile
-        label={labels.none}
-        title={labels.noneHint}
-        colour={themeBackground ?? "#ffffff"}
-        selected={value?.kind === "none"}
-        disabled={locked}
-        onClick={() => onSelect({ kind: "none" })}
-      />
-      {SOLID_PRESETS.map((p) => (
-        <Tile
-          key={p.id}
-          label={labels.colours[p.id]}
-          colour={`#${p.rgb}`}
-          selected={selectedRgb === p.rgb}
-          disabled={locked}
-          onClick={() => onSelect({ kind: "colour", rgb: p.rgb })}
-        />
-      ))}
-      <Tile
         label={labels.custom}
         colour={custom ? `#${custom}` : null}
         selected={selectedRgb !== null && !presetSelected}
@@ -99,6 +86,25 @@ export function SolidColourGrid({
           },
         }}
       />
+      <Tile
+        label={labels.none}
+        title={labels.noneHint}
+        colour={themeBackground ?? "#ffffff"}
+        none
+        selected={value?.kind === "none"}
+        disabled={locked}
+        onClick={() => onSelect({ kind: "none" })}
+      />
+      {SOLID_PRESETS.map((p) => (
+        <Tile
+          key={p.id}
+          label={labels.colours[p.id]}
+          colour={`#${p.rgb}`}
+          selected={selectedRgb === p.rgb}
+          disabled={locked}
+          onClick={() => onSelect({ kind: "colour", rgb: p.rgb })}
+        />
+      ))}
     </div>
   );
 }
@@ -107,6 +113,7 @@ function Tile({
   label,
   title,
   colour,
+  none = false,
   selected,
   disabled,
   onClick,
@@ -114,8 +121,10 @@ function Tile({
 }: {
   label: string;
   title?: string;
-  /** The swatch's CSS colour; null shows the picker glyph. */
+  /** The swatch's CSS colour (`#rrggbb`); null shows the picker glyph. */
   colour: string | null;
+  /** Crosses the swatch with a slash, Office's mark for "no fill". */
+  none?: boolean;
   selected: boolean;
   disabled: boolean;
   onClick: () => void;
@@ -124,36 +133,36 @@ function Tile({
 }) {
   const body = (
     <>
-      <div className="relative aspect-video overflow-hidden">
+      {/* A hairline under the swatch keeps a light colour, or the empty
+          picker well, apart from the caption. */}
+      <div className="relative aspect-video overflow-hidden border-b" style={{ borderColor: "var(--border)" }}>
         <div
           className="flex size-full items-center justify-center"
-          style={{ background: colour ?? "var(--surface-2)", color: "var(--ink-soft)" }}
+          style={{
+            background: colour
+              ? none
+                ? `${slash(colour)}, ${colour}`
+                : colour
+              : "var(--surface-2)",
+            color: "var(--ink-soft)",
+          }}
         >
           {colour === null && <PipetteIcon className="size-4" aria-hidden="true" />}
         </div>
-        {selected && (
-          <div
-            className="absolute right-1.5 top-1.5 flex size-5 items-center justify-center rounded-full"
-            style={{ background: "var(--emphasis)", color: "var(--surface)" }}
-          >
-            <CheckIcon className="size-3" />
-          </div>
-        )}
       </div>
       <div className="px-2 py-1.5">
         <p className="truncate font-body text-[11px] font-medium" style={{ color: "var(--ink-strong)" }}>
           {label}
         </p>
       </div>
+      {selected && <TileSelectionMark />}
     </>
   );
   const className = "group relative overflow-hidden rounded-[6px] border text-left transition-colors disabled:cursor-default";
   const style = {
     background: "var(--surface-2)",
-    borderColor: "var(--border)",
+    borderColor: selected ? selectedTileBorder : "var(--border)",
     borderWidth: 1,
-    outline: selected ? "2px solid var(--emphasis)" : undefined,
-    outlineOffset: selected ? "-2px" : undefined,
   };
 
   if (picker) {
@@ -185,4 +194,11 @@ function Tile({
       {body}
     </button>
   );
+}
+
+/** A thin diagonal line across the swatch, dark on a light colour and light on a dark one. */
+function slash(hex: string): string {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const ink = 0.299 * r + 0.587 * g + 0.114 * b > 140 ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.55)";
+  return `linear-gradient(to top right, transparent calc(50% - 0.75px), ${ink} calc(50% - 0.75px), ${ink} calc(50% + 0.75px), transparent calc(50% + 0.75px))`;
 }
