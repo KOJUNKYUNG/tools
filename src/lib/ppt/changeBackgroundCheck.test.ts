@@ -2,7 +2,7 @@ import { resolveObjectURL } from "node:buffer";
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
-import { maxFitCrop } from "@/lib/image/maxFitCrop";
+import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import { headerOnlyImage, standInPrepare } from "@/lib/image/slideImageStandIn";
 import { testPng } from "@/lib/image/testPng";
 import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
@@ -47,16 +47,21 @@ async function syntheticDeck(portrait = false): Promise<Uint8Array> {
   return (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
 }
 
-/** What the user asks for; the engine adds the prepared picture. */
-type Intent = Omit<PptBackgroundRequest, "background">;
+/** What the user asks for: a picture; the engine adds the prepared one. */
+type Intent = Omit<PptBackgroundRequest, "background"> & { source: Uint8Array; crop?: CropRect };
+
+/** The request claiming `prepared` was embedded for `intent`. */
+const requestOf = ({ source, crop, ...rest }: Intent, prepared: Uint8Array): PptBackgroundRequest => ({
+  ...rest,
+  background: { kind: "picture", source, crop, prepared },
+});
 
 async function apply(deck: Uint8Array, intent: Intent): Promise<Uint8Array> {
   return changeBackground({
     pptxFile: new File([new Uint8Array(deck)], "deck.pptx"),
-    bgImage: new File([new Uint8Array(intent.source)], "bg.png"),
+    background: { kind: "picture", file: new File([new Uint8Array(intent.source)], "bg.png"), crop: intent.crop },
     mode: intent.mode,
     targetSlides: intent.targetSlides,
-    crop: intent.crop,
     keptCovering: intent.keptCovering,
     prepare: standInPrepare,
   });
@@ -73,7 +78,7 @@ async function requestFor(intent: Intent): Promise<PptBackgroundRequest> {
   const [w, h] = displayedSize(readImageHeader(intent.source)!);
   const crop = intent.crop ?? maxFitCrop({ w, h }, SLIDE.w, SLIDE.h);
   const { bytes } = await standInPrepare(new Blob([new Uint8Array(intent.source)]), crop, SLIDE);
-  return { ...intent, background: bytes };
+  return requestOf(intent, bytes);
 }
 
 /**
@@ -378,7 +383,7 @@ describe("checkPptBackground checks the prepared picture", () => {
       const media = Object.keys(zip.files).find((p) => p.includes("background_custom"))!;
       zip.file(media, prepared);
     });
-    const request: PptBackgroundRequest = { ...intent, background: prepared };
+    const request = requestOf(intent, prepared);
     const violations = await checkPptBackground(input, request, output, "quick");
     return violations.map((v) => v.property);
   }

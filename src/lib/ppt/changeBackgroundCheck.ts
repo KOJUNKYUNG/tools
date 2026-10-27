@@ -19,13 +19,19 @@ import { animationTargets } from "./slideAnimations";
 import { packagePartReader, slideColours, type ColoursOf } from "./slideColours";
 import { parseXml, type XmlElement } from "./xmlTree";
 
-export interface PptBackgroundRequest {
+/** The background the user asked for, as the checker re-derives it. */
+export type RequestedBackground = {
+  kind: "picture";
   /** The picture the user picked, as uploaded. */
   source: Uint8Array;
   /** The Background crop in the source's upright pixels; absent = centred, as large as possible. */
   crop?: CropRect;
   /** The prepared picture the engine embedded. */
-  background: Uint8Array;
+  prepared: Uint8Array;
+};
+
+export interface PptBackgroundRequest {
+  background: RequestedBackground;
   mode: BgMode;
   /** 1-based slide indices, for `specific-slides`. */
   targetSlides?: number[];
@@ -107,7 +113,7 @@ export const checkPptBackground: OutputChecker<
   if (!after) return [{ property: "zip", detail: "output is not a readable zip" }];
   if (!before) return [];
 
-  const violations: Violation[] = await preparationViolations(before, request);
+  const violations: Violation[] = await preparationViolations(before, request.background);
 
   const defects = await after.structuralDefects(before);
   if (defects.length > 0) {
@@ -135,7 +141,7 @@ export const checkPptBackground: OutputChecker<
   for (const part of targets) {
     const media = backgrounds.get(part) ?? null;
     if (media !== null && !isNewImage.has(media)) {
-      isNewImage.set(media, sameBytes(await after.read(media), request.background));
+      isNewImage.set(media, sameBytes(await after.read(media), request.background.prepared));
     }
     if (media === null || !isNewImage.get(media)) {
       violations.push({ property: "target-background", detail: part });
@@ -189,7 +195,7 @@ export const checkPptBackground: OutputChecker<
     // adds zip headers: 4 KiB plus 1% of the input covers both (real decks
     // land within +0.02%), while a replaced image left behind exceeds it.
     const margin = 4096 + input.byteLength / 100;
-    const bound = input.byteLength + request.background.byteLength - removed + margin;
+    const bound = input.byteLength + request.background.prepared.byteLength - removed + margin;
     if (output.byteLength > bound) {
       violations.push({
         property: "size-bound",
@@ -317,9 +323,9 @@ const ownId = (el: XmlElement): string | undefined => shapeIdsIn(el)[0];
 
 async function preparationViolations(
   before: PptxPackage,
-  request: PptBackgroundRequest,
+  request: RequestedBackground,
 ): Promise<Violation[]> {
-  const header = readImageHeader(request.background);
+  const header = readImageHeader(request.prepared);
   if (!header || header.format === "webp") {
     return [{ property: "background-format", detail: header ? header.format : "unreadable" }];
   }

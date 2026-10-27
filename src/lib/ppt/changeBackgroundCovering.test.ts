@@ -52,7 +52,7 @@ async function runOn(
 ): Promise<JSZip> {
   const output = await changeBackground({
     pptxFile: new File([new Uint8Array(deck)], "deck.pptx"),
-    bgImage: new File([new Uint8Array(PHOTO)], "photo.jpg"),
+    background: { kind: "picture", file: new File([new Uint8Array(PHOTO)], "photo.jpg") },
     mode,
     targetSlides,
     keptCovering,

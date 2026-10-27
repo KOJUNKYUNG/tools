@@ -205,13 +205,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     processor: (files, onProgress) =>
       changeBackground({
         pptxFile: files[0],
-        bgImage: bgFile!,
+        background: { kind: "picture", file: bgFile!, crop: crop ?? undefined },
         mode,
         targetSlides:
           mode === "specific-slides"
             ? [...selectedSlides].sort((a, b) => a - b)
             : undefined,
-        crop: crop ?? undefined,
         keptCovering: [...keptCovering],
         onProgress,
       }),

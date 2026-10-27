@@ -66,9 +66,12 @@ async function run(
 ): Promise<JSZip> {
   const output = await changeBackground({
     pptxFile: new File([new Uint8Array(input)], "deck.pptx"),
-    bgImage: new File([new Uint8Array(options.image ?? PHOTO)], "photo.jpg"),
+    background: {
+      kind: "picture",
+      file: new File([new Uint8Array(options.image ?? PHOTO)], "photo.jpg"),
+      crop: options.crop,
+    },
     mode: "all-slides",
-    crop: options.crop,
     prepare: options.prepare ?? standInPrepare,
   });
   return JSZip.loadAsync(output);

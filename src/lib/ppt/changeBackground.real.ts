@@ -91,9 +91,12 @@ async function requests(
     await extractCurrentBackgrounds(new File([new Uint8Array(input)], "deck.pptx")),
   ).find((g) => g.source === "covering");
   const prepared = async (crop: CropRect, source = PHOTO) => ({
-    source,
-    crop,
-    background: (await standInPrepare(new Blob([new Uint8Array(source)]), crop, slide)).bytes,
+    background: {
+      kind: "picture" as const,
+      source,
+      crop,
+      prepared: (await standInPrepare(new Blob([new Uint8Array(source)]), crop, slide)).bytes,
+    },
   });
   return [
     {
@@ -134,10 +137,13 @@ realFileSuite({
   run: (input, request, fileName) =>
     changeBackground({
       pptxFile: new File([new Uint8Array(input)], fileName),
-      bgImage: new File([new Uint8Array(request.source)], "photo.png"),
+      background: {
+        kind: "picture",
+        file: new File([new Uint8Array(request.background.source)], "photo.png"),
+        crop: request.background.crop,
+      },
       mode: request.mode,
       targetSlides: request.targetSlides,
-      crop: request.crop,
       keptCovering: request.keptCovering,
       prepare: standInPrepare,
     }),

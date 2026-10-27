@@ -20,14 +20,21 @@ import { slideColours, zipPartReader, type ColoursOf } from "./slideColours";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
 
+/** The background the user picked. */
+export type NewBackground =
+  | {
+      kind: "picture";
+      file: File;
+      /** The Background crop, in the picture's upright pixels; centred and as large as possible when absent. */
+      crop?: CropRect;
+    };
+
 export interface ChangeBackgroundOptions {
   pptxFile: File;
-  bgImage: File;
+  background: NewBackground;
   mode: BgMode;
   /** 1-based slide indices. Required when mode === "specific-slides". */
   targetSlides?: number[];
-  /** The Background crop, in the picture's upright pixels; centred and as large as possible when absent. */
-  crop?: CropRect;
   /** Keys of the covering-background groups the user keeps (`coveringGroupKey`); none by default. */
   keptCovering?: readonly string[];
   onProgress?: (pct: number) => void;
@@ -450,10 +457,9 @@ async function getSlideSize(zip: JSZip): Promise<SlideSize> {
 
 export async function changeBackground({
   pptxFile,
-  bgImage,
+  background,
   mode,
   targetSlides,
-  crop,
   keptCovering = [],
   onProgress,
   prepare = prepareSlideImage,
@@ -462,13 +468,14 @@ export async function changeBackground({
   const arrayBuffer = await pptxFile.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
 
+  const { file, crop } = background;
   const [imgSize, slideSize] = await Promise.all([
-    loadImageSize(bgImage),
+    loadImageSize(file),
     getSlideSize(zip),
   ]);
-  const source = new Uint8Array(await bgImage.arrayBuffer());
+  const source = new Uint8Array(await file.arrayBuffer());
   const prepared = await prepare(
-    bgImage,
+    file,
     crop ?? maxFitCrop(imgSize, slideSize.w, slideSize.h),
     slideSize,
   );
@@ -544,9 +551,7 @@ export async function changeBackground({
       checkPptBackground(
         input,
         {
-          source,
-          crop,
-          background: prepared.bytes,
+          background: { kind: "picture", source, crop, prepared: prepared.bytes },
           mode,
           targetSlides,
           keptCovering,
