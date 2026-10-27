@@ -6,7 +6,7 @@ import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
 import { GALLERY_IMAGES } from "./catalog";
 import { renderCredits } from "./credits";
-import { isColourProp } from "./recipeEdit";
+import { controlsFor, isColourProp } from "./recipeEdit";
 import { paperRecipe } from "./recipes";
 import type { GalleryCategory } from "./types";
 
@@ -18,7 +18,7 @@ const recipes: { name: string; category?: string }[] = JSON.parse(
 );
 
 /** Paper's prop → uniform table (`scripts/gallery/extract-paper-props.mjs`). */
-const paperProps: { shaders: Record<string, { props: Record<string, { kind: string }> }> } = JSON.parse(
+const paperProps: { shaders: Record<string, { props: Record<string, { kind: string; max?: number }> }> } = JSON.parse(
   readFileSync(path.resolve(__dirname, "../../../scripts/gallery/paper-props.json"), "utf8"),
 );
 
@@ -95,6 +95,15 @@ describe("gallery catalog", () => {
         const kind = table[prop]?.kind;
         expect(isColourProp(prop), `${img.id}.${prop}`).toBe(kind === "color" || kind === "colors");
       }
+    }
+  });
+
+  it("the colour list grows up to Paper's maximum for the shader, and never past 6", () => {
+    for (const img of GALLERY_IMAGES.filter((i) => i.source.kind === "paper")) {
+      const recipe = paperRecipe(img.name)!;
+      const list = paperProps.shaders[recipe.shader].props.colors;
+      const max = recipe.colors && list?.max ? Math.min(list.max, 6) : null;
+      expect(controlsFor(recipe).maxColours, img.id).toBe(max);
     }
   });
 

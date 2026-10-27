@@ -24,7 +24,18 @@ import type { CropRect } from "@/lib/image/maxFitCrop";
 import { belowFullHd } from "@/lib/image/slideImage";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
 import { paperRecipe } from "@/lib/gallery/recipes";
-import { applyEdit, controlsFor, isEdited, startEdit, type RecipeEdit } from "@/lib/gallery/recipeEdit";
+import {
+  addColour,
+  applyEdit,
+  canAddColour,
+  colourChips,
+  controlsFor,
+  isEdited,
+  removeColour,
+  setColour,
+  startEdit,
+  type RecipeEdit,
+} from "@/lib/gallery/recipeEdit";
 import { drawRecipeFile, webgl2Available } from "@/lib/gallery/drawRecipe";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
@@ -212,6 +223,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const editedProps = useMemo(
     () => (recipe && recipeEdit && isEdited(recipe, recipeEdit) ? applyEdit(recipe, recipeEdit) : null),
     [recipe, recipeEdit],
+  );
+  /** Change the edit from its latest state (a slider or colour picker reports many changes in a row). */
+  const changeEdit = useCallback(
+    (change: (edit: RecipeEdit) => RecipeEdit) => {
+      if (recipe) setEdit((prev) => change(prev ?? startEdit(recipe)));
+    },
+    [recipe],
   );
   const groupThumbUrlsRef = useRef(groupThumbUrls);
   groupThumbUrlsRef.current = groupThumbUrls;
@@ -704,7 +722,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                                 onOpenChange: setEditOpen,
                                 controls: controlsFor(recipe),
                                 edit: recipeEdit,
-                                onEdit: setEdit,
+                                onHueShift: (degrees) => changeEdit((e) => ({ ...e, hueShift: degrees })),
+                                chips: colourChips(recipe, recipeEdit),
+                                canAddColour: canAddColour(recipe, recipeEdit),
+                                onColour: (id, hex) => changeEdit((e) => setColour(recipe, e, id, hex)),
+                                onAddColour: () => changeEdit((e) => addColour(recipe, e)),
+                                onRemoveColour: (id) => changeEdit((e) => removeColour(recipe, e, id)),
                                 edited: !!editedProps,
                                 onReset: () => setEdit(null),
                                 locked: status !== "idle",

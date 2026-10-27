@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { applyEdit, controlsFor, isEdited, startEdit } from "./recipeEdit";
+import {
+  addColour,
+  applyEdit,
+  canAddColour,
+  colourChips,
+  controlsFor,
+  isEdited,
+  removeColour,
+  setColour,
+  startEdit,
+} from "./recipeEdit";
 import { paperRecipe, type PaperRecipe } from "./recipes";
 
 // Recipe props are `unknown` (any React prop); the casts below name the
@@ -110,6 +120,104 @@ describe("recipe edit", () => {
     expect(startEdit(mesh).hueShift).toBe(0);
   });
 
+  it("lists every recipe colour as a chip, single colours first, none removable", () => {
+    const rays = recipe("godrays");
+    expect(colourChips(rays, startEdit(rays))).toEqual([
+      { id: "colorBack", colour: rays.colorBack, added: false },
+      { id: "colorBloom", colour: "#ffffff", added: false },
+      { id: "colors.0", colour: "#a8a8a8", added: false },
+      { id: "colors.1", colour: "#a8a8a8", added: false },
+      { id: "colors.2", colour: "#a8a8a8", added: false },
+    ]);
+  });
+
+  it("changes only the chip's colour, and the hue shift then turns every chip", () => {
+    const mesh = recipe("staticmesh-4c");
+    const before = mesh.colors as string[];
+    const picked = setColour(mesh, startEdit(mesh), "colors.1", "#2a9d8f");
+    expect(applyEdit(mesh, picked).colors).toEqual([before[0], "#2a9d8f", before[2], before[3]]);
+    expect(isEdited(mesh, picked)).toBe(true);
+
+    const after = applyEdit(mesh, { ...picked, hueShift: 40 }).colors as string[];
+    [before[0], "#2a9d8f", before[2], before[3]].forEach((was, i) => {
+      expect(hueDistance(oklch(after[i]).h, oklch(was).h + 40)).toBeLessThan(2);
+    });
+  });
+
+  it("draws a colour picked under a hue shift exactly as picked, and turns it with later shifts", () => {
+    const mesh = recipe("mesh-4c");
+    const shifted = { ...startEdit(mesh), hueShift: 60 };
+    const picked = setColour(mesh, shifted, "colors.0", "#1e4d3a");
+    expect((applyEdit(mesh, picked).colors as string[])[0]).toBe("#1e4d3a");
+    expect(colourChips(mesh, picked)[0].colour).toBe("#1e4d3a");
+    const turned = (applyEdit(mesh, { ...picked, hueShift: 90 }).colors as string[])[0];
+    expect(hueDistance(oklch(turned).h, oklch("#1e4d3a").h + 30)).toBeLessThan(2);
+  });
+
+  it("changes a single-colour prop alone, keeping a colour's own transparency", () => {
+    const rays = recipe("godrays");
+    const drawn = applyEdit(rays, setColour(rays, startEdit(rays), "colorBack", "#102030"));
+    expect(drawn.colorBack).toBe("#102030");
+    expect({ ...drawn, colorBack: null }).toEqual({ ...rays, colorBack: null });
+    // solar's last colour is #fc620366: the picker gives six digits, the 40% stays.
+    const solar = recipe("solar");
+    const last = `colors.${(solar.colors as string[]).length - 1}`;
+    expect((applyEdit(solar, setColour(solar, startEdit(solar), last, "#00AAFF")).colors as string[]).at(-1)).toBe(
+      "#00aaff66",
+    );
+  });
+
+  it("counts a chip set back to the recipe's colour as unedited", () => {
+    const mesh = recipe("staticmesh-2c");
+    const own = (mesh.colors as string[])[0];
+    const moved = setColour(mesh, startEdit(mesh), "colors.0", "#000000");
+    expect(isEdited(mesh, setColour(mesh, moved, "colors.0", own))).toBe(false);
+  });
+
+  it("offers adding colours only where the shader takes a colour list, up to Paper's maximum or 6", () => {
+    // Paper's maxColorCount: static mesh 10, god rays 5; dithering has no list.
+    expect(controlsFor(recipe("staticmesh-2c")).maxColours).toBe(6);
+    expect(controlsFor(recipe("godrays")).maxColours).toBe(5);
+    expect(controlsFor(recipe("dithering-1")).maxColours).toBeNull();
+    const dither = recipe("dithering-1");
+    expect(canAddColour(dither, startEdit(dither))).toBe(false);
+  });
+
+  it("appends an added colour, starting as the last colour drawn, until the list is full", () => {
+    const mesh = recipe("staticmesh-2c");
+    const own = mesh.colors as string[];
+    let edit = { ...startEdit(mesh), hueShift: 30 };
+    const lastDrawn = colourChips(mesh, edit).at(-1)!.colour;
+    edit = addColour(mesh, edit);
+    expect(colourChips(mesh, edit).at(-1)).toEqual({ id: "colors.2", colour: lastDrawn, added: true });
+    expect(isEdited(mesh, edit)).toBe(true);
+
+    edit = setColour(mesh, { ...edit, hueShift: 0 }, "colors.2", "#e9c46a");
+    expect(applyEdit(mesh, edit).colors).toEqual([...own, "#e9c46a"]);
+
+    // 2 own + 4 added = 6: "+" goes, and adding more does nothing.
+    for (let i = 0; i < 3; i++) edit = addColour(mesh, edit);
+    expect(applyEdit(mesh, edit).colors).toHaveLength(6);
+    expect(canAddColour(mesh, edit)).toBe(false);
+    expect(addColour(mesh, edit)).toEqual(edit);
+  });
+
+  it("removes only added colours, so the list never drops below the recipe's", () => {
+    const mesh = recipe("staticmesh-2c");
+    const own = mesh.colors as string[];
+    let edit = addColour(mesh, startEdit(mesh));
+    edit = setColour(mesh, edit, "colors.2", "#111111");
+    edit = addColour(mesh, edit);
+    edit = setColour(mesh, edit, "colors.3", "#222222");
+
+    expect(removeColour(mesh, edit, "colors.0")).toEqual(edit);
+    edit = removeColour(mesh, edit, "colors.2");
+    expect(applyEdit(mesh, edit).colors).toEqual([...own, "#222222"]);
+    edit = removeColour(mesh, edit, "colors.2");
+    expect(isEdited(mesh, edit)).toBe(false);
+    expect(colourChips(mesh, edit).every((c) => !c.added)).toBe(true);
+  });
+
   it("counts as edited only while the edit draws something other than the recipe", () => {
     const mesh = recipe("mesh-4c");
     const untouched = startEdit(mesh);
@@ -119,6 +227,16 @@ describe("recipe edit", () => {
     // Moved back to 0 by hand, or reset with 원래대로.
     expect(isEdited(mesh, { ...moved, hueShift: 0 })).toBe(false);
     expect(isEdited(mesh, startEdit(mesh))).toBe(false);
+    // A chip change and an added colour are edits; 원래대로 starts over.
+    const coloured = addColour(mesh, setColour(mesh, untouched, "colors.0", "#123456"));
+    expect(isEdited(mesh, coloured)).toBe(true);
+    expect(isEdited(mesh, startEdit(mesh))).toBe(false);
+  });
+
+  it("adds an opaque colour after a transparent one, since the picker has no transparency", () => {
+    // solar's last colour is #fc620366.
+    const solar = recipe("solar");
+    expect(colourChips(solar, addColour(solar, startEdit(solar))).at(-1)!.colour).toBe("#fc6203");
   });
 });
 
