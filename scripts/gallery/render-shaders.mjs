@@ -9,7 +9,7 @@
 // mean the same here. The still is drawn at 1280 × 720 CSS px at 2× (2560 × 1440)
 // by paper-still.js; `frame` fixes the moment of an animated shader.
 //
-// Run: pnpm gallery:shaders [--only=name,name] [--out=dir] [--specs=file.json]
+// Run: pnpm gallery:shaders [--only=name,name] [--out=dir] [--specs=file.json] [--pixel-ratio=2]
 // Needs Chrome (CHROME_PATH overrides); WebGL runs on SwiftShader headless.
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -21,6 +21,7 @@ import { startGalleryServer } from "./server.mjs";
 const here = fileURLToPath(new URL(".", import.meta.url));
 const args = Object.fromEntries(process.argv.slice(2).map((a) => a.replace(/^--/, "").split("=")));
 const only = args.only?.split(",");
+const pixelRatio = Number(args["pixel-ratio"] ?? 2);
 const outDirFor = (spec) => args.out ?? join(here, "sources", spec.category ?? "gradient");
 
 const specs = JSON.parse(await readFile(args.specs ?? join(here, "shaders.json"), "utf8")).filter(
@@ -29,6 +30,8 @@ const specs = JSON.parse(await readFile(args.specs ?? join(here, "shaders.json")
 const server = await startGalleryServer({ page: "shader-page.html" });
 const chrome = await openHeadless(server.origin, [
   "--window-size=1400,900",
+  // Room for a 3× still (3840 × 2160) in one WebGL canvas.
+  "--force-gpu-mem-available-mb=2048",
   "--force-device-scale-factor=1",
   "--use-angle=swiftshader",
   "--enable-unsafe-swiftshader",
@@ -40,7 +43,7 @@ try {
   }
   for (const spec of specs) {
     try {
-      const dataUrl = await chrome.evaluate(`window.render(${JSON.stringify(spec)})`);
+      const dataUrl = await chrome.evaluate(`window.render(${JSON.stringify(spec)}, ${pixelRatio})`);
       const dir = outDirFor(spec);
       await mkdir(dir, { recursive: true });
       const out = join(dir, `${spec.name}.png`);

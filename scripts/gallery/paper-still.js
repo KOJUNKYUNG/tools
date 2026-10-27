@@ -56,7 +56,7 @@ function toUniforms(key, params) {
  * Mount `spec` ({ shader, frame, ...props }) into `el` at the still's size and
  * return the ShaderMount. `speed` 0 draws the frame once; another speed plays.
  */
-export async function mountStill(el, spec, { speed = 0, preserveDrawingBuffer = false } = {}) {
+export async function mountStill(el, spec, { speed = 0, preserveDrawingBuffer = false, pixelRatio = STILL.pixelRatio } = {}) {
   await loadCatalog();
   const { shader, frame = 0, name: _name, speed: _speed, ...props } = spec;
   const key = shaderKey(shader);
@@ -69,8 +69,8 @@ export async function mountStill(el, spec, { speed = 0, preserveDrawingBuffer = 
   }
   el.style.width = `${STILL.cssWidth}px`;
   el.style.height = `${STILL.cssHeight}px`;
-  const max = STILL.cssWidth * STILL.cssHeight * STILL.pixelRatio ** 2;
-  return new paper.ShaderMount(el, paper[def.fragment], uniforms, { preserveDrawingBuffer }, speed, frame, STILL.pixelRatio, max);
+  const max = STILL.cssWidth * STILL.cssHeight * pixelRatio ** 2;
+  return new paper.ShaderMount(el, paper[def.fragment], uniforms, { preserveDrawingBuffer }, speed, frame, pixelRatio, max);
 }
 
 /** Change the props of a mounted still without remounting it. */
@@ -87,11 +87,14 @@ const nextFrames = (n) =>
     requestAnimationFrame(step);
   });
 
-/** Draw `spec` once and return it as a PNG data URL at 2560 × 1440. */
-export async function renderStillPng(el, spec) {
-  const mount = await mountStill(el, spec, { preserveDrawingBuffer: true });
-  const width = STILL.cssWidth * STILL.pixelRatio;
-  const height = STILL.cssHeight * STILL.pixelRatio;
+/**
+ * Draw `spec` once and return it as a PNG data URL: 2560 × 1440 at the
+ * default pixel ratio, larger at a higher one with the same composition.
+ */
+export async function renderStillPng(el, spec, pixelRatio = STILL.pixelRatio) {
+  const mount = await mountStill(el, spec, { preserveDrawingBuffer: true, pixelRatio });
+  const width = STILL.cssWidth * pixelRatio;
+  const height = STILL.cssHeight * pixelRatio;
   try {
     for (let i = 0; i < 100 && mount.canvasElement.width !== width; i++) await nextFrames(1);
     if (mount.canvasElement.width !== width || mount.canvasElement.height !== height) {

@@ -10,7 +10,7 @@
 // Renders one Paper shader still for scripts/gallery/render-shaders.mjs.
 import { renderStillPng } from "/paper-still.js";
 
-window.render = (spec) => renderStillPng(document.getElementById("mount"), spec);
+window.render = (spec, pixelRatio) => renderStillPng(document.getElementById("mount"), spec, pixelRatio);
 window.ready = true;
 </script>
 </body>
