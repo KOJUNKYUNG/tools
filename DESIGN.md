@@ -375,7 +375,8 @@ replace the file; multi-file tools keep their in-body add / remove controls).
   (replaces the old blue `accentColor`).
 - **Gallery / thumbnail selection** — selected item gets a 2px `--emphasis` ring
   and badge (replaces the old blue selection badge), drawn by
-  `TileSelectionMark` as a layer above the picture so the ring is even all
+  `TileSelectionMark` (`components/ppt/GalleryTile.tsx`, which also holds the
+  tile shell) as a layer above the picture so the ring is even all
   round; the badge has a `--surface` rim so it shows on a swatch of its own
   colour. Colour swatches (the ppt-background "단색" tab) are gallery tiles:
   same grid, size and marks, plus a hairline under the swatch; the swatch

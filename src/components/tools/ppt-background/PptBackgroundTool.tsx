@@ -8,7 +8,7 @@ import { EMBEDDED_ASSET_LIMIT, uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
-import { changeBackground, type BgMode } from "@/lib/ppt/changeBackground";
+import { changeBackground, type BgMode, type FillBackground } from "@/lib/ppt/changeBackground";
 import {
   extractCurrentBackgrounds,
   type SlideBackground,
@@ -32,7 +32,7 @@ import { CurrentBackgroundFrame } from "./CurrentBackgroundFrame";
 import { PreviewLightbox } from "@/components/common/PreviewLightbox";
 import { PptBackgroundResult } from "./PptBackgroundResult";
 import { PptConversionGuide, type ConversionMethodLabels } from "./PptConversionGuide";
-import type { FillBackground, SolidColourLabels } from "./SolidColourGrid";
+import type { SolidColourLabels } from "./SolidColourGrid";
 import { themeBackground } from "@/lib/ppt/themeBackground";
 
 const PPTX_ACCEPT = {
@@ -451,6 +451,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   );
 
   const totalSlides = currentBgs.length;
+  // "No background" shows the deck's theme colour; white until it is read.
+  const noneColour = themeBg ?? "#ffffff";
+  const fillColour = !fill ? null : fill.kind === "colour" ? `#${fill.rgb}` : noneColour;
   const canRun =
     !!pptxFile &&
     (!!bgFile || !!fill) &&
@@ -653,7 +656,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 }
                 fill={fill}
                 onFillSelect={handleFillSelect}
-                themeBackground={themeBg}
+                themeBackground={noneColour}
                 fillLocked={!!fill && status !== "idle"}
                 labels={{
                   uploadLabel: labels.background.uploadLabel,
@@ -661,7 +664,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   pictureAlt: labels.preview.selectedCaption,
                   handles: labels.resizeHandles,
                   gallery: labels.gallery,
-                  solidTab: labels.solid.tab,
                   solid: labels.solid,
                 }}
               />
@@ -684,7 +686,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       onZoom={() => setZoom("selected")}
                       crop={crop}
                       onSelect={bgFile && !framing ? () => setFraming(true) : undefined}
-                      colour={fill?.kind === "colour" ? `#${fill.rgb}` : fill ? (themeBg ?? "#ffffff") : null}
+                      colour={fillColour}
                       colourNote={fill?.kind === "none" ? labels.solid.previewNone : undefined}
                     />
                     <CurrentBackgroundFrame

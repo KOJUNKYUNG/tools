@@ -10,7 +10,8 @@ import {
   type GalleryCategory,
   type GalleryImage,
 } from "@/lib/gallery/types";
-import { SolidColourGrid, type FillBackground, type SolidColourLabels } from "./SolidColourGrid";
+import type { FillBackground } from "@/lib/ppt/changeBackground";
+import { SolidColourGrid, type SolidColourLabels } from "./SolidColourGrid";
 
 /** A gallery filter, or the "단색" tab after them. */
 type CategoryFilter = "all" | GalleryCategory | "solid";
@@ -40,8 +41,8 @@ interface BackgroundPickerProps {
   fill: FillBackground | null;
   onFillSelect: (fill: FillBackground) => void;
   /** The colour "no background" shows on this deck (`#rrggbb`). */
-  themeBackground: string | null;
-  /** A run is using the picked fill: the tabs and tiles are shown as is. */
+  themeBackground: string;
+  /** A run is using the picked fill: the "단색" tab shows it and nothing responds. */
   fillLocked: boolean;
   labels: {
     uploadLabel: string;
@@ -49,8 +50,7 @@ interface BackgroundPickerProps {
     pictureAlt: string;
     handles: Dictionary["common"]["resizeHandles"];
     gallery: GalleryLabels;
-    solidTab: string;
-    solid: SolidColourLabels;
+    solid: SolidColourLabels & { tab: string };
   };
 }
 
@@ -66,7 +66,10 @@ export function BackgroundPicker({
   fillLocked,
   labels,
 }: BackgroundPickerProps) {
-  const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
+  const [chosenCategory, setActiveCategory] = useState<CategoryFilter>("all");
+  // A run holding a fill shows it, as a picture run shows its locked frame:
+  // a gallery left open under it would take a new pick.
+  const activeCategory = fillLocked ? "solid" : chosenCategory;
   /** The last "직접 선택" colour, kept while other tiles or tabs are picked. */
   const [custom, setCustom] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -110,7 +113,7 @@ export function BackgroundPicker({
             <CategoryTab
               active={activeCategory === "solid"}
               onClick={() => setActiveCategory("solid")}
-              label={labels.solidTab}
+              label={labels.solid.tab}
               disabled={fillLocked}
             />
           </div>

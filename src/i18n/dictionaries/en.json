@@ -242,7 +242,7 @@
         },
         "action": {
           "apply": "Apply",
-          "applyDisabledHint": "Choose an image first",
+          "applyDisabledHint": "Choose a background first",
           "specificEmpty": "Select at least one slide"
         },
         "processing": {

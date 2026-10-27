@@ -1,11 +1,8 @@
 "use client";
 
 import { PipetteIcon } from "lucide-react";
-import { selectedTileBorder, TileSelectionMark } from "@/components/ppt/TileSelectionMark";
-import type { NewBackground } from "@/lib/ppt/changeBackground";
-
-/** A background that is not a picture: a solid colour, or none (the theme's). */
-export type FillBackground = Exclude<NewBackground, { kind: "picture" }>;
+import { galleryTileClass, galleryTileStyle, TileSelectionMark } from "@/components/ppt/GalleryTile";
+import type { FillBackground } from "@/lib/ppt/changeBackground";
 
 /**
  * The preset colours, in grid order: white through the light colours, then
@@ -37,8 +34,8 @@ export interface SolidColourLabels {
 interface SolidColourGridProps {
   value: FillBackground | null;
   onSelect: (fill: FillBackground) => void;
-  /** The colour "no background" shows on this deck (`#rrggbb`); unknown until the deck is read. */
-  themeBackground: string | null;
+  /** The colour "no background" shows on this deck (`#rrggbb`). */
+  themeBackground: string;
   /** The last colour picked with "직접 선택", as six hex digits. */
   custom: string | null;
   onCustom: (rgb: string) => void;
@@ -89,7 +86,7 @@ export function SolidColourGrid({
       <Tile
         label={labels.none}
         title={labels.noneHint}
-        colour={themeBackground ?? "#ffffff"}
+        colour={themeBackground}
         none
         selected={value?.kind === "none"}
         disabled={locked}
@@ -158,12 +155,8 @@ function Tile({
       {selected && <TileSelectionMark />}
     </>
   );
-  const className = "group relative overflow-hidden rounded-[6px] border text-left transition-colors disabled:cursor-default";
-  const style = {
-    background: "var(--surface-2)",
-    borderColor: selected ? selectedTileBorder : "var(--border)",
-    borderWidth: 1,
-  };
+  const className = `${galleryTileClass} disabled:cursor-default`;
+  const style = galleryTileStyle(selected);
 
   if (picker) {
     return (

@@ -121,6 +121,7 @@ async function requests(
     },
     // Fills carry no picture: the request is what the engine is given.
     { label: "all-slides, solid colour", request: { background: { kind: "colour", rgb: "1F2A44" }, mode: "all-slides" } },
+    { label: "master, solid colour", request: { background: { kind: "colour", rgb: "F5F0E6" }, mode: "master" } },
     { label: "master, no background", request: { background: { kind: "none" }, mode: "master" } },
     {
       label: `specific-slides ${firstAndLast.join(",")}, no background`,

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDownIcon, GalleryHorizontalEndIcon } from "lucide-react";
-import { selectedTileBorder, TileSelectionMark } from "./TileSelectionMark";
+import { galleryTileClass, galleryTileStyle, TileSelectionMark } from "./GalleryTile";
 import { GALLERY_IMAGES } from "@/lib/gallery/catalog";
 import {
   GALLERY_CATEGORIES,
@@ -162,12 +162,8 @@ export function InlineGallery({
                     type="button"
                     key={img.id}
                     onClick={() => onSelect(img)}
-                    className="group relative overflow-hidden rounded-[6px] border text-left transition-colors"
-                    style={{
-                      background: "var(--surface-2)",
-                      borderColor: isSelected ? selectedTileBorder : "var(--border)",
-                      borderWidth: 1,
-                    }}
+                    className={galleryTileClass}
+                    style={galleryTileStyle(isSelected)}
                   >
                     <div className="relative aspect-video overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}

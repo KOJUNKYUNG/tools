@@ -21,6 +21,9 @@ import { slideColours, zipPartReader, type ColoursOf } from "./slideColours";
 export type BgMode = "all-slides" | "master" | "specific-slides";
 
 /** The background the user picked. */
+/** "No background": the theme's background colour, as PowerPoint fills a blank slide. */
+export const NO_BACKGROUND_FILL = '<a:solidFill><a:schemeClr val="bg1"/></a:solidFill>';
+
 export type NewBackground =
   | {
       kind: "picture";
@@ -32,6 +35,9 @@ export type NewBackground =
   | { kind: "colour"; rgb: string }
   /** The theme's background colour, as on a blank slide of a new deck. */
   | { kind: "none" };
+
+/** A new background that is not a picture: a solid colour, or none (the theme's). */
+export type FillBackground = Exclude<NewBackground, { kind: "picture" }>;
 
 export interface ChangeBackgroundOptions {
   pptxFile: File;
@@ -250,7 +256,7 @@ function ensureNamespaces(xml: string): string {
  * (e.g. "ppt/slides/slide12.xml" → 12, "ppt/slideMasters/slideMaster3.xml" → 3).
  * Falls back to 0 if no match — sorted-stable for non-conforming names.
  */
-function slideOrdinal(path: string): number {
+export function slideOrdinal(path: string): number {
   const m = path.match(/(\d+)\.xml$/);
   return m ? parseInt(m[1], 10) : 0;
 }
@@ -516,9 +522,11 @@ export async function changeBackground({
     // "No background" is written, not cleared: a cleared slide would show
     // whatever its layout or master carries, a picture included. The theme
     // colour itself (bg1, not its current value) keeps following the theme.
-    const colour =
-      background.kind === "colour" ? `<a:srgbClr val="${background.rgb}"/>` : `<a:schemeClr val="bg1"/>`;
-    partBackground = { bg: fillBackground(`<a:solidFill>${colour}</a:solidFill>`) };
+    const fill =
+      background.kind === "colour"
+        ? `<a:solidFill><a:srgbClr val="${background.rgb}"/></a:solidFill>`
+        : NO_BACKGROUND_FILL;
+    partBackground = { bg: fillBackground(fill) };
     requested = background;
   }
   const progress = (done: number, total: number) => onProgress?.(Math.round((done / total) * 100));

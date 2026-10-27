@@ -242,7 +242,7 @@
         },
         "action": {
           "apply": "변경하기",
-          "applyDisabledHint": "이미지를 먼저 선택하세요",
+          "applyDisabledHint": "배경을 먼저 선택하세요",
           "specificEmpty": "적용할 슬라이드를 선택하세요"
         },
         "processing": {
