@@ -63,6 +63,7 @@ const toHex = (v: number) =>
 export function turnHue(hex: string, degrees: number): string {
   const parsed = parseHex(hex);
   if (!parsed) return hex;
+  // map() keeps the three channels but types the result as number[].
   const colour = linearToOklch(parsed.rgb.map((v) => toLinear(v / 255)) as [number, number, number]);
   if (colour.c < ACHROMATIC) return hex;
   const turned = { ...colour, h: colour.h + degrees };

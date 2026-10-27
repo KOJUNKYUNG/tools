@@ -14,6 +14,8 @@ export interface PaperRecipe {
   [prop: string]: unknown;
 }
 
+// JSON imports are typed by their literal shape; every recipe has the fields
+// PaperRecipe names (the gallery catalog test reads each one).
 const BY_NAME = new Map((recipes as PaperRecipe[]).map((r) => [r.name, r]));
 
 /** The recipe a Paper gallery item (catalog `source.kind` "paper") was drawn from. */

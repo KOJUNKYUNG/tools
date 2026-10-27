@@ -98,7 +98,7 @@ export interface PptBackgroundToolLabels {
   };
   gallery: GalleryLabels;
   /** The recipe edit under the frame of a Paper gallery item. */
-  edit: RecipeEditLabels;
+  recipeEdit: RecipeEditLabels;
   solid: SolidColourLabels & {
     tab: string;
     /** The note over the "no background" preview. */
@@ -708,7 +708,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                                 edited: !!editedProps,
                                 onReset: () => setEdit(null),
                                 locked: status !== "idle",
-                                labels: labels.edit,
+                                labels: labels.recipeEdit,
                               }
                             : null,
                       }

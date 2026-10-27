@@ -76,7 +76,7 @@ export function RecipeEditArea({
             type="button"
             onClick={onReset}
             disabled={locked || !edited}
-            className="subtle-action rounded-[5px] px-2 py-1 font-body text-[11px]"
+            className="subtle-action rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
           >
             {labels.reset}
           </button>

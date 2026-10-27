@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { applyEdit, controlsFor, isEdited, startEdit } from "./recipeEdit";
 import { paperRecipe, type PaperRecipe } from "./recipes";
 
+// Recipe props are `unknown` (any React prop); the casts below name the
+// colour props' known shapes (a list of hex strings, or one).
 function recipe(name: string): PaperRecipe {
   const found = paperRecipe(name);
   if (!found) throw new Error(`no recipe ${name}`);

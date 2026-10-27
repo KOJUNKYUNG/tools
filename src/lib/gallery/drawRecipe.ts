@@ -16,6 +16,8 @@ const APPLY_RATIO = 3;
 /** Pixel ratio of the live preview: 1280 × 720, the same composition. */
 const PREVIEW_RATIO = 1;
 
+// paper-draw.js is plain JS (allowJs, not type-checked): its helpers' types
+// are inferred loosely, and the mount is Paper's ShaderMount.
 type Drawing = ReturnType<typeof paperDrawing>;
 type Mount = Awaited<ReturnType<Drawing["mountStill"]>>;
 
