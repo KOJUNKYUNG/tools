@@ -20,10 +20,10 @@ import { slideColours, zipPartReader, type ColoursOf } from "./slideColours";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
 
-/** The background the user picked. */
 /** "No background": the theme's background colour, as PowerPoint fills a blank slide. */
 export const NO_BACKGROUND_FILL = '<a:solidFill><a:schemeClr val="bg1"/></a:solidFill>';
 
+/** The background the user picked. */
 export type NewBackground =
   | {
       kind: "picture";
