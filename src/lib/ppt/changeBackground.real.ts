@@ -134,14 +134,17 @@ realFileSuite({
   tool: "ppt-background",
   extensions: [".pptx"],
   requests,
-  run: (input, request, fileName) =>
+  run: (input, { background, ...request }, fileName) =>
     changeBackground({
       pptxFile: new File([new Uint8Array(input)], fileName),
-      background: {
-        kind: "picture",
-        file: new File([new Uint8Array(request.background.source)], "photo.png"),
-        crop: request.background.crop,
-      },
+      background:
+        background.kind === "picture"
+          ? {
+              kind: "picture",
+              file: new File([new Uint8Array(background.source)], "photo.png"),
+              crop: background.crop,
+            }
+          : background,
       mode: request.mode,
       targetSlides: request.targetSlides,
       keptCovering: request.keptCovering,
