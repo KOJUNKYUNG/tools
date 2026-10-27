@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>html, body { margin: 0; background: #000; }</style>
+</head>
+<body>
+<div id="mount"></div>
+<script type="module">
+// Renders one Paper shader still for scripts/gallery/render-shaders.mjs.
+import { renderStillPng } from "/paper-still.js";
+
+window.render = (spec, pixelRatio) => renderStillPng(document.getElementById("mount"), spec, pixelRatio);
+window.ready = true;
+</script>
+</body>
+</html>

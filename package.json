@@ -15,7 +15,10 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:real": "vitest run --config vitest.real.config.ts",
-    "report:ppt-background": "node --import ./scripts/ppt-background-coverage/register.mjs scripts/ppt-background-coverage/report.ts",
+    "report:ppt-background": "node --import ./scripts/lib/register.mjs scripts/ppt-background-coverage/report.ts",
+    "gallery:build": "node --import ./scripts/lib/register.mjs scripts/gallery/build.ts",
+    "gallery:shaders": "node scripts/gallery/render-shaders.mjs",
+    "gallery:lab": "node scripts/gallery/lab.mjs",
     "design:lint": "designmd lint --format json DESIGN.md",
     "design:drift": "node scripts/check-design-drift.mjs",
     "design:check": "pnpm design:lint && pnpm design:drift",
@@ -53,6 +56,7 @@
   },
   "devDependencies": {
     "@google/design.md": "^0.2.0",
+    "@paper-design/shaders": "0.0.82",
     "@tailwindcss/postcss": "^4",
     "@types/negotiator": "^0.6.4",
     "@types/node": "^20",
@@ -61,6 +65,7 @@
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "sharp": "0.34.5",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.4"

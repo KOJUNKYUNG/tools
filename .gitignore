@@ -69,3 +69,6 @@ public/qpdf/
 # browser-image-compression worker bundle copied by
 # scripts/copy-image-compression.mjs (postinstall)
 public/browser-image-compression/
+
+# gallery build inputs (CC0 originals are re-downloadable; own exports kept by their maker)
+/scripts/gallery/sources/

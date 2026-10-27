@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>셰이더 랩</title>
+<style>
+/* Layout: the 16:9 still on the left (sticky), controls on the right; one column on narrow screens. */
+:root {
+  --bg: #f4f4f3; --surface: #ffffff; --ink: #141414; --ink-soft: #5f5f5f; --line: #d9d9d9;
+  --mark: #141414; --mark-ink: #ffffff; --warn: #8a5a00; --warn-bg: #fff4dc;
+  --font: "Pretendard", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111111; --surface: #1b1b1b; --ink: #efefef; --ink-soft: #a3a3a3; --line: #343434;
+    --mark: #efefef; --mark-ink: #111111; --warn: #ffd27a; --warn-bg: #3a2c0c; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.55 var(--font); }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 20px; padding: 20px; align-items: start; }
+@media (max-width: 980px) { .app { grid-template-columns: minmax(0, 1fr); } }
+.left { position: sticky; top: 20px; display: grid; gap: 10px; min-width: 0; }
+@media (max-width: 980px) { .left { position: static; } }
+.stage { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #000; border: 1px solid var(--line); }
+#mount { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.under { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; color: var(--ink-soft); font-size: 13px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.panel { display: grid; gap: 14px; min-width: 0; }
+.box { background: var(--surface); border: 1px solid var(--line); padding: 14px; display: grid; gap: 10px; }
+.box h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-soft); }
+label.row, .row { display: grid; grid-template-columns: 120px minmax(0, 1fr) 76px; gap: 8px; align-items: center; }
+.row .name { font-family: var(--mono); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row.wide { grid-template-columns: 120px minmax(0, 1fr); }
+input, select, textarea, button { font: inherit; color: var(--ink); }
+input[type="number"], input[type="text"], select, textarea {
+  background: var(--bg); border: 1px solid var(--line); padding: 5px 7px; min-width: 0; width: 100%;
+}
+input[type="number"] { font-family: var(--mono); font-size: 12.5px; }
+input[type="range"] { width: 100%; accent-color: var(--ink); }
+input[type="color"] { width: 34px; height: 28px; padding: 0; border: 1px solid var(--line); background: none; }
+textarea { font-family: var(--mono); font-size: 12px; min-height: 90px; resize: vertical; }
+button { background: var(--surface); border: 1px solid var(--ink); padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+button.primary { background: var(--mark); color: var(--mark-ink); }
+button:disabled { opacity: 0.4; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.buttons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.color { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.color input[type="text"] { font-family: var(--mono); font-size: 12.5px; }
+.colors { display: grid; gap: 6px; }
+.notice { background: var(--warn-bg); color: var(--warn); padding: 8px 10px; font-size: 13px; }
+.hint { color: var(--ink-soft); font-size: 12.5px; margin: 0; }
+details summary { cursor: pointer; color: var(--ink-soft); font-size: 13px; }
+details[open] { display: grid; gap: 10px; }
+.saved { display: grid; gap: 6px; }
+.saved .item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
+.saved .item span { font-family: var(--mono); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; }
+.status { font-size: 13px; color: var(--ink-soft); min-height: 1.4em; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="left">
+    <div class="stage" id="stage"><div id="mount"></div></div>
+    <div class="under">
+      <span>구도는 갤러리 원본(<span class="num">3840 × 2160</span>)과 같음</span>
+      <span>프레임 <span class="num" id="frameNow">0</span> ms</span>
+    </div>
+    <p class="hint">미리보기는 화면에 맞게 줄여서 보여 줄 뿐, 점 간격·모양은 저장 후 렌더되는 그림과 같습니다.</p>
+  </div>
+
+  <div class="panel">
+    <div class="box">
+      <h2>셰이더</h2>
+      <label class="row wide"><span class="name">shader</span><select id="shader"></select></label>
+      <label class="row wide"><span class="name">Paper 프리셋</span><select id="preset"></select></label>
+    </div>
+
+    <div class="box">
+      <h2>장면 (프레임)</h2>
+      <div class="buttons">
+        <button type="button" id="play">재생</button>
+        <span class="hint">재생하다 멈추면 그 순간이 프레임이 됩니다.</span>
+      </div>
+      <label class="row"><span class="name">frame</span><input type="range" id="frameRange" min="0" max="120000" step="10"><input type="number" id="frameNum" min="0" step="10"></label>
+    </div>
+
+    <div class="box">
+      <h2>값</h2>
+      <div id="notice" class="notice" hidden>기본 샘플 원칙: 그레인 계열 값(grainMixer, grainOverlay, noise)은 0으로 둡니다. 그레인이 스타일의 본질인 경우만 예외입니다.</div>
+      <div id="props" class="panel" style="gap:10px"></div>
+      <details id="advanced"><summary>위치·크기 (고급)</summary><div id="advProps" class="panel" style="gap:10px"></div></details>
+    </div>
+
+    <div class="box">
+      <h2>저장</h2>
+      <label class="row wide"><span class="name">이름</span><input type="text" id="specName" placeholder="soft-mesh-dawn" pattern="[a-z0-9-]+"></label>
+      <label class="row wide"><span class="name">분류</span><select id="category"><option value="gradient">그라데이션</option><option value="pattern">패턴</option></select></label>
+      <div class="buttons">
+        <button type="button" class="primary" id="save">shaders.json에 저장</button>
+        <button type="button" id="copy">JSON 복사</button>
+      </div>
+      <div class="status" id="status" role="status"></div>
+      <div class="saved" id="saved"></div>
+    </div>
+
+    <div class="box">
+      <h2>Paper 코드 붙여넣기</h2>
+      <textarea id="paste" placeholder="&lt;MeshGradient colors={[...]} distortion={1} ... /&gt;"></textarea>
+      <div class="buttons"><button type="button" id="import">불러오기</button></div>
+    </div>
+
+    <div class="box">
+      <h2>현재 spec</h2>
+      <textarea id="json" readonly></textarea>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { loadCatalog, mountStill, updateStill, shaderKey, STILL } from "/paper-still.js";
+
+const catalog = await loadCatalog();
+const $ = (id) => document.getElementById(id);
+const ADVANCED = new Set(["fit", "scale", "rotation", "offsetX", "offsetY", "originX", "originY", "worldWidth", "worldHeight"]);
+const GRAIN = new Set(["grainMixer", "grainOverlay", "noise"]);
+const INTEGER = /count|steps|iterations|octave|spots|bandCount/i;
+const GROUPS = [
+  ["추천: 그라데이션", ["staticMeshGradient", "staticRadialGradient", "meshGradient", "godRays", "warp", "grainGradient"]],
+  ["추천: 패턴", ["dotGrid", "waves", "voronoi"]],
+];
+
+let state = { shader: "staticMeshGradient", frame: 0, params: {} };
+let mount = null;
+let playing = false;
+
+// ── shader list ──────────────────────────────────────────────
+const listed = new Set(GROUPS.flatMap(([, keys]) => keys));
+for (const [label, keys] of [...GROUPS, ["기타", Object.keys(catalog.shaders).filter((k) => !listed.has(k)).sort()]]) {
+  const g = document.createElement("optgroup");
+  g.label = label;
+  for (const k of keys) g.append(new Option(catalog.shaders[k].component, k));
+  $("shader").append(g);
+}
+
+// ── preview scaling ──────────────────────────────────────────
+new ResizeObserver(() => {
+  $("mount").style.transform = `scale(${$("stage").clientWidth / STILL.cssWidth})`;
+}).observe($("stage"));
+
+function spec() {
+  return { shader: state.shader, frame: Math.round(state.frame), ...state.params };
+}
+
+async function remount() {
+  mount?.dispose();
+  $("mount").replaceChildren();
+  mount = await mountStill($("mount"), spec(), { speed: playing ? 1 : 0 });
+}
+
+function refresh() {
+  if (mount) updateStill(mount, spec());
+  $("json").value = JSON.stringify(savedShape(), null, 2);
+  $("notice").hidden = ![...GRAIN].some((k) => Number(state.params[k]) > 0);
+  $("frameNow").textContent = Math.round(state.frame);
+}
+
+function savedShape() {
+  const name = $("specName").value.trim();
+  return { name: name || "(이름)", category: $("category").value, ...spec() };
+}
+
+// ── controls ─────────────────────────────────────────────────
+function numberControl(prop, def) {
+  const row = document.createElement("label");
+  row.className = "row";
+  row.title = def.doc ?? "";
+  const value = state.params[prop];
+  if (typeof value === "boolean") {
+    row.className = "row wide";
+    row.innerHTML = `<span class="name">${prop}</span><input type="checkbox">`;
+    const box = row.querySelector("input");
+    box.checked = value;
+    box.addEventListener("change", () => { state.params[prop] = box.checked; refresh(); });
+    return row;
+  }
+  const hasRange = def.min !== undefined && def.max !== undefined;
+  const step = INTEGER.test(prop) ? 1 : hasRange ? Math.max((def.max - def.min) / 200, 0.001) : 0.01;
+  row.innerHTML = `<span class="name">${prop}</span>` + (hasRange ? `<input type="range" min="${def.min}" max="${def.max}" step="${step}">` : "<span></span>") + `<input type="number" step="${step}">`;
+  const range = row.querySelector('input[type="range"]');
+  const num = row.querySelector('input[type="number"]');
+  const set = (v, from) => {
+    state.params[prop] = v;
+    if (range && from !== range) range.value = v;
+    if (from !== num) num.value = v;
+    refresh();
+  };
+  if (range) { range.value = value; range.addEventListener("input", () => set(Number(range.value), range)); }
+  num.value = value;
+  num.addEventListener("input", () => { if (num.value !== "") set(Number(num.value), num); });
+  return row;
+}
+
+function colorInput(value, onChange) {
+  const wrap = document.createElement("span");
+  wrap.className = "color";
+  wrap.innerHTML = '<input type="color"><input type="text" spellcheck="false">';
+  const [picker, text] = wrap.querySelectorAll("input");
+  const sync = (v) => { text.value = v; if (/^#[0-9a-f]{6}/i.test(v)) picker.value = v.slice(0, 7); };
+  sync(value);
+  picker.addEventListener("input", () => { const v = picker.value + (text.value.length === 9 ? text.value.slice(7) : ""); sync(v); onChange(v); });
+  text.addEventListener("change", () => { sync(text.value.trim()); onChange(text.value.trim()); });
+  return wrap;
+}
+
+function colorControl(prop, def) {
+  const row = document.createElement("div");
+  row.className = "row wide";
+  row.title = def.doc ?? "";
+  row.innerHTML = `<span class="name">${prop}</span>`;
+  row.append(colorInput(state.params[prop], (v) => { state.params[prop] = v; refresh(); }));
+  return row;
+}
+
+function colorsControl(prop, def) {
+  const row = document.createElement("div");
+  row.className = "row wide";
+  row.title = def.doc ?? "";
+  row.innerHTML = `<span class="name">${prop}</span><div class="colors"></div>`;
+  const list = row.querySelector(".colors");
+  const draw = () => {
+    list.replaceChildren();
+    state.params[prop].forEach((c, i) => {
+      const line = colorInput(c, (v) => { state.params[prop][i] = v; refresh(); });
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "빼기";
+      del.disabled = state.params[prop].length <= 1;
+      del.addEventListener("click", () => { state.params[prop].splice(i, 1); draw(); refresh(); });
+      line.append(del);
+      list.append(line);
+    });
+    const add = document.createElement("button");
+    add.type = "button";
+    add.textContent = `색 추가 (최대 ${def.max})`;
+    add.disabled = state.params[prop].length >= def.max;
+    add.addEventListener("click", () => { state.params[prop].push(state.params[prop].at(-1)); draw(); refresh(); });
+    list.append(add);
+  };
+  draw();
+  return row;
+}
+
+function enumControl(prop, def) {
+  const row = document.createElement("label");
+  row.className = "row wide";
+  row.title = def.doc ?? "";
+  row.innerHTML = `<span class="name">${prop}</span><select></select>`;
+  const sel = row.querySelector("select");
+  for (const o of def.options) sel.append(new Option(o, o));
+  sel.value = state.params[prop];
+  sel.addEventListener("change", () => { state.params[prop] = sel.value; refresh(); });
+  return row;
+}
+
+function buildControls() {
+  const def = catalog.shaders[state.shader];
+  $("props").replaceChildren();
+  $("advProps").replaceChildren();
+  for (const [prop, p] of Object.entries(def.props)) {
+    if (state.params[prop] === undefined) continue;
+    const el = p.kind === "colors" ? colorsControl(prop, p) : p.kind === "color" ? colorControl(prop, p) : p.kind === "enum" ? enumControl(prop, p) : numberControl(prop, p);
+    (ADVANCED.has(prop) ? $("advProps") : $("props")).append(el);
+  }
+}
+
+function applyParams(shader, params, frame) {
+  state.shader = shader;
+  const preset = catalog.shaders[shader].presets[0].params;
+  const merged = structuredClone({ ...preset, ...params });
+  state.frame = frame ?? merged.frame ?? 0;
+  delete merged.frame;
+  delete merged.speed;
+  state.params = merged;
+  $("shader").value = shader;
+  $("preset").replaceChildren(...catalog.shaders[shader].presets.map((p, i) => new Option(p.name, i)));
+  setFrameUi(state.frame);
+  buildControls();
+}
+
+function setFrameUi(f) {
+  $("frameRange").value = f;
+  $("frameNum").value = Math.round(f);
+}
+
+async function load(shader, params, frame) {
+  applyParams(shader, params, frame);
+  await remount();
+  refresh();
+}
+
+$("shader").addEventListener("change", () => load($("shader").value, {}));
+$("preset").addEventListener("change", () => {
+  const p = catalog.shaders[state.shader].presets[Number($("preset").value)];
+  load(state.shader, p.params, p.params.frame ?? 0);
+});
+
+// ── frame ────────────────────────────────────────────────────
+function setFrame(f) {
+  state.frame = f;
+  mount?.setFrame(f);
+  setFrameUi(f);
+  refresh();
+}
+$("frameRange").addEventListener("input", () => setFrame(Number($("frameRange").value)));
+$("frameNum").addEventListener("input", () => { if ($("frameNum").value !== "") setFrame(Number($("frameNum").value)); });
+$("play").addEventListener("click", () => {
+  playing = !playing;
+  mount?.setSpeed(playing ? 1 : 0);
+  $("play").textContent = playing ? "멈춤" : "재생";
+  if (!playing) setFrame(Math.round(mount.getCurrentFrame()));
+});
+(function tick() {
+  if (playing && mount) {
+    state.frame = mount.getCurrentFrame();
+    setFrameUi(state.frame);
+    $("frameNow").textContent = Math.round(state.frame);
+  }
+  requestAnimationFrame(tick);
+})();
+
+// ── paste Paper code ─────────────────────────────────────────
+function parseJsx(text) {
+  const component = text.match(/<\s*([A-Z]\w*)/)?.[1];
+  if (!component) throw new Error("<MeshGradient ... /> 같은 코드를 붙여 넣어 주세요.");
+  const props = {};
+  const skipped = [];
+  const body = text.slice(text.indexOf(component) + component.length);
+  let i = 0;
+  while (i < body.length) {
+    const m = /^\s*([A-Za-z]\w*)\s*=\s*/.exec(body.slice(i));
+    if (!m) { i++; continue; }
+    i += m[0].length;
+    let raw;
+    if (body[i] === '"' || body[i] === "'") {
+      const q = body[i];
+      const end = body.indexOf(q, i + 1);
+      raw = JSON.stringify(body.slice(i + 1, end));
+      i = end + 1;
+    } else if (body[i] === "{") {
+      let depth = 0, j = i;
+      for (; j < body.length; j++) {
+        if (body[j] === "{" || body[j] === "[") depth++;
+        else if (body[j] === "}" || body[j] === "]") depth--;
+        if (depth === 0) break;
+      }
+      raw = body.slice(i + 1, j).trim().replace(/'/g, '"').replace(/,\s*]/g, "]");
+      i = j + 1;
+    } else continue;
+    // JSON covers strings, arrays and most numbers; Number() takes JS-only forms like .5.
+    let value;
+    try { value = JSON.parse(raw); } catch { value = /^[-+]?(\d+\.?\d*|\.\d+)$/.test(raw) ? Number(raw) : undefined; }
+    if (value === undefined) skipped.push(m[1]);
+    else props[m[1]] = value;
+  }
+  for (const k of ["width", "height", "style", "className", "speed"]) delete props[k];
+  return { shader: shaderKey(component), props, skipped };
+}
+$("import").addEventListener("click", async () => {
+  try {
+    const { shader, props, skipped } = parseJsx($("paste").value);
+    const frame = props.frame;
+    delete props.frame;
+    await load(shader, props, frame ?? 0);
+    const notes = [];
+    if (frame === undefined) notes.push("코드에 frame이 없어 0에서 시작합니다.");
+    if (skipped.length) notes.push(`읽지 못한 값은 프리셋 값을 썼습니다: ${skipped.join(", ")}.`);
+    status(["불러왔습니다.", ...notes].join(" "));
+  } catch (e) { status(e.message); }
+});
+
+// ── save ─────────────────────────────────────────────────────
+function status(text) { $("status").textContent = text; }
+async function getSaved() { return (await fetch("/api/specs")).json(); }
+async function putSaved(list) {
+  const r = await fetch("/api/specs", { method: "PUT", body: JSON.stringify(list) });
+  if (!r.ok) throw new Error(await r.text());
+}
+async function drawSaved() {
+  const list = await getSaved();
+  $("saved").replaceChildren(...list.map((s) => {
+    const item = document.createElement("div");
+    item.className = "item";
+    item.innerHTML = `<span>${s.name} · ${s.category ?? "gradient"} · ${catalog.shaders[shaderKey(s.shader)].component}</span>`;
+    const open = document.createElement("button");
+    open.type = "button";
+    open.textContent = "열기";
+    open.addEventListener("click", async () => {
+      const { name, category, shader, frame, ...props } = s;
+      $("specName").value = name;
+      $("category").value = category ?? "gradient";
+      await load(shaderKey(shader), props, frame ?? 0);
+      status(`${name}을(를) 열었습니다.`);
+    });
+    const del = document.createElement("button");
+    del.type = "button";
+    del.textContent = "삭제";
+    del.addEventListener("click", async () => {
+      if (!confirm(`${s.name}을(를) 목록에서 지울까요?`)) return;
+      await putSaved((await getSaved()).filter((x) => x.name !== s.name));
+      drawSaved();
+      status(`${s.name}을(를) 지웠습니다.`);
+    });
+    item.append(open, del);
+    return item;
+  }));
+}
+$("save").addEventListener("click", async () => {
+  const name = $("specName").value.trim();
+  if (!/^[a-z0-9-]+$/.test(name)) { status("이름은 영어 소문자·숫자·하이픈(-)만 씁니다."); return; }
+  try {
+    const list = await getSaved();
+    const entry = { name, category: $("category").value, ...spec() };
+    const at = list.findIndex((x) => x.name === name);
+    if (at >= 0) list[at] = entry; else list.push(entry);
+    await putSaved(list);
+    await drawSaved();
+    status(at >= 0 ? `${name}을(를) 고쳐 저장했습니다.` : `${name}을(를) 저장했습니다.`);
+  } catch (e) { status(`저장하지 못했습니다: ${e.message}`); }
+});
+$("specName").addEventListener("input", refresh);
+$("category").addEventListener("change", refresh);
+$("copy").addEventListener("click", () => {
+  navigator.clipboard.writeText($("json").value).then(() => status("JSON을 복사했습니다."), () => { $("json").select(); status("아래 칸을 직접 복사해 주세요."); });
+});
+
+await load(state.shader, {});
+drawSaved();
+</script>
+</body>
+</html>

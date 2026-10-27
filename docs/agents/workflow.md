@@ -53,7 +53,7 @@ Deck properties misreport the producer (Canva and 미리캔버스 write `Microso
 { "deck.pptx": { "producer": "Canva", "purpose": "lyrics-text" } }
 ```
 
-The script is TypeScript run by Node itself (type stripping); `scripts/ppt-background-coverage/register.mjs` resolves the `@/` alias and extensionless imports, so it needs no extra package.
+The script is TypeScript run by Node itself (type stripping); `scripts/lib/register.mjs` resolves the `@/` alias and extensionless imports, so it needs no extra package.
 
 ## UI verification
 

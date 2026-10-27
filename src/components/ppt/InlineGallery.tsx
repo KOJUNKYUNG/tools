@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon, ChevronDownIcon, GalleryHorizontalEndIcon } from "lucide-react";
-import { MOCK_IMAGES } from "@/lib/gallery/mockData";
+import { GALLERY_IMAGES } from "@/lib/gallery/catalog";
 import {
   GALLERY_CATEGORIES,
   type GalleryCategory,
@@ -12,6 +12,17 @@ import { cn } from "@/lib/utils";
 import { template } from "@/lib/common/template";
 
 type CategoryFilter = "all" | GalleryCategory;
+
+/** The gallery's text in the page language; tools pass it through unchanged. */
+export interface GalleryLabels {
+  heading: string;            // "배경 갤러리" / "Background gallery"
+  countSuffixTemplate: string;  // e.g. "({n}개 이미지)"
+  categoryAll: string;
+  categoryByKey: Record<GalleryCategory, string>;
+  empty: string;
+  /** Image titles by gallery id. */
+  titles: Record<string, string>;
+}
 
 interface InlineGalleryProps {
   onSelect: (image: GalleryImage) => void;
@@ -25,13 +36,7 @@ interface InlineGalleryProps {
    * BackgroundPicker, which renders the category tabs itself (v5 layout).
    */
   category?: CategoryFilter;
-  labels: {
-    heading: string;            // "배경 갤러리" / "Background gallery"
-    countSuffixTemplate: string;  // e.g. "({n}개 이미지)"
-    categoryAll: string;
-    categoryByKey: Record<GalleryCategory, string>;
-    empty: string;
-  };
+  labels: GalleryLabels;
 }
 
 export function InlineGallery({
@@ -61,8 +66,8 @@ export function InlineGallery({
   }, [forceCollapsed]);
 
   const filtered = useMemo(() => {
-    if (category === "all") return MOCK_IMAGES;
-    return MOCK_IMAGES.filter((img) => img.category === category);
+    if (category === "all") return GALLERY_IMAGES;
+    return GALLERY_IMAGES.filter((img) => img.category === category);
   }, [category]);
 
   const open = forceOpen || expanded;
@@ -92,7 +97,7 @@ export function InlineGallery({
             />
             <span className="font-ko text-[13px] font-medium">{labels.heading}</span>
             <span className="font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
-              {template(labels.countSuffixTemplate, { n: MOCK_IMAGES.length })}
+              {template(labels.countSuffixTemplate, { n: GALLERY_IMAGES.length })}
             </span>
           </div>
           <ChevronDownIcon
@@ -169,7 +174,9 @@ export function InlineGallery({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={img.thumbnailUrl}
-                        alt={img.title}
+                        loading="lazy"
+                        decoding="async"
+                        alt={labels.titles[img.id]}
                         className="size-full object-cover"
                       />
                       {isSelected && (
@@ -186,7 +193,7 @@ export function InlineGallery({
                         className="truncate font-body text-[11px] font-medium"
                         style={{ color: "var(--ink-strong)" }}
                       >
-                        {img.title}
+                        {labels.titles[img.id]}
                       </p>
                     </div>
                   </button>

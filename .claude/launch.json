@@ -12,6 +12,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["scripts/measure-ppt-ratios/serve.mjs"],
       "port": 4310
+    },
+    {
+      "name": "gallery-lab",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/gallery/lab.mjs"],
+      "port": 4320
     }
   ]
 }

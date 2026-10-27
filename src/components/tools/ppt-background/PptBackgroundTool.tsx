@@ -26,6 +26,7 @@ import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
 import { BackgroundPicker } from "./BackgroundPicker";
+import type { GalleryLabels } from "@/components/ppt/InlineGallery";
 import { SelectedBackgroundFrame } from "./SelectedBackgroundFrame";
 import { CurrentBackgroundFrame } from "./CurrentBackgroundFrame";
 import { PreviewLightbox } from "@/components/common/PreviewLightbox";
@@ -38,43 +39,11 @@ const PPTX_ACCEPT = {
 };
 
 /**
- * Draw an SVG gallery image (the gradients) once at its own size into a
- * lossless PNG: PowerPoint handles SVG backgrounds inconsistently, and the
- * preparer needs pixels. The preparer then picks its format like any upload.
- */
-async function rasterizeSvg(image: GalleryImage): Promise<File> {
-  return new Promise<File>((resolve, reject) => {
-    const img = new globalThis.Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth || image.width;
-      canvas.height = img.naturalHeight || image.height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("Canvas 2D context unavailable"));
-        return;
-      }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          reject(new Error("Canvas toBlob returned null"));
-          return;
-        }
-        resolve(new File([blob], `gallery-${image.id}.png`, { type: "image/png" }));
-      }, "image/png");
-    };
-    img.onerror = () => reject(new Error("Failed to load gallery image"));
-    img.src = image.url;
-  });
-}
-
-/**
- * A gallery image as the file the preparer starts from. A raster image
- * (picsum's photos) is fetched in its own format, so a photo stays a small
- * JPEG instead of being turned into a large PNG first; only an SVG is drawn.
+ * A gallery image as the file the preparer starts from, fetched from the
+ * site's own `public/gallery/` in its own format (JPEG, or PNG for pixel art),
+ * so a photo stays a small JPEG instead of being turned into a large PNG first.
  */
 async function galleryImageFile(image: GalleryImage): Promise<File> {
-  if (image.url.startsWith("data:image/svg+xml")) return rasterizeSvg(image);
   const response = await fetch(image.url);
   if (!response.ok) throw new Error(`Failed to load gallery image (${response.status})`);
   const blob = await response.blob();
@@ -120,13 +89,7 @@ export interface PptBackgroundToolLabels {
     backToGallery: string;
     blurNotice: string;
   };
-  gallery: {
-    heading: string;
-    countSuffixTemplate: string;
-    categoryAll: string;
-    categoryByKey: Record<GalleryCategory, string>;
-    empty: string;
-  };
+  gallery: GalleryLabels;
   action: {
     apply: string;
     applyDisabledHint: string;

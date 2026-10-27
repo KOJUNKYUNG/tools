@@ -2,7 +2,7 @@
 // the `@/` alias to `src/` and extensionless imports to their `.ts` file, and
 // loads `.ts` as ES modules (Node strips the types). No bundler, no package.
 //
-// Used as: node --import ./scripts/ppt-background-coverage/register.mjs <script.ts>
+// Used as: node --import ./scripts/lib/register.mjs <script.ts>
 
 import { existsSync } from "node:fs";
 import { registerHooks } from "node:module";
