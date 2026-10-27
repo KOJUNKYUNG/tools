@@ -135,6 +135,17 @@ layout's and master's. Real decks set one (usually a solid colour) on nearly
 every slide, so a changed master background does not show through.
 _Avoid_: "individual background" for covering backgrounds.
 
+### No background
+The ppt-background choice that returns slides to the theme's background
+colour (`bg1`), as on a blank slide of a new PowerPoint deck. It is written
+as that colour, never by removing the slide's own background: a slide
+without one shows its layout's or master's, which may be a picture. In master
+mode the master takes the theme colour, so a master picture goes too. The
+new background is a picture, a solid colour, or no background; all three
+follow the same apply scope and covering-background toggle.
+_Avoid_: "transparent" or "remove background" (the slide is never left
+without a background).
+
 ### Alias
 A slug kept live for SEO / backwards compatibility that renders a different
 **canonical** tool, declared via `aliasOf` in the registry. Today: `pdf-merge`,

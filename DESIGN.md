@@ -374,7 +374,9 @@ replace the file; multi-file tools keep their in-body add / remove controls).
 - **Slider** (e.g. opacity) — track `--border`, fill + thumb `--ink-strong`
   (replaces the old blue `accentColor`).
 - **Gallery / thumbnail selection** — selected item gets an `--emphasis` outline
-  and badge (replaces the old blue selection badge).
+  and badge (replaces the old blue selection badge). Colour swatches (the
+  ppt-background "단색" tab) are gallery tiles: same grid, size and marks; the
+  swatch itself is content and keeps its real colour (palette exception).
 - **Preview frame** — the letterbox uses `--surface-2` (Mist / Ink, theme-aware);
   the document *inside* is the palette exception and renders original colors. A
   rendered white output page (e.g. image-to-pdf A4/custom) stays fixed white

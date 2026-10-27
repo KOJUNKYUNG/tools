@@ -54,6 +54,7 @@ export function getPptBackgroundLabels(
       empty: p.gallery.empty,
       titles: p.gallery.titles,
     },
+    solid: p.solid,
     action: p.action,
     processing: p.processing,
     preview: p.preview,

@@ -32,6 +32,8 @@ import { CurrentBackgroundFrame } from "./CurrentBackgroundFrame";
 import { PreviewLightbox } from "@/components/common/PreviewLightbox";
 import { PptBackgroundResult } from "./PptBackgroundResult";
 import { PptConversionGuide, type ConversionMethodLabels } from "./PptConversionGuide";
+import type { FillBackground, SolidColourLabels } from "./SolidColourGrid";
+import { themeBackground } from "@/lib/ppt/themeBackground";
 
 const PPTX_ACCEPT = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
@@ -90,6 +92,11 @@ export interface PptBackgroundToolLabels {
     blurNotice: string;
   };
   gallery: GalleryLabels;
+  solid: SolidColourLabels & {
+    tab: string;
+    /** The note over the "no background" preview. */
+    previewNone: string;
+  };
   action: {
     apply: string;
     applyDisabledHint: string;
@@ -159,6 +166,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [crop, setCrop] = useState<CropRect | null>(null);
   /** The left pane shows the frame over the picked picture instead of the gallery. */
   const [framing, setFraming] = useState(false);
+  /** A picked solid colour or "no background", in place of a picture. */
+  const [fill, setFill] = useState<FillBackground | null>(null);
+  /** The colour "no background" shows on the loaded deck. */
+  const [themeBg, setThemeBg] = useState<string | null>(null);
 
   // Redesigned workspace state.
   const [slideAspect, setSlideAspect] = useState<SlideAspect>({
@@ -205,7 +216,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     processor: (files, onProgress) =>
       changeBackground({
         pptxFile: files[0],
-        background: { kind: "picture", file: bgFile!, crop: crop ?? undefined },
+        background: fill ?? { kind: "picture", file: bgFile!, crop: crop ?? undefined },
         mode,
         targetSlides:
           mode === "specific-slides"
@@ -244,7 +255,17 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     showPreview(null);
     setCrop(null);
     setFraming(false);
+    setFill(null);
   }, [showPreview]);
+
+  /** Pick a solid colour or "no background": the picture pick goes. */
+  const handleFillSelect = useCallback(
+    (next: FillBackground) => {
+      clearPick();
+      setFill(next);
+    },
+    [clearPick],
+  );
 
   // .ppt vs .pptx routing — .ppt never enters useToolProcessor state.
   const setPptxFiles = useCallback(
@@ -290,6 +311,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // Extract current backgrounds + slide aspect when a .pptx is loaded.
   useEffect(() => {
     if (!pptxFile) {
+      setThemeBg(null);
       setCurrentBgs([]);
       setGroups([]);
       groupThumbUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -309,6 +331,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     getSlideAspect(pptxFile).then((a) => {
       if (!cancelled) setSlideAspect(a);
     });
+    setThemeBg(null);
+    themeBackground(pptxFile)
+      .then((swatch) => {
+        if (!cancelled) setThemeBg(swatch === "fill" ? null : swatch);
+      })
+      .catch(() => {});
 
     extractCurrentBackgrounds(pptxFile)
       .then((bgs) => {
@@ -353,6 +381,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       const pick = ++pickRef.current;
       // A HEIC still converting is dropped, so its busy state goes too.
       setNormalizing(false);
+      setFill(null);
       setGalleryImage(image);
       // Until the picture arrives nothing can be framed or applied: the old
       // picture and its frame must not meet the new thumbnail.
@@ -411,6 +440,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         if (pick === pickRef.current) setNormalizing(false);
       }
       if (pick !== pickRef.current) return;
+      setFill(null);
       setBgFiles([file]);
       setGalleryImage(null);
       setCrop(null);
@@ -423,7 +453,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const totalSlides = currentBgs.length;
   const canRun =
     !!pptxFile &&
-    !!bgFile &&
+    (!!bgFile || !!fill) &&
     (mode !== "specific-slides" || selectedSlides.size > 0) &&
     // A HEIC still converting would replace the picture under the run.
     !normalizing &&
@@ -621,12 +651,18 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       }
                     : null
                 }
+                fill={fill}
+                onFillSelect={handleFillSelect}
+                themeBackground={themeBg}
+                fillLocked={!!fill && status !== "idle"}
                 labels={{
                   uploadLabel: labels.background.uploadLabel,
                   backToGallery: labels.background.backToGallery,
                   pictureAlt: labels.preview.selectedCaption,
                   handles: labels.resizeHandles,
                   gallery: labels.gallery,
+                  solidTab: labels.solid.tab,
+                  solid: labels.solid,
                 }}
               />
             </div>
@@ -648,6 +684,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       onZoom={() => setZoom("selected")}
                       crop={crop}
                       onSelect={bgFile && !framing ? () => setFraming(true) : undefined}
+                      colour={fill?.kind === "colour" ? `#${fill.rgb}` : fill ? (themeBg ?? "#ffffff") : null}
+                      colourNote={fill?.kind === "none" ? labels.solid.previewNone : undefined}
                     />
                     <CurrentBackgroundFrame
                       caption={template(labels.preview.currentCaptionTemplate, {

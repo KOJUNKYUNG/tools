@@ -16,6 +16,10 @@ interface SelectedBackgroundFrameProps {
   crop: CropRect | null;
   /** Opens the frame over the picture again. */
   onSelect?: () => void;
+  /** A picked solid colour (CSS), shown in place of a picture. */
+  colour?: string | null;
+  /** A note over the colour, e.g. that it is the theme's. */
+  colourNote?: string;
 }
 
 export function SelectedBackgroundFrame({
@@ -27,6 +31,8 @@ export function SelectedBackgroundFrame({
   onZoom,
   crop,
   onSelect,
+  colour = null,
+  colourNote,
 }: SelectedBackgroundFrameProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -40,7 +46,19 @@ export function SelectedBackgroundFrame({
         className="group relative w-full overflow-hidden rounded-[8px] border"
         style={{ background: "var(--surface-2)", borderColor: "var(--border)", aspectRatio: aspect }}
       >
-        {previewUrl ? (
+        {colour ? (
+          // A fill has nothing to frame or zoom: the colour is the preview.
+          <div role="img" aria-label={colourNote ?? caption} className="size-full" style={{ background: colour }}>
+            {colourNote ? (
+              <span
+                className="absolute bottom-1.5 left-1.5 rounded-[5px] px-1.5 py-0.5 font-body text-[10px]"
+                style={{ background: "color-mix(in oklch, var(--surface) 85%, transparent)", color: "var(--ink-strong)" }}
+              >
+                {colourNote}
+              </span>
+            ) : null}
+          </div>
+        ) : previewUrl ? (
           <>
             {onSelect ? (
               <button type="button" onClick={onSelect} aria-label={caption} className="absolute inset-0" />

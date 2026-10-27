@@ -221,6 +221,25 @@
             "pattern-swirl-2": "소용돌이 띠"
           }
         },
+        "solid": {
+          "tab": "단색",
+          "none": "배경 없음",
+          "noneHint": "테마 기본 배경으로 되돌립니다",
+          "custom": "직접 선택",
+          "previewNone": "배경 없음 (테마 기본)",
+          "colours": {
+            "black": "검정",
+            "white": "흰색",
+            "navy": "짙은 남색",
+            "charcoal": "짙은 회색",
+            "lightGrey": "연회색",
+            "ivory": "아이보리",
+            "wine": "와인",
+            "forest": "짙은 초록",
+            "skyBlue": "연하늘",
+            "blush": "연분홍"
+          }
+        },
         "action": {
           "apply": "변경하기",
           "applyDisabledHint": "이미지를 먼저 선택하세요",

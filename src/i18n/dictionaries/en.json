@@ -221,6 +221,25 @@
             "pattern-swirl-2": "Swirl bands"
           }
         },
+        "solid": {
+          "tab": "Solid",
+          "none": "No background",
+          "noneHint": "Back to the theme's default background",
+          "custom": "Custom",
+          "previewNone": "No background (theme default)",
+          "colours": {
+            "black": "Black",
+            "white": "White",
+            "navy": "Navy",
+            "charcoal": "Charcoal",
+            "lightGrey": "Light grey",
+            "ivory": "Ivory",
+            "wine": "Wine",
+            "forest": "Forest green",
+            "skyBlue": "Sky blue",
+            "blush": "Blush"
+          }
+        },
         "action": {
           "apply": "Apply",
           "applyDisabledHint": "Choose an image first",
