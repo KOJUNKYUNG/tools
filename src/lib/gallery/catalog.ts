@@ -69,7 +69,6 @@ export const GALLERY_IMAGES: GalleryImage[] = [
   image("gradient", "cloud", { source: PAPER }),
   image("gradient", "solar", { source: PAPER }),
   image("gradient", "spiral-1", { source: PAPER }),
-  image("gradient", "spiral-2", { source: PAPER }),
 
   // ── nature ──────────────────────────────────────────────────
   image("nature", "kosciuszko-ridge", { source: cc0(`${COMMONS}Main_Range_Track,_Kosciuszko_National_Park_35.jpg`, "Dhx1") }),
@@ -115,6 +114,8 @@ export const GALLERY_IMAGES: GalleryImage[] = [
   image("pattern", "dot-3", { source: PAPER }),
   image("pattern", "perlin-1", { source: PAPER }),
   image("pattern", "perlin-2", { source: PAPER }),
+  // Hard stripes like the swirl lines: a pattern, though spiral-1 is a gradient.
+  image("pattern", "spiral-2", { source: PAPER }),
   image("pattern", "swirl-1", { source: PAPER }),
   image("pattern", "swirl-2", { source: PAPER }),
 ];

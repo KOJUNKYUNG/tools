@@ -30,7 +30,6 @@ Drawn with [Paper Shaders](https://github.com/paper-design/shaders) (Apache-2.0,
 - `/gallery/gradient/cloud.jpg`
 - `/gallery/gradient/solar.jpg`
 - `/gallery/gradient/spiral-1.jpg`
-- `/gallery/gradient/spiral-2.jpg`
 - `/gallery/pattern/dithering-1.png`
 - `/gallery/pattern/dithering-2.png`
 - `/gallery/pattern/warp-1.jpg`
@@ -45,6 +44,7 @@ Drawn with [Paper Shaders](https://github.com/paper-design/shaders) (Apache-2.0,
 - `/gallery/pattern/dot-3.jpg`
 - `/gallery/pattern/perlin-1.jpg`
 - `/gallery/pattern/perlin-2.jpg`
+- `/gallery/pattern/spiral-2.jpg`
 - `/gallery/pattern/swirl-1.jpg`
 - `/gallery/pattern/swirl-2.jpg`
 
