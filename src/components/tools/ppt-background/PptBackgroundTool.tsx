@@ -73,6 +73,12 @@ async function galleryImageFile(image: GalleryImage): Promise<File> {
   return new File([blob], `gallery-${image.id}.${ext}`, { type: blob.type });
 }
 
+/**
+ * The share of the gauge an edited pick's 4K drawing takes (measured
+ * 2026-10-29: 0.2-0.25 s of a 0.7-1 s run on a laptop iGPU).
+ */
+const DRAWING_SHARE = 15;
+
 export interface PptBackgroundToolLabels {
   /** Shared error copy (`common.errors`), in the page's language. */
   errors: Dictionary["common"]["errors"];
@@ -254,24 +260,27 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     retry,
     download,
   } = useToolProcessor<Uint8Array>({
-    processor: async (files, onProgress) =>
-      changeBackground({
+    processor: async (files, onProgress) => {
+      // An edited pick is drawn now, at the gallery file's size, so the frame
+      // set on the file applies to it as is. The drawing is the gauge's first
+      // share, so the gauge moves from the click on.
+      const drawing = !fill && editedProps;
+      if (drawing) onProgress(DRAWING_SHARE / 3);
+      const file = drawing ? await drawEdited(editedProps) : bgFile!;
+      const shown = drawing ? (pct: number) => DRAWING_SHARE + (pct * (100 - DRAWING_SHARE)) / 100 : (pct: number) => pct;
+      if (drawing) onProgress(DRAWING_SHARE);
+      return changeBackground({
         pptxFile: files[0],
-        // An edited pick is drawn now, at the gallery file's size, so the
-        // frame set on the file applies to it as is.
-        background: fill ?? {
-          kind: "picture",
-          file: editedProps ? await drawEdited(editedProps) : bgFile!,
-          crop: crop ?? undefined,
-        },
+        background: fill ?? { kind: "picture", file, crop: crop ?? undefined },
         mode,
         targetSlides:
           mode === "specific-slides"
             ? [...selectedSlides].sort((a, b) => a - b)
             : undefined,
         keptCovering: [...keptCovering],
-        onProgress,
-      }),
+        onProgress: (pct) => onProgress(shown(pct)),
+      });
+    },
     onDownload: (bytes) => {
       const baseName = pptxFiles[0]?.name.replace(/\.pptx?$/i, "") ?? "presentation";
       downloadBlob(
