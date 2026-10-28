@@ -16,6 +16,8 @@ interface NumberFieldProps {
   className?: string;
   style?: CSSProperties;
   ariaLabel?: string;
+  /** The on-screen keypad: "decimal" where the value takes a decimal point. */
+  inputMode?: "numeric" | "decimal";
 }
 
 /**
@@ -38,6 +40,7 @@ export function NumberField({
   className,
   style,
   ariaLabel,
+  inputMode = "numeric",
 }: NumberFieldProps) {
   const [text, setText] = useState(() => String(value));
   const focusedRef = useRef(false);
@@ -63,7 +66,7 @@ export function NumberField({
   return (
     <input
       type="number"
-      inputMode="numeric"
+      inputMode={inputMode}
       value={text}
       min={min}
       max={max}

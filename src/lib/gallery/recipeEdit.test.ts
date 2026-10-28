@@ -11,7 +11,9 @@ import {
   isEdited,
   removeColour,
   setColour,
+  shownValue,
   startEdit,
+  typedValue,
   type EditState,
 } from "./recipeEdit";
 import { paperRecipe, type PaperRecipe } from "./recipes";
@@ -376,6 +378,23 @@ describe("recipe edit", () => {
     expect(shown("mesh-4c", "shape")).toEqual({ times: 0.001, suffix: "s" });
     expect(shown("dithering-1", "shape")).toEqual({ times: 1 });
     expect(shown("dot-1", "shape")).toEqual({ times: 1 });
+  });
+
+  it("shows a value in its number field exactly, as fine as the slider's step", () => {
+    const shape = (name: string) => controlsFor(recipe(name)).shape!;
+    expect(shownValue(shape("dot-1"), 44.065)).toBe(44.065);
+    expect(shownValue(shape("mesh-4c"), 53550)).toBe(53.55);
+    expect(shownValue(controlsFor(recipe("warp-1")).softness!, 0.335)).toBe(33.5);
+    expect(shownValue(controlsFor(recipe("warp-1")).size!, 1.05)).toBe(105);
+  });
+
+  it("takes a typed value onto the slider's nearest step, inside its range", () => {
+    const softness = controlsFor(recipe("warp-1")).softness!;
+    expect(typedValue(softness, 50.2)).toBe(0.5);
+    expect(typedValue(softness, 33.3)).toBe(0.335);
+    expect(typedValue(softness, 140)).toBe(1);
+    expect(typedValue(controlsFor(recipe("mesh-4c")).shape!, 53.556)).toBe(53560);
+    expect(typedValue(controlsFor(recipe("cloud")).shape!, 0)).toBe(0.01);
   });
 
   it("adds an opaque colour after a transparent one, since the picker has no transparency", () => {

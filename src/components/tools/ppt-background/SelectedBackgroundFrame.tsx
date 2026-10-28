@@ -3,7 +3,7 @@
 
 import { CroppedImage } from "@/components/image/CroppedImage";
 import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
-import { BusyBadge } from "./BusyBadge";
+import { CornerSpinner } from "@/components/common/CornerSpinner";
 
 interface SelectedBackgroundFrameProps {
   caption: string;
@@ -76,7 +76,8 @@ export function SelectedBackgroundFrame({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewUrl} alt={caption} className="pointer-events-none size-full object-cover" />
             )}
-            {busyLabel ? <BusyBadge label={busyLabel} /> : null}
+            {/* Top left: the zoom button takes the top right on hover. */}
+            {busyLabel ? <CornerSpinner label={busyLabel} className="left-1.5 top-1.5" /> : null}
             <button
               type="button"
               onClick={onZoom}

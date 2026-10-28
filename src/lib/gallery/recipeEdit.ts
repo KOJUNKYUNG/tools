@@ -113,10 +113,13 @@ const PAPER_MAX_COLOURS: Record<string, number> = {
 };
 
 /** The prop each of a shader's sliders besides size writes; a slider without one is hidden. */
-type ShaderSliders = Partial<Record<"grain" | "grainOverlay" | "softness", string>> & {
-  /** The shape slider: its prop and range, which differ per shader. */
-  shape?: { prop: string; range: SliderRange };
-};
+type ShaderSliders = Partial<Record<"grain" | "grainOverlay" | "softness", string>> & { shape?: ShapeSlider };
+
+/** The shape slider: its prop and range, which differ per shader. */
+interface ShapeSlider {
+  prop: string;
+  range: SliderRange;
+}
 
 // 0 to 1, read 0 to 100; fine enough for every recipe's own value to sit on a
 // step (mixing 0.775).
@@ -125,12 +128,12 @@ const SIZE: SliderRange = { min: 0.5, max: 2, step: 0.05, shown: { times: 100, s
 const HUE: SliderRange = { min: -180, max: 180, step: 1, shown: { times: 1, suffix: "°" } };
 
 /** A shape slider over a 0 to 1 prop. */
-const unitShape = (prop: string, label: SliderLabel): NonNullable<ShaderSliders["shape"]> => ({ prop, range: { ...UNIT, label } });
+const unitShape = (prop: string, label: SliderLabel): ShapeSlider => ({ prop, range: { ...UNIT, label } });
 /**
  * The frame of the animation a mesh gradient or warp is drawn at, which moves
  * its shapes (in ms, read in seconds; Paper gives it no range).
  */
-const FLOW: NonNullable<ShaderSliders["shape"]> = {
+const FLOW: ShapeSlider = {
   prop: "frame",
   range: { min: 0, max: 120000, step: 10, shown: { times: 0.001, suffix: "s" }, label: "flow" },
 };
@@ -192,6 +195,27 @@ export function controlsFor(recipe: PaperRecipe): RecipeControls {
     softness: sliders?.softness ? UNIT : null,
     shape: sliders?.shape?.range ?? null,
   };
+}
+
+/** Decimals a number field needs to show every step of `range` exactly. */
+function shownDecimals({ step, shown }: SliderRange): number {
+  const unit = step * shown.times;
+  let decimals = 0;
+  while (decimals < 6 && Math.abs(unit * 10 ** decimals - Math.round(unit * 10 ** decimals)) > 1e-9) decimals++;
+  return decimals;
+}
+
+/** `value` as its number field reads it, exactly to the slider's step (dot-1's dot size 44.065). */
+export function shownValue(range: SliderRange, value: number): number {
+  return Number((value * range.shown.times).toFixed(shownDecimals(range)));
+}
+
+/** A value typed in the number field, back in the edit's unit, on the slider's nearest step inside its range. */
+export function typedValue(range: SliderRange, typed: number): number {
+  const { min, max, step, shown } = range;
+  const stepped = min + Math.round((typed / shown.times - min) / step) * step;
+  // Rounded off the float error of adding steps (0.1 + 0.2).
+  return Math.min(max, Math.max(min, Number(stepped.toFixed(6))));
 }
 
 // Slider props hold numbers (the gallery catalog test holds every recipe to

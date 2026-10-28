@@ -23,6 +23,8 @@ export function useRecipePreview(
   const [url, setUrl] = useState<string | null>(null);
   /** The props the shown drawing is of (or a failed drawing gave up on). */
   const [shownFor, setShownFor] = useState<PaperRecipe | null>(null);
+  /** The preview could not open: nothing is on its way until another recipe opens one. */
+  const [openFailed, setOpenFailed] = useState(false);
   const urlRef = useRef<string | null>(null);
 
   const show = (next: string | null, props: PaperRecipe | null) => {
@@ -49,6 +51,7 @@ export function useRecipePreview(
     if (!start) return;
     let live = true;
     let opened: RecipePreview | null = null;
+    setOpenFailed(false);
     openRecipePreview(start)
       .then((p) => {
         if (live) {
@@ -57,7 +60,9 @@ export function useRecipePreview(
         } else p.dispose();
       })
       .catch((err: unknown) => {
-        if (live) fail("open", err);
+        if (!live) return;
+        setOpenFailed(true);
+        fail("open", err);
       });
     return () => {
       live = false;
@@ -98,5 +103,5 @@ export function useRecipePreview(
 
   useEffect(() => () => show(null, null), []);
 
-  return { url, pending: !!drawn && shownFor !== drawn };
+  return { url, pending: !!drawn && !openFailed && shownFor !== drawn };
 }

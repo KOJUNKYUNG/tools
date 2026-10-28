@@ -2,6 +2,7 @@
 
 import { CroppedImage } from "@/components/image/CroppedImage";
 import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
+import { CornerSpinner } from "./CornerSpinner";
 
 interface PreviewLightboxProps {
   /** Image URL to enlarge. */
@@ -15,9 +16,11 @@ interface PreviewLightboxProps {
   crop?: CropRect | null;
   /** The size `crop` is held in, when `src` is a smaller stand-in (see CroppedImage). */
   sourceSize?: ImageDims;
+  /** The spinner's name while a newer version of the picture is on its way; none when it is current. */
+  busyLabel?: string | null;
 }
 
-export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop, sourceSize }: PreviewLightboxProps) {
+export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop, sourceSize, busyLabel }: PreviewLightboxProps) {
   return (
     <div
       className="absolute inset-0 z-10 flex items-center justify-center p-4"
@@ -36,6 +39,7 @@ export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop, s
           <img src={src} alt={alt} className="size-full object-contain" />
         )}
       </div>
+      {busyLabel ? <CornerSpinner label={busyLabel} className="left-2.5 top-2.5" /> : null}
       <button
         type="button"
         onClick={onClose}

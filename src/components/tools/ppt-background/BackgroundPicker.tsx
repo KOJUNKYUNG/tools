@@ -13,7 +13,7 @@ import {
 import type { FillBackground } from "@/lib/ppt/changeBackground";
 import { SolidColourGrid, type SolidColourLabels } from "./SolidColourGrid";
 import { RecipeEditArea, type RecipeEditProps } from "./RecipeEditArea";
-import { BusyBadge } from "./BusyBadge";
+import { CornerSpinner } from "@/components/common/CornerSpinner";
 
 /** A gallery filter, or the "단색" tab after them. */
 type CategoryFilter = "all" | GalleryCategory | "solid";
@@ -39,10 +39,8 @@ export interface BackgroundFrame {
   locked: boolean;
   /** The recipe edit under the frame, for a Paper gallery item only. */
   edit?: RecipeEditProps | null;
-  /** The shown picture is behind the latest edit: a newer drawing is on its way. */
-  busy?: boolean;
-  /** The spinner's name while `busy`. */
-  busyLabel?: string;
+  /** The spinner's name while the shown picture is behind the latest edit; none when it is current. */
+  busyLabel?: string | null;
 }
 
 interface BackgroundPickerProps {
@@ -181,7 +179,7 @@ export function BackgroundPicker({
                 // The selector draws a 1 px border around the picture.
                 maxImageHeight="min(20rem, calc(100cqh - 2px))"
               />
-              {frame.busy ? <BusyBadge label={frame.busyLabel ?? ""} /> : null}
+              {frame.busyLabel ? <CornerSpinner label={frame.busyLabel} /> : null}
             </div>
             {/* The edit area's room is held for every picture, open or closed:
                 the frame keeps its size and the toggle its place. Its height

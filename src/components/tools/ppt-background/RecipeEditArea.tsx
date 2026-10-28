@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef } from "react";
+import { useId, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,8 @@ import { template } from "@/lib/common/template";
 import { NumberField } from "@/components/common/NumberField";
 import {
   SLIDERS,
+  shownValue,
+  typedValue,
   type ColourChip,
   type RecipeControls,
   type RecipeEdit,
@@ -31,8 +33,7 @@ export interface RecipeEditLabels {
   grainOverlay: string;
   /** The softness slider, where the shader has softness. */
   softness: string;
-  /** The shape slider's names, one per value it moves (`shape` where none is given). */
-  shape: string;
+  /** The shape slider's names, one per value it moves. */
   flow: string;
   arrangement: string;
   rays: string;
@@ -202,7 +203,8 @@ export function RecipeEditArea({
             return (
               <SliderCell
                 key={slider}
-                label={labels[(range.label ?? slider) satisfies Slider | SliderLabel]}
+                // Every shape range names itself, so the bare "shape" key never comes up.
+                label={labels[(range.label ?? slider) as Exclude<Slider, "shape"> | SliderLabel]}
                 range={range}
                 value={edit[slider]}
                 locked={locked}
@@ -234,9 +236,9 @@ function SliderCell({
   onChange: (value: number) => void;
 }) {
   const id = useId();
-  const { shown } = range;
-  // Read to a tenth, or a hundredth of a second: as fine as the finest steps.
-  const toShown = (v: number) => Number((v * shown.times).toFixed(shown.times < 1 ? 2 : 1));
+  const shownNow = shownValue(range, value);
+  // Each commit remounts the field, so it reads the value as stepped (50.2 typed reads 50).
+  const [commits, setCommits] = useState(0);
   return (
     <div className="flex h-6 min-w-0 items-center gap-1.5">
       <label htmlFor={id} className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
@@ -255,30 +257,28 @@ function SliderCell({
       />
       <span className="flex shrink-0 items-center gap-0.5">
         <NumberField
-          value={toShown(value)}
-          // Typed values land on the slider's step, as a dragged one does.
-          onCommit={(typed) => onChange(onStep(typed / shown.times, range))}
-          min={toShown(range.min)}
-          max={toShown(range.max)}
-          fallback={toShown(value)}
+          key={commits}
+          value={shownNow}
+          onCommit={(typed) => {
+            setCommits((n) => n + 1);
+            // Leaving the field untouched is no edit; a typed value lands on the slider's step.
+            if (typed !== shownNow) onChange(typedValue(range, typed));
+          }}
+          min={shownValue(range, range.min)}
+          max={shownValue(range, range.max)}
+          fallback={shownNow}
           disabled={locked}
           ariaLabel={label}
+          inputMode={Number.isInteger(range.step * range.shown.times) ? "numeric" : "decimal"}
           className="h-6 w-[3.25rem] rounded-[5px] border px-1 text-right font-body text-[11px] tabular-nums"
           style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
         />
         <span className="w-2 font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
-          {shown.suffix}
+          {range.shown.suffix}
         </span>
       </span>
     </div>
   );
-}
-
-/** `value` on the nearest step of `range`, inside it. */
-function onStep(value: number, { min, max, step }: SliderRange): number {
-  const stepped = min + Math.round((value - min) / step) * step;
-  // Rounded off the float error of adding steps (0.1 + 0.2).
-  return Math.min(max, Math.max(min, Number(stepped.toFixed(6))));
 }
 
 /** Open a colour input's picker over its chip, where the browser lets a script do so. */

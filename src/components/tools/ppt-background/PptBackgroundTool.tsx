@@ -738,8 +738,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                         onCropChange: setCrop,
                         onBack: () => setFraming(false),
                         locked: status !== "idle",
-                        busy: editPending,
-                        busyLabel: labels.recipeEdit.drawing,
+                        busyLabel: editPending ? labels.recipeEdit.drawing : null,
                         edit:
                           editArea && recipe && recipeEdit && bgFile
                             ? {
@@ -909,6 +908,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   aspect={aspectCss}
                   crop={zoom === "selected" ? crop : null}
                   sourceSize={zoom === "selected" ? pickSize : undefined}
+                  busyLabel={zoom === "selected" && editPending ? labels.recipeEdit.drawing : null}
                   closeLabel={labels.preview.close}
                   onClose={() => setZoom(null)}
                 />

@@ -1,5 +1,6 @@
 "use client";
 
+import { CornerSpinner } from "@/components/common/CornerSpinner";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 interface ImageCompressPreviewProps {
@@ -54,9 +55,7 @@ export function ImageCompressPreview({
           />
         )}
         {showCornerSpinner && (
-          <div className="pointer-events-none absolute right-2 top-2 rounded-full bg-[color:var(--surface)] p-1 opacity-80 shadow-sm">
-            <span className="block size-3 animate-spin rounded-full border-2 border-[color:var(--emphasis)] border-t-transparent" />
-          </div>
+          <CornerSpinner />
         )}
       </div>
 
