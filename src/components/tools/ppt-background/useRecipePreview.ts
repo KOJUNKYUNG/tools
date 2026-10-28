@@ -44,10 +44,20 @@ export function useRecipePreview(
     if (!start) return;
     let open = true;
     let opened: RecipePreview | null = null;
+    // A context lost after a drawing (a GPU reset, sleep) blanks the canvas
+    // its copies read: drop the preview and say so, rather than show the
+    // gallery file. Not the loss dispose causes, so it is let go first.
+    const lost = (event: Event) => {
+      setPreview(null);
+      setLive(null);
+      setFailedName(start.name);
+      fail("draw", event);
+    };
     openRecipePreview(start)
       .then((p) => {
         if (open) {
           opened = p;
+          p.canvas.addEventListener("webglcontextlost", lost);
           setPreview(p);
           setFailedName(null);
         } else p.dispose();
@@ -59,30 +69,16 @@ export function useRecipePreview(
       });
     return () => {
       open = false;
+      opened?.canvas.removeEventListener("webglcontextlost", lost);
       opened?.dispose();
       setPreview(null);
     };
   }, [name]);
 
-  // A context lost after a drawing (a GPU reset, sleep) blanks the canvas its
-  // copies read: drop the preview and say so, rather than show the gallery file.
-  useEffect(() => {
-    if (!preview) return;
-    const lost = (event: Event) => {
-      setPreview(null);
-      setLive(null);
-      setFailedName(name);
-      fail("draw", event);
-    };
-    preview.canvas.addEventListener("webglcontextlost", lost);
-    return () => preview.canvas.removeEventListener("webglcontextlost", lost);
-    // `fail` reads the latest callback through a ref; `name` is the preview's recipe.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview]);
-
   useEffect(() => {
     // The canvas is drawn here (Paper, outside React), and which drawing it
     // holds is recorded at once, so its copies take it in the same commit.
+    /* eslint-disable react-hooks/set-state-in-effect -- records the drawing of a canvas outside React */
     if (!drawn || !preview) {
       setLive(null);
       return;
@@ -96,6 +92,7 @@ export function useRecipePreview(
       setLive(null);
       fail("draw", err);
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [drawn, preview]);
 
   return { live, pending: !!drawn && failedName !== name && !preview };
