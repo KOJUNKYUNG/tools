@@ -6,13 +6,29 @@ import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
 import { GALLERY_IMAGES } from "./catalog";
 import { renderCredits } from "./credits";
-import type { GalleryCategory } from "./types";
+import {
+  applyEdit,
+  controlsFor,
+  isColourProp,
+  isEdited,
+  SLIDERS,
+  startEdit,
+  type RecipeEdit,
+  type SliderRange,
+} from "./recipeEdit";
+import { paperRecipe } from "./recipes";
+import { GALLERY_CATEGORIES, type GalleryCategory } from "./types";
 
 const publicDir = path.resolve(__dirname, "../../../public");
 const onDisk = (url: string) => path.join(publicDir, url);
 
 const recipes: { name: string; category?: string }[] = JSON.parse(
   readFileSync(path.resolve(__dirname, "../../../scripts/gallery/shaders.json"), "utf8"),
+);
+
+/** Paper's prop → uniform table (`scripts/gallery/extract-paper-props.mjs`). */
+const paperProps: { shaders: Record<string, { props: Record<string, { kind: string; max?: number }> }> } = JSON.parse(
+  readFileSync(path.resolve(__dirname, "../../../scripts/gallery/paper-props.json"), "utf8"),
 );
 
 const KB = 1024;
@@ -76,6 +92,84 @@ describe("gallery catalog", () => {
     const drawn = GALLERY_IMAGES.filter((img) => img.source.kind === "paper").map((img) => `${img.category}/${img.name}`);
     const recipeKeys = recipes.map((r) => `${r.category ?? "gradient"}/${r.name}`);
     expect(drawn.sort()).toEqual(recipeKeys.sort());
+  });
+
+  it("the app finds each Paper-drawn image's recipe, and reads its colours the way Paper's prop table does", () => {
+    for (const img of GALLERY_IMAGES.filter((i) => i.source.kind === "paper")) {
+      const recipe = paperRecipe(img.name);
+      expect(recipe?.category ?? "gradient", img.id).toBe(img.category);
+      const table = paperProps.shaders[recipe!.shader]?.props;
+      expect(table, `${img.id}: ${recipe!.shader} in paper-props.json`).toBeDefined();
+      for (const prop of Object.keys(recipe!)) {
+        const kind = table[prop]?.kind;
+        expect(isColourProp(prop), `${img.id}.${prop}`).toBe(kind === "color" || kind === "colors");
+      }
+    }
+  });
+
+  it("the colour list grows up to Paper's maximum for the shader, and never past 6", () => {
+    for (const img of GALLERY_IMAGES.filter((i) => i.source.kind === "paper")) {
+      const recipe = paperRecipe(img.name)!;
+      const list = paperProps.shaders[recipe.shader].props.colors;
+      const max = recipe.colors && list?.max ? Math.min(list.max, 6) : null;
+      expect(controlsFor(recipe).maxColours, img.id).toBe(max);
+    }
+  });
+
+  it("every recipe's shader has sliders, each writing number props of Paper's table on Paper's range", () => {
+    for (const img of GALLERY_IMAGES.filter((i) => i.source.kind === "paper")) {
+      const recipe = paperRecipe(img.name)!;
+      const table = paperProps.shaders[recipe.shader].props;
+      const controls = controlsFor(recipe);
+      expect(controls.size, `${img.id}: ${recipe.shader} in the slider table`).not.toBeNull();
+      // Each slider at its top: the props it moves are the ones that change.
+      const start = startEdit(recipe);
+      const moved = (edit: Partial<RecipeEdit>) => {
+        const drawn = applyEdit(recipe, { ...start, ...edit });
+        return Object.keys(drawn).filter((prop) => JSON.stringify(drawn[prop]) !== JSON.stringify(recipe[prop]));
+      };
+      for (const slider of SLIDERS) {
+        const range = controls[slider];
+        if (!range) continue;
+        const props = moved({ [slider]: start[slider] === range.max ? range.min : range.max });
+        if (slider === "size") expect(props, img.id).toEqual(["scale"]);
+        expect(props.length, `${img.id}.${slider}`).toBeGreaterThan(0);
+        for (const prop of props) {
+          // Set in the recipe: a missing one would be drawn from 0, not Paper's default.
+          expect(typeof recipe[prop], `${img.id}.${prop} in the recipe`).toBe("number");
+          // The frame is the animation's time, which the mount takes, not a prop of Paper's table.
+          if (prop === "frame") continue;
+          expect(table[prop], `${img.id}.${prop}`).toMatchObject({ kind: "number" });
+          // Size is a share of the recipe's scale; Paper's documented scale range is not a clamp.
+          if (slider !== "size") expect(table[prop], `${img.id}.${prop}`).toMatchObject({ min: range.min, max: range.max });
+        }
+      }
+    }
+  });
+
+  it("every recipe starts unedited, each slider at its own value inside the range and on a step", () => {
+    const onStep = (value: number, { min, step }: SliderRange) =>
+      Math.abs((value - min) / step - Math.round((value - min) / step)) < 1e-9;
+    for (const img of GALLERY_IMAGES.filter((i) => i.source.kind === "paper")) {
+      const recipe = paperRecipe(img.name)!;
+      const start = startEdit(recipe);
+      // A slider whose props differ in the recipe (one grain slider, two mesh
+      // props) would change the drawing before the user touches it.
+      expect(isEdited(recipe, start), img.id).toBe(false);
+      const controls = controlsFor(recipe);
+      for (const slider of SLIDERS) {
+        const range = controls[slider];
+        if (!range) continue;
+        expect(start[slider], `${img.id}.${slider}`).toBeGreaterThanOrEqual(range.min);
+        expect(start[slider], `${img.id}.${slider}`).toBeLessThanOrEqual(range.max);
+        expect(onStep(start[slider], range), `${img.id}.${slider} = ${start[slider]}`).toBe(true);
+      }
+    }
+  });
+
+  it("lists the images in the gallery tabs' order, as the 전체 tab shows them", () => {
+    const order = GALLERY_IMAGES.map((img) => GALLERY_CATEGORIES.indexOf(img.category));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
   it("CREDITS.md is the one the catalog writes, listing every CC0 original", () => {

@@ -148,7 +148,8 @@ without a background).
 
 ### Recipe edit
 A change the user makes to a gallery gradient or pattern before applying it:
-its colours, size, grain and softness, which the browser applies by drawing
+its colours, size, grain, softness and the one value that most decides its
+shape (such as the god rays' density), which the browser applies by drawing
 the gallery item's Paper Shaders recipe (`scripts/gallery/shaders.json`)
 anew. Only Paper items have a recipe; photos and the three legacy gradients
 are used as they are. An unedited pick is the gallery file itself, never a

@@ -9,7 +9,8 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
-import { cropFits, maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
+import { EMPTY_BOX, containBox, frameInBox, pointInSource, type Box } from "@/lib/image/cropFrameView";
+import { cropFits, maxFitCrop, type CropRect, type ImageDims } from "@/lib/image/maxFitCrop";
 import {
   aspectLockedResize,
   type ResizeHandle,
@@ -42,7 +43,15 @@ const HANDLE_CURSORS: Record<ResizeHandle, string> = {
 };
 
 interface CropSelectorProps {
+  /** The picture shown under the frame: the source, or a smaller stand-in of its aspect. */
   imageUrl: string;
+  /**
+   * The size of the picture the frame will be applied to, when the shown
+   * picture is a stand-in. The frame is held and reported in these pixels, so
+   * swapping the shown picture for another stand-in of the same source keeps
+   * it where it was. Defaults to the shown picture's own size.
+   */
+  sourceSize?: ImageDims;
   /** Accessible name of the picture, in the page's language. */
   alt: string;
   /** Accessible name of each resize handle. */
@@ -58,46 +67,22 @@ interface CropSelectorProps {
   initialCrop?: CropRect | null;
   /** Shows the frame without handles and ignores drags, e.g. while a run uses it. */
   readOnly?: boolean;
-}
-
-interface DisplayBox {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+  /**
+   * The picture's height limit as a CSS length, in place of the default 20rem,
+   * e.g. one that follows the room a parent leaves it.
+   */
+  maxImageHeight?: string;
+  /** Laid over the picture, exactly where it shows (e.g. a live drawing standing in for it). */
+  overlay?: React.ReactNode;
 }
 
 function sameRect(a: CropRect, b: CropRect): boolean {
   return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 }
 
-function computeDisplayBox(
-  elementW: number,
-  elementH: number,
-  naturalW: number,
-  naturalH: number,
-): DisplayBox {
-  if (elementW <= 0 || elementH <= 0 || naturalW <= 0 || naturalH <= 0) {
-    return { x: 0, y: 0, w: 0, h: 0 };
-  }
-  const elementRatio = elementW / elementH;
-  const naturalRatio = naturalW / naturalH;
-  let w: number;
-  let h: number;
-  if (elementRatio > naturalRatio) {
-    // element wider than image → image is height-limited, letterboxed horizontally
-    h = elementH;
-    w = elementH * naturalRatio;
-  } else {
-    // element taller than image → image is width-limited, letterboxed vertically
-    w = elementW;
-    h = elementW / naturalRatio;
-  }
-  return { x: (elementW - w) / 2, y: (elementH - h) / 2, w, h };
-}
-
 export function CropSelector({
   imageUrl,
+  sourceSize,
   alt,
   targetWidth,
   targetHeight,
@@ -105,105 +90,87 @@ export function CropSelector({
   handleLabels,
   initialCrop = null,
   readOnly = false,
+  maxImageHeight,
+  overlay,
 }: CropSelectorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
-  const [displayBox, setDisplayBox] = useState<DisplayBox>({ x: 0, y: 0, w: 0, h: 0 });
+  const [displayBox, setDisplayBox] = useState<Box>(EMPTY_BOX);
   const [crop, setCrop] = useState<CropRect>({ x: 0, y: 0, width: 0, height: 0 });
   const [dragging, setDragging] = useState(false);
+  // Where the drag began, already read as source pixels.
   const dragStart = useRef({ x: 0, y: 0, cropX: 0, cropY: 0 });
   const [resizing, setResizing] = useState<ResizeHandle | null>(null);
   const resizeStart = useRef<{ rect: CropRect }>({
     rect: { x: 0, y: 0, width: 0, height: 0 },
   });
 
-  // Read once per image load, not tracked: the selector owns the frame
-  // after that, and echoing each change back must not restart it.
+  // Read once per mount, not tracked: the selector owns the frame after
+  // that, and echoing each change back must not restart it.
   const initialCropRef = useRef(initialCrop);
 
-  const initCrop = useCallback(
-    (natW: number, natH: number) => {
-      const start = initialCropRef.current;
-      const rect =
-        start && cropFits(start, { w: natW, h: natH }, targetWidth / targetHeight)
-          ? start
-          : maxFitCrop({ w: natW, h: natH }, targetWidth, targetHeight);
-      setCrop(rect);
-      onCropChange(rect);
-    },
-    [targetWidth, targetHeight, onCropChange],
-  );
+  const sourceW = sourceSize?.w ?? imgNatural.w;
+  const sourceH = sourceSize?.h ?? imgNatural.h;
+  const source = { w: sourceW, h: sourceH };
 
-  const handleImgLoad = useCallback(
-    (e: React.SyntheticEvent<HTMLImageElement>) => {
-      const img = e.currentTarget;
-      const natW = img.naturalWidth;
-      const natH = img.naturalHeight;
-      setImgNatural({ w: natW, h: natH });
-      setDisplayBox(
-        computeDisplayBox(img.clientWidth, img.clientHeight, natW, natH),
-      );
-      initCrop(natW, natH);
-    },
-    [initCrop],
-  );
-
+  // The frame is placed when the source or the target ratio changes, never
+  // because the shown picture did: a stand-in swapped for another of the
+  // same source keeps the frame as it is, in the same source pixels.
   useEffect(() => {
-    if (imgNatural.w > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- re-derive the crop box when target size or natural size changes
-      initCrop(imgNatural.w, imgNatural.h);
-    }
-  }, [targetWidth, targetHeight, imgNatural.w, imgNatural.h, initCrop]);
+    if (sourceW <= 0 || sourceH <= 0) return;
+    const dims = { w: sourceW, h: sourceH };
+    const start = initialCropRef.current;
+    const rect =
+      start && cropFits(start, dims, targetWidth / targetHeight)
+        ? start
+        : maxFitCrop(dims, targetWidth, targetHeight);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- re-place the frame when the source or target size changes
+    setCrop(rect);
+    onCropChange(rect);
+  }, [targetWidth, targetHeight, sourceW, sourceH, onCropChange]);
+
+  const handleImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const natural = { w: img.naturalWidth, h: img.naturalHeight };
+    setImgNatural(natural);
+    setDisplayBox(containBox({ w: img.clientWidth, h: img.clientHeight }, natural));
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current) return;
     const obs = new ResizeObserver(() => {
       const img = imgRef.current;
       if (img && imgNatural.w > 0 && imgNatural.h > 0) {
-        setDisplayBox(
-          computeDisplayBox(img.clientWidth, img.clientHeight, imgNatural.w, imgNatural.h),
-        );
+        setDisplayBox(containBox({ w: img.clientWidth, h: img.clientHeight }, imgNatural));
       }
     });
     obs.observe(containerRef.current);
     return () => obs.disconnect();
-  }, [imgNatural.w, imgNatural.h]);
+  }, [imgNatural]);
 
-  const ready =
-    imgNatural.w > 0 && imgNatural.h > 0 && displayBox.w > 0 && displayBox.h > 0;
-  const scaleX = ready ? displayBox.w / imgNatural.w : 1;
-  const scaleY = ready ? displayBox.h / imgNatural.h : 1;
-
-  const displayCrop = {
-    x: displayBox.x + crop.x * scaleX,
-    y: displayBox.y + crop.y * scaleY,
-    w: crop.width * scaleX,
-    h: crop.height * scaleY,
-  };
+  const ready = sourceW > 0 && sourceH > 0 && displayBox.w > 0 && displayBox.h > 0;
+  const displayCrop = ready ? frameInBox(crop, displayBox, source) : EMPTY_BOX;
 
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragging(true);
-    dragStart.current = {
-      x: e.clientX,
-      y: e.clientY,
-      cropX: crop.x,
-      cropY: crop.y,
-    };
+    const at = pointInSource({ x: e.clientX, y: e.clientY }, displayBox, source);
+    dragStart.current = { x: at.x, y: at.y, cropX: crop.x, cropY: crop.y };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!dragging) return;
-    const dx = (e.clientX - dragStart.current.x) / scaleX;
-    const dy = (e.clientY - dragStart.current.y) / scaleY;
+    const at = pointInSource({ x: e.clientX, y: e.clientY }, displayBox, source);
+    const dx = at.x - dragStart.current.x;
+    const dy = at.y - dragStart.current.y;
 
     let newX = Math.round(dragStart.current.cropX + dx);
     let newY = Math.round(dragStart.current.cropY + dy);
 
-    newX = Math.max(0, Math.min(newX, imgNatural.w - crop.width));
-    newY = Math.max(0, Math.min(newY, imgNatural.h - crop.height));
+    newX = Math.max(0, Math.min(newX, sourceW - crop.width));
+    newY = Math.max(0, Math.min(newY, sourceH - crop.height));
 
     const rect = { ...crop, x: newX, y: newY };
     if (sameRect(rect, crop)) return;
@@ -231,15 +198,18 @@ export function CropSelector({
     const rectEl = imgRef.current;
     if (!rectEl) return;
     const rect = rectEl.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left - displayBox.x) / scaleX;
-    const mouseY = (e.clientY - rect.top - displayBox.y) / scaleY;
+    const mouse = pointInSource(
+      { x: e.clientX - rect.left, y: e.clientY - rect.top },
+      displayBox,
+      source,
+    );
 
     const next = aspectLockedResize(
       resizing,
       resizeStart.current.rect,
-      { x: mouseX, y: mouseY },
+      mouse,
       targetWidth / targetHeight,
-      { w: imgNatural.w, h: imgNatural.h },
+      source,
     );
     if (sameRect(next, crop)) return;
     setCrop(next);
@@ -259,10 +229,20 @@ export function CropSelector({
           ref={imgRef}
           src={imageUrl}
           alt={alt}
-          className="block h-auto max-h-80 w-full object-contain"
+          className={maxImageHeight ? "block h-auto w-full object-contain" : "block h-auto max-h-80 w-full object-contain"}
+          style={maxImageHeight ? { maxHeight: maxImageHeight } : undefined}
           onLoad={handleImgLoad}
           draggable={false}
         />
+
+        {overlay && displayBox.w > 0 && (
+          <div
+            className="pointer-events-none absolute"
+            style={{ left: displayBox.x, top: displayBox.y, width: displayBox.w, height: displayBox.h }}
+          >
+            {overlay}
+          </div>
+        )}
 
         {ready && (
           <>

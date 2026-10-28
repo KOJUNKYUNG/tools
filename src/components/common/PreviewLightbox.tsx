@@ -1,7 +1,9 @@
 "use client";
 
 import { CroppedImage } from "@/components/image/CroppedImage";
-import type { CropRect } from "@/lib/image/maxFitCrop";
+import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
+import { CornerSpinner } from "./CornerSpinner";
+import { LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
 
 interface PreviewLightboxProps {
   /** Image URL to enlarge. */
@@ -13,9 +15,15 @@ interface PreviewLightboxProps {
   onClose: () => void;
   /** Show only this part of the image (its aspect is then the box's). */
   crop?: CropRect | null;
+  /** The size `crop` is held in, when known before `src` loads (see CroppedImage). */
+  sourceSize?: ImageDims;
+  /** A live drawing standing in for `src`, laid over the part inside `crop` (needs both and `sourceSize`). */
+  live?: LivePicture | null;
+  /** The spinner's name while a newer version of the picture is on its way; none when it is current. */
+  busyLabel?: string | null;
 }
 
-export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop }: PreviewLightboxProps) {
+export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop, sourceSize, busyLabel, live }: PreviewLightboxProps) {
   return (
     <div
       className="absolute inset-0 z-10 flex items-center justify-center p-4"
@@ -24,16 +32,20 @@ export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop }:
       aria-modal="true"
     >
       <div
-        className="max-h-full max-w-full overflow-hidden border"
+        className="relative max-h-full max-w-full overflow-hidden border"
         style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-lg)", aspectRatio: aspect }}
       >
         {crop ? (
-          <CroppedImage src={src} alt={alt} crop={crop} className="block max-h-full max-w-full" />
+          <CroppedImage src={src} alt={alt} crop={crop} sourceSize={sourceSize} className="block max-h-full max-w-full" />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={src} alt={alt} className="size-full object-contain" />
         )}
+        {live && crop && sourceSize ? (
+          <LiveCanvas live={live} crop={crop} sourceSize={sourceSize} className="pointer-events-none absolute inset-0 size-full" />
+        ) : null}
       </div>
+      {busyLabel ? <CornerSpinner label={busyLabel} className="left-2.5 top-2.5" /> : null}
       <button
         type="button"
         onClick={onClose}

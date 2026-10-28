@@ -26,6 +26,9 @@ importers:
       '@neslinesli93/qpdf-wasm':
         specifier: 0.3.0
         version: 0.3.0
+      '@paper-design/shaders':
+        specifier: 0.0.82
+        version: 0.0.82
       browser-image-compression:
         specifier: 2.0.2
         version: 2.0.2
@@ -93,9 +96,6 @@ importers:
       '@google/design.md':
         specifier: ^0.2.0
         version: 0.2.0(@types/react@19.2.14)
-      '@paper-design/shaders':
-        specifier: 0.0.82
-        version: 0.0.82
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.2.2

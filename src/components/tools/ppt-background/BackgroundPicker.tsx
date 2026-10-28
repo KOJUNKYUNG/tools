@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { CropSelector } from "@/components/image/CropSelector";
 import { InlineGallery, type GalleryLabels } from "@/components/ppt/InlineGallery";
 import type { Dictionary } from "@/i18n/config";
-import type { CropRect } from "@/lib/image/maxFitCrop";
+import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
 import {
   GALLERY_CATEGORIES,
   type GalleryCategory,
@@ -12,13 +12,21 @@ import {
 } from "@/lib/gallery/types";
 import type { FillBackground } from "@/lib/ppt/changeBackground";
 import { SolidColourGrid, type SolidColourLabels } from "./SolidColourGrid";
+import { RecipeEditArea, type RecipeEditProps } from "./RecipeEditArea";
+import { CornerSpinner } from "@/components/common/CornerSpinner";
+import { LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
 
 /** A gallery filter, or the "단색" tab after them. */
 type CategoryFilter = "all" | GalleryCategory | "solid";
 
 /** The frame over the picked picture, shown in place of the gallery. */
 export interface BackgroundFrame {
+  /** The picked picture shown under the frame: a new one starts from the centred frame. */
   imageUrl: string;
+  /** The live drawing of the pick's edit, laid over the picture; none while it is unedited. */
+  live?: LivePicture | null;
+  /** The picked picture's size, which the frame is held in, when known before it loads. */
+  sourceSize?: ImageDims;
   /** The slide's width / height: the frame's locked aspect. */
   ratio: number;
   /** The frame set before, kept when the user comes back to this picture. */
@@ -27,6 +35,10 @@ export interface BackgroundFrame {
   onBack: () => void;
   /** A run is using the frame: it is shown as is and nothing here responds. */
   locked: boolean;
+  /** The recipe edit under the frame, for a Paper gallery item only. */
+  edit?: RecipeEditProps | null;
+  /** The spinner's name while the shown picture is behind the latest edit; none when it is current. */
+  busyLabel?: string | null;
 }
 
 interface BackgroundPickerProps {
@@ -146,18 +158,37 @@ export function BackgroundPicker({
           the remaining panel height, so switching never resizes the tool. */}
       <div className="min-h-0 flex-1">
         {frame ? (
-          // Keyed by picture: a new picture starts from the centred frame.
-          <CropSelector
-            key={frame.imageUrl}
-            imageUrl={frame.imageUrl}
-            alt={labels.pictureAlt}
-            targetWidth={frame.ratio}
-            targetHeight={1}
-            initialCrop={frame.crop}
-            onCropChange={frame.onCropChange}
-            handleLabels={labels.handles}
-            readOnly={frame.locked}
-          />
+          <div className="flex h-full min-h-0 flex-col gap-2.5">
+            {/* The picture takes the room the edit area leaves (a size
+                container, read as cqh), so the frame never runs under it. */}
+            <div className="relative min-h-0 flex-1 [container-type:size]">
+              {/* Keyed by picture: a new picture starts from the centred frame. */}
+              <CropSelector
+                key={frame.imageUrl}
+                imageUrl={frame.imageUrl}
+                overlay={
+                  frame.live && frame.sourceSize ? (
+                    <LiveCanvas live={frame.live} sourceSize={frame.sourceSize} className="block size-full" />
+                  ) : null
+                }
+                sourceSize={frame.sourceSize}
+                alt={labels.pictureAlt}
+                targetWidth={frame.ratio}
+                targetHeight={1}
+                initialCrop={frame.crop}
+                onCropChange={frame.onCropChange}
+                handleLabels={labels.handles}
+                readOnly={frame.locked}
+                // The selector draws a 1 px border around the picture.
+                maxImageHeight="min(20rem, calc(100cqh - 2px))"
+              />
+              {frame.busyLabel ? <CornerSpinner label={frame.busyLabel} /> : null}
+            </div>
+            {/* The edit area's room is held for every picture, open or closed:
+                the frame keeps its size and the toggle its place. Its height
+                fits the toggle and four rows of two controls. */}
+            <div className="h-[9rem] shrink-0">{frame.edit ? <RecipeEditArea {...frame.edit} /> : null}</div>
+          </div>
         ) : activeCategory === "solid" ? (
           <SolidColourGrid
             value={fill}
