@@ -222,6 +222,25 @@ describe("recipe edit", () => {
     expect(colourChips(mesh, edit).every((c) => !c.added)).toBe(true);
   });
 
+  it("brings back the colour removed last when a colour is added again", () => {
+    const mesh = recipe("staticmesh-2c");
+    let edit = setColour(mesh, addColour(mesh, startEdit(mesh)), "colors.2", "#111111");
+    edit = setColour(mesh, addColour(mesh, edit), "colors.3", "#222222");
+    edit = removeColour(mesh, removeColour(mesh, edit, "colors.3"), "colors.2");
+    expect(colourChips(mesh, edit).every((c) => !c.added)).toBe(true);
+    edit = addColour(mesh, edit);
+    expect(colourChips(mesh, edit).at(-1)!.colour).toBe("#111111");
+    edit = addColour(mesh, edit);
+    expect(colourChips(mesh, edit).at(-1)!.colour).toBe("#222222");
+    // Nothing left to bring back: a new colour starts as the last one again.
+    edit = addColour(mesh, edit);
+    expect(colourChips(mesh, edit).at(-1)!.colour).toBe("#222222");
+    // Kept under the hue shift it was picked at.
+    let shifted = removeColour(mesh, setColour(mesh, addColour(mesh, { ...startEdit(mesh), hueShift: 30 }), "colors.2", "#336699"), "colors.2");
+    shifted = addColour(mesh, { ...shifted, hueShift: 30 });
+    expect(colourChips(mesh, shifted).at(-1)!.colour).toBe("#336699");
+  });
+
   it("counts as edited only while the edit draws something other than the recipe", () => {
     const mesh = recipe("mesh-4c");
     const untouched = startEdit(mesh);
@@ -240,23 +259,26 @@ describe("recipe edit", () => {
   it("offers size on every shader, grain and softness only where the shader has them", () => {
     const offered = (name: string) => {
       const c = controlsFor(recipe(name));
-      return { size: !!c.size, grain: !!c.grain, softness: !!c.softness };
+      return { size: !!c.size, grain: !!c.grain, grainOverlay: !!c.grainOverlay, softness: !!c.softness };
     };
-    // A gradient with grain and no softness, gradients with both, a pattern
-    // with softness only, and a size-only pattern.
-    expect(offered("mesh-4c")).toEqual({ size: true, grain: true, softness: false });
-    expect(offered("staticmesh-2c")).toEqual({ size: true, grain: true, softness: true });
-    expect(offered("staticradial-1")).toEqual({ size: true, grain: true, softness: true });
-    expect(offered("grain-1")).toEqual({ size: true, grain: true, softness: true });
-    expect(offered("spiral-1")).toEqual({ size: true, grain: true, softness: true });
-    expect(offered("swirl-1")).toEqual({ size: true, grain: true, softness: true });
-    expect(offered("warp-1")).toEqual({ size: true, grain: false, softness: true });
-    expect(offered("waves-1")).toEqual({ size: true, grain: false, softness: true });
-    expect(offered("perlin-1")).toEqual({ size: true, grain: false, softness: true });
-    expect(offered("simplex")).toEqual({ size: true, grain: false, softness: true });
-    for (const name of ["godrays", "dithering-1", "dot-1", "dot-3", "voronoi-1", "cloud"]) {
-      expect(offered(name), name).toEqual({ size: true, grain: false, softness: false });
+    // Mesh gradients have two grains (edges and dots), the grain gradient one;
+    // spiral and swirl have none: their `noise` wobbles the lines, and only
+    // with a noise frequency, which every recipe of theirs has at 0.
+    expect(offered("mesh-4c")).toEqual({ size: true, grain: true, grainOverlay: true, softness: false });
+    expect(offered("staticmesh-2c")).toEqual({ size: true, grain: true, grainOverlay: true, softness: true });
+    expect(offered("staticradial-1")).toEqual({ size: true, grain: true, grainOverlay: true, softness: true });
+    expect(offered("grain-1")).toEqual({ size: true, grain: true, grainOverlay: false, softness: true });
+    for (const name of ["spiral-1", "swirl-1", "warp-1", "waves-1", "perlin-1", "simplex"]) {
+      expect(offered(name), name).toEqual({ size: true, grain: false, grainOverlay: false, softness: true });
     }
+    for (const name of ["godrays", "dithering-1", "dot-1", "dot-3", "voronoi-1", "cloud"]) {
+      expect(offered(name), name).toEqual({ size: true, grain: false, grainOverlay: false, softness: false });
+    }
+  });
+
+  it("names a mesh gradient's grain after the edges it roughens, beside the grain dots", () => {
+    expect(controlsFor(recipe("mesh-4c")).grain!.label).toBe("grainEdge");
+    expect(controlsFor(recipe("grain-1")).grain!.label).toBeUndefined();
   });
 
   it("ranges size from half to twice the recipe's, and grain and softness over Paper's 0 to 1", () => {
@@ -281,15 +303,17 @@ describe("recipe edit", () => {
     expect(applyEdit(warp, { ...startEdit(warp), size: 0.5 }).scale).toBe(0.4);
   });
 
-  it("moves both of a mesh gradient's grain props with the grain, and the noise elsewhere", () => {
+  it("moves a mesh gradient's grain edges and grain dots apart, and the noise of the grain gradient", () => {
     const mesh = recipe("mesh-4c");
-    const grained = applyEdit(mesh, { ...startEdit(mesh), grain: 0.4 });
-    expect([grained.grainMixer, grained.grainOverlay]).toEqual([0.4, 0.4]);
-    expect({ ...grained, grainMixer: 0, grainOverlay: 0 }).toEqual(mesh);
+    const edges = applyEdit(mesh, { ...startEdit(mesh), grain: 0.4 });
+    expect([edges.grainMixer, edges.grainOverlay]).toEqual([0.4, 0]);
+    const dots = applyEdit(mesh, { ...startEdit(mesh), grainOverlay: 0.3 });
+    expect([dots.grainMixer, dots.grainOverlay]).toEqual([0, 0.3]);
+    expect({ ...dots, grainOverlay: 0 }).toEqual(mesh);
     const grain = recipe("grain-1");
     expect(applyEdit(grain, { ...startEdit(grain), grain: 0.3 }).noise).toBe(0.3);
     const swirl = recipe("swirl-1");
-    expect(applyEdit(swirl, { ...startEdit(swirl), grain: 0.3 }).noise).toBe(0.3);
+    expect(applyEdit(swirl, { ...startEdit(swirl), grain: 0.3 })).toBe(swirl);
   });
 
   it("moves softness where the shader has it, and mixing where it has that instead", () => {

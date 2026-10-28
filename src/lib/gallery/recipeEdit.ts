@@ -17,23 +17,32 @@ export interface RecipeEdit {
   colours: Record<string, PickedColour>;
   /** Colours added after the recipe's `colors` list, in order. */
   added: PickedColour[];
+  /** Added colours the user removed, the last removed last: adding again brings them back. */
+  removed: PickedColour[];
   /** Times the recipe's `scale`. */
   size: number;
-  /** The grain props' value (ignored where the shader has no grain slider). */
+  /** The grain prop's value (ignored where the shader has no grain slider). */
   grain: number;
+  /** The grain dots' value, beside a mesh gradient's grain edges (ignored elsewhere). */
+  grainOverlay: number;
   /** The softness prop's value (ignored where the shader has no softness slider). */
   softness: number;
 }
 
 /** The edit's sliders besides the colour family, in the order the edit area shows them. */
-export const SLIDERS = ["size", "grain", "softness"] as const;
+export const SLIDERS = ["size", "grain", "grainOverlay", "softness"] as const;
 export type Slider = (typeof SLIDERS)[number];
+
+/** A slider's name where it differs from its slider's own (the edit area's label keys). */
+export type SliderLabel = "grainEdge";
 
 /** A slider's range, in the unit its edit value holds. */
 export interface SliderRange {
   min: number;
   max: number;
   step: number;
+  /** Named so in place of the slider's own name. */
+  label?: SliderLabel;
 }
 
 /** What the edit area offers for a recipe. */
@@ -46,6 +55,8 @@ export interface RecipeControls {
   size: SliderRange | null;
   /** The shader's own grain; null where it has none (the slider is hidden). */
   grain: SliderRange | null;
+  /** A mesh gradient's grain dots, beside its grain edges; null elsewhere. */
+  grainOverlay: SliderRange | null;
   /** The shader's own softness; null where it has none (the slider is hidden). */
   softness: SliderRange | null;
 }
@@ -82,38 +93,37 @@ const PAPER_MAX_COLOURS: Record<string, number> = {
   swirl: 10,
 };
 
-/** The props a shader's grain and softness sliders write. */
-interface ShaderSliders {
-  /** Moved together by the one grain slider; empty where the shader has no grain. */
-  grain: string[];
-  /** `softness`, or `mixing` where the shader has that instead; null where it has neither. */
-  softness: string | null;
-}
+/** The prop each of a shader's sliders besides size writes; a slider without one is hidden. */
+type ShaderSliders = Partial<Record<Exclude<Slider, "size">, string>>;
 
 /**
  * Each gallery shader's grain and softness props (CONTEXT "Recipe edit"), all
- * on Paper's 0 to 1 range. Deliberately left out: perlin `octaveCount`, smoke
- * ring `noiseScale`, voronoi `glow` (detail, shape and glow, not grain or
+ * on Paper's 0 to 1 range: a mesh gradient's grain edges (`grainMixer`) and
+ * grain dots (`grainOverlay`) apart, the grain gradient's `noise`, and
+ * `softness`, or `mixing` where the shader has that instead. Deliberately left
+ * out: spiral and swirl `noise` (it wobbles the lines, and only with a noise
+ * frequency, 0 in every recipe), perlin `octaveCount`, smoke ring
+ * `noiseScale`, voronoi `glow` (detail, shape and glow, not grain or
  * softness). The gallery catalog test holds every recipe's shader to an entry
  * here and every prop to paper-props.json.
  */
 const SHADER_SLIDERS: Record<string, ShaderSliders> = {
-  meshGradient: { grain: ["grainMixer", "grainOverlay"], softness: null },
-  staticMeshGradient: { grain: ["grainMixer", "grainOverlay"], softness: "mixing" },
-  staticRadialGradient: { grain: ["grainMixer", "grainOverlay"], softness: "mixing" },
-  grainGradient: { grain: ["noise"], softness: "softness" },
-  spiral: { grain: ["noise"], softness: "softness" },
-  swirl: { grain: ["noise"], softness: "softness" },
-  warp: { grain: [], softness: "softness" },
-  waves: { grain: [], softness: "softness" },
-  perlinNoise: { grain: [], softness: "softness" },
-  simplexNoise: { grain: [], softness: "softness" },
-  godRays: { grain: [], softness: null },
-  dithering: { grain: [], softness: null },
-  dotGrid: { grain: [], softness: null },
-  dotOrbit: { grain: [], softness: null },
-  voronoi: { grain: [], softness: null },
-  smokeRing: { grain: [], softness: null },
+  meshGradient: { grain: "grainMixer", grainOverlay: "grainOverlay" },
+  staticMeshGradient: { grain: "grainMixer", grainOverlay: "grainOverlay", softness: "mixing" },
+  staticRadialGradient: { grain: "grainMixer", grainOverlay: "grainOverlay", softness: "mixing" },
+  grainGradient: { grain: "noise", softness: "softness" },
+  spiral: { softness: "softness" },
+  swirl: { softness: "softness" },
+  warp: { softness: "softness" },
+  waves: { softness: "softness" },
+  perlinNoise: { softness: "softness" },
+  simplexNoise: { softness: "softness" },
+  godRays: {},
+  dithering: {},
+  dotGrid: {},
+  dotOrbit: {},
+  voronoi: {},
+  smokeRing: {},
 };
 
 const SIZE: SliderRange = { min: 0.5, max: 2, step: 0.05 };
@@ -132,7 +142,9 @@ export function controlsFor(recipe: PaperRecipe): RecipeControls {
     hue: { min: -180, max: 180, step: 1 },
     maxColours: Array.isArray(recipe.colors) && paperMax ? Math.min(paperMax, MAX_COLOURS) : null,
     size: sliders ? SIZE : null,
-    grain: sliders?.grain.length ? UNIT : null,
+    // Beside the grain dots, the grain is named after the edges it roughens.
+    grain: sliders?.grain ? (sliders.grainOverlay ? { ...UNIT, label: "grainEdge" } : UNIT) : null,
+    grainOverlay: sliders?.grainOverlay ? UNIT : null,
     softness: sliders?.softness ? UNIT : null,
   };
 }
@@ -149,8 +161,10 @@ export function startEdit(recipe: PaperRecipe): RecipeEdit {
     hueShift: 0,
     colours: {},
     added: [],
+    removed: [],
     size: 1,
-    grain: numberProp(recipe, sliders?.grain[0]),
+    grain: numberProp(recipe, sliders?.grain),
+    grainOverlay: numberProp(recipe, sliders?.grainOverlay),
     softness: numberProp(recipe, sliders?.softness),
   };
 }
@@ -220,22 +234,25 @@ export function canAddColour(recipe: PaperRecipe, edit: RecipeEdit): boolean {
 }
 
 /**
- * `edit` with a colour appended to the list, starting as its last colour drawn
- * (where the colour picker then opens) but opaque, since the picker cannot
- * change transparency; `edit` itself when the list is full.
+ * `edit` with a colour appended to the list: the colour removed last, as it
+ * was picked, or else its last colour drawn (where the colour picker then
+ * opens) but opaque, since the picker cannot change transparency; `edit`
+ * itself when the list is full.
  */
 export function addColour(recipe: PaperRecipe, edit: RecipeEdit): RecipeEdit {
   if (!canAddColour(recipe, edit)) return edit;
+  const back = edit.removed.at(-1);
+  if (back) return { ...edit, added: [...edit.added, back], removed: edit.removed.slice(0, -1) };
   // The list comes last among the chips, and a list is never empty.
   const last = colourChips(recipe, edit).at(-1)!;
   return { ...edit, added: [...edit.added, { hex: last.colour.slice(0, 7), atShift: edit.hueShift }] };
 }
 
-/** `edit` without the added colour `id`; the recipe's own colours stay (`edit` itself). */
+/** `edit` without the added colour `id`, kept to bring back; the recipe's own colours stay (`edit` itself). */
 export function removeColour(recipe: PaperRecipe, edit: RecipeEdit, id: string): RecipeEdit {
   if (!pickedColours(recipe, edit).some((c) => c.id === id && c.added)) return edit;
   const index = addedIndex(recipe, id);
-  return { ...edit, added: edit.added.filter((_, i) => i !== index) };
+  return { ...edit, added: edit.added.filter((_, i) => i !== index), removed: [...edit.removed, edit.added[index]] };
 }
 
 /**
@@ -251,8 +268,8 @@ function sliderValues(recipe: PaperRecipe, edit: RecipeEdit): Record<string, num
   const sliders = slidersOf(recipe);
   if (!sliders) return {};
   const values: Record<string, number> = { scale: numberProp(recipe, "scale") * edit.size };
-  for (const prop of sliders.grain) values[prop] = edit.grain;
-  if (sliders.softness) values[sliders.softness] = edit.softness;
+  // Object.entries widens the table's slider keys to string.
+  for (const [slider, prop] of Object.entries(sliders) as [keyof ShaderSliders, string][]) values[prop] = edit[slider];
   return values;
 }
 
