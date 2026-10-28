@@ -521,7 +521,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // pick is shown; Paper Shaders load once the edit area opens.
   const editArea = editAreaFor(recipe, !!recipe && webgl2Available());
   const editAvailable = editArea === "edit";
-  const editPreviewUrl = useRecipePreview(
+  const { url: editPreviewUrl, pending: editPending } = useRecipePreview(
     editAvailable && bgFile && (editOpen || editedProps) ? recipe : null,
     editedProps,
     // The frame would go on showing the unedited file: say so, as a run does.
@@ -629,7 +629,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       executeLabel={labels.action.apply}
       processingLabel={labels.processing.processing}
       againLabel={labels.processing.tryAnother}
-      onExecute={run}
+      // The zoomed preview covers the right pane, where the run's status and
+      // result show.
+      onExecute={() => {
+        setZoom(null);
+        run();
+      }}
       onAgain={handleTryAnother}
       executeDisabled={!canRun}
     />
@@ -733,6 +738,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                         onCropChange: setCrop,
                         onBack: () => setFraming(false),
                         locked: status !== "idle",
+                        busy: editPending,
+                        busyLabel: labels.recipeEdit.drawing,
                         edit:
                           editArea && recipe && recipeEdit && bgFile
                             ? {
@@ -792,6 +799,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       onSelect={bgFile && !framing ? () => setFraming(true) : undefined}
                       colour={fillColour}
                       colourNote={fill?.kind === "none" ? labels.solid.previewNone : undefined}
+                      busyLabel={editPending ? labels.recipeEdit.drawing : null}
                     />
                     <CurrentBackgroundFrame
                       caption={template(labels.preview.currentCaptionTemplate, {

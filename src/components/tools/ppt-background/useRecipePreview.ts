@@ -12,21 +12,24 @@ import type { PaperRecipe } from "@/lib/gallery/recipes";
  * gallery file is shown then). Changes arriving while a drawing is under way
  * are drawn once it ends, the latest only. `onError` hears of a preview that
  * failed to open or draw, which would otherwise go on showing the gallery
- * file under the edit.
+ * file under the edit. `pending` holds while what is shown is behind `drawn`.
  */
 export function useRecipePreview(
   recipe: PaperRecipe | null,
   drawn: PaperRecipe | null,
   onError: () => void,
-): string | null {
+): { url: string | null; pending: boolean } {
   const [preview, setPreview] = useState<RecipePreview | null>(null);
   const [url, setUrl] = useState<string | null>(null);
+  /** The props the shown drawing is of (or a failed drawing gave up on). */
+  const [shownFor, setShownFor] = useState<PaperRecipe | null>(null);
   const urlRef = useRef<string | null>(null);
 
-  const show = (next: string | null) => {
+  const show = (next: string | null, props: PaperRecipe | null) => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = next;
     setUrl(next);
+    setShownFor(props);
   };
 
   const onErrorRef = useRef(onError);
@@ -34,6 +37,8 @@ export function useRecipePreview(
   const fail = (what: string, err: unknown) => {
     console.error(`Recipe preview failed to ${what}`, err);
     onErrorRef.current();
+    // Nothing more is on its way.
+    setShownFor(latest.current);
   };
 
   const name = recipe?.name ?? null;
@@ -69,7 +74,7 @@ export function useRecipePreview(
   const busy = useRef<RecipePreview | null>(null);
   useEffect(() => {
     if (!drawn || !preview) {
-      show(null);
+      if (!drawn) show(null, null);
       return;
     }
     if (busy.current === preview) return;
@@ -81,7 +86,7 @@ export function useRecipePreview(
         while (current.current === preview && latest.current && latest.current !== props) {
           props = latest.current;
           const blob = await preview.draw(props);
-          if (current.current === preview && latest.current) show(URL.createObjectURL(blob));
+          if (current.current === preview && latest.current) show(URL.createObjectURL(blob), props);
         }
       } catch (err) {
         if (current.current === preview) fail("draw", err);
@@ -91,7 +96,7 @@ export function useRecipePreview(
     })();
   }, [drawn, preview]);
 
-  useEffect(() => () => show(null), []);
+  useEffect(() => () => show(null, null), []);
 
-  return url;
+  return { url, pending: !!drawn && shownFor !== drawn };
 }

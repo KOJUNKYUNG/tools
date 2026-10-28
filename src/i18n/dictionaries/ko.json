@@ -191,7 +191,6 @@
             "gradient-cloud": "구름",
             "gradient-solar": "피어오르는 빛",
             "gradient-spiral-1": "안개",
-            "gradient-spiral-2": "나선",
             "nature-kosciuszko-ridge": "산 능선",
             "nature-chepino-valley": "골짜기",
             "nature-herradura-sea": "바다 수평선",
@@ -218,6 +217,7 @@
             "pattern-dot-3": "동그라미",
             "pattern-perlin-1": "얼룩",
             "pattern-perlin-2": "점박이",
+            "pattern-spiral-2": "나선",
             "pattern-swirl-1": "소용돌이선",
             "pattern-swirl-2": "소용돌이 띠"
           }
@@ -227,13 +227,16 @@
           "hue": "색 계열",
           "size": "크기",
           "grain": "그레인",
+          "grainEdge": "그레인 경계",
+          "grainOverlay": "그레인 입자",
           "softness": "부드러움",
           "colours": "색",
           "colourTemplate": "색 {n}",
           "addColour": "색 추가",
           "removeTemplate": "색 {n} 빼기",
           "reset": "원래대로",
-          "unavailable": "이 브라우저는 WebGL2를 지원하지 않아 그림을 편집할 수 없어요. 고른 그림은 그대로 쓸 수 있어요."
+          "unavailable": "이 브라우저는 WebGL2를 지원하지 않아 그림을 편집할 수 없어요. 고른 그림은 그대로 쓸 수 있어요.",
+          "drawing": "미리보기 그리는 중"
         },
         "solid": {
           "tab": "단색",

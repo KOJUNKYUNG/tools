@@ -13,6 +13,7 @@ import {
 import type { FillBackground } from "@/lib/ppt/changeBackground";
 import { SolidColourGrid, type SolidColourLabels } from "./SolidColourGrid";
 import { RecipeEditArea, type RecipeEditProps } from "./RecipeEditArea";
+import { BusyBadge } from "./BusyBadge";
 
 /** A gallery filter, or the "단색" tab after them. */
 type CategoryFilter = "all" | GalleryCategory | "solid";
@@ -38,6 +39,10 @@ export interface BackgroundFrame {
   locked: boolean;
   /** The recipe edit under the frame, for a Paper gallery item only. */
   edit?: RecipeEditProps | null;
+  /** The shown picture is behind the latest edit: a newer drawing is on its way. */
+  busy?: boolean;
+  /** The spinner's name while `busy`. */
+  busyLabel?: string;
 }
 
 interface BackgroundPickerProps {
@@ -160,7 +165,7 @@ export function BackgroundPicker({
           <div className="flex h-full min-h-0 flex-col gap-2.5">
             {/* The picture takes the room the edit area leaves (a size
                 container, read as cqh), so the frame never runs under it. */}
-            <div className="min-h-0 flex-1 [container-type:size]">
+            <div className="relative min-h-0 flex-1 [container-type:size]">
               {/* Keyed by picture: a new picture starts from the centred frame. */}
               <CropSelector
                 key={frame.pictureKey}
@@ -176,8 +181,12 @@ export function BackgroundPicker({
                 // The selector draws a 1 px border around the picture.
                 maxImageHeight="min(20rem, calc(100cqh - 2px))"
               />
+              {frame.busy ? <BusyBadge label={frame.busyLabel ?? ""} /> : null}
             </div>
-            {frame.edit ? <RecipeEditArea {...frame.edit} /> : null}
+            {/* The edit area's room is held for every picture, open or closed:
+                the frame keeps its size and the toggle its place. Its height
+                fits the toggle and four rows of two controls. */}
+            <div className="h-[9rem] shrink-0">{frame.edit ? <RecipeEditArea {...frame.edit} /> : null}</div>
           </div>
         ) : activeCategory === "solid" ? (
           <SolidColourGrid

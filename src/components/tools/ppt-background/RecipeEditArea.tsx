@@ -5,7 +5,16 @@ import { flushSync } from "react-dom";
 import { ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { template } from "@/lib/common/template";
-import { SLIDERS, type ColourChip, type RecipeControls, type RecipeEdit, type Slider, type SliderRange } from "@/lib/gallery/recipeEdit";
+import { NumberField } from "@/components/common/NumberField";
+import {
+  SLIDERS,
+  type ColourChip,
+  type RecipeControls,
+  type RecipeEdit,
+  type Slider,
+  type SliderLabel,
+  type SliderRange,
+} from "@/lib/gallery/recipeEdit";
 
 export interface RecipeEditLabels {
   /** The area's toggle. */
@@ -16,6 +25,10 @@ export interface RecipeEditLabels {
   size: string;
   /** The grain slider, where the shader has grain. */
   grain: string;
+  /** A mesh gradient's grain on colour edges, beside its grain dots. */
+  grainEdge: string;
+  /** A mesh gradient's grain dots over the picture. */
+  grainOverlay: string;
   /** The softness slider, where the shader has softness. */
   softness: string;
   /** The row of colour chips. */
@@ -30,6 +43,8 @@ export interface RecipeEditLabels {
   reset: string;
   /** Shown in place of the area where WebGL2 is missing. */
   unavailable: string;
+  /** The spinner on the pictures while the preview catches up with the edit. */
+  drawing: string;
 }
 
 /** The recipe edit on the crop screen of a Paper gallery item (CONTEXT "Recipe edit"). */
@@ -49,7 +64,7 @@ export interface RecipeEditProps {
   canAddColour: boolean;
   /** Chip `id` set to `hex` (`#rrggbb`). */
   onColour: (id: string, hex: string) => void;
-  /** Append a colour (a copy of the last one); its picker opens. */
+  /** Append a colour (the one removed last, or a copy of the last one); its picker opens. */
   onAddColour: () => void;
   onRemoveColour: (id: string) => void;
   /** The edit differs from the recipe: 원래대로 has something to undo. */
@@ -61,6 +76,18 @@ export interface RecipeEditProps {
 }
 
 const GROUP_LABEL = "font-mono text-[10px] font-medium uppercase tracking-[0.08em]";
+
+/**
+ * How a slider's value reads in its number field: size as a share of the
+ * recipe's (%), grain and softness from 0 to 100, the hue in degrees.
+ */
+const SHOWN: Record<Slider | "hue", { times: number; suffix?: string }> = {
+  hue: { times: 1, suffix: "°" },
+  size: { times: 100, suffix: "%" },
+  grain: { times: 100 },
+  grainOverlay: { times: 100 },
+  softness: { times: 100 },
+};
 
 export function RecipeEditArea({
   available,
@@ -90,7 +117,7 @@ export function RecipeEditArea({
   }
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex h-6 items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => onOpenChange(!open)}
@@ -112,57 +139,59 @@ export function RecipeEditArea({
             type="button"
             onClick={onReset}
             disabled={locked || !edited}
-            className="subtle-action rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
+            className="subtle-action rounded-[5px] px-2.5 py-1 font-body text-[11px]"
           >
             {labels.reset}
           </button>
         )}
       </div>
       {open && (
-        // Labels in one column, so each control starts at the same place.
-        <div className="grid items-center gap-x-2.5 gap-y-2" style={{ gridTemplateColumns: "auto minmax(0, 1fr)" }}>
-          <SliderRow
+        // Two controls a row, the colour family and the colours first.
+        <div className="grid gap-x-3 gap-y-1.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+          <SliderCell
             label={labels.hue}
             range={controls.hue}
             value={edit.hueShift}
-            shown={`${edit.hueShift > 0 ? "+" : ""}${edit.hueShift}°`}
+            shown={SHOWN.hue}
             locked={locked}
             onChange={onHueShift}
           />
 
-          <span className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
-            {labels.colours}
-          </span>
-          {/* One row at every width: chips shrink before they wrap. */}
-          <div ref={chipRow} className="flex min-w-0 items-center gap-1.5 py-1">
-            {chips.map((chip, i) => (
-              <Chip
-                key={chip.id}
-                chip={chip}
-                name={template(labels.colourTemplate, { n: i + 1 })}
-                removeLabel={template(labels.removeTemplate, { n: i + 1 })}
-                locked={locked}
-                onColour={(hex) => onColour(chip.id, hex)}
-                onRemove={() => onRemoveColour(chip.id)}
-              />
-            ))}
-            {canAddColour && (
-              <button
-                type="button"
-                disabled={locked}
-                aria-label={labels.addColour}
-                title={labels.addColour}
-                onClick={() => {
-                  // The added chip renders now, so its picker opens within this click.
-                  flushSync(onAddColour);
-                  const inputs = chipRow.current?.querySelectorAll<HTMLInputElement>('input[type="color"]');
-                  openPicker(inputs?.[inputs.length - 1]);
-                }}
-                className="subtle-action flex h-5 w-5 min-w-2.5 shrink items-center justify-center rounded-[3px] border border-dashed"
-              >
-                <PlusIcon className="size-3" aria-hidden="true" />
-              </button>
-            )}
+          <div className="flex h-6 min-w-0 items-center gap-1.5">
+            <span className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
+              {labels.colours}
+            </span>
+            {/* One row at every width: chips shrink before they wrap. */}
+            <div ref={chipRow} className="flex min-w-0 flex-1 items-center gap-1.5">
+              {chips.map((chip, i) => (
+                <Chip
+                  key={chip.id}
+                  chip={chip}
+                  name={template(labels.colourTemplate, { n: i + 1 })}
+                  removeLabel={template(labels.removeTemplate, { n: i + 1 })}
+                  locked={locked}
+                  onColour={(hex) => onColour(chip.id, hex)}
+                  onRemove={() => onRemoveColour(chip.id)}
+                />
+              ))}
+              {canAddColour && (
+                <button
+                  type="button"
+                  disabled={locked}
+                  aria-label={labels.addColour}
+                  title={labels.addColour}
+                  onClick={() => {
+                    // The added chip renders now, so its picker opens within this click.
+                    flushSync(onAddColour);
+                    const inputs = chipRow.current?.querySelectorAll<HTMLInputElement>('input[type="color"]');
+                    openPicker(inputs?.[inputs.length - 1]);
+                  }}
+                  className="subtle-action flex h-5 w-5 min-w-2.5 shrink items-center justify-center rounded-[3px] border border-dashed"
+                >
+                  <PlusIcon className="size-3" aria-hidden="true" />
+                </button>
+              )}
+            </div>
           </div>
 
           {SLIDERS.map((slider) => {
@@ -170,13 +199,12 @@ export function RecipeEditArea({
             // Hidden where the shader lacks the value: it would change nothing.
             if (!range) return null;
             return (
-              <SliderRow
+              <SliderCell
                 key={slider}
-                label={labels[slider]}
+                label={labels[(range.label ?? slider) satisfies Slider | SliderLabel]}
                 range={range}
                 value={edit[slider]}
-                // Size is a share of the recipe's; grain and softness run 0 to 100.
-                shown={`${Math.round(edit[slider] * 100)}${slider === "size" ? "%" : ""}`}
+                shown={SHOWN[slider]}
                 locked={locked}
                 onChange={(value) => onSlider(slider, value)}
               />
@@ -188,8 +216,11 @@ export function RecipeEditArea({
   );
 }
 
-/** A labelled slider with its value, on one row of the area's grid. */
-function SliderRow({
+/** Every label of the area takes the same width, so each control starts at the same place. */
+const LABEL_BOX = "line-clamp-2 w-16 shrink-0 break-keep leading-[1.15]";
+
+/** A labelled slider with a number field for its value, in one cell of the area's grid. */
+function SliderCell({
   label,
   range,
   value,
@@ -200,40 +231,64 @@ function SliderRow({
   label: string;
   range: SliderRange;
   value: number;
-  /** The value as the row shows it. */
-  shown: string;
+  /** How the number field reads the value. */
+  shown: { times: number; suffix?: string };
   locked: boolean;
   onChange: (value: number) => void;
 }) {
   const id = useId();
+  // Read to a tenth: the finest slider step shows as 0.5.
+  const toShown = (v: number) => Math.round(v * shown.times * 10) / 10;
   return (
-    <>
-      <label htmlFor={id} className={GROUP_LABEL} style={{ color: "var(--ink-soft)" }}>
+    <div className="flex h-6 min-w-0 items-center gap-1.5">
+      <label htmlFor={id} className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
         {label}
       </label>
-      <div className="flex min-w-0 items-center gap-2.5">
-        <input
-          id={id}
-          type="range"
-          min={range.min}
-          max={range.max}
-          step={range.step}
-          value={value}
+      <input
+        id={id}
+        type="range"
+        min={range.min}
+        max={range.max}
+        step={range.step}
+        value={value}
+        disabled={locked}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="min-w-0 flex-1 accent-[color:var(--emphasis)]"
+      />
+      <span className="flex shrink-0 items-center gap-0.5">
+        <NumberField
+          value={toShown(value)}
+          // Typed values land on the slider's step, as a dragged one does.
+          onCommit={(typed) => onChange(onStep(typed / shown.times, range))}
+          min={toShown(range.min)}
+          max={toShown(range.max)}
+          fallback={toShown(value)}
           disabled={locked}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="min-w-0 flex-1 accent-[color:var(--emphasis)]"
+          ariaLabel={label}
+          className="h-6 w-12 rounded-[5px] border px-1 text-right font-body text-[11px] tabular-nums"
+          style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
         />
-        <span className="w-9 shrink-0 text-right font-body text-[11px] tabular-nums" style={{ color: "var(--ink-strong)" }}>
-          {shown}
+        <span className="w-2 font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
+          {shown.suffix}
         </span>
-      </div>
-    </>
+      </span>
+    </div>
   );
 }
 
-/** Open a colour input's picker, where the browser lets a script do so. */
+/** `value` on the nearest step of `range`, inside it. */
+function onStep(value: number, { min, max, step }: SliderRange): number {
+  const stepped = min + Math.round((value - min) / step) * step;
+  // Rounded off the float error of adding steps (0.1 + 0.2).
+  return Math.min(max, Math.max(min, Number(stepped.toFixed(6))));
+}
+
+/** Open a colour input's picker over its chip, where the browser lets a script do so. */
 function openPicker(input: HTMLInputElement | undefined) {
   if (!input) return;
+  // Lay the chip out first: the picker opens where the input is, and a chip
+  // just added has no place yet (the picker would open at the window's corner).
+  input.getBoundingClientRect();
   try {
     input.showPicker();
   } catch {

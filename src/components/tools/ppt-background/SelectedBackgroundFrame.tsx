@@ -3,6 +3,7 @@
 
 import { CroppedImage } from "@/components/image/CroppedImage";
 import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
+import { BusyBadge } from "./BusyBadge";
 
 interface SelectedBackgroundFrameProps {
   caption: string;
@@ -22,6 +23,8 @@ interface SelectedBackgroundFrameProps {
   colour?: string | null;
   /** A note over the colour, e.g. that it is the theme's. */
   colourNote?: string;
+  /** The spinner's name while a newer drawing of the preview is on its way; none when it is current. */
+  busyLabel?: string | null;
 }
 
 export function SelectedBackgroundFrame({
@@ -36,6 +39,7 @@ export function SelectedBackgroundFrame({
   onSelect,
   colour = null,
   colourNote,
+  busyLabel = null,
 }: SelectedBackgroundFrameProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -72,6 +76,7 @@ export function SelectedBackgroundFrame({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewUrl} alt={caption} className="pointer-events-none size-full object-cover" />
             )}
+            {busyLabel ? <BusyBadge label={busyLabel} /> : null}
             <button
               type="button"
               onClick={onZoom}

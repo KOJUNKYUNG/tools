@@ -191,7 +191,6 @@
             "gradient-cloud": "Cloud",
             "gradient-solar": "Rising light",
             "gradient-spiral-1": "Haze",
-            "gradient-spiral-2": "Spiral",
             "nature-kosciuszko-ridge": "Mountain ridge",
             "nature-chepino-valley": "Valley",
             "nature-herradura-sea": "Sea horizon",
@@ -218,6 +217,7 @@
             "pattern-dot-3": "Circles",
             "pattern-perlin-1": "Blots",
             "pattern-perlin-2": "Patches",
+            "pattern-spiral-2": "Spiral",
             "pattern-swirl-1": "Spiral lines",
             "pattern-swirl-2": "Swirl bands"
           }
@@ -227,13 +227,16 @@
           "hue": "Colour family",
           "size": "Size",
           "grain": "Grain",
+          "grainEdge": "Grain edges",
+          "grainOverlay": "Grain dots",
           "softness": "Softness",
           "colours": "Colours",
           "colourTemplate": "Colour {n}",
           "addColour": "Add a colour",
           "removeTemplate": "Remove colour {n}",
           "reset": "Reset",
-          "unavailable": "This browser can't edit pictures (no WebGL2 support). You can still use the picture as it is."
+          "unavailable": "This browser can't edit pictures (no WebGL2 support). You can still use the picture as it is.",
+          "drawing": "Drawing the preview"
         },
         "solid": {
           "tab": "Solid",
