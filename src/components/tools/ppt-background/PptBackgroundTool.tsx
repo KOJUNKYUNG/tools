@@ -527,8 +527,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     // The frame would go on showing the unedited file: say so, as a run does.
     () => toast.error(labels.errors.recipeDrawFailed, { id: "recipe-preview" }),
   );
-  /** The size the frame is held in when a smaller preview is shown. */
-  const pickSize = galleryImage ? { w: galleryImage.width, h: galleryImage.height } : undefined;
+  /** The gallery pick's size, which the frame is held in and the live preview stands in for. */
+  const pickSize = useMemo(
+    () => (galleryImage ? { w: galleryImage.width, h: galleryImage.height } : undefined),
+    [galleryImage],
+  );
   // "No background" shows the deck's theme colour; white until it is read.
   const noneColour = themeBg ?? "#ffffff";
   const fillColour = !fill ? null : fill.kind === "colour" ? `#${fill.rgb}` : noneColour;

@@ -9,9 +9,9 @@ interface CroppedImageProps {
   /** The part to show, in the picture's upright pixels. */
   crop: CropRect;
   /**
-   * The size of the picture `crop` is held in, when `src` is a smaller
-   * stand-in of the same aspect (a live preview of an edit); defaults to
-   * `src`'s own size.
+   * The size of the picture `crop` is held in, when known before `src`
+   * loads (or when `src` is a smaller stand-in of the same aspect); defaults
+   * to `src`'s own size.
    */
   sourceSize?: ImageDims;
   className?: string;

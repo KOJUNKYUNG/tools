@@ -116,7 +116,8 @@ export async function openRecipePreview(props: PaperRecipe): Promise<RecipePrevi
     draw(next) {
       // Paper draws a still at once when its props change.
       drawing.updateStill(mount, next);
-      if (mount.canvasElement.getContext("webgl2")?.isContextLost() !== false) throw new Error("The preview lost its WebGL context");
+      const gl = mount.canvasElement.getContext("webgl2");
+      if (!gl || gl.isContextLost()) throw new Error("The preview lost its WebGL context");
     },
     dispose() {
       mount.dispose();

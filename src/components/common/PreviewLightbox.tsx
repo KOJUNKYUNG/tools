@@ -17,7 +17,7 @@ interface PreviewLightboxProps {
   crop?: CropRect | null;
   /** The size `crop` is held in, when known before `src` loads (see CroppedImage). */
   sourceSize?: ImageDims;
-  /** A live drawing standing in for `src`, laid over it (needs `sourceSize`). */
+  /** A live drawing standing in for `src`, laid over the part inside `crop` (needs both and `sourceSize`). */
   live?: LivePicture | null;
   /** The spinner's name while a newer version of the picture is on its way; none when it is current. */
   busyLabel?: string | null;
@@ -41,7 +41,7 @@ export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop, s
           // eslint-disable-next-line @next/next/no-img-element
           <img src={src} alt={alt} className="size-full object-contain" />
         )}
-        {live && sourceSize ? (
+        {live && crop && sourceSize ? (
           <LiveCanvas live={live} crop={crop} sourceSize={sourceSize} className="pointer-events-none absolute inset-0 size-full" />
         ) : null}
       </div>
