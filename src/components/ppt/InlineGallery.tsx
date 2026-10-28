@@ -67,7 +67,9 @@ export function InlineGallery({
   }, [forceCollapsed]);
 
   const filtered = useMemo(() => {
-    if (category === "all") return GALLERY_IMAGES;
+    // In the tabs' order (a stable sort keeps each category's own order).
+    if (category === "all")
+      return [...GALLERY_IMAGES].sort((a, b) => GALLERY_CATEGORIES.indexOf(a.category) - GALLERY_CATEGORIES.indexOf(b.category));
     return GALLERY_IMAGES.filter((img) => img.category === category);
   }, [category]);
 
