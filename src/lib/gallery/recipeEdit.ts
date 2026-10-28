@@ -27,20 +27,37 @@ export interface RecipeEdit {
   grainOverlay: number;
   /** The softness prop's value (ignored where the shader has no softness slider). */
   softness: number;
+  /** The value of the prop that decides the shader's shape (ignored where it has none). */
+  shape: number;
 }
 
 /** The edit's sliders besides the colour family, in the order the edit area shows them. */
-export const SLIDERS = ["size", "grain", "grainOverlay", "softness"] as const;
+export const SLIDERS = ["size", "grain", "grainOverlay", "softness", "shape"] as const;
 export type Slider = (typeof SLIDERS)[number];
 
 /** A slider's name where it differs from its slider's own (the edit area's label keys). */
-export type SliderLabel = "grainEdge";
+export type SliderLabel =
+  | "grainEdge"
+  | "flow"
+  | "arrangement"
+  | "rays"
+  | "spread"
+  | "waveHeight"
+  | "density"
+  | "twist"
+  | "thickness"
+  | "irregularity"
+  | "lightShare"
+  | "pixelSize"
+  | "dotSize";
 
 /** A slider's range, in the unit its edit value holds. */
 export interface SliderRange {
   min: number;
   max: number;
   step: number;
+  /** How its number field reads the value: times this, with the suffix. */
+  shown: { times: number; suffix?: string };
   /** Named so in place of the slider's own name. */
   label?: SliderLabel;
 }
@@ -59,6 +76,8 @@ export interface RecipeControls {
   grainOverlay: SliderRange | null;
   /** The shader's own softness; null where it has none (the slider is hidden). */
   softness: SliderRange | null;
+  /** The value that decides the shader's shape, named for it; null where none is offered. */
+  shape: SliderRange | null;
 }
 
 /** One colour of the recipe as the edit area shows it. */
@@ -94,41 +113,66 @@ const PAPER_MAX_COLOURS: Record<string, number> = {
 };
 
 /** The prop each of a shader's sliders besides size writes; a slider without one is hidden. */
-type ShaderSliders = Partial<Record<Exclude<Slider, "size">, string>>;
-
-/**
- * Each gallery shader's grain and softness props (CONTEXT "Recipe edit"), all
- * on Paper's 0 to 1 range: a mesh gradient's grain edges (`grainMixer`) and
- * grain dots (`grainOverlay`) apart, the grain gradient's `noise`, and
- * `softness`, or `mixing` where the shader has that instead. Deliberately left
- * out: spiral and swirl `noise` (it wobbles the lines, and only with a noise
- * frequency, 0 in every recipe), perlin `octaveCount`, smoke ring
- * `noiseScale`, voronoi `glow` (detail, shape and glow, not grain or
- * softness). The gallery catalog test holds every recipe's shader to an entry
- * here and every prop to paper-props.json.
- */
-const SHADER_SLIDERS: Record<string, ShaderSliders> = {
-  meshGradient: { grain: "grainMixer", grainOverlay: "grainOverlay" },
-  staticMeshGradient: { grain: "grainMixer", grainOverlay: "grainOverlay", softness: "mixing" },
-  staticRadialGradient: { grain: "grainMixer", grainOverlay: "grainOverlay", softness: "mixing" },
-  grainGradient: { grain: "noise", softness: "softness" },
-  spiral: { softness: "softness" },
-  swirl: { softness: "softness" },
-  warp: { softness: "softness" },
-  waves: { softness: "softness" },
-  perlinNoise: { softness: "softness" },
-  simplexNoise: { softness: "softness" },
-  godRays: {},
-  dithering: {},
-  dotGrid: {},
-  dotOrbit: {},
-  voronoi: {},
-  smokeRing: {},
+type ShaderSliders = Partial<Record<"grain" | "grainOverlay" | "softness", string>> & {
+  /** The shape slider: its prop and range, which differ per shader. */
+  shape?: { prop: string; range: SliderRange };
 };
 
-const SIZE: SliderRange = { min: 0.5, max: 2, step: 0.05 };
-// Fine enough for every recipe's own value to sit on a step (mixing 0.775).
-const UNIT: SliderRange = { min: 0, max: 1, step: 0.005 };
+// 0 to 1, read 0 to 100; fine enough for every recipe's own value to sit on a
+// step (mixing 0.775).
+const UNIT: SliderRange = { min: 0, max: 1, step: 0.005, shown: { times: 100 } };
+const SIZE: SliderRange = { min: 0.5, max: 2, step: 0.05, shown: { times: 100, suffix: "%" } };
+const HUE: SliderRange = { min: -180, max: 180, step: 1, shown: { times: 1, suffix: "°" } };
+
+/** A shape slider over a 0 to 1 prop. */
+const unitShape = (prop: string, label: SliderLabel): NonNullable<ShaderSliders["shape"]> => ({ prop, range: { ...UNIT, label } });
+/**
+ * The frame of the animation a mesh gradient or warp is drawn at, which moves
+ * its shapes (in ms, read in seconds; Paper gives it no range).
+ */
+const FLOW: NonNullable<ShaderSliders["shape"]> = {
+  prop: "frame",
+  range: { min: 0, max: 120000, step: 10, shown: { times: 0.001, suffix: "s" }, label: "flow" },
+};
+
+/**
+ * Each gallery shader's grain, softness and shape props (CONTEXT "Recipe
+ * edit"). Grain and softness are on Paper's 0 to 1 range: a mesh gradient's
+ * grain edges (`grainMixer`) and grain dots (`grainOverlay`) apart, the grain
+ * gradient's `noise`, and `softness`, or `mixing` where the shader has that
+ * instead. The shape slider moves the one value that most decides the shape,
+ * on Paper's range for it; static radial gradients and simplex noise have
+ * none. Deliberately left out: spiral and swirl `noise` (it wobbles the lines,
+ * and only with a noise frequency, 0 in every recipe), perlin `octaveCount`,
+ * smoke ring `noiseScale`, voronoi `glow` (detail, shape and glow, not grain
+ * or softness). The gallery catalog test holds every recipe's shader to an
+ * entry here and every prop to paper-props.json.
+ */
+const SHADER_SLIDERS: Record<string, ShaderSliders> = {
+  meshGradient: { grain: "grainMixer", grainOverlay: "grainOverlay", shape: FLOW },
+  staticMeshGradient: {
+    grain: "grainMixer",
+    grainOverlay: "grainOverlay",
+    softness: "mixing",
+    // Where the colour spots sit: one arrangement per whole number.
+    shape: { prop: "positions", range: { min: 0, max: 100, step: 1, shown: { times: 1 }, label: "arrangement" } },
+  },
+  staticRadialGradient: { grain: "grainMixer", grainOverlay: "grainOverlay", softness: "mixing" },
+  grainGradient: { grain: "noise", softness: "softness", shape: unitShape("intensity", "spread") },
+  spiral: { softness: "softness", shape: unitShape("density", "density") },
+  swirl: { softness: "softness", shape: unitShape("twist", "twist") },
+  warp: { softness: "softness", shape: FLOW },
+  waves: { softness: "softness", shape: unitShape("amplitude", "waveHeight") },
+  perlinNoise: { softness: "softness", shape: unitShape("proportion", "lightShare") },
+  simplexNoise: { softness: "softness" },
+  godRays: { shape: unitShape("density", "rays") },
+  // Paper's pixel and dot sizes, read as they are.
+  dithering: { shape: { prop: "size", range: { min: 0.5, max: 20, step: 0.5, shown: { times: 1 }, label: "pixelSize" } } },
+  dotGrid: { shape: { prop: "size", range: { min: 1, max: 100, step: 0.005, shown: { times: 1 }, label: "dotSize" } } },
+  dotOrbit: { shape: unitShape("size", "dotSize") },
+  voronoi: { shape: { prop: "distortion", range: { ...UNIT, max: 0.5, label: "irregularity" } } },
+  smokeRing: { shape: { prop: "thickness", range: { ...UNIT, min: 0.01, label: "thickness" } } },
+};
 
 /** The props `recipe`'s sliders write; null for a shader without an entry (no sliders). */
 function slidersOf(recipe: PaperRecipe): ShaderSliders | null {
@@ -139,13 +183,14 @@ export function controlsFor(recipe: PaperRecipe): RecipeControls {
   const paperMax = PAPER_MAX_COLOURS[recipe.shader];
   const sliders = slidersOf(recipe);
   return {
-    hue: { min: -180, max: 180, step: 1 },
+    hue: HUE,
     maxColours: Array.isArray(recipe.colors) && paperMax ? Math.min(paperMax, MAX_COLOURS) : null,
     size: sliders ? SIZE : null,
     // Beside the grain dots, the grain is named after the edges it roughens.
     grain: sliders?.grain ? (sliders.grainOverlay ? { ...UNIT, label: "grainEdge" } : UNIT) : null,
     grainOverlay: sliders?.grainOverlay ? UNIT : null,
     softness: sliders?.softness ? UNIT : null,
+    shape: sliders?.shape?.range ?? null,
   };
 }
 
@@ -166,6 +211,7 @@ export function startEdit(recipe: PaperRecipe): RecipeEdit {
     grain: numberProp(recipe, sliders?.grain),
     grainOverlay: numberProp(recipe, sliders?.grainOverlay),
     softness: numberProp(recipe, sliders?.softness),
+    shape: numberProp(recipe, sliders?.shape?.prop),
   };
 }
 
@@ -268,8 +314,11 @@ function sliderValues(recipe: PaperRecipe, edit: RecipeEdit): Record<string, num
   const sliders = slidersOf(recipe);
   if (!sliders) return {};
   const values: Record<string, number> = { scale: numberProp(recipe, "scale") * edit.size };
-  // Object.entries widens the table's slider keys to string.
-  for (const [slider, prop] of Object.entries(sliders) as [keyof ShaderSliders, string][]) values[prop] = edit[slider];
+  for (const slider of ["grain", "grainOverlay", "softness"] as const) {
+    const prop = sliders[slider];
+    if (prop) values[prop] = edit[slider];
+  }
+  if (sliders.shape) values[sliders.shape.prop] = edit.shape;
   return values;
 }
 

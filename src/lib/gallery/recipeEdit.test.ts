@@ -120,7 +120,7 @@ describe("recipe edit", () => {
 
   it("offers the colour-family slider, starting at the recipe's own colours", () => {
     const mesh = recipe("mesh-4c");
-    expect(controlsFor(mesh).hue).toEqual({ min: -180, max: 180, step: 1 });
+    expect(controlsFor(mesh).hue).toMatchObject({ min: -180, max: 180, step: 1 });
     expect(startEdit(mesh).hueShift).toBe(0);
   });
 
@@ -340,6 +340,42 @@ describe("recipe edit", () => {
     }
     // Back by hand to the recipe's mixing 0.775, grain 0 and size 1.
     expect(isEdited(mesh, { ...start, size: 1, grain: 0, softness: 0.775 })).toBe(false);
+  });
+
+  it("offers one shape slider where the shader has a value deciding its shape, moving that value", () => {
+    const shape = (name: string) => controlsFor(recipe(name)).shape;
+    expect(shape("godrays")).toMatchObject({ min: 0, max: 1, label: "rays" });
+    const rays = recipe("godrays");
+    expect(applyEdit(rays, { ...startEdit(rays), shape: 0.6 }).density).toBe(0.6);
+    // Mesh gradients and warps take their shape from the frame of their animation.
+    const mesh = recipe("mesh-4c");
+    expect(shape("mesh-4c")).toMatchObject({ min: 0, max: 120000, label: "flow" });
+    expect(applyEdit(mesh, { ...startEdit(mesh), shape: 1000 }).frame).toBe(1000);
+    const grid = recipe("staticmesh-2c");
+    expect(applyEdit(grid, { ...startEdit(grid), shape: 70 }).positions).toBe(70);
+    // Static radial gradients and simplex noise have none.
+    expect(shape("staticradial-1")).toBeNull();
+    expect(shape("simplex")).toBeNull();
+  });
+
+  it("starts the shape slider at the recipe's own value, an untouched one leaving the pick unedited", () => {
+    expect(startEdit(recipe("mesh-4c")).shape).toBe(53550);
+    expect(startEdit(recipe("dot-1")).shape).toBe(44.065);
+    const cloud = recipe("cloud");
+    expect(isEdited(cloud, startEdit(cloud))).toBe(false);
+    expect(isEdited(cloud, { ...startEdit(cloud), shape: 0.2 })).toBe(true);
+  });
+
+  it("reads each slider in its own unit: degrees, a share of the size, 0 to 100, or the prop itself", () => {
+    const shown = (name: string, slider: "hue" | "size" | "softness" | "shape") => controlsFor(recipe(name))[slider]!.shown;
+    expect(shown("mesh-4c", "hue")).toEqual({ times: 1, suffix: "°" });
+    expect(shown("mesh-4c", "size")).toEqual({ times: 100, suffix: "%" });
+    expect(shown("warp-1", "softness")).toEqual({ times: 100 });
+    expect(shown("godrays", "shape")).toEqual({ times: 100 });
+    // Seconds of the animation, and Paper's own pixel and dot sizes.
+    expect(shown("mesh-4c", "shape")).toEqual({ times: 0.001, suffix: "s" });
+    expect(shown("dithering-1", "shape")).toEqual({ times: 1 });
+    expect(shown("dot-1", "shape")).toEqual({ times: 1 });
   });
 
   it("adds an opaque colour after a transparent one, since the picker has no transparency", () => {

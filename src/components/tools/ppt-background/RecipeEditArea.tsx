@@ -31,6 +31,20 @@ export interface RecipeEditLabels {
   grainOverlay: string;
   /** The softness slider, where the shader has softness. */
   softness: string;
+  /** The shape slider's names, one per value it moves (`shape` where none is given). */
+  shape: string;
+  flow: string;
+  arrangement: string;
+  rays: string;
+  spread: string;
+  waveHeight: string;
+  density: string;
+  twist: string;
+  thickness: string;
+  irregularity: string;
+  lightShare: string;
+  pixelSize: string;
+  dotSize: string;
   /** The row of colour chips. */
   colours: string;
   /** A chip's name, `{n}` its place in the row. */
@@ -56,7 +70,7 @@ export interface RecipeEditProps {
   controls: RecipeControls;
   edit: RecipeEdit;
   onHueShift: (degrees: number) => void;
-  /** A size, grain or softness slider moved to `value` (in its edit value's unit). */
+  /** A size, grain, softness or shape slider moved to `value` (in its edit value's unit). */
   onSlider: (slider: Slider, value: number) => void;
   /** Every colour of the recipe and the added ones, as drawn. */
   chips: ColourChip[];
@@ -76,18 +90,6 @@ export interface RecipeEditProps {
 }
 
 const GROUP_LABEL = "font-mono text-[10px] font-medium uppercase tracking-[0.08em]";
-
-/**
- * How a slider's value reads in its number field: size as a share of the
- * recipe's (%), grain and softness from 0 to 100, the hue in degrees.
- */
-const SHOWN: Record<Slider | "hue", { times: number; suffix?: string }> = {
-  hue: { times: 1, suffix: "°" },
-  size: { times: 100, suffix: "%" },
-  grain: { times: 100 },
-  grainOverlay: { times: 100 },
-  softness: { times: 100 },
-};
 
 export function RecipeEditArea({
   available,
@@ -152,7 +154,6 @@ export function RecipeEditArea({
             label={labels.hue}
             range={controls.hue}
             value={edit.hueShift}
-            shown={SHOWN.hue}
             locked={locked}
             onChange={onHueShift}
           />
@@ -204,7 +205,6 @@ export function RecipeEditArea({
                 label={labels[(range.label ?? slider) satisfies Slider | SliderLabel]}
                 range={range}
                 value={edit[slider]}
-                shown={SHOWN[slider]}
                 locked={locked}
                 onChange={(value) => onSlider(slider, value)}
               />
@@ -224,21 +224,19 @@ function SliderCell({
   label,
   range,
   value,
-  shown,
   locked,
   onChange,
 }: {
   label: string;
   range: SliderRange;
   value: number;
-  /** How the number field reads the value. */
-  shown: { times: number; suffix?: string };
   locked: boolean;
   onChange: (value: number) => void;
 }) {
   const id = useId();
-  // Read to a tenth: the finest slider step shows as 0.5.
-  const toShown = (v: number) => Math.round(v * shown.times * 10) / 10;
+  const { shown } = range;
+  // Read to a tenth, or a hundredth of a second: as fine as the finest steps.
+  const toShown = (v: number) => Number((v * shown.times).toFixed(shown.times < 1 ? 2 : 1));
   return (
     <div className="flex h-6 min-w-0 items-center gap-1.5">
       <label htmlFor={id} className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
@@ -265,7 +263,7 @@ function SliderCell({
           fallback={toShown(value)}
           disabled={locked}
           ariaLabel={label}
-          className="h-6 w-12 rounded-[5px] border px-1 text-right font-body text-[11px] tabular-nums"
+          className="h-6 w-[3.25rem] rounded-[5px] border px-1 text-right font-body text-[11px] tabular-nums"
           style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
         />
         <span className="w-2 font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>

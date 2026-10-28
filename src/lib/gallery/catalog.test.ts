@@ -137,6 +137,8 @@ describe("gallery catalog", () => {
         for (const prop of props) {
           // Set in the recipe: a missing one would be drawn from 0, not Paper's default.
           expect(typeof recipe[prop], `${img.id}.${prop} in the recipe`).toBe("number");
+          // The frame is the animation's time, which the mount takes, not a prop of Paper's table.
+          if (prop === "frame") continue;
           expect(table[prop], `${img.id}.${prop}`).toMatchObject({ kind: "number" });
           // Size is a share of the recipe's scale; Paper's documented scale range is not a clamp.
           if (slider !== "size") expect(table[prop], `${img.id}.${prop}`).toMatchObject({ min: range.min, max: range.max });
