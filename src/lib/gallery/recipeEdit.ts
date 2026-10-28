@@ -286,6 +286,9 @@ export interface EditState {
 /** A pick as the gallery offers it: unedited, the edit area closed. */
 export const FRESH_EDIT_STATE: EditState = { edit: null, open: false };
 
+/** A step of the tool that the edit state answers to. */
+export type EditStep = "pick" | "again" | "reset";
+
 /**
  * What happens to the edit across the tool (CONTEXT "Recipe edit"): a gallery
  * pick, of another item or of the same one again from the gallery, starts
@@ -293,8 +296,6 @@ export const FRESH_EDIT_STATE: EditState = { edit: null, open: false };
  * background can go on another deck or be tweaked; 원래대로 goes back to the
  * item as it is, the area left open.
  */
-export type EditStep = "pick" | "again" | "reset";
-
 export function editStateAfter(state: EditState, step: EditStep): EditState {
   switch (step) {
     case "pick":

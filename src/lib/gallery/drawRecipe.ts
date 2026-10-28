@@ -61,7 +61,8 @@ function hostElement(): HTMLDivElement {
 
 /** The drawing as a PNG; a lost WebGL context is refused, since its canvas reads blank. */
 function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
-  // The canvas's own context: getContext hands back the one Paper made.
+  // The canvas's own context: getContext hands back the WebGL2 one Paper made
+  // (Paper Shaders draw with WebGL2 only).
   const gl = canvas.getContext("webgl2");
   if (!gl || gl.isContextLost()) return Promise.reject(new Error("The drawing lost its WebGL context"));
   return new Promise((resolve, reject) =>

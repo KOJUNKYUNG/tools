@@ -325,7 +325,6 @@ describe("recipe edit", () => {
   });
 });
 
-
 describe("recipe edit state across the tool", () => {
   const mesh = recipe("mesh-4c");
   const editing: EditState = { edit: { ...startEdit(mesh), hueShift: 40, size: 1.5 }, open: true };
