@@ -524,6 +524,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const editPreviewUrl = useRecipePreview(
     editAvailable && bgFile && (editOpen || editedProps) ? recipe : null,
     editedProps,
+    // The frame would go on showing the unedited file: say so, as a run does.
+    () => toast.error(labels.errors.recipeDrawFailed, { id: "recipe-preview" }),
   );
   const shownUrl = (editedProps && editPreviewUrl) || bgPreviewUrl;
   /** The size the frame is held in when a smaller preview is shown. */

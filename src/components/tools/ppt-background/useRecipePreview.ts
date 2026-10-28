@@ -10,9 +10,15 @@ import type { PaperRecipe } from "@/lib/gallery/recipes";
  * Shaders; pass it once the edit area opens, so the first change draws
  * quickly); `drawn` is what to show, null while the pick is unedited (the
  * gallery file is shown then). Changes arriving while a drawing is under way
- * are drawn once it ends, the latest only.
+ * are drawn once it ends, the latest only. `onError` hears of a preview that
+ * failed to open or draw, which would otherwise go on showing the gallery
+ * file under the edit.
  */
-export function useRecipePreview(recipe: PaperRecipe | null, drawn: PaperRecipe | null): string | null {
+export function useRecipePreview(
+  recipe: PaperRecipe | null,
+  drawn: PaperRecipe | null,
+  onError: () => void,
+): string | null {
   const [preview, setPreview] = useState<RecipePreview | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const urlRef = useRef<string | null>(null);
@@ -21,6 +27,13 @@ export function useRecipePreview(recipe: PaperRecipe | null, drawn: PaperRecipe 
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = next;
     setUrl(next);
+  };
+
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+  const fail = (what: string, err: unknown) => {
+    console.error(`Recipe preview failed to ${what}`, err);
+    onErrorRef.current();
   };
 
   const name = recipe?.name ?? null;
@@ -38,7 +51,9 @@ export function useRecipePreview(recipe: PaperRecipe | null, drawn: PaperRecipe 
           setPreview(p);
         } else p.dispose();
       })
-      .catch((err: unknown) => console.error("Recipe preview failed to open", err));
+      .catch((err: unknown) => {
+        if (live) fail("open", err);
+      });
     return () => {
       live = false;
       opened?.dispose();
@@ -69,7 +84,7 @@ export function useRecipePreview(recipe: PaperRecipe | null, drawn: PaperRecipe 
           if (current.current === preview && latest.current) show(URL.createObjectURL(blob));
         }
       } catch (err) {
-        console.error("Recipe preview failed to draw", err);
+        if (current.current === preview) fail("draw", err);
       } finally {
         if (busy.current === preview) busy.current = null;
       }
