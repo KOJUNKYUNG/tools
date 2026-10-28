@@ -263,13 +263,13 @@ describe("recipe edit", () => {
       const c = controlsFor(recipe(name));
       return { size: !!c.size, grain: !!c.grain, grainOverlay: !!c.grainOverlay, softness: !!c.softness };
     };
-    // Mesh gradients have two grains (edges and dots), the grain gradient one;
+    // Mesh gradients and the grain gradient have two grains (edges and dots);
     // spiral and swirl have none: their `noise` wobbles the lines, and only
     // with a noise frequency, which every recipe of theirs has at 0.
     expect(offered("mesh-4c")).toEqual({ size: true, grain: true, grainOverlay: true, softness: false });
     expect(offered("staticmesh-2c")).toEqual({ size: true, grain: true, grainOverlay: true, softness: true });
     expect(offered("staticradial-1")).toEqual({ size: true, grain: true, grainOverlay: true, softness: true });
-    expect(offered("grain-1")).toEqual({ size: true, grain: true, grainOverlay: false, softness: true });
+    expect(offered("grain-1")).toEqual({ size: true, grain: true, grainOverlay: true, softness: true });
     for (const name of ["spiral-1", "swirl-1", "warp-1", "waves-1", "perlin-1", "simplex"]) {
       expect(offered(name), name).toEqual({ size: true, grain: false, grainOverlay: false, softness: true });
     }
@@ -280,7 +280,7 @@ describe("recipe edit", () => {
 
   it("names a mesh gradient's grain after the edges it roughens, beside the grain dots", () => {
     expect(controlsFor(recipe("mesh-4c")).grain!.label).toBe("grainEdge");
-    expect(controlsFor(recipe("grain-1")).grain!.label).toBeUndefined();
+    expect(controlsFor(recipe("grain-1")).grain!.label).toBe("grainEdge");
   });
 
   it("ranges size from half to twice the recipe's, and grain and softness over Paper's 0 to 1", () => {
@@ -305,7 +305,7 @@ describe("recipe edit", () => {
     expect(applyEdit(warp, { ...startEdit(warp), size: 0.5 }).scale).toBe(0.4);
   });
 
-  it("moves a mesh gradient's grain edges and grain dots apart, and the noise of the grain gradient", () => {
+  it("moves the grain edges and grain dots apart, the grain gradient's being its intensity and noise", () => {
     const mesh = recipe("mesh-4c");
     const edges = applyEdit(mesh, { ...startEdit(mesh), grain: 0.4 });
     expect([edges.grainMixer, edges.grainOverlay]).toEqual([0.4, 0]);
@@ -313,7 +313,8 @@ describe("recipe edit", () => {
     expect([dots.grainMixer, dots.grainOverlay]).toEqual([0, 0.3]);
     expect({ ...dots, grainOverlay: 0 }).toEqual(mesh);
     const grain = recipe("grain-1");
-    expect(applyEdit(grain, { ...startEdit(grain), grain: 0.3 }).noise).toBe(0.3);
+    expect(applyEdit(grain, { ...startEdit(grain), grain: 0.3 })).toMatchObject({ intensity: 0.3, noise: 0 });
+    expect(applyEdit(grain, { ...startEdit(grain), grainOverlay: 0.4 })).toMatchObject({ intensity: 0, noise: 0.4 });
     const swirl = recipe("swirl-1");
     expect(applyEdit(swirl, { ...startEdit(swirl), grain: 0.3 })).toBe(swirl);
   });
@@ -351,13 +352,15 @@ describe("recipe edit", () => {
     expect(applyEdit(rays, { ...startEdit(rays), shape: 0.6 }).density).toBe(0.6);
     // Mesh gradients and warps take their shape from the frame of their animation.
     const mesh = recipe("mesh-4c");
-    expect(shape("mesh-4c")).toMatchObject({ min: 0, max: 120000, label: "flow" });
+    expect(shape("mesh-4c")).toMatchObject({ min: 0, max: 120000, label: "frame" });
     expect(applyEdit(mesh, { ...startEdit(mesh), shape: 1000 }).frame).toBe(1000);
     const grid = recipe("staticmesh-2c");
     expect(applyEdit(grid, { ...startEdit(grid), shape: 70 }).positions).toBe(70);
-    // Static radial gradients and simplex noise have none.
+    // Static radial gradients and simplex noise have none, and the grain
+    // gradient's intensity is its grain edges.
     expect(shape("staticradial-1")).toBeNull();
     expect(shape("simplex")).toBeNull();
+    expect(shape("grain-1")).toBeNull();
   });
 
   it("starts the shape slider at the recipe's own value, an untouched one leaving the pick unedited", () => {

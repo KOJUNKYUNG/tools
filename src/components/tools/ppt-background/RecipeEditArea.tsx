@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useRef } from "react";
 import { flushSync } from "react-dom";
 import { ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,16 +34,15 @@ export interface RecipeEditLabels {
   /** The softness slider, where the shader has softness. */
   softness: string;
   /** The shape slider's names, one per value it moves. */
-  flow: string;
-  arrangement: string;
+  frame: string;
+  colourSpots: string;
   rays: string;
-  spread: string;
   waveHeight: string;
   density: string;
   twist: string;
   thickness: string;
   irregularity: string;
-  lightShare: string;
+  coverage: string;
   pixelSize: string;
   dotSize: string;
   /** The row of colour chips. */
@@ -149,7 +148,8 @@ export function RecipeEditArea({
         )}
       </div>
       {open && (
-        // Two controls a row, the colour family and the colours first.
+        // Two controls a row: the colour family and the size, the colours under
+        // the colour family, then the rest.
         <div className="grid gap-x-3 gap-y-1.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
           <SliderCell
             label={labels.hue}
@@ -158,6 +158,16 @@ export function RecipeEditArea({
             locked={locked}
             onChange={onHueShift}
           />
+
+          {controls.size && (
+            <SliderCell
+              label={labels.size}
+              range={controls.size}
+              value={edit.size}
+              locked={locked}
+              onChange={(value) => onSlider("size", value)}
+            />
+          )}
 
           <div className="flex h-6 min-w-0 items-center gap-1.5">
             <span className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
@@ -196,7 +206,7 @@ export function RecipeEditArea({
             </div>
           </div>
 
-          {SLIDERS.map((slider) => {
+          {SLIDERS.filter((slider) => slider !== "size").map((slider) => {
             const range = controls[slider];
             // Hidden where the shader lacks the value: it would change nothing.
             if (!range) return null;
@@ -237,8 +247,6 @@ function SliderCell({
 }) {
   const id = useId();
   const shownNow = shownValue(range, value);
-  // Each commit remounts the field, so it reads the value as stepped (50.2 typed reads 50).
-  const [commits, setCommits] = useState(0);
   return (
     <div className="flex h-6 min-w-0 items-center gap-1.5">
       <label htmlFor={id} className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
@@ -257,15 +265,17 @@ function SliderCell({
       />
       <span className="flex shrink-0 items-center gap-0.5">
         <NumberField
-          key={commits}
           value={shownNow}
+          // A typed value lands on the slider's step, and the field reads it so (50.2 reads 50).
+          normalize={(typed) => shownValue(range, typedValue(range, typed))}
           onCommit={(typed) => {
-            setCommits((n) => n + 1);
-            // Leaving the field untouched is no edit; a typed value lands on the slider's step.
+            // Leaving the field untouched is no edit.
             if (typed !== shownNow) onChange(typedValue(range, typed));
           }}
           min={shownValue(range, range.min)}
           max={shownValue(range, range.max)}
+          // One arrow step moves one unit as read, or the slider's step where that is coarser (5%).
+          step={Math.max(1, range.step * range.shown.times)}
           fallback={shownNow}
           disabled={locked}
           ariaLabel={label}

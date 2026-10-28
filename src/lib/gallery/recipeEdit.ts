@@ -23,7 +23,7 @@ export interface RecipeEdit {
   size: number;
   /** The grain prop's value (ignored where the shader has no grain slider). */
   grain: number;
-  /** The grain dots' value, beside a mesh gradient's grain edges (ignored elsewhere). */
+  /** The grain dots' value, beside the grain edges (ignored where the shader has no grain dots). */
   grainOverlay: number;
   /** The softness prop's value (ignored where the shader has no softness slider). */
   softness: number;
@@ -38,16 +38,15 @@ export type Slider = (typeof SLIDERS)[number];
 /** A slider's name where it differs from its slider's own (the edit area's label keys). */
 export type SliderLabel =
   | "grainEdge"
-  | "flow"
-  | "arrangement"
+  | "frame"
+  | "colourSpots"
   | "rays"
-  | "spread"
   | "waveHeight"
   | "density"
   | "twist"
   | "thickness"
   | "irregularity"
-  | "lightShare"
+  | "coverage"
   | "pixelSize"
   | "dotSize";
 
@@ -72,7 +71,7 @@ export interface RecipeControls {
   size: SliderRange | null;
   /** The shader's own grain; null where it has none (the slider is hidden). */
   grain: SliderRange | null;
-  /** A mesh gradient's grain dots, beside its grain edges; null elsewhere. */
+  /** The grain dots, beside the grain edges (mesh and grain gradients); null elsewhere. */
   grainOverlay: SliderRange | null;
   /** The shader's own softness; null where it has none (the slider is hidden). */
   softness: SliderRange | null;
@@ -135,15 +134,15 @@ const unitShape = (prop: string, label: SliderLabel): ShapeSlider => ({ prop, ra
  */
 const FLOW: ShapeSlider = {
   prop: "frame",
-  range: { min: 0, max: 120000, step: 10, shown: { times: 0.001, suffix: "s" }, label: "flow" },
+  range: { min: 0, max: 120000, step: 10, shown: { times: 0.001, suffix: "s" }, label: "frame" },
 };
 
 /**
  * Each gallery shader's grain, softness and shape props (CONTEXT "Recipe
- * edit"). Grain and softness are on Paper's 0 to 1 range: a mesh gradient's
- * grain edges (`grainMixer`) and grain dots (`grainOverlay`) apart, the grain
- * gradient's `noise`, and `softness`, or `mixing` where the shader has that
- * instead. The shape slider moves the one value that most decides the shape,
+ * edit"). Grain and softness are on Paper's 0 to 1 range: grain edges and
+ * grain dots apart (a mesh gradient's `grainMixer` and `grainOverlay`, the
+ * grain gradient's `intensity` and `noise`), and `softness`, or `mixing` where
+ * the shader has that instead. The shape slider moves the one value that most decides the shape,
  * on Paper's range for it; static radial gradients and simplex noise have
  * none. Deliberately left out: spiral and swirl `noise` (it wobbles the lines,
  * and only with a noise frequency, 0 in every recipe), perlin `octaveCount`,
@@ -158,15 +157,16 @@ const SHADER_SLIDERS: Record<string, ShaderSliders> = {
     grainOverlay: "grainOverlay",
     softness: "mixing",
     // Where the colour spots sit: one arrangement per whole number.
-    shape: { prop: "positions", range: { min: 0, max: 100, step: 1, shown: { times: 1 }, label: "arrangement" } },
+    shape: { prop: "positions", range: { min: 0, max: 100, step: 1, shown: { times: 1 }, label: "colourSpots" } },
   },
   staticRadialGradient: { grain: "grainMixer", grainOverlay: "grainOverlay", softness: "mixing" },
-  grainGradient: { grain: "noise", softness: "softness", shape: unitShape("intensity", "spread") },
+  // Its intensity roughens the edges between colours, its noise lays grain dots.
+  grainGradient: { grain: "intensity", grainOverlay: "noise", softness: "softness" },
   spiral: { softness: "softness", shape: unitShape("density", "density") },
   swirl: { softness: "softness", shape: unitShape("twist", "twist") },
   warp: { softness: "softness", shape: FLOW },
   waves: { softness: "softness", shape: unitShape("amplitude", "waveHeight") },
-  perlinNoise: { softness: "softness", shape: unitShape("proportion", "lightShare") },
+  perlinNoise: { softness: "softness", shape: unitShape("proportion", "coverage") },
   simplexNoise: { softness: "softness" },
   godRays: { shape: unitShape("density", "rays") },
   // Paper's pixel and dot sizes, read as they are.
