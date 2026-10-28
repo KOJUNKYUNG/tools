@@ -50,6 +50,7 @@ const PNG = { format: "png" } as const;
 
 const COMMONS = "https://commons.wikimedia.org/wiki/File:";
 
+/** In the gallery tabs' order (GALLERY_CATEGORIES), which "전체" shows too. */
 export const GALLERY_IMAGES: GalleryImage[] = [
   // ── gradient ────────────────────────────────────────────────
   image("gradient", "green", { ...LEGACY_SIZE, source: OWN }),
@@ -70,35 +71,6 @@ export const GALLERY_IMAGES: GalleryImage[] = [
   image("gradient", "solar", { source: PAPER }),
   image("gradient", "spiral-1", { source: PAPER }),
 
-  // ── nature ──────────────────────────────────────────────────
-  image("nature", "kosciuszko-ridge", { source: cc0(`${COMMONS}Main_Range_Track,_Kosciuszko_National_Park_35.jpg`, "Dhx1") }),
-  image("nature", "chepino-valley", { source: cc0(`${COMMONS}Chepino_Valley_Landscape.jpg`, "Nannoyani") }),
-  image("nature", "herradura-sea", { source: cc0(`${COMMONS}La_Herradura,_horizon_hobbie_cat,_Andalusia,_Spain.jpg`, "Jebulon") }),
-  image("nature", "dordogne-meadow", { width: 3008, height: 1692, source: cc0(`${COMMONS}Prairie_fleurie_Dordogne.jpg`, "Jebulon") }),
-  image("nature", "kalkense-dusk", {
-    source: cc0(`${COMMONS}Spontaneous_gathering_of_solar_eclipse_watchers,_Kalkense_Meersen,_Laarne,_August_12,_2026.jpg`, "DimiTalen"),
-  }),
-  image("nature", "balkhash-lake", { source: cc0(`${COMMONS}Lake_Balkhash._Mynaral_village._16.jpg`, "AALLMMAATT") }),
-  image("nature", "gardner-lake", { source: cc0(`${COMMONS}Gadner_lake;_Maine.jpg`, "Inaki Irazabalbeitia") }),
-  image("nature", "wheat-chamomile", { source: cc0(`${COMMONS}Wheat_and_chamomille,_Kalkense_Meersen,_Wetteren,_2026.jpg`, "DimiTalen") }),
-
-  // ── texture ─────────────────────────────────────────────────
-  image("texture", "white-fabric", {
-    source: cc0(`${COMMONS}Denim_fabric_03_ao_8k_(Rico_Cilliers_and_colormass_via_Poly_Haven).jpg`, "Rico Cilliers, colormass (Poly Haven)"),
-  }),
-  image("texture", "grey-concrete", {
-    width: 2656,
-    height: 1494,
-    source: cc0(
-      `${COMMONS}Eroded_top_edge_light_grey_painted_bumpy_moderately_discolored_grubby_grungy_concrete_building_wall_texture.jpg`,
-      "Sisters.seamless",
-    ),
-  }),
-  image("texture", "kymi-marble", { source: cc0(`${COMMONS}Marble_Kymi_Euboea_Greece.jpg`, "Jebulon") }),
-  image("texture", "grey-plaster", {
-    source: cc0(`${COMMONS}Blue_plaster_weathered_disp_16k_(Amal_Kumar_via_Poly_Haven).jpg`, "Amal Kumar (Poly Haven)"),
-  }),
-
   // ── pattern ─────────────────────────────────────────────────
   image("pattern", "dithering-1", { ...PNG, source: PAPER }),
   image("pattern", "dithering-2", { ...PNG, source: PAPER }),
@@ -118,4 +90,32 @@ export const GALLERY_IMAGES: GalleryImage[] = [
   image("pattern", "spiral-2", { source: PAPER }),
   image("pattern", "swirl-1", { source: PAPER }),
   image("pattern", "swirl-2", { source: PAPER }),
+  // ── texture ─────────────────────────────────────────────────
+  image("texture", "white-fabric", {
+    source: cc0(`${COMMONS}Denim_fabric_03_ao_8k_(Rico_Cilliers_and_colormass_via_Poly_Haven).jpg`, "Rico Cilliers, colormass (Poly Haven)"),
+  }),
+  image("texture", "grey-concrete", {
+    width: 2656,
+    height: 1494,
+    source: cc0(
+      `${COMMONS}Eroded_top_edge_light_grey_painted_bumpy_moderately_discolored_grubby_grungy_concrete_building_wall_texture.jpg`,
+      "Sisters.seamless",
+    ),
+  }),
+  image("texture", "kymi-marble", { source: cc0(`${COMMONS}Marble_Kymi_Euboea_Greece.jpg`, "Jebulon") }),
+  image("texture", "grey-plaster", {
+    source: cc0(`${COMMONS}Blue_plaster_weathered_disp_16k_(Amal_Kumar_via_Poly_Haven).jpg`, "Amal Kumar (Poly Haven)"),
+  }),
+
+  // ── nature ──────────────────────────────────────────────────
+  image("nature", "kosciuszko-ridge", { source: cc0(`${COMMONS}Main_Range_Track,_Kosciuszko_National_Park_35.jpg`, "Dhx1") }),
+  image("nature", "chepino-valley", { source: cc0(`${COMMONS}Chepino_Valley_Landscape.jpg`, "Nannoyani") }),
+  image("nature", "herradura-sea", { source: cc0(`${COMMONS}La_Herradura,_horizon_hobbie_cat,_Andalusia,_Spain.jpg`, "Jebulon") }),
+  image("nature", "dordogne-meadow", { width: 3008, height: 1692, source: cc0(`${COMMONS}Prairie_fleurie_Dordogne.jpg`, "Jebulon") }),
+  image("nature", "kalkense-dusk", {
+    source: cc0(`${COMMONS}Spontaneous_gathering_of_solar_eclipse_watchers,_Kalkense_Meersen,_Laarne,_August_12,_2026.jpg`, "DimiTalen"),
+  }),
+  image("nature", "balkhash-lake", { source: cc0(`${COMMONS}Lake_Balkhash._Mynaral_village._16.jpg`, "AALLMMAATT") }),
+  image("nature", "gardner-lake", { source: cc0(`${COMMONS}Gadner_lake;_Maine.jpg`, "Inaki Irazabalbeitia") }),
+  image("nature", "wheat-chamomile", { source: cc0(`${COMMONS}Wheat_and_chamomille,_Kalkense_Meersen,_Wetteren,_2026.jpg`, "DimiTalen") }),
 ];

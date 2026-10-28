@@ -17,7 +17,7 @@ import {
   type SliderRange,
 } from "./recipeEdit";
 import { paperRecipe } from "./recipes";
-import type { GalleryCategory } from "./types";
+import { GALLERY_CATEGORIES, type GalleryCategory } from "./types";
 
 const publicDir = path.resolve(__dirname, "../../../public");
 const onDisk = (url: string) => path.join(publicDir, url);
@@ -165,6 +165,11 @@ describe("gallery catalog", () => {
         expect(onStep(start[slider], range), `${img.id}.${slider} = ${start[slider]}`).toBe(true);
       }
     }
+  });
+
+  it("lists the images in the gallery tabs' order, as the 전체 tab shows them", () => {
+    const order = GALLERY_IMAGES.map((img) => GALLERY_CATEGORIES.indexOf(img.category));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
   it("CREDITS.md is the one the catalog writes, listing every CC0 original", () => {

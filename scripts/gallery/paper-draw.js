@@ -77,12 +77,15 @@ export function paperDrawing(paper, catalog) {
     return new paper.ShaderMount(el, paper[def.fragment], uniforms, { preserveDrawingBuffer }, speed, frame, pixelRatio, max);
   }
 
-  /** Change the props of a mounted still without remounting it; it draws again at once. */
+  /**
+   * Change the props of a mounted still without remounting it; it draws again
+   * at once. Both setters draw, so the frame is set only when it moves.
+   */
   function updateStill(mount, spec) {
     const { shader, frame, name: _name, speed: _speed, ...props } = spec;
     const key = shaderKey(shader);
     mount.setUniforms(toUniforms(key, withDefaults(key, props)));
-    if (frame !== undefined) mount.setFrame(frame);
+    if (frame !== undefined && frame !== mount.getCurrentFrame()) mount.setFrame(frame);
   }
 
   /**

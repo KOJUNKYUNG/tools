@@ -52,6 +52,10 @@ Drawn with [Paper Shaders](https://github.com/paper-design/shaders) (Apache-2.0,
 
 | Image | Author | Licence | Original | Retrieved |
 | --- | --- | --- | --- | --- |
+| `/gallery/texture/white-fabric.jpg` | Rico Cilliers, colormass (Poly Haven) | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Denim_fabric_03_ao_8k_(Rico_Cilliers_and_colormass_via_Poly_Haven).jpg | 2026-10-26 |
+| `/gallery/texture/grey-concrete.jpg` | Sisters.seamless | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Eroded_top_edge_light_grey_painted_bumpy_moderately_discolored_grubby_grungy_concrete_building_wall_texture.jpg | 2026-10-26 |
+| `/gallery/texture/kymi-marble.jpg` | Jebulon | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Marble_Kymi_Euboea_Greece.jpg | 2026-10-26 |
+| `/gallery/texture/grey-plaster.jpg` | Amal Kumar (Poly Haven) | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Blue_plaster_weathered_disp_16k_(Amal_Kumar_via_Poly_Haven).jpg | 2026-10-26 |
 | `/gallery/nature/kosciuszko-ridge.jpg` | Dhx1 | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Main_Range_Track,_Kosciuszko_National_Park_35.jpg | 2026-10-26 |
 | `/gallery/nature/chepino-valley.jpg` | Nannoyani | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Chepino_Valley_Landscape.jpg | 2026-10-26 |
 | `/gallery/nature/herradura-sea.jpg` | Jebulon | CC0 1.0 | https://commons.wikimedia.org/wiki/File:La_Herradura,_horizon_hobbie_cat,_Andalusia,_Spain.jpg | 2026-10-26 |
@@ -60,7 +64,3 @@ Drawn with [Paper Shaders](https://github.com/paper-design/shaders) (Apache-2.0,
 | `/gallery/nature/balkhash-lake.jpg` | AALLMMAATT | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Lake_Balkhash._Mynaral_village._16.jpg | 2026-10-26 |
 | `/gallery/nature/gardner-lake.jpg` | Inaki Irazabalbeitia | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Gadner_lake;_Maine.jpg | 2026-10-26 |
 | `/gallery/nature/wheat-chamomile.jpg` | DimiTalen | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Wheat_and_chamomille,_Kalkense_Meersen,_Wetteren,_2026.jpg | 2026-10-26 |
-| `/gallery/texture/white-fabric.jpg` | Rico Cilliers, colormass (Poly Haven) | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Denim_fabric_03_ao_8k_(Rico_Cilliers_and_colormass_via_Poly_Haven).jpg | 2026-10-26 |
-| `/gallery/texture/grey-concrete.jpg` | Sisters.seamless | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Eroded_top_edge_light_grey_painted_bumpy_moderately_discolored_grubby_grungy_concrete_building_wall_texture.jpg | 2026-10-26 |
-| `/gallery/texture/kymi-marble.jpg` | Jebulon | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Marble_Kymi_Euboea_Greece.jpg | 2026-10-26 |
-| `/gallery/texture/grey-plaster.jpg` | Amal Kumar (Poly Haven) | CC0 1.0 | https://commons.wikimedia.org/wiki/File:Blue_plaster_weathered_disp_16k_(Amal_Kumar_via_Poly_Haven).jpg | 2026-10-26 |

@@ -23,8 +23,16 @@ export function useRecipePreview(
 ): { live: LivePicture | null; pending: boolean } {
   const [preview, setPreview] = useState<RecipePreview | null>(null);
   const [live, setLive] = useState<LivePicture | null>(null);
-  /** The recipe whose preview could not open: nothing is on its way until another opens. */
+  /** The recipe whose preview failed (to open, or its context): the next change opens it again. */
   const [failedName, setFailedName] = useState<string | null>(null);
+  // The same, for the drawing effect, which must not run again on the failure itself.
+  const failedRef = useRef<string | null>(null);
+  /** Bumped to open the preview again after a failure. */
+  const [attempt, setAttempt] = useState(0);
+  const failed = (recipeName: string | null) => {
+    failedRef.current = recipeName;
+    setFailedName(recipeName);
+  };
 
   const onErrorRef = useRef(onError);
   const recipeRef = useRef(recipe);
@@ -50,7 +58,7 @@ export function useRecipePreview(
     const lost = (event: Event) => {
       setPreview(null);
       setLive(null);
-      setFailedName(start.name);
+      failed(start.name);
       fail("draw", event);
     };
     openRecipePreview(start)
@@ -59,12 +67,12 @@ export function useRecipePreview(
           opened = p;
           p.canvas.addEventListener("webglcontextlost", lost);
           setPreview(p);
-          setFailedName(null);
+          failed(null);
         } else p.dispose();
       })
       .catch((err: unknown) => {
         if (!open) return;
-        setFailedName(start.name);
+        failed(start.name);
         fail("open", err);
       });
     return () => {
@@ -73,7 +81,7 @@ export function useRecipePreview(
       opened?.dispose();
       setPreview(null);
     };
-  }, [name]);
+  }, [name, attempt]);
 
   useEffect(() => {
     // The canvas is drawn here (Paper, outside React), and which drawing it
@@ -81,6 +89,9 @@ export function useRecipePreview(
     /* eslint-disable react-hooks/set-state-in-effect -- records the drawing of a canvas outside React */
     if (!drawn || !preview) {
       setLive(null);
+      // A change after a failure tries the preview again, rather than go on
+      // showing the gallery file under the edit.
+      if (drawn && failedRef.current === name) setAttempt((n) => n + 1);
       return;
     }
     try {
@@ -93,7 +104,7 @@ export function useRecipePreview(
       fail("draw", err);
     }
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [drawn, preview]);
+  }, [drawn, preview, name]);
 
   return { live, pending: !!drawn && failedName !== name && !preview };
 }

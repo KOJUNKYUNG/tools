@@ -103,24 +103,27 @@ export interface RecipePreview {
 export async function openRecipePreview(props: PaperRecipe): Promise<RecipePreview> {
   const drawing = await loadDrawing();
   const el = hostElement();
-  let mount: Mount;
+  let mount: Mount | undefined;
   try {
     mount = await drawing.mountStill(el, props, { preserveDrawingBuffer: true, pixelRatio: PREVIEW_RATIO });
     await drawing.settled(mount, PREVIEW_RATIO);
   } catch (err) {
+    // A mount whose canvas never settled still holds a WebGL context.
+    mount?.dispose();
     el.remove();
     throw err;
   }
+  const opened = mount;
   return {
-    canvas: mount.canvasElement,
+    canvas: opened.canvasElement,
     draw(next) {
       // Paper draws a still at once when its props change.
-      drawing.updateStill(mount, next);
-      const gl = mount.canvasElement.getContext("webgl2");
+      drawing.updateStill(opened, next);
+      const gl = opened.canvasElement.getContext("webgl2");
       if (!gl || gl.isContextLost()) throw new Error("The preview lost its WebGL context");
     },
     dispose() {
-      mount.dispose();
+      opened.dispose();
       el.remove();
     },
   };

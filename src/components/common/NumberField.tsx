@@ -90,8 +90,11 @@ export function NumberField({
         focusedRef.current = true;
       }}
       onChange={(e) => {
-        // Typing comes as an InputEvent; a step of the arrows as a plain event.
-        if (e.nativeEvent instanceof InputEvent) setText(e.target.value);
+        // Typing comes with an input type (insertText, deleteContentBackward,
+        // insertReplacementText for autofill); a step of the arrows without
+        // one (Chrome sends a plain Event).
+        const typed = e.nativeEvent instanceof InputEvent && e.nativeEvent.inputType !== "";
+        if (typed) setText(e.target.value);
         else commit(e.target.value);
       }}
       onBlur={() => {

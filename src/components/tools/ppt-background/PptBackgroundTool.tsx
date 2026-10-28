@@ -33,7 +33,6 @@ import {
   editAreaFor,
   editStateAfter,
   FRESH_EDIT_STATE,
-  isEdited,
   removeColour,
   setColour,
   startEdit,
@@ -229,8 +228,18 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const { edit, open: editOpen } = editState;
   const recipeEdit = useMemo(() => (recipe ? (edit ?? startEdit(recipe)) : null), [recipe, edit]);
   /** What an edited pick draws; null when the gallery file itself applies. */
-  const editedProps = useMemo(
-    () => (recipe && recipeEdit && isEdited(recipe, recipeEdit) ? applyEdit(recipe, recipeEdit) : null),
+  const editedProps = useMemo(() => {
+    if (!recipe || !recipeEdit) return null;
+    // The recipe itself when the edit draws nothing else (what isEdited reads).
+    const drawn = applyEdit(recipe, recipeEdit);
+    return drawn === recipe ? null : drawn;
+  }, [recipe, recipeEdit]);
+  /** What the edit area shows, worked out once per edit (a crop drag re-renders the tool). */
+  const editView = useMemo(
+    () =>
+      recipe && recipeEdit
+        ? { controls: controlsFor(recipe), chips: colourChips(recipe, recipeEdit), canAdd: canAddColour(recipe, recipeEdit) }
+        : null,
     [recipe, recipeEdit],
   );
   /** Change the edit from its latest state (a slider or colour picker reports many changes in a row). */
@@ -751,17 +760,17 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                         locked: status !== "idle",
                         busyLabel: editPending ? labels.recipeEdit.drawing : null,
                         edit:
-                          editArea && recipe && recipeEdit && bgFile
+                          editArea && recipe && recipeEdit && editView && bgFile
                             ? {
                                 available: editAvailable,
                                 open: editOpen,
                                 onOpenChange: (open) => setEditState((s) => ({ ...s, open })),
-                                controls: controlsFor(recipe),
+                                controls: editView.controls,
                                 edit: recipeEdit,
                                 onHueShift: (degrees) => changeEdit((e) => ({ ...e, hueShift: degrees })),
                                 onSlider: (slider, value) => changeEdit((e) => ({ ...e, [slider]: value })),
-                                chips: colourChips(recipe, recipeEdit),
-                                canAddColour: canAddColour(recipe, recipeEdit),
+                                chips: editView.chips,
+                                canAddColour: editView.canAdd,
                                 onColour: (id, hex) => changeEdit((e) => setColour(recipe, e, id, hex)),
                                 onAddColour: () => changeEdit((e) => addColour(recipe, e)),
                                 onRemoveColour: (id) => changeEdit((e) => removeColour(recipe, e, id)),

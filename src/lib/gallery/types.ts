@@ -1,6 +1,6 @@
 export type GalleryCategory = "gradient" | "nature" | "texture" | "pattern";
 
-/** The gallery's tabs, in order; "전체" lists the images in the same order. */
+/** The gallery's tabs, in order; the catalog lists its images in the same order for "전체". */
 export const GALLERY_CATEGORIES: GalleryCategory[] = [
   "gradient",
   "pattern",

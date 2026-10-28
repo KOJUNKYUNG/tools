@@ -274,8 +274,7 @@ function SliderCell({
           }}
           min={shownValue(range, range.min)}
           max={shownValue(range, range.max)}
-          // One arrow step moves one unit as read, or the slider's step where that is coarser (5%).
-          step={Math.max(1, range.step * range.shown.times)}
+          step={arrowStep(range)}
           fallback={shownNow}
           disabled={locked}
           ariaLabel={label}
@@ -289,6 +288,19 @@ function SliderCell({
       </span>
     </div>
   );
+}
+
+/**
+ * How far one arrow step of the number field moves, as read: one whole unit,
+ * or the slider's step where that is coarser (5%), on the grid the browser
+ * steps on (from the range's minimum); where a whole unit is off that grid
+ * (dithering's pixel size from 0.5), the slider's own step.
+ */
+function arrowStep(range: SliderRange): number {
+  const step = range.step * range.shown.times;
+  const whole = Math.max(1, step);
+  const min = shownValue(range, range.min);
+  return Math.abs(min / whole - Math.round(min / whole)) < 1e-9 ? whole : step;
 }
 
 /** Open a colour input's picker over its chip, where the browser lets a script do so. */
