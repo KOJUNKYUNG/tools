@@ -156,11 +156,33 @@ are used as they are. An unedited pick is the gallery file itself, never a
 fresh drawing (a GPU drawing differs slightly from the file); an edited one
 is drawn at the file's composition and size and then cropped like any
 picture. Grain and softness here are the shader's own, changing how the
-shape is drawn; effects laid over a finished picture belong to the filter
-set. Where WebGL2 is missing the edit is not offered; a failed drawing of
-an edit is an error, never a silent fall back to the unedited file.
+shape is drawn: grain only along colour edges, softness as colours mixing
+into each other. Grain dots over the whole picture and blur are effects
+laid over a finished picture, so they belong to the [filter set](#filter-set).
+Where WebGL2 is missing the edit is not offered; a failed drawing of an edit
+is an error, never a silent fall back to the unedited file.
 _Avoid_: "customising the gallery file" (the file is never changed); calling
 Paper's grain a filter.
+
+### Filter set
+The effects ppt-background lays over a finished background picture, after
+its crop and fit and before its format is chosen, baked into its pixels:
+blur, grain and a light or dark veil, which combine, and one at a time of
+Paper Shaders' image filters (fluted glass, paper texture, halftone dots in
+a black-and-white duotone and in a mosaic of the picture's colours, CMYK
+halftone), which redraw the whole picture. They apply
+to any picture, gallery or uploaded, and to a solid colour, which then goes
+into the deck as a picture instead of a colour; a solid colour takes only
+the filters that change a flat colour (not blur or the veil). "No
+background" takes none: it is the theme's colour by definition. Strengths
+are set as shares of the picture, never in pixels, so the preview and the
+4K result look alike and a projector's downscale does not erase the grain.
+Filters stay set when the user picks another background. Paper's filters
+need WebGL2 and are not offered without it. The deck holds only the
+filtered picture, so a filter cannot be changed in PowerPoint; the user
+re-runs the tool.
+_Avoid_: "effect" for a recipe edit's grain or softness; PowerPoint picture
+effects (they show differently or not at all in other viewers).
 
 ### Alias
 A slug kept live for SEO / backwards compatibility that renders a different
