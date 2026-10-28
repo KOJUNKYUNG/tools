@@ -37,6 +37,7 @@
       "memory": "브라우저 메모리가 부족합니다. 파일 크기나 개수를 줄여 다시 시도해 주세요.",
       "invalidFile": "지원하지 않거나 손상된 파일입니다.",
       "heicConvertFailed": "HEIC 파일을 변환할 수 없습니다.",
+      "recipeDrawFailed": "이 브라우저에서 편집한 배경을 그리지 못했습니다(그래픽 메모리 부족 등). 다시 시도하거나, 원래대로 되돌려 갤러리 그림을 그대로 써 주세요.",
       "readFailed": "파일을 읽을 수 없습니다.",
       "pdfOpenFailedTemplate": "{name}: 손상되었거나 암호화된 PDF입니다."
     },

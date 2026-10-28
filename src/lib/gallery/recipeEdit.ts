@@ -274,3 +274,45 @@ export function applyEdit(recipe: PaperRecipe, edit: RecipeEdit): PaperRecipe {
   if (Array.isArray(recipe.colors)) drawn.colors = list;
   return drawn;
 }
+
+/** The recipe edit the tool keeps next to the gallery pick and its crop. */
+export interface EditState {
+  /** What the user changed; null while the pick is as the recipe is. */
+  edit: RecipeEdit | null;
+  /** The edit area is open (closed by default). */
+  open: boolean;
+}
+
+/** A pick as the gallery offers it: unedited, the edit area closed. */
+export const FRESH_EDIT_STATE: EditState = { edit: null, open: false };
+
+/**
+ * What happens to the edit across the tool (CONTEXT "Recipe edit"): a gallery
+ * pick, of another item or of the same one again from the gallery, starts
+ * from the item's own look; 다시 하기 after a run keeps the edit, so the same
+ * background can go on another deck or be tweaked; 원래대로 goes back to the
+ * item as it is, the area left open.
+ */
+export type EditStep = "pick" | "again" | "reset";
+
+export function editStateAfter(state: EditState, step: EditStep): EditState {
+  switch (step) {
+    case "pick":
+      return FRESH_EDIT_STATE;
+    case "again":
+      return state;
+    case "reset":
+      return { ...state, edit: null };
+  }
+}
+
+/**
+ * What the crop screen offers for a pick: the edit area for a gallery recipe,
+ * a note in its place where the browser lacks WebGL2 (Paper Shaders need it;
+ * the gallery file is used as it is), and nothing for a pick without a recipe
+ * (photos, legacy gradients, uploads).
+ */
+export function editAreaFor(recipe: PaperRecipe | null, webgl2: boolean): "edit" | "unavailable" | null {
+  if (!recipe) return null;
+  return webgl2 ? "edit" : "unavailable";
+}

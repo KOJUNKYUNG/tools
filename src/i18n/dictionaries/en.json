@@ -37,6 +37,7 @@
       "memory": "Your browser ran out of memory. Try fewer or smaller files.",
       "invalidFile": "This file isn't supported or is damaged.",
       "heicConvertFailed": "Couldn't convert the HEIC file.",
+      "recipeDrawFailed": "Your browser couldn't draw the edited background (it may have run short of graphics memory). Try again, or reset the edit to use the gallery picture as it is.",
       "readFailed": "Could not read the file.",
       "pdfOpenFailedTemplate": "{name}: This PDF is damaged or encrypted."
     },

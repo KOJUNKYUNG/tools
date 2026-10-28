@@ -5,10 +5,14 @@ import {
   canAddColour,
   colourChips,
   controlsFor,
+  editAreaFor,
+  editStateAfter,
+  FRESH_EDIT_STATE,
   isEdited,
   removeColour,
   setColour,
   startEdit,
+  type EditState,
 } from "./recipeEdit";
 import { paperRecipe, type PaperRecipe } from "./recipes";
 
@@ -321,3 +325,30 @@ describe("recipe edit", () => {
   });
 });
 
+
+describe("recipe edit state across the tool", () => {
+  const mesh = recipe("mesh-4c");
+  const editing: EditState = { edit: { ...startEdit(mesh), hueShift: 40, size: 1.5 }, open: true };
+
+  it("starts a pick, another item or the same one again, from the item's own look with the area closed", () => {
+    expect(editStateAfter(editing, "pick")).toEqual({ edit: null, open: false });
+    expect(editStateAfter(FRESH_EDIT_STATE, "pick")).toEqual({ edit: null, open: false });
+  });
+
+  it("keeps the edits and the open area on 다시 하기", () => {
+    expect(editStateAfter(editing, "again")).toEqual(editing);
+  });
+
+  it("drops the edits on 원래대로, keeping the area open", () => {
+    const reset = editStateAfter(editing, "reset");
+    expect(reset).toEqual({ edit: null, open: true });
+  });
+
+  it("offers the edit area for a gallery recipe only, and a note in its place without WebGL2", () => {
+    expect(editAreaFor(mesh, true)).toBe("edit");
+    expect(editAreaFor(mesh, false)).toBe("unavailable");
+    // A photo, a legacy gradient or an upload has no recipe.
+    expect(editAreaFor(null, true)).toBeNull();
+    expect(editAreaFor(null, false)).toBeNull();
+  });
+});

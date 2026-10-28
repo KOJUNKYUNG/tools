@@ -95,6 +95,8 @@ export function RecipeEditArea({
           type="button"
           onClick={() => onOpenChange(!open)}
           aria-expanded={open}
+          // Locked with the rest of the left pane while a run uses the pick.
+          disabled={locked}
           className="flex items-center gap-1 py-0.5 font-body text-[11.5px] font-medium"
           style={{ color: "var(--ink-strong)" }}
         >
