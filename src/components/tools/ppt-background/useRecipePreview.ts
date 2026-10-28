@@ -3,105 +3,85 @@
 import { useEffect, useRef, useState } from "react";
 import { openRecipePreview, type RecipePreview } from "@/lib/gallery/drawRecipe";
 import type { PaperRecipe } from "@/lib/gallery/recipes";
+import type { LivePicture } from "@/components/image/LiveCanvas";
 
 /**
- * The live preview of a recipe edit, as a blob URL of a 1280 × 720 drawing on
- * the gallery file's composition. `recipe` opens the preview (it loads Paper
- * Shaders; pass it once the edit area opens, so the first change draws
- * quickly); `drawn` is what to show, null while the pick is unedited (the
- * gallery file is shown then). Changes arriving while a drawing is under way
- * are drawn once it ends, the latest only. `onError` hears of a preview that
- * failed to open or draw, which would otherwise go on showing the gallery
- * file under the edit. `pending` holds while what is shown is behind `drawn`.
+ * The live preview of a recipe edit: a 1280 × 720 canvas on the gallery
+ * file's composition, drawn again at once on each change and copied as it is
+ * wherever the pick shows (no picture file in between, so it follows a slider
+ * as the Paper lab does). `recipe` opens the preview (it loads Paper Shaders;
+ * pass it once the edit area opens, so the first change draws quickly);
+ * `drawn` is what to show, null while the pick is unedited (the gallery file
+ * shows then, and `live` is null). `onError` hears of a preview that failed
+ * to open or draw, which would otherwise go on showing the gallery file under
+ * the edit. `pending` holds while the preview is still opening.
  */
 export function useRecipePreview(
   recipe: PaperRecipe | null,
   drawn: PaperRecipe | null,
   onError: () => void,
-): { url: string | null; pending: boolean } {
+): { live: LivePicture | null; pending: boolean } {
   const [preview, setPreview] = useState<RecipePreview | null>(null);
-  const [url, setUrl] = useState<string | null>(null);
-  /** The props the shown drawing is of (or a failed drawing gave up on). */
-  const [shownFor, setShownFor] = useState<PaperRecipe | null>(null);
-  /** The preview could not open: nothing is on its way until another recipe opens one. */
-  const [openFailed, setOpenFailed] = useState(false);
-  const urlRef = useRef<string | null>(null);
-
-  const show = (next: string | null, props: PaperRecipe | null) => {
-    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-    urlRef.current = next;
-    setUrl(next);
-    setShownFor(props);
-  };
+  const [live, setLive] = useState<LivePicture | null>(null);
+  /** The recipe whose preview could not open: nothing is on its way until another opens. */
+  const [failedName, setFailedName] = useState<string | null>(null);
 
   const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
+  const recipeRef = useRef(recipe);
+  // The latest of each, for the effects below (synced first, as effects run in order).
+  useEffect(() => {
+    onErrorRef.current = onError;
+    recipeRef.current = recipe;
+  });
   const fail = (what: string, err: unknown) => {
     console.error(`Recipe preview failed to ${what}`, err);
     onErrorRef.current();
-    // Nothing more is on its way.
-    setShownFor(latest.current);
   };
 
   const name = recipe?.name ?? null;
-  const recipeRef = useRef(recipe);
-  recipeRef.current = recipe;
   useEffect(() => {
     const start = recipeRef.current;
     if (!start) return;
-    let live = true;
+    let open = true;
     let opened: RecipePreview | null = null;
-    setOpenFailed(false);
     openRecipePreview(start)
       .then((p) => {
-        if (live) {
+        if (open) {
           opened = p;
           setPreview(p);
         } else p.dispose();
       })
       .catch((err: unknown) => {
-        if (!live) return;
-        setOpenFailed(true);
+        if (!open) return;
+        setFailedName(start.name);
         fail("open", err);
       });
     return () => {
-      live = false;
+      open = false;
       opened?.dispose();
       setPreview(null);
     };
   }, [name]);
 
-  const latest = useRef(drawn);
-  latest.current = drawn;
-  const current = useRef(preview);
-  current.current = preview;
-  /** The preview a drawing loop is running on; that loop picks up later changes itself. */
-  const busy = useRef<RecipePreview | null>(null);
   useEffect(() => {
+    // The canvas is drawn here (Paper, outside React), and which drawing it
+    // holds is recorded at once, so its copies take it in the same commit.
+    /* eslint-disable react-hooks/set-state-in-effect -- records the external canvas's drawing */
     if (!drawn || !preview) {
-      if (!drawn) show(null, null);
+      setLive(null);
       return;
     }
-    if (busy.current === preview) return;
-    busy.current = preview;
-    (async () => {
-      try {
-        let props: PaperRecipe | null = null;
-        // Draw until the latest change is the one drawn.
-        while (current.current === preview && latest.current && latest.current !== props) {
-          props = latest.current;
-          const blob = await preview.draw(props);
-          if (current.current === preview && latest.current) show(URL.createObjectURL(blob), props);
-        }
-      } catch (err) {
-        if (current.current === preview) fail("draw", err);
-      } finally {
-        if (busy.current === preview) busy.current = null;
-      }
-    })();
+    try {
+      preview.draw(drawn);
+      // A new version tells each copy to take the canvas again.
+      setLive((prev) => ({ canvas: preview.canvas, version: (prev?.version ?? 0) + 1 }));
+    } catch (err) {
+      // The gallery file shows again under the error.
+      setLive(null);
+      fail("draw", err);
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [drawn, preview]);
 
-  useEffect(() => () => show(null, null), []);
-
-  return { url, pending: !!drawn && !openFailed && shownFor !== drawn };
+  return { live, pending: !!drawn && failedName !== name && !preview };
 }

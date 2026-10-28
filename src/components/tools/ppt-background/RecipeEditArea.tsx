@@ -280,7 +280,7 @@ function SliderCell({
           disabled={locked}
           ariaLabel={label}
           inputMode={Number.isInteger(range.step * range.shown.times) ? "numeric" : "decimal"}
-          className="h-6 w-[3.25rem] rounded-[5px] border px-1 text-right font-body text-[11px] tabular-nums"
+          className="h-6 w-14 rounded-[5px] border px-1 text-right font-body text-[11px] tabular-nums"
           style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
         />
         <span className="w-2 font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>

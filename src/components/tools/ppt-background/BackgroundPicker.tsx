@@ -14,19 +14,17 @@ import type { FillBackground } from "@/lib/ppt/changeBackground";
 import { SolidColourGrid, type SolidColourLabels } from "./SolidColourGrid";
 import { RecipeEditArea, type RecipeEditProps } from "./RecipeEditArea";
 import { CornerSpinner } from "@/components/common/CornerSpinner";
+import { LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
 
 /** A gallery filter, or the "단색" tab after them. */
 type CategoryFilter = "all" | GalleryCategory | "solid";
 
 /** The frame over the picked picture, shown in place of the gallery. */
 export interface BackgroundFrame {
-  /** The picture shown under the frame: the picked file, or a live preview of its edit. */
+  /** The picked picture shown under the frame: a new one starts from the centred frame. */
   imageUrl: string;
-  /**
-   * The picked picture, whatever is shown: a new one starts from the centred
-   * frame, while the shown picture changing (an edit) keeps the frame.
-   */
-  pictureKey: string;
+  /** The live drawing of the pick's edit, laid over the picture; none while it is unedited. */
+  live?: LivePicture | null;
   /** The picked picture's size, which the frame is held in, when known before it loads. */
   sourceSize?: ImageDims;
   /** The slide's width / height: the frame's locked aspect. */
@@ -166,8 +164,13 @@ export function BackgroundPicker({
             <div className="relative min-h-0 flex-1 [container-type:size]">
               {/* Keyed by picture: a new picture starts from the centred frame. */}
               <CropSelector
-                key={frame.pictureKey}
+                key={frame.imageUrl}
                 imageUrl={frame.imageUrl}
+                overlay={
+                  frame.live && frame.sourceSize ? (
+                    <LiveCanvas live={frame.live} sourceSize={frame.sourceSize} className="block size-full" />
+                  ) : null
+                }
                 sourceSize={frame.sourceSize}
                 alt={labels.pictureAlt}
                 targetWidth={frame.ratio}

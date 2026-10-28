@@ -60,3 +60,18 @@ export function pointInSource(
     y: ((point.y - box.y) * source.h) / box.h,
   };
 }
+
+/**
+ * The part of a smaller stand-in of the picture (a live preview, `standIn`
+ * pixels) that shows `crop`, held in `source` pixels; without a crop, the
+ * centred part covering a box of `aspect` (width / height), as `object-cover`
+ * draws it.
+ */
+export function standInRect(crop: CropRect | null, source: ImageDims, standIn: ImageDims, aspect: number): Box {
+  if (crop) return frameInBox(crop, { x: 0, y: 0, w: standIn.w, h: standIn.h }, source);
+  // Box wider than the picture → full width, bands off the top and bottom.
+  const wider = aspect > standIn.w / standIn.h;
+  const w = wider ? standIn.w : standIn.h * aspect;
+  const h = wider ? standIn.w / aspect : standIn.h;
+  return { x: (standIn.w - w) / 2, y: (standIn.h - h) / 2, w, h };
+}

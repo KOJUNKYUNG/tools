@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { containBox, frameInBox, pointInSource } from "./cropFrameView";
+import { containBox, frameInBox, pointInSource, standInRect } from "./cropFrameView";
 
 describe("containBox", () => {
   it("letterboxes a wide picture in a taller element, centred vertically", () => {
@@ -64,5 +64,26 @@ describe("frameInBox and pointInSource", () => {
     const frame = frameInBox(crop, box, source);
     expect(frame).toEqual({ x: 260, y: 80, w: 120, h: 160 });
     expect(pointInSource({ x: frame.x, y: frame.y }, box, source)).toEqual({ x: 756, y: 1008 });
+  });
+});
+
+describe("standInRect", () => {
+  const source = { w: 3840, h: 2160 };
+  const standIn = { w: 1280, h: 720 };
+
+  it("finds a frame held in the source's pixels on a smaller stand-in of it", () => {
+    expect(standInRect({ x: 960, y: 540, width: 1920, height: 1080 }, source, standIn, 16 / 9)).toEqual({
+      x: 320,
+      y: 180,
+      w: 640,
+      h: 360,
+    });
+  });
+
+  it("without a frame, takes the centred part that covers the box's aspect", () => {
+    expect(standInRect(null, source, standIn, 4 / 3)).toEqual({ x: 160, y: 0, w: 960, h: 720 });
+    expect(standInRect(null, source, standIn, 16 / 9)).toEqual({ x: 0, y: 0, w: 1280, h: 720 });
+    // A box wider than the picture: bands off the top and bottom.
+    expect(standInRect(null, source, standIn, 32 / 9)).toEqual({ x: 0, y: 180, w: 1280, h: 360 });
   });
 });

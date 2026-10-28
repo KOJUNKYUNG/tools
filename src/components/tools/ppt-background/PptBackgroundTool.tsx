@@ -521,13 +521,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // pick is shown; Paper Shaders load once the edit area opens.
   const editArea = editAreaFor(recipe, !!recipe && webgl2Available());
   const editAvailable = editArea === "edit";
-  const { url: editPreviewUrl, pending: editPending } = useRecipePreview(
+  const { live: editLive, pending: editPending } = useRecipePreview(
     editAvailable && bgFile && (editOpen || editedProps) ? recipe : null,
     editedProps,
     // The frame would go on showing the unedited file: say so, as a run does.
     () => toast.error(labels.errors.recipeDrawFailed, { id: "recipe-preview" }),
   );
-  const shownUrl = (editedProps && editPreviewUrl) || bgPreviewUrl;
   /** The size the frame is held in when a smaller preview is shown. */
   const pickSize = galleryImage ? { w: galleryImage.width, h: galleryImage.height } : undefined;
   // "No background" shows the deck's theme colour; white until it is read.
@@ -596,7 +595,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // Zoom source URL: selected-bg preview or the current group's thumb.
   const currentGroup = groups[curIndex];
   const currentThumbUrl = currentGroup ? groupThumbUrls.get(currentGroup.key) ?? null : null;
-  const zoomSrc = zoom === "selected" ? shownUrl : zoom === "current" ? currentThumbUrl : null;
+  const zoomSrc = zoom === "selected" ? bgPreviewUrl : zoom === "current" ? currentThumbUrl : null;
 
   // When the .ppt rejection guide is showing, give the empty-state body itself
   // a definite 50vh height so its flex-1 children (the accordion in particular)
@@ -728,10 +727,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 // While a run uses the picture (running, done or failed) its
                 // frame is shown locked; `다시 하기` goes back to edit it.
                 frame={
-                  (framing || status !== "idle") && bgPreviewUrl && shownUrl
+                  (framing || status !== "idle") && bgPreviewUrl
                     ? {
-                        imageUrl: shownUrl,
-                        pictureKey: bgPreviewUrl,
+                        imageUrl: bgPreviewUrl,
+                        live: editLive,
                         sourceSize: pickSize,
                         ratio: slideAspect.ratio,
                         crop,
@@ -788,7 +787,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   <div className="flex items-start gap-3.5">
                     <SelectedBackgroundFrame
                       caption={labels.preview.selectedCaption}
-                      previewUrl={shownUrl}
+                      previewUrl={bgPreviewUrl}
+                      live={editLive}
                       sourceSize={pickSize}
                       aspect={aspectCss}
                       emptyLabel={labels.preview.selectedEmpty}
@@ -909,6 +909,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   crop={zoom === "selected" ? crop : null}
                   sourceSize={zoom === "selected" ? pickSize : undefined}
                   busyLabel={zoom === "selected" && editPending ? labels.recipeEdit.drawing : null}
+                  live={zoom === "selected" ? editLive : null}
                   closeLabel={labels.preview.close}
                   onClose={() => setZoom(null)}
                 />

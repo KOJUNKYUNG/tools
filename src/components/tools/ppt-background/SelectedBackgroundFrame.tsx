@@ -4,6 +4,7 @@
 import { CroppedImage } from "@/components/image/CroppedImage";
 import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
 import { CornerSpinner } from "@/components/common/CornerSpinner";
+import { LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
 
 interface SelectedBackgroundFrameProps {
   caption: string;
@@ -15,8 +16,10 @@ interface SelectedBackgroundFrameProps {
   onZoom: () => void;
   /** The Background crop; until it is known the picture is centred to fill. */
   crop: CropRect | null;
-  /** The size `crop` is held in, when the preview is a smaller stand-in (an edit's live preview). */
+  /** The size `crop` is held in, when known before the picture loads. */
   sourceSize?: ImageDims;
+  /** The live drawing of the pick's edit, laid over the picture; none while it is unedited. */
+  live?: LivePicture | null;
   /** Opens the frame over the picture again. */
   onSelect?: () => void;
   /** A picked solid colour (CSS), shown in place of a picture. */
@@ -40,6 +43,7 @@ export function SelectedBackgroundFrame({
   colour = null,
   colourNote,
   busyLabel = null,
+  live = null,
 }: SelectedBackgroundFrameProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -76,6 +80,9 @@ export function SelectedBackgroundFrame({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewUrl} alt={caption} className="pointer-events-none size-full object-cover" />
             )}
+            {live && sourceSize ? (
+              <LiveCanvas live={live} crop={crop} sourceSize={sourceSize} className="pointer-events-none absolute inset-0 size-full" />
+            ) : null}
             {/* Top left: the zoom button takes the top right on hover. */}
             {busyLabel ? <CornerSpinner label={busyLabel} className="left-1.5 top-1.5" /> : null}
             <button

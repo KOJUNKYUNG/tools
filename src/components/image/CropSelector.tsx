@@ -72,6 +72,8 @@ interface CropSelectorProps {
    * e.g. one that follows the room a parent leaves it.
    */
   maxImageHeight?: string;
+  /** Laid over the picture, exactly where it shows (e.g. a live drawing standing in for it). */
+  overlay?: React.ReactNode;
 }
 
 function sameRect(a: CropRect, b: CropRect): boolean {
@@ -89,6 +91,7 @@ export function CropSelector({
   initialCrop = null,
   readOnly = false,
   maxImageHeight,
+  overlay,
 }: CropSelectorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -231,6 +234,15 @@ export function CropSelector({
           onLoad={handleImgLoad}
           draggable={false}
         />
+
+        {overlay && displayBox.w > 0 && (
+          <div
+            className="pointer-events-none absolute"
+            style={{ left: displayBox.x, top: displayBox.y, width: displayBox.w, height: displayBox.h }}
+          >
+            {overlay}
+          </div>
+        )}
 
         {ready && (
           <>

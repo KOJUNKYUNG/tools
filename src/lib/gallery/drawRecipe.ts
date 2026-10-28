@@ -92,8 +92,10 @@ export async function drawRecipeFile(props: PaperRecipe): Promise<File> {
 
 /** A live preview: one mount kept while the user edits, drawn again on each change. */
 export interface RecipePreview {
-  /** `props` drawn at the preview size, as a PNG. */
-  draw(props: PaperRecipe): Promise<Blob>;
+  /** The canvas the preview is drawn on, at the preview size, to be copied where the pick shows. */
+  canvas: HTMLCanvasElement;
+  /** Draw `props` on the canvas now; throws when its WebGL context is lost (it would copy blank). */
+  draw(props: PaperRecipe): void;
   dispose(): void;
 }
 
@@ -110,9 +112,11 @@ export async function openRecipePreview(props: PaperRecipe): Promise<RecipePrevi
     throw err;
   }
   return {
-    async draw(next) {
+    canvas: mount.canvasElement,
+    draw(next) {
+      // Paper draws a still at once when its props change.
       drawing.updateStill(mount, next);
-      return canvasPng(mount.canvasElement);
+      if (mount.canvasElement.getContext("webgl2")?.isContextLost() !== false) throw new Error("The preview lost its WebGL context");
     },
     dispose() {
       mount.dispose();
