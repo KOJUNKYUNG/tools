@@ -37,6 +37,8 @@ export interface GrainParams {
  * only the colour detail, keeps it. The change is triangular around 0, so a
  * flat field keeps its mean, and comes from a hash of the cell and `seed`,
  * so a preview and its result laid with the same grid share one pattern.
+ * A channel clips at 0 and 255, so near black, white or a pure colour the
+ * change is smaller there than on the other channels.
  */
 export function grain(pixels: Uint8ClampedArray, width: number, height: number, { amount, cell, seed }: GrainParams): void {
   if (amount === 0) return;
@@ -88,29 +90,29 @@ export function blur(pixels: Uint8ClampedArray, width: number, height: number, r
       break;
     }
   }
-  const a = new Float32Array(n);
-  const b = new Float32Array(n);
-  /** Blurs `a` in place (through `b`). */
-  const blurA = () => {
+  // One channel at a time, so the float buffers stay two picture-sized planes.
+  const channel = new Float32Array(n);
+  const scratch = new Float32Array(n);
+  const blurChannel = () => {
     for (const r of boxes) {
-      boxAlong(a, b, width, height, r, true);
-      boxAlong(b, a, width, height, r, false);
+      boxRows(channel, scratch, width, height, r);
+      boxColumns(scratch, channel, width, height, r);
     }
   };
   // The blurred alpha the colours are divided by, where any pixel is not opaque.
   let weight: Float32Array | null = null;
   if (!opaque) {
-    for (let p = 0; p < n; p++) a[p] = pixels[p * 4 + 3];
-    blurA();
-    weight = a.slice();
+    for (let p = 0; p < n; p++) channel[p] = pixels[p * 4 + 3];
+    blurChannel();
+    weight = channel.slice();
   }
   for (let c = 0; c < 3; c++) {
-    for (let p = 0; p < n; p++) a[p] = weight ? pixels[p * 4 + c] * pixels[p * 4 + 3] : pixels[p * 4 + c];
-    blurA();
+    for (let p = 0; p < n; p++) channel[p] = weight ? pixels[p * 4 + c] * pixels[p * 4 + 3] : pixels[p * 4 + c];
+    blurChannel();
     for (let p = 0; p < n; p++) {
-      if (!weight) pixels[p * 4 + c] = a[p];
+      if (!weight) pixels[p * 4 + c] = channel[p];
       // Where nothing around is visible, the colour stays as it was.
-      else if (weight[p] > 0) pixels[p * 4 + c] = a[p] / weight[p];
+      else if (weight[p] > 0) pixels[p * 4 + c] = channel[p] / weight[p];
     }
   }
 }
@@ -121,56 +123,58 @@ export function blur(pixels: Uint8ClampedArray, width: number, height: number, r
  */
 function boxRadii(sigma: number): number[] {
   const n = 3;
+  // Box widths are odd: the narrower width for the first m boxes, the wider for the rest.
   const ideal = Math.sqrt((12 * sigma * sigma) / n + 1);
-  let lower = Math.floor(ideal);
-  if (lower % 2 === 0) lower--;
-  const upper = lower + 2;
-  const m = Math.round((12 * sigma * sigma - n * lower * lower - 4 * n * lower - 3 * n) / (-4 * lower - 4));
-  return Array.from({ length: n }, (_, i) => ((i < m ? lower : upper) - 1) / 2);
+  let narrow = Math.floor(ideal);
+  if (narrow % 2 === 0) narrow--;
+  const wide = narrow + 2;
+  const m = Math.round((12 * sigma * sigma - n * narrow * narrow - 4 * n * narrow - 3 * n) / (-4 * narrow - 4));
+  return Array.from({ length: n }, (_, i) => ((i < m ? narrow : wide) - 1) / 2);
 }
 
 /**
- * One box blur of radius `r` from `src` into `dst`, along rows or columns,
- * by a running sum; past either end it reads the end pixel. Columns run row
- * by row, with one running sum per column, so both read memory in order.
+ * One box blur of radius `r` from `src` into `dst` along each row, by a
+ * running sum; past either end it reads the end pixel.
  */
-function boxAlong(src: Float32Array, dst: Float32Array, width: number, height: number, r: number, rows: boolean): void {
-  if (rows) {
-    for (let y = 0; y < height; y++) boxLine(src, dst, y * width, width, r);
-    return;
+function boxRows(src: Float32Array, dst: Float32Array, width: number, height: number, r: number): void {
+  const span = 2 * r + 1;
+  for (let y = 0; y < height; y++) {
+    const start = y * width;
+    const last = start + width - 1;
+    // The window of the row's first pixel, less its rightmost: r copies of the edge, then pixels 0 … r−1.
+    let sum = r * src[start];
+    for (let k = 0; k < r; k++) sum += src[Math.min(start + k, last)];
+    for (let i = start; i <= last; i++) {
+      sum += src[Math.min(i + r, last)];
+      dst[i] = sum / span;
+      sum -= src[Math.max(i - r, start)];
+    }
   }
+}
+
+/**
+ * One box blur of radius `r` from `src` into `dst` down each column, as
+ * boxRows does along rows, run row by row with one running sum per column
+ * so it reads memory in order.
+ */
+function boxColumns(src: Float32Array, dst: Float32Array, width: number, height: number, r: number): void {
   const span = 2 * r + 1;
   const last = height - 1;
-  const acc = new Float64Array(width);
+  const sums = new Float64Array(width);
   // The window of the first row, less its lowest: r copies of the edge, then rows 0 … r−1.
-  for (let x = 0; x < width; x++) acc[x] = r * src[x];
+  for (let x = 0; x < width; x++) sums[x] = r * src[x];
   for (let k = 0; k < r; k++) {
     const row = Math.min(k, last) * width;
-    for (let x = 0; x < width; x++) acc[x] += src[row + x];
+    for (let x = 0; x < width; x++) sums[x] += src[row + x];
   }
   for (let y = 0; y < height; y++) {
     const add = Math.min(y + r, last) * width;
     const drop = Math.max(y - r, 0) * width;
     const out = y * width;
     for (let x = 0; x < width; x++) {
-      acc[x] += src[add + x];
-      dst[out + x] = acc[x] / span;
-      acc[x] -= src[drop + x];
+      sums[x] += src[add + x];
+      dst[out + x] = sums[x] / span;
+      sums[x] -= src[drop + x];
     }
-  }
-}
-
-/** One box blur of radius `r` along the `length` pixels from `start`, past either end reading the end pixel. */
-function boxLine(src: Float32Array, dst: Float32Array, start: number, length: number, r: number): void {
-  const span = 2 * r + 1;
-  const last = start + length - 1;
-  const first = src[start];
-  const end = src[last];
-  let acc = r * first;
-  for (let k = 0; k < r; k++) acc += src[Math.min(start + k, last)];
-  for (let i = start; i <= last; i++) {
-    acc += i + r <= last ? src[i + r] : end;
-    dst[i] = acc / span;
-    acc -= i - r >= start ? src[i - r] : first;
   }
 }

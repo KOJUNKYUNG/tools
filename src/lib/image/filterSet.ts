@@ -35,8 +35,8 @@ const VEIL: SliderRange = { min: -0.6, max: 0.6, step: 0.01, shown: { times: 100
 /** 0 to 0.2, read 0 to 20. */
 const GRAIN: SliderRange = { min: 0, max: 0.2, step: 0.005, shown: { times: 100 } };
 
-/** The width at which a grain cell is 1 px: Full HD. */
-const GRAIN_CELL_WIDTH = 1920;
+/** The long side at which a grain cell is 1 px: Full HD's, in either orientation. */
+const GRAIN_CELL_SIDE = 1920;
 /** The grain's one pattern, shared by every size of a picture. */
 const GRAIN_SEED = 1;
 
@@ -85,8 +85,8 @@ export type FilterPlanStep =
  * kept but not applied. Strengths held as shares of the picture become
  * pixel values for `size`, so every size of a picture looks alike: the
  * blur's radius is a share of the width, and grain cells are 1 px at Full
- * HD, scaled with the width, in one pattern. The veil is a share of the way
- * to black or white at any size.
+ * HD (by the long side, so a portrait slide's too), scaled with the size, in
+ * one pattern. The veil is a share of the way to black or white at any size.
  */
 export function filterPlan(filters: FilterSet, kind: BackgroundKind, size: PixelSize): FilterPlanStep[] {
   // What the background takes whatever the browser: a Paper filter is only
@@ -96,11 +96,14 @@ export function filterPlan(filters: FilterSet, kind: BackgroundKind, size: Pixel
   if (offered?.blur && filters.blur > 0) plan.push({ filter: "blur", radius: filters.blur * size.width });
   if (offered?.veil && filters.veil !== 0) plan.push({ filter: "veil", amount: filters.veil });
   if (offered?.grain && filters.grain > 0) {
-    const cell = size.width / GRAIN_CELL_WIDTH;
+    const exact = Math.max(size.width, size.height) / GRAIN_CELL_SIDE;
+    // From 1 px up, cells are whole pixels: 1.33 px cells would alternate
+    // between 1 and 2 px in a regular rhythm, a faint grid.
+    const cell = exact >= 1 ? Math.round(exact) : exact;
     // Cells below a pixel cannot be drawn: each pixel stands for several, and
     // varies as their average would on a downscale of the larger picture,
     // whose spread shrinks with the cell's side.
-    plan.push({ filter: "grain", amount: filters.grain * Math.min(1, cell), cell, seed: GRAIN_SEED });
+    plan.push({ filter: "grain", amount: filters.grain * Math.min(1, exact), cell, seed: GRAIN_SEED });
   }
   return plan;
 }

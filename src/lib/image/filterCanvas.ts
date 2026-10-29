@@ -28,8 +28,11 @@ export function bakeFilters(canvas: OffscreenCanvas | HTMLCanvasElement, filters
         veil(image.data, step.amount);
         break;
       case "grain":
-        grain(image.data, width, height, step);
+        grain(image.data, width, height, { amount: step.amount, cell: step.cell, seed: step.seed });
         break;
+      default:
+        // A step added to the plan without its filter here fails to compile.
+        step satisfies never;
     }
   }
   ctx.putImageData(image, 0, 0);

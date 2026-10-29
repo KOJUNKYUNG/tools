@@ -27,37 +27,28 @@ export interface FilterControlsProps {
   labels: FilterLabels;
 }
 
+/** The sliders, in the order the plan lays their filters. */
+const SLIDERS = ["blur", "veil", "grain"] as const;
+
 export function FilterControls({ offered, filters, onChange, locked, labels }: FilterControlsProps) {
   return (
-    // Two controls a row, as the recipe edit's, in the order they are laid.
+    // Two controls a row, as the recipe edit's.
     <div className="grid gap-x-3 gap-y-1.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-      {offered.blur && (
-        <SliderCell
-          label={labels.blur}
-          range={offered.blur}
-          value={filters.blur}
-          locked={locked}
-          onChange={(blur) => onChange({ blur })}
-        />
-      )}
-      {offered.veil && (
-        <SliderCell
-          label={labels.veil}
-          range={offered.veil}
-          value={filters.veil}
-          locked={locked}
-          onChange={(veil) => onChange({ veil })}
-        />
-      )}
-      {offered.grain && (
-        <SliderCell
-          label={labels.grain}
-          range={offered.grain}
-          value={filters.grain}
-          locked={locked}
-          onChange={(grain) => onChange({ grain })}
-        />
-      )}
+      {SLIDERS.map((filter) => {
+        const range = offered[filter];
+        return (
+          range && (
+            <SliderCell
+              key={filter}
+              label={labels[filter]}
+              range={range}
+              value={filters[filter]}
+              locked={locked}
+              onChange={(value) => onChange({ [filter]: value })}
+            />
+          )
+        );
+      })}
     </div>
   );
 }

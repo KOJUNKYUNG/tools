@@ -63,6 +63,19 @@ describe("filter plan for an output size", () => {
     expect(new Set([hd, small, uhd].map((step) => step.filter === "grain" && step.seed)).size).toBe(1);
   });
 
+  it("lays grain cells of 1 px at a portrait slide's Full HD, by its long side", () => {
+    const grainy: FilterSet = { ...NO_FILTERS, grain: 0.1 };
+    expect(filterPlan(grainy, "picture", { width: 1080, height: 1920 })).toMatchObject([{ filter: "grain", amount: 0.1, cell: 1 }]);
+    expect(filterPlan(grainy, "picture", { width: 2160, height: 3840 })).toMatchObject([{ filter: "grain", amount: 0.1, cell: 2 }]);
+  });
+
+  it("lays grain in whole-pixel cells from 1 px up, so cells never alternate between 1 and 2 px", () => {
+    // A 2560-wide fit would give 1.33 px cells, a 3200-wide one 1.67 px.
+    const grainy: FilterSet = { ...NO_FILTERS, grain: 0.1 };
+    expect(filterPlan(grainy, "picture", { width: 2560, height: 1440 })).toMatchObject([{ cell: 1 }]);
+    expect(filterPlan(grainy, "picture", { width: 3200, height: 1800 })).toMatchObject([{ cell: 2 }]);
+  });
+
   it("softens grain whose cells are below a pixel, as a downscale averages them", () => {
     // Each pixel of the 1280 picture stands for 1.5 × 1.5 cells, whose average varies 1.5 times less.
     const [small] = filterPlan({ ...NO_FILTERS, grain: 0.15 }, "picture", { width: 1280, height: 720 });
@@ -90,7 +103,7 @@ describe("filter state across the tool", () => {
 
   it("clears every filter on the effects reset", () => {
     expect(filtersAfter(veiled, "reset")).toEqual(NO_FILTERS);
-    expect(NO_FILTERS).toEqual({ blur: 0, veil: 0, grain: 0 });
+    expect(isFiltered(filtersAfter(veiled, "reset"), "picture")).toBe(false);
   });
 
   it("leaves the filters alone on the recipe edit's reset", () => {
