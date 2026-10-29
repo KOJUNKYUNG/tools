@@ -6,7 +6,7 @@
  * Browser-only: reads and writes a 2D canvas's pixels.
  */
 import { filterPlan, isFiltered, type BackgroundKind, type FilterSet } from "./filterSet";
-import { veil } from "./pixelFilters";
+import { blur, grain, veil } from "./pixelFilters";
 import type { PrepareStep } from "./slideImage";
 
 /** Bake `filters` for a `kind` background into `canvas`, planned for its own size. */
@@ -21,8 +21,14 @@ export function bakeFilters(canvas: OffscreenCanvas | HTMLCanvasElement, filters
   const image = ctx.getImageData(0, 0, width, height);
   for (const step of plan) {
     switch (step.filter) {
+      case "blur":
+        blur(image.data, width, height, step.radius);
+        break;
       case "veil":
         veil(image.data, step.amount);
+        break;
+      case "grain":
+        grain(image.data, width, height, step);
         break;
     }
   }

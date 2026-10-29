@@ -251,7 +251,9 @@
         },
         "filters": {
           "effects": "효과",
+          "blur": "흐리게",
           "veil": "어둡게·밝게",
+          "grain": "입자",
           "reset": "효과 끄기"
         },
         "solid": {

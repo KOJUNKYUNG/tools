@@ -12,31 +12,49 @@ export type BackgroundKind = "picture" | "solid" | "none";
 
 /** What the user set on the effects group: strengths as shares of the picture, never pixels. */
 export interface FilterSet {
+  /** The blur's standard deviation, as a share of the picture's width. */
+  blur: number;
   /** The veil: below 0 darkens, above 0 lightens, as a share of the way to black or white. */
   veil: number;
+  /** The grain's largest change, as a share of full scale. */
+  grain: number;
 }
 
 /** The effects group's sliders, each null where the background does not take it (hidden). */
 export interface OfferedFilters {
+  blur: SliderRange | null;
   veil: SliderRange | null;
+  grain: SliderRange | null;
 }
 
-// [임시] range until the spec-end visual QA: −60% (dark) to +60% (light).
+// [임시] ranges until the spec-end visual QA.
+/** 0 to 2% of the width. */
+const BLUR: SliderRange = { min: 0, max: 0.02, step: 0.0005, shown: { times: 100, suffix: "%" } };
+/** −60% (dark) to +60% (light). */
 const VEIL: SliderRange = { min: -0.6, max: 0.6, step: 0.01, shown: { times: 100, suffix: "%" } };
+/** 0 to 0.2, read 0 to 20. */
+const GRAIN: SliderRange = { min: 0, max: 0.2, step: 0.005, shown: { times: 100 } };
+
+/** The width at which a grain cell is 1 px: Full HD. */
+const GRAIN_CELL_WIDTH = 1920;
+/** The grain's one pattern, shared by every size of a picture. */
+const GRAIN_SEED = 1;
 
 /**
  * The effects group for a background, or null where it has none ("no
  * background" is the theme's colour by definition). A solid colour takes
- * only the filters that change a flat colour, so not the veil, which would
- * only change the colour picked.
+ * only the filters that change a flat colour, so not blur, which changes
+ * nothing on it, or the veil, which would only change the colour picked.
  */
 export function filtersFor(kind: BackgroundKind, _webgl2: boolean): OfferedFilters | null {
   if (kind === "none") return null;
-  return { veil: kind === "picture" ? VEIL : null };
+  const picture = kind === "picture";
+  // Grain on a solid colour comes with its effects area (#131).
+  return { blur: picture ? BLUR : null, veil: picture ? VEIL : null, grain: picture ? GRAIN : null };
 }
 
 /** No filter: the picture as it is. */
-export const NO_FILTERS: FilterSet = { veil: 0 };
+export const NO_FILTERS: FilterSet = { blur: 0, veil: 0, grain: 0 };
 
 /** A step of the tool that the filter state answers to. */
 export type FilterStep = "pick" | "again" | "reset" | "recipeReset";
@@ -53,22 +71,37 @@ export function filtersAfter(filters: FilterSet, step: FilterStep): FilterSet {
 }
 
 /** One filter baked into the picture, in the pixels of the size it was planned for. */
-export type FilterPlanStep = { filter: "veil"; amount: number };
+export type FilterPlanStep =
+  /** `radius`: the Gaussian's standard deviation, in px. */
+  | { filter: "blur"; radius: number }
+  | { filter: "veil"; amount: number }
+  /** `cell`: a grain cell's side, in px; `seed`: the pattern. */
+  | { filter: "grain"; amount: number; cell: number; seed: number };
 
 /**
  * The filters `filters` bakes into a `kind` background of `size` (the
  * fitted picture), in the fixed order Paper filter → blur → veil → grain;
  * only those the background takes, so a value hidden for a solid colour is
  * kept but not applied. Strengths held as shares of the picture become
- * pixel values for `size`; the veil is a share of the way to black or white
- * at any size.
+ * pixel values for `size`, so every size of a picture looks alike: the
+ * blur's radius is a share of the width, and grain cells are 1 px at Full
+ * HD, scaled with the width, in one pattern. The veil is a share of the way
+ * to black or white at any size.
  */
-export function filterPlan(filters: FilterSet, kind: BackgroundKind, _size: PixelSize): FilterPlanStep[] {
+export function filterPlan(filters: FilterSet, kind: BackgroundKind, size: PixelSize): FilterPlanStep[] {
   // What the background takes whatever the browser: a Paper filter is only
   // ever chosen where WebGL2 offered it.
   const offered = filtersFor(kind, true);
   const plan: FilterPlanStep[] = [];
+  if (offered?.blur && filters.blur > 0) plan.push({ filter: "blur", radius: filters.blur * size.width });
   if (offered?.veil && filters.veil !== 0) plan.push({ filter: "veil", amount: filters.veil });
+  if (offered?.grain && filters.grain > 0) {
+    const cell = size.width / GRAIN_CELL_WIDTH;
+    // Cells below a pixel cannot be drawn: each pixel stands for several, and
+    // varies as their average would on a downscale of the larger picture,
+    // whose spread shrinks with the cell's side.
+    plan.push({ filter: "grain", amount: filters.grain * Math.min(1, cell), cell, seed: GRAIN_SEED });
+  }
   return plan;
 }
 

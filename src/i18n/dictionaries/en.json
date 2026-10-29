@@ -251,7 +251,9 @@
         },
         "filters": {
           "effects": "Effects",
+          "blur": "Blur",
           "veil": "Dark / light",
+          "grain": "Grain",
           "reset": "Clear effects"
         },
         "solid": {
