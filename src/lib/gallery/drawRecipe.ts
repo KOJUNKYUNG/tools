@@ -18,12 +18,13 @@ const PREVIEW_RATIO = 1;
 
 // paper-draw.js is plain JS (allowJs, not type-checked): its helpers' types
 // are inferred loosely, and the mount is Paper's ShaderMount.
-type Drawing = ReturnType<typeof paperDrawing>;
-type Mount = Awaited<ReturnType<Drawing["mountStill"]>>;
+export type PaperDrawing = ReturnType<typeof paperDrawing>;
+type Mount = Awaited<ReturnType<PaperDrawing["mountStill"]>>;
 
-let loading: Promise<Drawing> | null = null;
+let loading: Promise<PaperDrawing> | null = null;
 
-function loadDrawing(): Promise<Drawing> {
+/** Paper Shaders and the prop table, loaded once; shared with the filter set's Paper filters. */
+export function loadPaperDrawing(): Promise<PaperDrawing> {
   loading ??= Promise.all([
     import("@paper-design/shaders"),
     import("../../../scripts/gallery/paper-props.json"),
@@ -48,10 +49,10 @@ export function webgl2Available(): boolean {
 }
 
 /**
- * An element to draw in: laid out at the still's 1280 × 720 CSS size (the
- * composition depends on it) but off screen.
+ * An element to draw in, off screen; the drawing lays it out at its CSS size
+ * (the still's 1280 × 720, or a filter's box), which the composition depends on.
  */
-function hostElement(): HTMLDivElement {
+export function paperHost(): HTMLDivElement {
   const el = document.createElement("div");
   el.setAttribute("aria-hidden", "true");
   Object.assign(el.style, { position: "fixed", left: "-20000px", top: "0", pointerEvents: "none" });
@@ -77,8 +78,8 @@ function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
  * there is no unedited file to fall back to.
  */
 export async function drawRecipeFile(props: PaperRecipe): Promise<File> {
-  const drawing = await loadDrawing();
-  const el = hostElement();
+  const drawing = await loadPaperDrawing();
+  const el = paperHost();
   try {
     const start = performance.now();
     const blob = await drawing.drawStill(el, props, APPLY_RATIO, canvasPng);
@@ -101,8 +102,8 @@ export interface RecipePreview {
 
 /** Open a preview for `props`'s shader. */
 export async function openRecipePreview(props: PaperRecipe): Promise<RecipePreview> {
-  const drawing = await loadDrawing();
-  const el = hostElement();
+  const drawing = await loadPaperDrawing();
+  const el = paperHost();
   let mount: Mount | undefined;
   try {
     mount = await drawing.mountStill(el, props, { preserveDrawingBuffer: true, pixelRatio: PREVIEW_RATIO });

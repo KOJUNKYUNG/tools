@@ -137,7 +137,10 @@ let playing = false;
 
 // ── shader list ──────────────────────────────────────────────
 const listed = new Set(GROUPS.flatMap(([, keys]) => keys));
-for (const [label, keys] of [...GROUPS, ["기타", Object.keys(catalog.shaders).filter((k) => !listed.has(k)).sort()]]) {
+// The image filters (the filter set's) draw nothing without a picture, which the lab has none of.
+const drawsAlone = (k) => !Object.values(catalog.shaders[k].props).some((p) => p.kind === "image");
+const others = Object.keys(catalog.shaders).filter((k) => !listed.has(k) && drawsAlone(k)).sort();
+for (const [label, keys] of [...GROUPS, ["기타", others]]) {
   const g = document.createElement("optgroup");
   g.label = label;
   for (const k of keys) g.append(new Option(catalog.shaders[k].component, k));

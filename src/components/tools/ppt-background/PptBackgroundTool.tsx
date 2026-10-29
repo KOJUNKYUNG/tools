@@ -21,7 +21,7 @@ import { template } from "@/lib/common/template";
 import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { normalizeImageFile } from "@/lib/image/heic";
 import type { CropRect } from "@/lib/image/maxFitCrop";
-import { belowFullHd, slideImagePreparer } from "@/lib/image/slideImage";
+import { belowFullHd, slideImagePreparer, type PrepareStep } from "@/lib/image/slideImage";
 import { filtersAfter, filtersFor, isFiltered, NO_FILTERS, type BackgroundKind, type FilterSet } from "@/lib/image/filterSet";
 import { filterStep } from "@/lib/image/filterCanvas";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
@@ -284,7 +284,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       // share, so the gauge moves from the click on.
       const drawing = !fill && editedProps;
       // Baked in between the fit and the format; an unfiltered pick is prepared as before.
-      const step = fill ? undefined : filterStep(filters, "picture");
+      const step = fill ? undefined : filteredStep(filters);
       if (drawing) onProgress(DRAWING_SHARE / 3);
       const file = drawing ? await drawEdited(editedProps) : bgFile!;
       const shown = drawing ? (pct: number) => DRAWING_SHARE + (pct * (100 - DRAWING_SHARE)) / 100 : (pct: number) => pct;
@@ -324,6 +324,23 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       console.error("Edited background failed to draw", err);
       throw new UserFacingError(labels.errors.recipeDrawFailed);
     }
+  }
+
+  /**
+   * The filter step of the picture path. A failed drawing stops the run with
+   * its own message: the unfiltered picture never stands in for the filters.
+   */
+  function filteredStep(set: FilterSet): PrepareStep | undefined {
+    const step = filterStep(set, "picture");
+    if (!step) return undefined;
+    return async (fitted) => {
+      try {
+        return await step(fitted);
+      } catch (err) {
+        console.error("Filters failed to draw", err);
+        throw new UserFacingError(labels.errors.filterDrawFailed);
+      }
+    };
   }
 
   const pptxFile = pptxFiles[0] ?? null;
@@ -579,6 +596,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     crop,
     sourceSize: pickSize,
     ratio: slideAspect.ratio,
+    // The preview would go on showing the picture without the filter: say so, as a run does.
+    onPaperFail: () => toast.error(labels.errors.filterDrawFailed, { id: "filter-preview" }),
   });
   // "No background" shows the deck's theme colour; white until it is read.
   const noneColour = themeBg ?? "#ffffff";

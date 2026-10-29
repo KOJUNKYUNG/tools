@@ -38,11 +38,38 @@ describe("filter plan for an output size", () => {
 
   it("has no step for a blur, veil or grain at 0", () => {
     expect(filterPlan({ ...NO_FILTERS, blur: 0, veil: 0, grain: 0 }, "picture", FULL_HD)).toEqual([]);
+    // "None" at full strength, as the effects group starts.
+    expect(NO_FILTERS).toMatchObject({ paper: null, paperStrength: 1 });
   });
 
-  it("lays blur, then the veil, then grain", () => {
-    const all: FilterSet = { blur: 0.01, veil: -0.3, grain: 0.1 };
-    expect(filterPlan(all, "picture", FULL_HD).map((step) => step.filter)).toEqual(["blur", "veil", "grain"]);
+  it("lays the Paper filter, then blur, then the veil, then grain", () => {
+    const all: FilterSet = { blur: 0.01, veil: -0.3, grain: 0.1, paper: "flutedGlass", paperStrength: 0.8 };
+    expect(filterPlan(all, "picture", FULL_HD).map((step) => step.filter)).toEqual(["paper", "blur", "veil", "grain"]);
+  });
+
+  it("lays the chosen Paper filter at its strength", () => {
+    const glass: FilterSet = { ...NO_FILTERS, paper: "flutedGlass", paperStrength: 0.6 };
+    expect(filterPlan(glass, "picture", FULL_HD)).toMatchObject([{ filter: "paper", paper: "flutedGlass", strength: 0.6 }]);
+    expect(isFiltered(glass, "picture")).toBe(true);
+  });
+
+  it("draws the Paper filter on one CSS box of the slide's aspect, at the pixel ratio that reaches each size", () => {
+    const glass: FilterSet = { ...NO_FILTERS, paper: "flutedGlass" };
+    const box = { cssWidth: 1280, cssHeight: 720 };
+    expect(filterPlan(glass, "picture", { width: 1280, height: 720 })).toMatchObject([{ box, pixelRatio: 1 }]);
+    expect(filterPlan(glass, "picture", { width: 3840, height: 2160 })).toMatchObject([{ box, pixelRatio: 3 }]);
+    // A 4:3 slide and a portrait one, each with its own box.
+    expect(filterPlan(glass, "picture", { width: 1920, height: 1440 })).toMatchObject([
+      { box: { cssWidth: 960, cssHeight: 720 }, pixelRatio: 2 },
+    ]);
+    expect(filterPlan(glass, "picture", { width: 1080, height: 1920 })).toMatchObject([
+      { box: { cssWidth: 720, cssHeight: 1280 }, pixelRatio: 1.5 },
+    ]);
+  });
+
+  it("has no step for a Paper filter at strength 0, or for \"none\"", () => {
+    expect(filterPlan({ ...NO_FILTERS, paper: "flutedGlass", paperStrength: 0 }, "picture", FULL_HD)).toEqual([]);
+    expect(filterPlan({ ...NO_FILTERS, paper: null, paperStrength: 1 }, "picture", FULL_HD)).toEqual([]);
   });
 
   it("sizes the blur as a share of the width, so 1280 and 3840 blur alike", () => {
@@ -91,7 +118,7 @@ describe("filter plan for an output size", () => {
 });
 
 describe("filter state across the tool", () => {
-  const veiled: FilterSet = { blur: 0.01, veil: -0.3, grain: 0.1 };
+  const veiled: FilterSet = { blur: 0.01, veil: -0.3, grain: 0.1, paper: "flutedGlass", paperStrength: 0.5 };
 
   it("keeps the filters when another background is picked", () => {
     expect(filtersAfter(veiled, "pick")).toEqual(veiled);
@@ -141,5 +168,12 @@ describe("filters offered for a background", () => {
 
   it("hides blur on a solid colour, where it changes nothing", () => {
     expect(filtersFor("solid", true)?.blur ?? null).toBeNull();
+  });
+
+  it("offers a picture fluted glass among the Paper filters, with a strength from 0 to 100%, only with WebGL2", () => {
+    const paper = filtersFor("picture", true)?.paper;
+    expect(paper?.filters).toContain("flutedGlass");
+    expect(paper?.strength).toMatchObject({ min: 0, max: 1 });
+    expect(filtersFor("picture", false)?.paper ?? null).toBeNull();
   });
 });

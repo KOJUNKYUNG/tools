@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { bakeFilters } from "@/lib/image/filterCanvas";
-import { isFiltered, type BackgroundKind, type FilterSet } from "@/lib/image/filterSet";
+import { bakePixelFilters, paperStepOf } from "@/lib/image/filterCanvas";
+import { filterPlan, isFiltered, NO_FILTERS, type BackgroundKind, type FilterSet } from "@/lib/image/filterSet";
+import { drawPaperFilter, layPaperFilter } from "@/lib/image/paperFilterDrawing";
+import type { PaperFilter } from "@/lib/image/paperFilters";
 import { standInRect } from "@/lib/image/cropFrameView";
 import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
 import type { LivePicture } from "@/components/image/LiveCanvas";
@@ -27,15 +29,26 @@ export interface FilterPreviewInput {
   sourceSize?: ImageDims;
   /** The slide's width / height. */
   ratio: number;
+  /** The Paper filter failed to draw; the preview stays on its last drawing. */
+  onPaperFail: () => void;
+}
+
+/** The cropped picture at preview size, the input of every filter; a new version on each drawing. */
+interface Base {
+  canvas: HTMLCanvasElement;
+  version: number;
+  url: string;
 }
 
 /**
  * The selected-background preview with the filter set baked in: the cropped
  * picture (or the recipe edit's live drawing) drawn at preview size and
  * filtered by the same code as the applied picture, on a canvas copied as
- * the recipe edit's is. It redraws on each change, at most once a frame.
- * Null while nothing is filtered (the picture shows as it is) or the
- * picture is not loaded yet.
+ * the recipe edit's is. The Paper filter is drawn once per picture and
+ * filter, one drawing at a time, and kept, so its strength and the pixel
+ * filters redraw at most once a frame without drawing it again. Null while
+ * nothing is filtered (the picture shows as it is) or the picture is not
+ * loaded yet.
  */
 export function useFilterPreview({
   filters,
@@ -45,12 +58,25 @@ export function useFilterPreview({
   crop,
   sourceSize,
   ratio,
+  onPaperFail,
 }: FilterPreviewInput): LivePicture | null {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const baseRef = useRef<HTMLCanvasElement | null>(null);
+  const outRef = useRef<HTMLCanvasElement | null>(null);
   const [image, setImage] = useState<{ url: string; img: HTMLImageElement } | null>(null);
+  const [base, setBase] = useState<Base | null>(null);
+  /** Paper's latest drawing, and the base and filter it was drawn for. */
+  const [paperDrawn, setPaperDrawn] = useState<{ canvas: HTMLCanvasElement; version: number; paper: PaperFilter } | null>(
+    null,
+  );
   /** The latest drawing, and the picture it was drawn from. */
   const [drawn, setDrawn] = useState<{ live: LivePicture; url: string } | null>(null);
+  /** Paper drawings run one after another; one whose base or filter has changed meanwhile is skipped. */
+  const paperQueue = useRef<Promise<void>>(Promise.resolve());
+  const onPaperFailRef = useRef(onPaperFail);
+  onPaperFailRef.current = onPaperFail;
   const filtered = isFiltered(filters, kind);
+  // The Paper filter the plan lays, at any size; the drawing is kept across its strength.
+  const paper = paperStepOf(filterPlan(filters, kind, { width: 1, height: 1 }))?.paper ?? null;
 
   useEffect(() => {
     if (!filtered || !imageUrl) return;
@@ -85,19 +111,62 @@ export function useFilterPreview({
       const box = ratio >= 1 ? { w: PREVIEW_BOX.long, h: PREVIEW_BOX.short } : { w: PREVIEW_BOX.short, h: PREVIEW_BOX.long };
       // Never larger than the part itself: an enlargement only blurs.
       const scale = Math.min(1, box.w / part.w, box.h / part.h);
-      const canvas = (canvasRef.current ??= document.createElement("canvas"));
+      const canvas = (baseRef.current ??= document.createElement("canvas"));
       canvas.width = Math.max(1, Math.round(part.w * scale));
       canvas.height = Math.max(1, Math.round(part.h * scale));
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(picture, part.x, part.y, part.w, part.h, 0, 0, canvas.width, canvas.height);
-      bakeFilters(canvas, filters, kind);
-      // A new version tells each copy to take the canvas again.
-      setDrawn((prev) => ({ live: { canvas, version: (prev?.live.version ?? 0) + 1 }, url }));
+      setBase((prev) => ({ canvas, version: (prev?.version ?? 0) + 1, url }));
     });
     return () => cancelAnimationFrame(frame);
-  }, [filtered, filters, kind, imageUrl, loaded, recipeLive, crop, sourceW, sourceH, ratio]);
+  }, [filtered, imageUrl, loaded, recipeLive, crop, sourceW, sourceH, ratio]);
+
+  useEffect(() => {
+    if (!base || !paper) return;
+    let current = true;
+    paperQueue.current = paperQueue.current.then(async () => {
+      if (!current) return;
+      const { width, height } = base.canvas;
+      // At full strength: the strength is laid when the drawing is.
+      const step = paperStepOf(filterPlan({ ...NO_FILTERS, paper }, kind, { width, height }));
+      if (!step) return;
+      try {
+        const canvas = await drawPaperFilter(base.canvas, step);
+        if (current) setPaperDrawn({ canvas, version: base.version, paper });
+      } catch (err) {
+        console.error("Paper filter preview failed to draw", err);
+        if (current) onPaperFailRef.current();
+      }
+    });
+    return () => {
+      current = false;
+    };
+  }, [base, paper, kind]);
+
+  useEffect(() => {
+    if (!filtered || !base) return;
+    const { width, height } = base.canvas;
+    const plan = filterPlan(filters, kind, { width, height });
+    const step = paperStepOf(plan);
+    const paperCanvas = step && paperDrawn?.version === base.version && paperDrawn.paper === step.paper ? paperDrawn.canvas : null;
+    // Until Paper's drawing of this picture is in, the last preview stays.
+    if (step && !paperCanvas) return;
+    const frame = requestAnimationFrame(() => {
+      const canvas = (outRef.current ??= document.createElement("canvas"));
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+      ctx.drawImage(base.canvas, 0, 0);
+      if (step && paperCanvas) layPaperFilter(canvas, paperCanvas, step.strength);
+      bakePixelFilters(canvas, plan);
+      // A new version tells each copy to take the canvas again.
+      setDrawn((prev) => ({ live: { canvas, version: (prev?.live.version ?? 0) + 1 }, url: base.url }));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [filtered, filters, kind, base, paperDrawn]);
 
   // A drawing of the last picture never shows over a new one.
   return filtered && drawn && drawn.url === imageUrl ? drawn.live : null;

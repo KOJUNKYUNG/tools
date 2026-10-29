@@ -37,6 +37,7 @@
       "memory": "Your browser ran out of memory. Try fewer or smaller files.",
       "invalidFile": "This file isn't supported or is damaged.",
       "heicConvertFailed": "Couldn't convert the HEIC file.",
+      "filterDrawFailed": "Your browser couldn't draw the effect (it may have run short of graphics memory). Try again, or set Style to None.",
       "recipeDrawFailed": "Your browser couldn't draw the edited background (it may have run short of graphics memory). Try again, or press Reset to use the gallery picture as it is.",
       "readFailed": "Could not read the file.",
       "pdfOpenFailedTemplate": "{name}: This PDF is damaged or encrypted."
@@ -254,6 +255,12 @@
           "blur": "Blur",
           "veil": "Dark / light",
           "grain": "Grain",
+          "paper": "Style",
+          "paperNone": "None",
+          "paperFilters": {
+            "flutedGlass": "Fluted glass"
+          },
+          "strength": "Strength",
           "reset": "Clear effects"
         },
         "solid": {

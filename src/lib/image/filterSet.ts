@@ -5,6 +5,7 @@
  * Pure: the pixels are pixelFilters.ts's, the canvas the tool's.
  */
 import type { SliderRange } from "@/lib/gallery/recipeEdit";
+import { PAPER_FILTER_NAMES, type PaperFilter } from "./paperFilters";
 import type { PixelSize } from "./slideImage";
 
 /** What the user picked as the new background. */
@@ -18,13 +19,19 @@ export interface FilterSet {
   veil: number;
   /** The grain's largest change, as a share of full scale. */
   grain: number;
+  /** The one Paper filter laid over the picture, or none. */
+  paper: PaperFilter | null;
+  /** The share of the Paper filter's drawing laid over the unfiltered picture. */
+  paperStrength: number;
 }
 
-/** The effects group's sliders, each null where the background does not take it (hidden). */
+/** The effects group's controls, each null where the background does not take it (hidden). */
 export interface OfferedFilters {
   blur: SliderRange | null;
   veil: SliderRange | null;
   grain: SliderRange | null;
+  /** The one-of choice of Paper filter ("none" besides these) and its strength; none without WebGL2. */
+  paper: { filters: readonly PaperFilter[]; strength: SliderRange } | null;
 }
 
 // [임시] ranges until the spec-end visual QA.
@@ -34,6 +41,17 @@ const BLUR: SliderRange = { min: 0, max: 0.02, step: 0.0005, shown: { times: 100
 const VEIL: SliderRange = { min: -0.6, max: 0.6, step: 0.01, shown: { times: 100, suffix: "%" } };
 /** 0 to 0.2, read 0 to 20. */
 const GRAIN: SliderRange = { min: 0, max: 0.2, step: 0.005, shown: { times: 100 } };
+/** 0 to 100%: the share of the Paper filter's drawing laid over the picture. */
+const STRENGTH: SliderRange = { min: 0, max: 1, step: 0.01, shown: { times: 100, suffix: "%" } };
+
+/** A Paper drawing's layout size, in CSS px. */
+export interface CssBox {
+  cssWidth: number;
+  cssHeight: number;
+}
+
+/** The short side of a Paper filter's box: the gallery stills' 1280 × 720 for a 16:9 slide. */
+const PAPER_BOX_SIDE = 720;
 
 /** The long side at which a grain cell is 1 px: Full HD's, in either orientation. */
 const GRAIN_CELL_SIDE = 1920;
@@ -46,15 +64,21 @@ const GRAIN_SEED = 1;
  * only the filters that change a flat colour, so not blur, which changes
  * nothing on it, or the veil, which would only change the colour picked.
  */
-export function filtersFor(kind: BackgroundKind, _webgl2: boolean): OfferedFilters | null {
+export function filtersFor(kind: BackgroundKind, webgl2: boolean): OfferedFilters | null {
   if (kind === "none") return null;
   const picture = kind === "picture";
-  // Grain on a solid colour comes with its effects area (#131).
-  return { blur: picture ? BLUR : null, veil: picture ? VEIL : null, grain: picture ? GRAIN : null };
+  // Grain and the Paper filters on a solid colour come with its effects area (#131).
+  return {
+    blur: picture ? BLUR : null,
+    veil: picture ? VEIL : null,
+    grain: picture ? GRAIN : null,
+    // Paper's filters draw with WebGL2 only.
+    paper: picture && webgl2 ? { filters: PAPER_FILTER_NAMES, strength: STRENGTH } : null,
+  };
 }
 
-/** No filter: the picture as it is. */
-export const NO_FILTERS: FilterSet = { blur: 0, veil: 0, grain: 0 };
+/** No filter: the picture as it is; a Paper filter picked from here comes at full strength. */
+export const NO_FILTERS: FilterSet = { blur: 0, veil: 0, grain: 0, paper: null, paperStrength: 1 };
 
 /** A step of the tool that the filter state answers to. */
 export type FilterStep = "pick" | "again" | "reset" | "recipeReset";
@@ -72,6 +96,12 @@ export function filtersAfter(filters: FilterSet, step: FilterStep): FilterSet {
 
 /** One filter baked into the picture, in the pixels of the size it was planned for. */
 export type FilterPlanStep =
+  /**
+   * `strength`: the share of the drawing laid over the picture; `box`: the
+   * CSS size the drawing is laid out at, which sets its composition;
+   * `pixelRatio`: the ratio at which the box reaches the picture's pixels.
+   */
+  | { filter: "paper"; paper: PaperFilter; strength: number; box: CssBox; pixelRatio: number }
   /** `radius`: the Gaussian's standard deviation, in px. */
   | { filter: "blur"; radius: number }
   | { filter: "veil"; amount: number }
@@ -93,6 +123,16 @@ export function filterPlan(filters: FilterSet, kind: BackgroundKind, size: Pixel
   // ever chosen where WebGL2 offered it.
   const offered = filtersFor(kind, true);
   const plan: FilterPlanStep[] = [];
+  if (offered?.paper && filters.paper && filters.paperStrength > 0) {
+    // One box per slide aspect, whatever the size: the preview and the 4K
+    // result share one composition, as the recipe edit's do.
+    const aspect = size.width / size.height;
+    const box =
+      aspect >= 1
+        ? { cssWidth: Math.round(PAPER_BOX_SIDE * aspect), cssHeight: PAPER_BOX_SIDE }
+        : { cssWidth: PAPER_BOX_SIDE, cssHeight: Math.round(PAPER_BOX_SIDE / aspect) };
+    plan.push({ filter: "paper", paper: filters.paper, strength: filters.paperStrength, box, pixelRatio: size.width / box.cssWidth });
+  }
   if (offered?.blur && filters.blur > 0) plan.push({ filter: "blur", radius: filters.blur * size.width });
   if (offered?.veil && filters.veil !== 0) plan.push({ filter: "veil", amount: filters.veil });
   if (offered?.grain && filters.grain > 0) {
