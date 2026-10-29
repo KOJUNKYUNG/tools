@@ -27,12 +27,8 @@ export interface RecipeEditLabels {
   hue: string;
   /** The size slider: the recipe's `scale`. */
   size: string;
-  /** The grain slider, where the shader has grain. */
+  /** The grain slider, where the shader has grain: along colour edges. */
   grain: string;
-  /** A mesh gradient's grain on colour edges, beside its grain dots. */
-  grainEdge: string;
-  /** A mesh gradient's grain dots over the picture. */
-  grainOverlay: string;
   /** The softness slider, where the shader has softness. */
   softness: string;
   /** The shape slider's names, one per value it moves. */
