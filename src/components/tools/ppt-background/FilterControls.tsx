@@ -3,6 +3,7 @@
 import type { FilterSet, OfferedFilters } from "@/lib/image/filterSet";
 import { SliderCell } from "./SliderCell";
 
+/** [임시] copy (효과 / 어둡게·밝게 / 효과 끄기) until the spec-end visual QA. */
 export interface FilterLabels {
   /** The filter set's group in the edit area. */
   effects: string;

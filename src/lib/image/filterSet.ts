@@ -64,7 +64,9 @@ export type FilterPlanStep = { filter: "veil"; amount: number };
  * at any size.
  */
 export function filterPlan(filters: FilterSet, kind: BackgroundKind, _size: PixelSize): FilterPlanStep[] {
-  const offered = filtersFor(kind, false);
+  // What the background takes whatever the browser: a Paper filter is only
+  // ever chosen where WebGL2 offered it.
+  const offered = filtersFor(kind, true);
   const plan: FilterPlanStep[] = [];
   if (offered?.veil && filters.veil !== 0) plan.push({ filter: "veil", amount: filters.veil });
   return plan;

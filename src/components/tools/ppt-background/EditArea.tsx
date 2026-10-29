@@ -45,7 +45,8 @@ export function EditArea({ heading, open, onOpenChange, groups, note, locked }: 
     ) : null;
   }
   // Several groups take turns under tabs in the toggle's row, so the area
-  // keeps the height of its largest group and the frame keeps its size.
+  // fits the room the picker holds for it (one group at a time) and the
+  // toggle, the tabs and the reset never move.
   const shown = groups.find((group) => group.name === chosen) ?? groups[0];
   const tabbed = groups.length > 1;
   return (

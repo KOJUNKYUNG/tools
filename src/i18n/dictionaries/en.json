@@ -246,7 +246,7 @@
           "addColour": "Add a colour",
           "removeTemplate": "Remove colour {n}",
           "reset": "Reset",
-          "unavailable": "This browser can't edit pictures (no WebGL2 support). You can still use the picture as it is.",
+          "unavailable": "This browser can't edit the shape (no WebGL2 support). Effects still work.",
           "drawing": "Drawing the preview"
         },
         "filters": {
