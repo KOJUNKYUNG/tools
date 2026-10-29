@@ -134,9 +134,10 @@ async function encode(canvas: OffscreenCanvas, format: PreparedImage["format"]):
 }
 
 /**
- * A change to the picture between its fit and its encoding (the filter set):
- * given the fitted picture, it returns the picture to encode, the same
- * canvas or a new one.
+ * A change to the picture between its fit and its encoding, such as effects
+ * baked into its pixels: given the fitted picture, it returns the picture to
+ * encode, the same canvas or a new one of the same size (the prepared
+ * picture states the fitted size).
  */
 export type PrepareStep = (fitted: OffscreenCanvas) => OffscreenCanvas | Promise<OffscreenCanvas>;
 
@@ -176,15 +177,16 @@ export function slideImagePreparer(step?: PrepareStep): PrepareSlideImage {
     });
     let canvas: OffscreenCanvas | null = null;
     try {
-      let alpha = !step && header?.format !== "jpeg" && alphaUsed(bitmap);
-      if (whole && alpha) return { bytes, format: "png", ...size };
+      const sourceAlpha = !step && header?.format !== "jpeg" && alphaUsed(bitmap);
+      if (whole && sourceAlpha) return { bytes, format: "png", ...size };
       canvas = await downscaleImage(bitmap, size.width, size.height, crop);
       if (step) {
         const fitted = canvas;
         canvas = await step(fitted);
         if (canvas !== fitted) fitted.width = fitted.height = 0;
-        alpha = alphaUsed(canvas);
       }
+      // A step may change the transparency, so its picture is scanned as it comes out.
+      const alpha = step ? alphaUsed(canvas) : sourceAlpha;
       // Measured on the canvas's own PNG, not the upload's: a badly
       // compressed graphic would otherwise look worth turning into JPEG.
       const png = await encode(canvas, "png");
@@ -200,5 +202,5 @@ export function slideImagePreparer(step?: PrepareStep): PrepareSlideImage {
   };
 }
 
-/** The shared preparation with no step: what ppt-background uses unless it injects one. */
+/** The shared preparation with no step. */
 export const prepareSlideImage: PrepareSlideImage = slideImagePreparer();
