@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { composeFilters, paperStepOf } from "@/lib/image/filterCanvas";
 import { filterPlan, isFiltered, laidPaperFilter, NO_FILTERS, type BackgroundKind, type FilterSet } from "@/lib/image/filterSet";
 import { drawPaperFilter } from "@/lib/image/paperFilterDrawing";
-import { fittedSize, type PixelSize } from "@/lib/image/slideImage";
+import { filledSize, fittedSize, type PixelSize } from "@/lib/image/slideImage";
 import type { PaperFilter } from "@/lib/image/paperFilters";
 import { standInRect } from "@/lib/image/cropFrameView";
 import { maxFitCrop, type CropRect, type ImageDims } from "@/lib/image/maxFitCrop";
@@ -23,6 +23,8 @@ export interface FilterPreviewInput {
   kind: BackgroundKind;
   /** The picked picture shown (a smaller stand-in of the source while it downloads). */
   imageUrl: string | null;
+  /** The picked solid colour (CSS), which stands in for a picture: the colour at the slide's aspect. */
+  colour?: string | null;
   /** The recipe edit's live drawing, which stands in for the picture while the pick is edited. */
   recipeLive: LivePicture | null;
   /** The Background crop, in `sourceSize` pixels; until it is known the picture is centred to fill. */
@@ -40,13 +42,13 @@ interface Base {
   canvas: HTMLCanvasElement;
   version: number;
   url: string;
-  /** The size the applied picture of this crop is stored at (fitted inside 4K). */
+  /** The size the applied picture of this crop (or colour) is stored at (fitted inside 4K). */
   applied: PixelSize;
 }
 
 /**
  * The selected-background preview with the filter set baked in: the cropped
- * picture (or the recipe edit's live drawing) drawn at preview size and
+ * picture (or the recipe edit's live drawing, or a solid colour) drawn at preview size and
  * filtered by the same code as the applied picture, on a canvas copied as
  * the recipe edit's is. The Paper filter is drawn once per picture and
  * filter, one drawing at a time, and kept, so its strength and the pixel
@@ -59,13 +61,16 @@ interface Base {
 export function useFilterPreview({
   filters,
   kind,
-  imageUrl,
+  imageUrl: pictureUrl,
+  colour = null,
   recipeLive,
   crop,
   sourceSize,
   ratio,
   onPaperFail,
 }: FilterPreviewInput): LivePicture | null {
+  // What is shown, by which a drawing is matched to it: the colour, or the picture.
+  const imageUrl = colour ? `colour:${colour}` : pictureUrl;
   const baseRef = useRef<HTMLCanvasElement | null>(null);
   const outRef = useRef<HTMLCanvasElement | null>(null);
   const [image, setImage] = useState<{ url: string; img: HTMLImageElement } | null>(null);
@@ -87,7 +92,7 @@ export function useFilterPreview({
   const paperFilter = laidPaperFilter(filters, kind);
 
   useEffect(() => {
-    if (!filtered || !imageUrl) return;
+    if (!filtered || colour || !imageUrl) return;
     let current = true;
     const img = new Image();
     img.onload = () => {
@@ -97,17 +102,37 @@ export function useFilterPreview({
     return () => {
       current = false;
     };
-  }, [filtered, imageUrl]);
+  }, [filtered, colour, imageUrl]);
 
   const loaded = image?.url === imageUrl ? image.img : null;
   const sourceW = sourceSize?.w;
   const sourceH = sourceSize?.h;
   useEffect(() => {
+    if (!filtered || !colour) return;
+    const url = `colour:${colour}`;
+    const frame = requestAnimationFrame(() => {
+      // The colour at the size its picture is applied at, scaled into the preview box.
+      const applied = filledSize({ w: ratio, h: 1 });
+      const box = ratio >= 1 ? { w: PREVIEW_BOX.long, h: PREVIEW_BOX.short } : { w: PREVIEW_BOX.short, h: PREVIEW_BOX.long };
+      const scale = Math.min(1, box.w / applied.width, box.h / applied.height);
+      const canvas = (baseRef.current ??= document.createElement("canvas"));
+      canvas.width = Math.max(1, Math.round(applied.width * scale));
+      canvas.height = Math.max(1, Math.round(applied.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.fillStyle = colour;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      setBase((prev) => ({ canvas, version: (prev?.version ?? 0) + 1, url, applied }));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [filtered, colour, ratio]);
+
+  useEffect(() => {
     // The recipe edit's drawing, or the picture.
     // Each drawing of the recipe edit comes as a new `recipeLive`, on the same canvas.
     const picture = recipeLive?.canvas ?? loaded;
     const url = imageUrl;
-    if (!filtered || !url || !picture) return;
+    if (!filtered || colour || !url || !picture) return;
     const frame = requestAnimationFrame(() => {
       // The part of the picture the crop shows.
       const own =
@@ -132,7 +157,7 @@ export function useFilterPreview({
       setBase((prev) => ({ canvas, version: (prev?.version ?? 0) + 1, url, applied }));
     });
     return () => cancelAnimationFrame(frame);
-  }, [filtered, imageUrl, loaded, recipeLive, crop, sourceW, sourceH, ratio]);
+  }, [filtered, colour, imageUrl, loaded, recipeLive, crop, sourceW, sourceH, ratio]);
 
   useEffect(() => {
     if (!base || !paperFilter) return;

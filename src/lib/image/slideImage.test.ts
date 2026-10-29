@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { maxFitCrop } from "./maxFitCrop";
-import { belowFullHd, fittedSize, preparedFormat } from "./slideImage";
+import { belowFullHd, filledSize, fittedSize, preparedFormat } from "./slideImage";
 
 /** Slide sizes in EMU, as `<p:sldSz>` stores them. */
 const WIDE = { w: 12192000, h: 6858000 }; // 16:9
@@ -55,6 +55,17 @@ describe("fittedSize", () => {
         expect(Math.abs(out.width - (out.height * slide.w) / slide.h)).toBeLessThanOrEqual(1);
       }
     }
+  });
+});
+
+describe("filledSize", () => {
+  it("fills the 4K box at the slide's aspect, in its orientation", () => {
+    expect(filledSize(WIDE)).toEqual({ width: 3840, height: 2160 });
+    expect(filledSize(STANDARD)).toEqual({ width: 2880, height: 2160 });
+    expect(filledSize(WIDE_16_10)).toEqual({ width: 3456, height: 2160 });
+    expect(filledSize(A4_PORTRAIT)).toEqual({ width: 2160, height: 3055 });
+    expect(filledSize({ w: 9, h: 16 })).toEqual({ width: 2160, height: 3840 });
+    expect(filledSize({ w: 2, h: 1 })).toEqual({ width: 3840, height: 1920 });
   });
 });
 

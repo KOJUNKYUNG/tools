@@ -6,8 +6,8 @@ import { CornerSpinner } from "./CornerSpinner";
 import { LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
 
 interface PreviewLightboxProps {
-  /** Image URL to enlarge. */
-  src: string;
+  /** Image URL to enlarge, or a solid colour shown in its place at a picture's size. */
+  src: string | { colour: string; size: ImageDims };
   alt: string;
   /** Aspect ratio value for the box, e.g. "16 / 9" | "4 / 3". */
   aspect: string;
@@ -37,7 +37,19 @@ export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop, s
         className="relative max-h-full max-w-full overflow-hidden border"
         style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-lg)", aspectRatio: aspect }}
       >
-        {crop ? (
+        {typeof src !== "string" ? (
+          // Sized like an image of that size, as CroppedImage is.
+          <svg
+            role="img"
+            aria-label={alt}
+            viewBox={`0 0 ${src.size.w} ${src.size.h}`}
+            width={src.size.w}
+            height={src.size.h}
+            className="block max-h-full max-w-full"
+          >
+            <rect width="100%" height="100%" fill={src.colour} />
+          </svg>
+        ) : crop ? (
           <CroppedImage src={src} alt={alt} crop={crop} sourceSize={sourceSize} className="block max-h-full max-w-full" />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element

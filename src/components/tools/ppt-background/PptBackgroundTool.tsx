@@ -21,7 +21,7 @@ import { template } from "@/lib/common/template";
 import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { normalizeImageFile } from "@/lib/image/heic";
 import type { CropRect } from "@/lib/image/maxFitCrop";
-import { belowFullHd, slideImagePreparer, type PrepareStep } from "@/lib/image/slideImage";
+import { belowFullHd, filledSize, slideImagePreparer, type PrepareStep, type SlideSize } from "@/lib/image/slideImage";
 import { filtersAfter, filtersFor, isFiltered, NO_FILTERS, type BackgroundKind, type FilterSet } from "@/lib/image/filterSet";
 import { filterStep } from "@/lib/image/filterCanvas";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
@@ -78,6 +78,26 @@ async function galleryImageFile(image: GalleryImage): Promise<File> {
 }
 
 /**
+ * A solid colour as the picture its filters are baked into: the colour at
+ * the size a picture of the slide's aspect is stored at, as a PNG (a flat
+ * colour is a few KB), handed to the engine as an ordinary picture.
+ */
+async function solidPictureFile(rgb: string, slide: SlideSize): Promise<File> {
+  const { width, height } = filledSize(slide);
+  const canvas = new OffscreenCanvas(width, height);
+  try {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("no 2d canvas context");
+    ctx.fillStyle = `#${rgb}`;
+    ctx.fillRect(0, 0, width, height);
+    const blob = await canvas.convertToBlob({ type: "image/png" });
+    return new File([blob], `solid-${rgb}.png`, { type: "image/png" });
+  } finally {
+    canvas.width = canvas.height = 0;
+  }
+}
+
+/**
  * The share of the gauge an edited pick's 4K drawing takes (measured
  * 2026-10-29: 0.2-0.25 s of a 0.7-1 s run on a laptop iGPU).
  */
@@ -125,7 +145,7 @@ export interface PptBackgroundToolLabels {
   gallery: GalleryLabels;
   /** The recipe edit under the frame of a Paper gallery item. */
   recipeEdit: RecipeEditLabels;
-  /** The filter set's group in the edit area of every picture. */
+  /** The filter set's group in the edit area of every picture and solid colour. */
   filters: FilterLabels;
   solid: SolidColourLabels & {
     tab: string;
@@ -280,19 +300,24 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     download,
   } = useToolProcessor<Uint8Array>({
     processor: async (files, onProgress) => {
+      // A filtered solid colour goes in as a picture of the colour, whole,
+      // its filters baked in as a picture's are; an unfiltered one stays a fill.
+      const solid = fill?.kind === "colour" && isFiltered(filters, "solid") ? fill : null;
       // An edited pick is drawn now, at the gallery file's size, so the frame
       // set on the file applies to it as is. The drawing is the gauge's first
       // share, so the gauge moves from the click on.
       const drawing = !fill && editedProps;
       // Baked in between the fit and the format; an unfiltered pick is prepared as before.
-      const step = fill ? undefined : filteredStep(filters);
+      const step = solid ? filteredStep(filters, "solid") : fill ? undefined : filteredStep(filters, "picture");
       if (drawing) onProgress(DRAWING_SHARE / 3);
       const file = drawing ? await drawEdited(editedProps) : bgFile!;
       const shown = drawing ? (pct: number) => DRAWING_SHARE + (pct * (100 - DRAWING_SHARE)) / 100 : (pct: number) => pct;
       if (drawing) onProgress(DRAWING_SHARE);
       return changeBackground({
         pptxFile: files[0],
-        background: fill ?? { kind: "picture", file, crop: crop ?? undefined },
+        background: solid
+          ? { kind: "picture", file: await solidPictureFile(solid.rgb, { w: slideAspect.ratio, h: 1 }) }
+          : (fill ?? { kind: "picture", file, crop: crop ?? undefined }),
         mode,
         targetSlides:
           mode === "specific-slides"
@@ -328,11 +353,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   }
 
   /**
-   * The filter step of the picture path. A failed drawing stops the run with
-   * its own message: the unfiltered picture never stands in for the filters.
+   * The filter step of the picture path, for a picture or a solid colour's
+   * picture. A failed drawing stops the run with its own message: the
+   * unfiltered picture never stands in for the filters.
    */
-  function filteredStep(set: FilterSet): PrepareStep | undefined {
-    const step = filterStep(set, "picture");
+  function filteredStep(set: FilterSet, kind: BackgroundKind): PrepareStep | undefined {
+    const step = filterStep(set, kind);
     if (!step) return undefined;
     return async (fitted) => {
       try {
@@ -368,13 +394,19 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     setFilters((f) => filtersAfter(f, "pick"));
   }, [showPreview]);
 
-  /** Pick a solid colour or "no background": the picture pick goes. */
+  /**
+   * Pick a solid colour or "no background": the picture pick goes. The
+   * effects area under the colours stays open from one colour to the next,
+   * so colours compare under the same filters as they are clicked.
+   */
   const handleFillSelect = useCallback(
     (next: FillBackground) => {
+      const keepOpen = fill?.kind === "colour" && next.kind === "colour" && editOpen;
       clearPick();
       setFill(next);
+      if (keepOpen) setEditState((s) => ({ ...s, open: true }));
     },
-    [clearPick],
+    [clearPick, fill?.kind, editOpen],
   );
 
   // .ppt vs .pptx routing — .ppt never enters useToolProcessor state.
@@ -586,13 +618,14 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     [galleryImage],
   );
   const backgroundKind: BackgroundKind = !fill ? "picture" : fill.kind === "colour" ? "solid" : "none";
-  // Read once a picture is in hand (it touches the DOM, absent while the page is served).
-  const offeredFilters = bgFile ? filtersFor(backgroundKind, webgl2Available()) : null;
+  // Read once a picture or a fill is in hand (it touches the DOM, absent while the page is served).
+  const offeredFilters = bgFile || fill ? filtersFor(backgroundKind, webgl2Available()) : null;
   /** The selected-background preview with the filters baked in; null while unfiltered. */
   const filterPreview = useFilterPreview({
     filters,
     kind: backgroundKind,
     imageUrl: bgPreviewUrl,
+    colour: fill?.kind === "colour" ? `#${fill.rgb}` : null,
     recipeLive: editLive,
     crop,
     sourceSize: pickSize,
@@ -664,10 +697,36 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     setFraming(true);
   }, [retry]);
 
-  // Zoom source URL: selected-bg preview or the current group's thumb.
+  // Zoom source: the selected background (a filtered colour, at its
+  // picture's size) or the current group's thumb.
   const currentGroup = groups[curIndex];
   const currentThumbUrl = currentGroup ? groupThumbUrls.get(currentGroup.key) ?? null : null;
-  const zoomSrc = zoom === "selected" ? bgPreviewUrl : zoom === "current" ? currentThumbUrl : null;
+  const filledColour = (() => {
+    if (fill?.kind !== "colour" || !filterPreview) return null;
+    const { width, height } = filledSize({ w: slideAspect.ratio, h: 1 });
+    return { colour: `#${fill.rgb}`, size: { w: width, h: height } };
+  })();
+  const selectedZoom = fill ? filledColour : bgPreviewUrl;
+  const zoomSrc = zoom === "selected" ? selectedZoom : zoom === "current" ? currentThumbUrl : null;
+
+  /** The filter set's group, in a picture's edit area or a solid colour's. */
+  const effectsGroup = offeredFilters
+    ? {
+        name: labels.filters.effects,
+        resetLabel: labels.filters.reset,
+        edited: isFiltered(filters, backgroundKind),
+        onReset: () => setFilters((f) => filtersAfter(f, "reset")),
+        controls: (
+          <FilterControls
+            offered={offeredFilters}
+            filters={filters}
+            onChange={(change) => setFilters((f) => ({ ...f, ...change }))}
+            locked={status !== "idle"}
+            labels={labels.filters}
+          />
+        ),
+      }
+    : null;
 
   // When the .ppt rejection guide is showing, give the empty-state body itself
   // a definite 50vh height so its flex-1 children (the accordion in particular)
@@ -846,25 +905,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                                       },
                                     ]
                                   : []),
-                                ...(offeredFilters
-                                  ? [
-                                      {
-                                        name: labels.filters.effects,
-                                        resetLabel: labels.filters.reset,
-                                        edited: isFiltered(filters, backgroundKind),
-                                        onReset: () => setFilters((f) => filtersAfter(f, "reset")),
-                                        controls: (
-                                          <FilterControls
-                                            offered={offeredFilters}
-                                            filters={filters}
-                                            onChange={(change) => setFilters((f) => ({ ...f, ...change }))}
-                                            locked={status !== "idle"}
-                                            labels={labels.filters}
-                                          />
-                                        ),
-                                      },
-                                    ]
-                                  : []),
+                                ...(effectsGroup ? [effectsGroup] : []),
                               ],
                               locked: status !== "idle",
                             }
@@ -876,6 +917,18 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 onFillSelect={handleFillSelect}
                 themeBackground={noneColour}
                 fillLocked={!!fill && status !== "idle"}
+                fillEdit={
+                  // "No background" is the theme's colour by definition: no effects.
+                  fill?.kind === "colour" && effectsGroup
+                    ? {
+                        heading: labels.recipeEdit.heading,
+                        open: editOpen,
+                        onOpenChange: (open) => setEditState((s) => ({ ...s, open })),
+                        groups: [effectsGroup],
+                        locked: status !== "idle",
+                      }
+                    : null
+                }
                 labels={{
                   uploadLabel: labels.background.uploadLabel,
                   backToGallery: labels.background.backToGallery,

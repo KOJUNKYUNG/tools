@@ -53,6 +53,18 @@ export function fittedSize(crop: CropRect, slide: SlideSize): PixelSize {
 }
 
 /**
+ * The largest picture of the slide's aspect the 4K box holds: what a crop of
+ * any larger picture is stored at, so the size a picture made for the slide
+ * (a filtered solid colour) is drawn at.
+ */
+export function filledSize(slide: SlideSize): PixelSize {
+  const box = screenBox(slide);
+  const ratio = slide.w / slide.h;
+  if (ratio >= box.width / box.height) return { width: box.width, height: Math.round(box.width / ratio) };
+  return { width: Math.round(box.height * ratio), height: box.height };
+}
+
+/**
  * Whether a crop is too small to fill a Full HD screen without being
  * enlarged, so it may look blurry there: its long side in the slide's
  * orientation (width, or height for a portrait slide) is under 1920 pixels.

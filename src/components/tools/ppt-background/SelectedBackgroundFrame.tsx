@@ -20,7 +20,7 @@ interface SelectedBackgroundFrameProps {
   sourceSize?: ImageDims;
   /** The live drawing of the pick's edit, laid over the picture; none while it is unedited. */
   live?: LivePicture | null;
-  /** The cropped pick with its filters baked in, laid over all; none while it is unfiltered. */
+  /** The cropped pick (or the colour) with its filters baked in, laid over all; none while it is unfiltered. */
   filtered?: LivePicture | null;
   /** Opens the frame over the picture again. */
   onSelect?: () => void;
@@ -61,17 +61,26 @@ export function SelectedBackgroundFrame({
         style={{ background: "var(--surface-2)", borderColor: "var(--border)", aspectRatio: aspect }}
       >
         {colour ? (
-          // A fill has nothing to frame or zoom: the colour is the preview.
-          <div role="img" aria-label={colourNote ?? caption} className="size-full" style={{ background: colour }}>
-            {colourNote ? (
-              <span
-                className="absolute bottom-1.5 left-1.5 rounded-[5px] px-1.5 py-0.5 font-body text-[10px]"
-                style={{ background: "color-mix(in oklch, var(--surface) 85%, transparent)", color: "var(--ink-strong)" }}
-              >
-                {colourNote}
-              </span>
+          // A fill has nothing to frame: the colour is the preview, and only
+          // its filters (grain, a texture) have detail worth zooming into.
+          <>
+            <div role="img" aria-label={colourNote ?? caption} className="size-full" style={{ background: colour }}>
+              {colourNote ? (
+                <span
+                  className="absolute bottom-1.5 left-1.5 rounded-[5px] px-1.5 py-0.5 font-body text-[10px]"
+                  style={{ background: "color-mix(in oklch, var(--surface) 85%, transparent)", color: "var(--ink-strong)" }}
+                >
+                  {colourNote}
+                </span>
+              ) : null}
+            </div>
+            {filtered ? (
+              <>
+                <FilteredCanvas filtered={filtered} />
+                <ZoomButton label={zoomLabel} onZoom={onZoom} />
+              </>
             ) : null}
-          </div>
+          </>
         ) : previewUrl ? (
           <>
             {onSelect ? (
@@ -86,28 +95,10 @@ export function SelectedBackgroundFrame({
             {live && sourceSize ? (
               <LiveCanvas live={live} crop={crop} sourceSize={sourceSize} className="pointer-events-none absolute inset-0 size-full" />
             ) : null}
-            {filtered ? (
-              <LiveCanvas
-                live={filtered}
-                // Already cut to the crop: the whole canvas fills the box.
-                sourceSize={{ w: filtered.canvas.width, h: filtered.canvas.height }}
-                className="pointer-events-none absolute inset-0 size-full"
-              />
-            ) : null}
+            {filtered ? <FilteredCanvas filtered={filtered} /> : null}
             {/* Top left: the zoom button takes the top right on hover. */}
             {busyLabel ? <CornerSpinner label={busyLabel} className="left-1.5 top-1.5" /> : null}
-            <button
-              type="button"
-              onClick={onZoom}
-              aria-label={zoomLabel}
-              className="absolute right-1.5 top-1.5 hidden size-6 items-center justify-center rounded-[6px] group-hover:flex"
-              style={{ background: "color-mix(in oklch, var(--surface) 85%, transparent)", color: "var(--ink-strong)", backdropFilter: "blur(4px)" }}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="10.5" cy="10.5" r="6.5" />
-                <path d="M15.2 15.2 L20 20" />
-              </svg>
-            </button>
+            <ZoomButton label={zoomLabel} onZoom={onZoom} />
           </>
         ) : (
           <div className="flex h-full items-center justify-center px-2 text-center font-body text-[10.5px]" style={{ color: "var(--ink-soft)" }}>
@@ -116,5 +107,34 @@ export function SelectedBackgroundFrame({
         )}
       </div>
     </div>
+  );
+}
+
+/** The filtered preview, already cut to the crop: the whole canvas fills the box. */
+function FilteredCanvas({ filtered }: { filtered: LivePicture }) {
+  return (
+    <LiveCanvas
+      live={filtered}
+      sourceSize={{ w: filtered.canvas.width, h: filtered.canvas.height }}
+      className="pointer-events-none absolute inset-0 size-full"
+    />
+  );
+}
+
+/** The zoom button, shown at the top right on hover. */
+function ZoomButton({ label, onZoom }: { label: string; onZoom: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onZoom}
+      aria-label={label}
+      className="absolute right-1.5 top-1.5 hidden size-6 items-center justify-center rounded-[6px] group-hover:flex"
+      style={{ background: "color-mix(in oklch, var(--surface) 85%, transparent)", color: "var(--ink-strong)", backdropFilter: "blur(4px)" }}
+    >
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="10.5" cy="10.5" r="6.5" />
+        <path d="M15.2 15.2 L20 20" />
+      </svg>
+    </button>
   );
 }

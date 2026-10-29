@@ -36,7 +36,7 @@ export interface BackgroundFrame {
   onBack: () => void;
   /** A run is using the frame: it is shown as is and nothing here responds. */
   locked: boolean;
-  /** The edit area under the frame, for a Paper gallery item only. */
+  /** The edit area under the frame. */
   edit?: EditAreaProps | null;
   /** The spinner's name while the shown picture is behind the latest edit; none when it is current. */
   busyLabel?: string | null;
@@ -57,6 +57,8 @@ interface BackgroundPickerProps {
   themeBackground: string;
   /** A run is using the picked fill: the "단색" tab shows it and nothing responds. */
   fillLocked: boolean;
+  /** The edit area under the colours, while a solid colour (not "no background") is picked. */
+  fillEdit?: EditAreaProps | null;
   labels: {
     uploadLabel: string;
     backToGallery: string;
@@ -79,6 +81,7 @@ export function BackgroundPicker({
   onFillSelect,
   themeBackground,
   fillLocked,
+  fillEdit = null,
   labels,
 }: BackgroundPickerProps) {
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
@@ -222,19 +225,31 @@ export function BackgroundPicker({
             <div className="h-[9rem] shrink-0">{frame.edit ? <EditArea {...frame.edit} /> : null}</div>
           </div>
         ) : activeCategory === "solid" ? (
-          <SolidColourGrid
-            value={fill}
-            onSelect={(next, fromCustom) => {
-              setCustomPicked(fromCustom);
-              onFillSelect(next);
-            }}
-            themeBackground={themeBackground}
-            custom={custom}
-            customPicked={customPicked}
-            onCustom={setCustom}
-            locked={fillLocked}
-            labels={labels.solid}
-          />
+          <div className="flex h-full min-h-0 flex-col gap-2.5">
+            {/* The colours scroll in the room the edit area leaves. */}
+            <div className="min-h-0 flex-1">
+              <SolidColourGrid
+                value={fill}
+                onSelect={(next, fromCustom) => {
+                  setCustomPicked(fromCustom);
+                  onFillSelect(next);
+                }}
+                themeBackground={themeBackground}
+                custom={custom}
+                customPicked={customPicked}
+                onCustom={setCustom}
+                locked={fillLocked}
+                labels={labels.solid}
+              />
+            </div>
+            {/* The frame's room for the area, open or closed, so the toggle
+                keeps its place; in line with the tiles. */}
+            {fillEdit ? (
+              <div className="h-[9rem] shrink-0 px-4">
+                <EditArea {...fillEdit} />
+              </div>
+            ) : null}
+          </div>
         ) : (
           <InlineGallery
             onSelect={onGallerySelect}

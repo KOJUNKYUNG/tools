@@ -26,6 +26,23 @@ describe("is filtered", () => {
     expect(isFiltered(filtersAfter(kept, "pick"), "picture")).toBe(true);
   });
 
+  it("counts grain or a Paper filter on a solid colour as filtered", () => {
+    expect(isFiltered({ ...NO_FILTERS, grain: 0.05 }, "solid")).toBe(true);
+    expect(isFiltered({ ...NO_FILTERS, paper: "paperTexture" }, "solid")).toBe(true);
+  });
+
+  it("lays only the Paper filter and grain on a solid colour, keeping blur and the veil for the next picture", () => {
+    const all: FilterSet = { blur: 0.01, veil: -0.3, grain: 0.1, paper: "paperTexture", paperStrength: 0.8 };
+    const kept = filtersAfter(all, "pick");
+    expect(filterPlan(kept, "solid", FULL_HD).map((step) => step.filter)).toEqual(["paper", "grain"]);
+    expect(filterPlan(filtersAfter(kept, "pick"), "picture", FULL_HD).map((step) => step.filter)).toEqual([
+      "paper",
+      "blur",
+      "veil",
+      "grain",
+    ]);
+  });
+
   it("counts nothing on no background as filtered", () => {
     expect(isFiltered({ ...NO_FILTERS, veil: 0.4 }, "none")).toBe(false);
   });
@@ -175,6 +192,18 @@ describe("filters offered for a background", () => {
 
   it("hides blur on a solid colour, where it changes nothing", () => {
     expect(filtersFor("solid", true)?.blur ?? null).toBeNull();
+  });
+
+  it("offers a solid colour grain and the five Paper filters", () => {
+    const offered = filtersFor("solid", true);
+    expect(offered?.grain).toMatchObject({ min: 0 });
+    expect(offered?.paper?.filters).toEqual(["flutedGlass", "paperTexture", "halftoneDuotone", "halftoneMosaic", "halftoneCmyk"]);
+  });
+
+  it("offers a solid colour grain only without WebGL2", () => {
+    const offered = filtersFor("solid", false);
+    expect(offered?.grain).toMatchObject({ min: 0 });
+    expect(offered).toMatchObject({ blur: null, veil: null, paper: null });
   });
 
   it("offers a picture the five Paper filters, with a strength from 0 to 100%, only with WebGL2", () => {

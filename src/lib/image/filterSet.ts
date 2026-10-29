@@ -67,13 +67,12 @@ const GRAIN_SEED = 1;
 export function filtersFor(kind: BackgroundKind, webgl2: boolean): OfferedFilters | null {
   if (kind === "none") return null;
   const picture = kind === "picture";
-  // Grain and the Paper filters on a solid colour come with its effects area (#131).
   return {
     blur: picture ? BLUR : null,
     veil: picture ? VEIL : null,
-    grain: picture ? GRAIN : null,
+    grain: GRAIN,
     // Paper's filters draw with WebGL2 only.
-    paper: picture && webgl2 ? { filters: PAPER_FILTER_NAMES, strength: STRENGTH } : null,
+    paper: webgl2 ? { filters: PAPER_FILTER_NAMES, strength: STRENGTH } : null,
   };
 }
 
