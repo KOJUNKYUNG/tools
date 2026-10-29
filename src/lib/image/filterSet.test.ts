@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterPlan, filtersAfter, filtersFor, isFiltered, NO_FILTERS, type FilterSet } from "./filterSet";
+import { filterPlan, filtersAfter, filtersFor, isFiltered, laidPaperFilter, NO_FILTERS, type FilterSet } from "./filterSet";
 
 const FULL_HD = { width: 1920, height: 1080 };
 
@@ -70,6 +70,13 @@ describe("filter plan for an output size", () => {
   it("has no step for a Paper filter at strength 0, or for \"none\"", () => {
     expect(filterPlan({ ...NO_FILTERS, paper: "flutedGlass", paperStrength: 0 }, "picture", FULL_HD)).toEqual([]);
     expect(filterPlan({ ...NO_FILTERS, paper: null, paperStrength: 1 }, "picture", FULL_HD)).toEqual([]);
+  });
+
+  it("names the Paper filter the plan lays, at any size, or none", () => {
+    expect(laidPaperFilter({ ...NO_FILTERS, paper: "flutedGlass", paperStrength: 0.4 }, "picture")).toBe("flutedGlass");
+    expect(laidPaperFilter({ ...NO_FILTERS, paper: "flutedGlass", paperStrength: 0 }, "picture")).toBeNull();
+    expect(laidPaperFilter(NO_FILTERS, "picture")).toBeNull();
+    expect(laidPaperFilter({ ...NO_FILTERS, paper: "flutedGlass" }, "none")).toBeNull();
   });
 
   it("sizes the blur as a share of the width, so 1280 and 3840 blur alike", () => {

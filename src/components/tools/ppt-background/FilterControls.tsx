@@ -1,6 +1,5 @@
 "use client";
 
-import { useId } from "react";
 import { cn } from "@/lib/utils";
 import type { FilterSet, OfferedFilters } from "@/lib/image/filterSet";
 import type { PaperFilter } from "@/lib/image/paperFilters";
@@ -8,7 +7,8 @@ import { GROUP_LABEL, LABEL_BOX, SliderCell } from "./SliderCell";
 
 /**
  * [임시] copy (효과 / 흐리게 / 어둡게·밝게 / 입자 / 스타일 / 없음 / 줄무늬 유리 /
- * 강도 / 효과 끄기) until the spec-end visual QA.
+ * 강도 / 효과 끄기) until the spec-end visual QA. `common.errors.filterDrawFailed`
+ * names the style and "none" labels: it changes with them.
  */
 export interface FilterLabels {
   /** The filter set's group in the edit area. */
@@ -44,40 +44,43 @@ export interface FilterControlsProps {
 /** The sliders after the Paper filter, in the order the plan lays their filters. */
 const SLIDERS = ["blur", "veil", "grain"] as const;
 
-/** The value of the "none" choice. */
-const NONE = "";
-
 export function FilterControls({ offered, filters, onChange, locked, labels }: FilterControlsProps) {
-  const choiceId = useId();
-  const { paper } = offered;
+  const paperOffer = offered.paper;
   return (
     // Two controls a row, as the recipe edit's; the Paper filter first, as the plan lays it.
     <div className="grid gap-x-3 gap-y-1.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-      {paper && (
+      {paperOffer && (
         <>
-          <div className="flex h-6 min-w-0 items-center gap-1.5">
-            <label htmlFor={choiceId} className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
+          {/* A single-select, so the selected-toggle underline (DESIGN.md), across the row. */}
+          <div role="group" aria-label={labels.paper} className="col-span-2 flex h-6 min-w-0 items-center gap-1.5">
+            <span className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }} aria-hidden="true">
               {labels.paper}
-            </label>
-            <select
-              id={choiceId}
-              value={filters.paper ?? NONE}
-              disabled={locked}
-              onChange={(e) => onChange({ paper: e.target.value === NONE ? null : (e.target.value as PaperFilter) })}
-              className="h-6 min-w-0 flex-1 rounded-[5px] border px-1 font-body text-[11px]"
-              style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
-            >
-              <option value={NONE}>{labels.paperNone}</option>
-              {paper.filters.map((filter) => (
-                <option key={filter} value={filter}>
-                  {labels.paperFilters[filter]}
-                </option>
-              ))}
-            </select>
+            </span>
+            <div className="flex min-w-0 gap-0.5">
+              {[null, ...paperOffer.filters].map((filter) => {
+                const chosen = filters.paper === filter;
+                return (
+                  <button
+                    key={filter ?? "none"}
+                    type="button"
+                    aria-pressed={chosen}
+                    onClick={() => onChange({ paper: filter })}
+                    disabled={locked}
+                    className="truncate border-b-2 px-1.5 py-0.5 font-body text-[11px] font-medium transition-colors"
+                    style={{
+                      color: chosen ? "var(--ink-strong)" : "var(--ink-soft)",
+                      borderBottomColor: chosen ? "var(--emphasis)" : "transparent",
+                    }}
+                  >
+                    {filter ? labels.paperFilters[filter] : labels.paperNone}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <SliderCell
             label={labels.strength}
-            range={paper.strength}
+            range={paperOffer.strength}
             value={filters.paperStrength}
             // The strength of no filter does nothing.
             locked={locked || !filters.paper}

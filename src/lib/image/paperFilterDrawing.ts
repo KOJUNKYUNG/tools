@@ -1,13 +1,13 @@
 /**
  * The filter set's Paper image filters, drawn (CONTEXT "Filter set"): the
  * picture handed to the filter's shader as its input, drawn on the step's
- * CSS box at its pixel ratio with the gallery scripts' drawing code, then
- * laid over the picture at the step's strength. Paper Shaders load on first
- * use, as the recipe edit's do.
+ * CSS box at its pixel ratio with the gallery scripts' drawing code, for
+ * filterCanvas.ts to lay over the picture at the step's strength. Paper
+ * Shaders load on first use, as the recipe edit's do.
  *
  * Browser-only: WebGL2 and 2D canvases.
  */
-import { loadPaperDrawing, paperHost } from "@/lib/gallery/drawRecipe";
+import { loadPaperDrawing, paperHost } from "@/lib/gallery/paperRuntime";
 import type { FilterPlanStep } from "./filterSet";
 import { fillingProps, PAPER_FILTERS } from "./paperFilters";
 
@@ -92,15 +92,4 @@ export async function drawPaperFilter(picture: AnyCanvas, step: PaperStep): Prom
     el.remove();
     release();
   }
-}
-
-/** Lay Paper's `drawn` filter over `picture` at `strength` (0 to 1), blending it with the unfiltered picture. */
-export function layPaperFilter(picture: AnyCanvas, drawn: HTMLCanvasElement, strength: number): void {
-  // Both canvases' 2D contexts draw alike; the union of the two context types has no common getContext signature.
-  const ctx = (picture as OffscreenCanvas).getContext("2d");
-  if (!ctx) throw new Error("no 2d canvas context");
-  ctx.save();
-  ctx.globalAlpha = strength;
-  ctx.drawImage(drawn, 0, 0, picture.width, picture.height);
-  ctx.restore();
 }

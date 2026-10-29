@@ -207,6 +207,20 @@ describe("Paper image filters", () => {
     }
   });
 
+  it("Paper's prop table holds each of the filter set's chosen presets", () => {
+    // Spec #123: fluted glass, paper texture, halftone duotone and CMYK at Default; the halftone mosaic at Mosaic.
+    const chosen = [
+      ["flutedGlass", "Default"],
+      ["paperTexture", "Default"],
+      ["halftoneDots", "Default"],
+      ["halftoneDots", "Mosaic"],
+      ["halftoneCmyk", "Default"],
+    ];
+    for (const [shader, preset] of chosen) {
+      expect(paperProps.shaders[shader].presets.map((p) => p.name), `${shader} ${preset}`).toContain(preset);
+    }
+  });
+
   it.each(Object.entries(PAPER_FILTERS))("%s: its shader and preset are in Paper's prop table", (_, { shader, preset }) => {
     expect(IMAGE_FILTERS).toContain(shader);
     expect(paperProps.shaders[shader].presets.map((p) => p.name)).toContain(preset);

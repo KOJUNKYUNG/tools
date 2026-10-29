@@ -149,6 +149,16 @@ export function filterPlan(filters: FilterSet, kind: BackgroundKind, size: Pixel
 }
 
 /**
+ * The Paper filter `filters` lays on a `kind` background, or none: the one
+ * part of the plan a preview draws with WebGL and keeps across the strength.
+ */
+export function laidPaperFilter(filters: FilterSet, kind: BackgroundKind): PaperFilter | null {
+  // The steps are the same at every size; only their pixel values differ.
+  const [first] = filterPlan(filters, kind, { width: 1, height: 1 });
+  return first?.filter === "paper" ? first.paper : null;
+}
+
+/**
  * Whether `filters` would change a `kind` background: whether the picture
  * path runs the filter step, and whether a solid colour goes in as a colour
  * or as a picture.

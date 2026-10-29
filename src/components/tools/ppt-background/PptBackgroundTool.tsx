@@ -41,7 +41,8 @@ import {
   type EditState,
   type RecipeEdit,
 } from "@/lib/gallery/recipeEdit";
-import { drawRecipeFile, webgl2Available } from "@/lib/gallery/drawRecipe";
+import { drawRecipeFile } from "@/lib/gallery/drawRecipe";
+import { webgl2Available } from "@/lib/gallery/paperRuntime";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
 import { BackgroundPicker } from "./BackgroundPicker";

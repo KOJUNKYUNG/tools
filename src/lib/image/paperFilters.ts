@@ -14,6 +14,7 @@ export const PAPER_FILTERS = {
 export type PaperFilter = keyof typeof PAPER_FILTERS;
 
 /** The Paper filters, in the order the effects group lists them. */
+// Object.keys types its result as string[]; the keys are the table's own.
 export const PAPER_FILTER_NAMES = Object.keys(PAPER_FILTERS) as PaperFilter[];
 
 /**
