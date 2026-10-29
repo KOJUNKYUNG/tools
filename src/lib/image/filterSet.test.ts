@@ -177,9 +177,9 @@ describe("filters offered for a background", () => {
     expect(filtersFor("solid", true)?.blur ?? null).toBeNull();
   });
 
-  it("offers a picture fluted glass among the Paper filters, with a strength from 0 to 100%, only with WebGL2", () => {
+  it("offers a picture the five Paper filters, with a strength from 0 to 100%, only with WebGL2", () => {
     const paper = filtersFor("picture", true)?.paper;
-    expect(paper?.filters).toContain("flutedGlass");
+    expect(paper?.filters).toEqual(["flutedGlass", "paperTexture", "halftoneDuotone", "halftoneMosaic", "halftoneCmyk"]);
     expect(paper?.strength).toMatchObject({ min: 0, max: 1 });
     expect(filtersFor("picture", false)?.paper ?? null).toBeNull();
   });

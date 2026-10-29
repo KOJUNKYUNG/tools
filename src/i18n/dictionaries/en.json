@@ -258,7 +258,11 @@
           "paper": "Style",
           "paperNone": "None",
           "paperFilters": {
-            "flutedGlass": "Fluted glass"
+            "flutedGlass": "Glass",
+            "paperTexture": "Paper",
+            "halftoneDuotone": "Halftone",
+            "halftoneMosaic": "Mosaic",
+            "halftoneCmyk": "CMYK"
           },
           "strength": "Strength",
           "reset": "Clear effects"

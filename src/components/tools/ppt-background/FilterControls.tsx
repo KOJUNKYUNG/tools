@@ -6,9 +6,10 @@ import type { PaperFilter } from "@/lib/image/paperFilters";
 import { GROUP_LABEL, LABEL_BOX, SliderCell } from "./SliderCell";
 
 /**
- * [임시] copy (효과 / 흐리게 / 어둡게·밝게 / 입자 / 스타일 / 없음 / 줄무늬 유리 /
- * 강도 / 효과 끄기) until the spec-end visual QA. `common.errors.filterDrawFailed`
- * names the style and "none" labels: it changes with them.
+ * [임시] copy (효과 / 흐리게 / 어둡게·밝게 / 입자 / 스타일 / 없음 / 유리 / 종이 /
+ * 망점 / 모자이크 / CMYK / 강도 / 효과 끄기) until the spec-end visual QA.
+ * `common.errors.filterDrawFailed` names the style and "none" labels: it
+ * changes with them.
  */
 export interface FilterLabels {
   /** The filter set's group in the edit area. */
@@ -51,12 +52,13 @@ export function FilterControls({ offered, filters, onChange, locked, labels }: F
     <div className="grid gap-x-3 gap-y-1.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
       {paperOffer && (
         <>
-          {/* A single-select, so the selected-toggle underline (DESIGN.md), across the row. */}
-          <div role="group" aria-label={labels.paper} className="col-span-2 flex h-6 min-w-0 items-center gap-1.5">
+          {/* A single-select, so the selected-toggle underline (DESIGN.md), across the row;
+              too narrow for every name (a phone, longer copy), it wraps rather than cut one. */}
+          <div role="group" aria-label={labels.paper} className="col-span-2 flex min-h-6 min-w-0 items-center gap-1.5">
             <span className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }} aria-hidden="true">
               {labels.paper}
             </span>
-            <div className="flex min-w-0 gap-0.5">
+            <div className="flex min-w-0 flex-wrap gap-0.5">
               {[null, ...paperOffer.filters].map((filter) => {
                 const chosen = filters.paper === filter;
                 return (

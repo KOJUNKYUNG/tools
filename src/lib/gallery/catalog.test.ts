@@ -221,6 +221,16 @@ describe("Paper image filters", () => {
     }
   });
 
+  it("draws each filter of the filter set at the shader and preset the spec chose", () => {
+    expect(PAPER_FILTERS).toEqual({
+      flutedGlass: { shader: "flutedGlass", preset: "Default" },
+      paperTexture: { shader: "paperTexture", preset: "Default" },
+      halftoneDuotone: { shader: "halftoneDots", preset: "Default" },
+      halftoneMosaic: { shader: "halftoneDots", preset: "Mosaic" },
+      halftoneCmyk: { shader: "halftoneCmyk", preset: "Default" },
+    });
+  });
+
   it.each(Object.entries(PAPER_FILTERS))("%s: its shader and preset are in Paper's prop table", (_, { shader, preset }) => {
     expect(IMAGE_FILTERS).toContain(shader);
     expect(paperProps.shaders[shader].presets.map((p) => p.name)).toContain(preset);

@@ -258,7 +258,11 @@
           "paper": "스타일",
           "paperNone": "없음",
           "paperFilters": {
-            "flutedGlass": "줄무늬 유리"
+            "flutedGlass": "유리",
+            "paperTexture": "종이",
+            "halftoneDuotone": "망점",
+            "halftoneMosaic": "모자이크",
+            "halftoneCmyk": "CMYK"
           },
           "strength": "강도",
           "reset": "효과 끄기"

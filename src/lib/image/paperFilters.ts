@@ -8,6 +8,11 @@
 /** Each Paper filter: its shader's key in the prop table, and the Paper preset it is drawn at. */
 export const PAPER_FILTERS = {
   flutedGlass: { shader: "flutedGlass", preset: "Default" },
+  paperTexture: { shader: "paperTexture", preset: "Default" },
+  // One shader, two looks: dots in two colours, or in the picture's own.
+  halftoneDuotone: { shader: "halftoneDots", preset: "Default" },
+  halftoneMosaic: { shader: "halftoneDots", preset: "Mosaic" },
+  halftoneCmyk: { shader: "halftoneCmyk", preset: "Default" },
 } as const satisfies Record<string, { shader: string; preset: string }>;
 
 /** One of the Paper filters, by the filter set's own name. */
