@@ -249,6 +249,11 @@
           "unavailable": "This browser can't edit pictures (no WebGL2 support). You can still use the picture as it is.",
           "drawing": "Drawing the preview"
         },
+        "filters": {
+          "effects": "Effects",
+          "veil": "Dark / light",
+          "reset": "Clear effects"
+        },
         "solid": {
           "tab": "Solid",
           "none": "No background",

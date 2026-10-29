@@ -21,7 +21,9 @@ import { template } from "@/lib/common/template";
 import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { normalizeImageFile } from "@/lib/image/heic";
 import type { CropRect } from "@/lib/image/maxFitCrop";
-import { belowFullHd } from "@/lib/image/slideImage";
+import { belowFullHd, slideImagePreparer } from "@/lib/image/slideImage";
+import { filtersAfter, filtersFor, isFiltered, NO_FILTERS, type BackgroundKind, type FilterSet } from "@/lib/image/filterSet";
+import { filterStep } from "@/lib/image/filterCanvas";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
 import { paperRecipe, type PaperRecipe } from "@/lib/gallery/recipes";
 import {
@@ -53,6 +55,8 @@ import type { SolidColourLabels } from "./SolidColourGrid";
 import { themeBackground } from "@/lib/ppt/themeBackground";
 import { RecipeEditControls, type RecipeEditLabels } from "./RecipeEditControls";
 import { useRecipePreview } from "./useRecipePreview";
+import { useFilterPreview } from "./useFilterPreview";
+import { FilterControls, type FilterLabels } from "./FilterControls";
 
 const PPTX_ACCEPT = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
@@ -120,6 +124,8 @@ export interface PptBackgroundToolLabels {
   gallery: GalleryLabels;
   /** The recipe edit under the frame of a Paper gallery item. */
   recipeEdit: RecipeEditLabels;
+  /** The filter set's group in the edit area of every picture. */
+  filters: FilterLabels;
   solid: SolidColourLabels & {
     tab: string;
     /** The note over the "no background" preview. */
@@ -200,6 +206,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [themeBg, setThemeBg] = useState<string | null>(null);
   /** The recipe edit of the picked Paper gallery item, and whether its area is open. */
   const [editState, setEditState] = useState<EditState>(FRESH_EDIT_STATE);
+  /** The filter set laid over the background, kept across picks (CONTEXT "Filter set"). */
+  const [filters, setFilters] = useState<FilterSet>(NO_FILTERS);
 
   // Redesigned workspace state.
   const [slideAspect, setSlideAspect] = useState<SlideAspect>({
@@ -275,6 +283,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       // set on the file applies to it as is. The drawing is the gauge's first
       // share, so the gauge moves from the click on.
       const drawing = !fill && editedProps;
+      // Baked in between the fit and the format; an unfiltered pick is prepared as before.
+      const step = fill ? undefined : filterStep(filters, "picture");
       if (drawing) onProgress(DRAWING_SHARE / 3);
       const file = drawing ? await drawEdited(editedProps) : bgFile!;
       const shown = drawing ? (pct: number) => DRAWING_SHARE + (pct * (100 - DRAWING_SHARE)) / 100 : (pct: number) => pct;
@@ -289,6 +299,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             : undefined,
         keptCovering: [...keptCovering],
         onProgress: (pct) => onProgress(shown(pct)),
+        prepare: step ? slideImagePreparer(step) : undefined,
       });
     },
     onDownload: (bytes) => {
@@ -336,6 +347,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     setFraming(false);
     setFill(null);
     setEditState((s) => editStateAfter(s, "pick"));
+    setFilters((f) => filtersAfter(f, "pick"));
   }, [showPreview]);
 
   /** Pick a solid colour or "no background": the picture pick goes. */
@@ -364,6 +376,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setGuideOpen(false);
       retry();
       clearPick();
+      setFilters((f) => filtersAfter(f, "reset"));
       setMode("all-slides");
       setCheckedKeys(new Set());
       setKeptCovering(new Set());
@@ -457,6 +470,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       // from the item's own look, as every pick from the gallery starts.
       if (image.id === galleryImage?.id && bgFile) {
         setEditState((s) => editStateAfter(s, "pick"));
+        setFilters((f) => filtersAfter(f, "pick"));
         setFraming(true);
         return;
       }
@@ -466,6 +480,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setFill(null);
       setGalleryImage(image);
       setEditState((s) => editStateAfter(s, "pick"));
+      setFilters((f) => filtersAfter(f, "pick"));
       // Until the picture arrives nothing can be framed or applied: the old
       // picture and its frame must not meet the new thumbnail.
       setBgFiles([]);
@@ -527,6 +542,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setBgFiles([file]);
       setGalleryImage(null);
       setEditState((s) => editStateAfter(s, "pick"));
+      setFilters((f) => filtersAfter(f, "pick"));
       setCrop(null);
       showPreview(URL.createObjectURL(file));
       setFraming(true);
@@ -551,6 +567,19 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     () => (galleryImage ? { w: galleryImage.width, h: galleryImage.height } : undefined),
     [galleryImage],
   );
+  const backgroundKind: BackgroundKind = !fill ? "picture" : fill.kind === "colour" ? "solid" : "none";
+  // Read once a picture is in hand (it touches the DOM, absent while the page is served).
+  const offeredFilters = bgFile ? filtersFor(backgroundKind, webgl2Available()) : null;
+  /** The selected-background preview with the filters baked in; null while unfiltered. */
+  const filterPreview = useFilterPreview({
+    filters,
+    kind: backgroundKind,
+    imageUrl: bgPreviewUrl,
+    recipeLive: editLive,
+    crop,
+    sourceSize: pickSize,
+    ratio: slideAspect.ratio,
+  });
   // "No background" shows the deck's theme colour; white until it is read.
   const noneColour = themeBg ?? "#ffffff";
   const fillColour = !fill ? null : fill.kind === "colour" ? `#${fill.rgb}` : noneColour;
@@ -611,6 +640,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const handleTryAnother = useCallback(() => {
     retry();
     setEditState((s) => editStateAfter(s, "again"));
+    setFilters((f) => filtersAfter(f, "again"));
     setFraming(true);
   }, [retry]);
 
@@ -760,21 +790,24 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                         onBack: () => setFraming(false),
                         locked: status !== "idle",
                         busyLabel: editPending ? labels.recipeEdit.drawing : null,
-                        edit:
-                          editArea && recipe && recipeEdit && editView && bgFile
-                            ? {
-                                heading: labels.recipeEdit.heading,
-                                open: editOpen,
-                                onOpenChange: (open) => setEditState((s) => ({ ...s, open })),
-                                // Without WebGL2 the recipe edit is not offered, and only its note shows.
-                                note: editAvailable ? null : labels.recipeEdit.unavailable,
-                                groups: editAvailable
+                        edit: bgFile
+                          ? {
+                              heading: labels.recipeEdit.heading,
+                              open: editOpen,
+                              onOpenChange: (open) => setEditState((s) => ({ ...s, open })),
+                              // Without WebGL2 the recipe edit is not offered, and its note shows in its place.
+                              note: editArea === "unavailable" ? labels.recipeEdit.unavailable : null,
+                              groups: [
+                                ...(editAvailable && recipe && recipeEdit && editView
                                   ? [
                                       {
                                         name: labels.recipeEdit.shape,
                                         resetLabel: labels.recipeEdit.reset,
                                         edited: !!editedProps,
-                                        onReset: () => setEditState((s) => editStateAfter(s, "reset")),
+                                        onReset: () => {
+                                          setEditState((s) => editStateAfter(s, "reset"));
+                                          setFilters((f) => filtersAfter(f, "recipeReset"));
+                                        },
                                         controls: (
                                           <RecipeEditControls
                                             controls={editView.controls}
@@ -792,10 +825,30 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                                         ),
                                       },
                                     ]
-                                  : [],
-                                locked: status !== "idle",
-                              }
-                            : null,
+                                  : []),
+                                ...(offeredFilters
+                                  ? [
+                                      {
+                                        name: labels.filters.effects,
+                                        resetLabel: labels.filters.reset,
+                                        edited: isFiltered(filters, backgroundKind),
+                                        onReset: () => setFilters((f) => filtersAfter(f, "reset")),
+                                        controls: (
+                                          <FilterControls
+                                            offered={offeredFilters}
+                                            filters={filters}
+                                            onChange={(change) => setFilters((f) => ({ ...f, ...change }))}
+                                            locked={status !== "idle"}
+                                            labels={labels.filters}
+                                          />
+                                        ),
+                                      },
+                                    ]
+                                  : []),
+                              ],
+                              locked: status !== "idle",
+                            }
+                          : null,
                       }
                     : null
                 }
@@ -827,6 +880,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       caption={labels.preview.selectedCaption}
                       previewUrl={bgPreviewUrl}
                       live={editLive}
+                      filtered={filterPreview}
                       sourceSize={pickSize}
                       aspect={aspectCss}
                       emptyLabel={labels.preview.selectedEmpty}
@@ -948,6 +1002,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   sourceSize={zoom === "selected" ? pickSize : undefined}
                   busyLabel={zoom === "selected" && editPending ? labels.recipeEdit.drawing : null}
                   live={zoom === "selected" ? editLive : null}
+                  finished={zoom === "selected" ? filterPreview : null}
                   closeLabel={labels.preview.close}
                   onClose={() => setZoom(null)}
                 />

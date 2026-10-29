@@ -20,6 +20,8 @@ interface SelectedBackgroundFrameProps {
   sourceSize?: ImageDims;
   /** The live drawing of the pick's edit, laid over the picture; none while it is unedited. */
   live?: LivePicture | null;
+  /** The cropped pick with its filters baked in, laid over all; none while it is unfiltered. */
+  filtered?: LivePicture | null;
   /** Opens the frame over the picture again. */
   onSelect?: () => void;
   /** A picked solid colour (CSS), shown in place of a picture. */
@@ -44,6 +46,7 @@ export function SelectedBackgroundFrame({
   colourNote,
   busyLabel = null,
   live = null,
+  filtered = null,
 }: SelectedBackgroundFrameProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -82,6 +85,14 @@ export function SelectedBackgroundFrame({
             )}
             {live && sourceSize ? (
               <LiveCanvas live={live} crop={crop} sourceSize={sourceSize} className="pointer-events-none absolute inset-0 size-full" />
+            ) : null}
+            {filtered ? (
+              <LiveCanvas
+                live={filtered}
+                // Already cut to the crop: the whole canvas fills the box.
+                sourceSize={{ w: filtered.canvas.width, h: filtered.canvas.height }}
+                className="pointer-events-none absolute inset-0 size-full"
+              />
             ) : null}
             {/* Top left: the zoom button takes the top right on hover. */}
             {busyLabel ? <CornerSpinner label={busyLabel} className="left-1.5 top-1.5" /> : null}

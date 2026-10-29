@@ -55,6 +55,7 @@ export function getPptBackgroundLabels(
       titles: p.gallery.titles,
     },
     recipeEdit: p.recipeEdit,
+    filters: p.filters,
     solid: p.solid,
     action: p.action,
     processing: p.processing,

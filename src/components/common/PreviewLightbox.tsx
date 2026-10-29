@@ -21,9 +21,11 @@ interface PreviewLightboxProps {
   live?: LivePicture | null;
   /** The spinner's name while a newer version of the picture is on its way; none when it is current. */
   busyLabel?: string | null;
+  /** The part to show already cut and finished (filters baked in), laid over all. */
+  finished?: LivePicture | null;
 }
 
-export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop, sourceSize, busyLabel, live }: PreviewLightboxProps) {
+export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop, sourceSize, busyLabel, live, finished }: PreviewLightboxProps) {
   return (
     <div
       className="absolute inset-0 z-10 flex items-center justify-center p-4"
@@ -43,6 +45,13 @@ export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop, s
         )}
         {live && crop && sourceSize ? (
           <LiveCanvas live={live} crop={crop} sourceSize={sourceSize} className="pointer-events-none absolute inset-0 size-full" />
+        ) : null}
+        {finished ? (
+          <LiveCanvas
+            live={finished}
+            sourceSize={{ w: finished.canvas.width, h: finished.canvas.height }}
+            className="pointer-events-none absolute inset-0 size-full"
+          />
         ) : null}
       </div>
       {busyLabel ? <CornerSpinner label={busyLabel} className="left-2.5 top-2.5" /> : null}
