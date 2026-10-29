@@ -51,7 +51,7 @@ import { PptBackgroundResult } from "./PptBackgroundResult";
 import { PptConversionGuide, type ConversionMethodLabels } from "./PptConversionGuide";
 import type { SolidColourLabels } from "./SolidColourGrid";
 import { themeBackground } from "@/lib/ppt/themeBackground";
-import type { RecipeEditLabels } from "./RecipeEditArea";
+import { RecipeEditControls, type RecipeEditLabels } from "./RecipeEditControls";
 import { useRecipePreview } from "./useRecipePreview";
 
 const PPTX_ACCEPT = {
@@ -762,22 +762,37 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                         edit:
                           editArea && recipe && recipeEdit && editView && bgFile
                             ? {
-                                available: editAvailable,
+                                heading: labels.recipeEdit.heading,
                                 open: editOpen,
                                 onOpenChange: (open) => setEditState((s) => ({ ...s, open })),
-                                controls: editView.controls,
-                                edit: recipeEdit,
-                                onHueShift: (degrees) => changeEdit((e) => ({ ...e, hueShift: degrees })),
-                                onSlider: (slider, value) => changeEdit((e) => ({ ...e, [slider]: value })),
-                                chips: editView.chips,
-                                canAddColour: editView.canAdd,
-                                onColour: (id, hex) => changeEdit((e) => setColour(recipe, e, id, hex)),
-                                onAddColour: () => changeEdit((e) => addColour(recipe, e)),
-                                onRemoveColour: (id) => changeEdit((e) => removeColour(recipe, e, id)),
-                                edited: !!editedProps,
-                                onReset: () => setEditState((s) => editStateAfter(s, "reset")),
+                                // Without WebGL2 the recipe edit is not offered, and only its note shows.
+                                note: editAvailable ? null : labels.recipeEdit.unavailable,
+                                groups: editAvailable
+                                  ? [
+                                      {
+                                        name: labels.recipeEdit.shape,
+                                        resetLabel: labels.recipeEdit.reset,
+                                        edited: !!editedProps,
+                                        onReset: () => setEditState((s) => editStateAfter(s, "reset")),
+                                        controls: (
+                                          <RecipeEditControls
+                                            controls={editView.controls}
+                                            edit={recipeEdit}
+                                            onHueShift={(degrees) => changeEdit((e) => ({ ...e, hueShift: degrees }))}
+                                            onSlider={(slider, value) => changeEdit((e) => ({ ...e, [slider]: value }))}
+                                            chips={editView.chips}
+                                            canAddColour={editView.canAdd}
+                                            onColour={(id, hex) => changeEdit((e) => setColour(recipe, e, id, hex))}
+                                            onAddColour={() => changeEdit((e) => addColour(recipe, e))}
+                                            onRemoveColour={(id) => changeEdit((e) => removeColour(recipe, e, id))}
+                                            locked={status !== "idle"}
+                                            labels={labels.recipeEdit}
+                                          />
+                                        ),
+                                      },
+                                    ]
+                                  : [],
                                 locked: status !== "idle",
-                                labels: labels.recipeEdit,
                               }
                             : null,
                       }

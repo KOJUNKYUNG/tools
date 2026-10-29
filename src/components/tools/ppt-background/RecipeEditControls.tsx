@@ -2,7 +2,7 @@
 
 import { useId, useRef } from "react";
 import { flushSync } from "react-dom";
-import { ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
+import { PlusIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { template } from "@/lib/common/template";
 import { NumberField } from "@/components/common/NumberField";
@@ -19,8 +19,10 @@ import {
 } from "@/lib/gallery/recipeEdit";
 
 export interface RecipeEditLabels {
-  /** The area's toggle. */
+  /** The edit area's toggle. */
   heading: string;
+  /** The recipe edit's group in the edit area. */
+  shape: string;
   /** The colour-family (hue) slider. */
   hue: string;
   /** The size slider: the recipe's `scale`. */
@@ -61,12 +63,8 @@ export interface RecipeEditLabels {
   drawing: string;
 }
 
-/** The recipe edit on the crop screen of a Paper gallery item (CONTEXT "Recipe edit"). */
-export interface RecipeEditProps {
-  /** This browser can draw the recipe (WebGL2); otherwise only a note shows. */
-  available: boolean;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+/** The recipe edit's controls, the "shape" group of a Paper gallery item's edit area (CONTEXT "Recipe edit"). */
+export interface RecipeEditControlsProps {
   controls: RecipeControls;
   edit: RecipeEdit;
   onHueShift: (degrees: number) => void;
@@ -81,9 +79,6 @@ export interface RecipeEditProps {
   /** Append a colour (the one removed last, or a copy of the last one); its picker opens. */
   onAddColour: () => void;
   onRemoveColour: (id: string) => void;
-  /** The edit differs from the recipe: 원래대로 has something to undo. */
-  edited: boolean;
-  onReset: () => void;
   /** A run uses the pick: shown as is, nothing responds. */
   locked: boolean;
   labels: RecipeEditLabels;
@@ -91,10 +86,7 @@ export interface RecipeEditProps {
 
 const GROUP_LABEL = "font-mono text-[10px] font-medium uppercase tracking-[0.08em]";
 
-export function RecipeEditArea({
-  available,
-  open,
-  onOpenChange,
+export function RecipeEditControls({
   controls,
   edit,
   onHueShift,
@@ -104,126 +96,85 @@ export function RecipeEditArea({
   onColour,
   onAddColour,
   onRemoveColour,
-  edited,
-  onReset,
   locked,
   labels,
-}: RecipeEditProps) {
+}: RecipeEditControlsProps) {
   const chipRow = useRef<HTMLDivElement>(null);
-  if (!available) {
-    return (
-      <p className="font-body text-[10.5px] leading-[1.35]" style={{ color: "var(--ink-soft)" }}>
-        {labels.unavailable}
-      </p>
-    );
-  }
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex h-6 items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => onOpenChange(!open)}
-          aria-expanded={open}
-          // Locked with the rest of the left pane while a run uses the pick.
-          disabled={locked}
-          className="flex items-center gap-1 py-0.5 font-body text-[11.5px] font-medium"
-          style={{ color: "var(--ink-strong)" }}
-        >
-          <ChevronDownIcon
-            className={cn("size-3.5 transition-transform", !open && "-rotate-90")}
-            style={{ color: "var(--ink-soft)" }}
-            aria-hidden="true"
-          />
-          {labels.heading}
-        </button>
-        {open && (
-          <button
-            type="button"
-            onClick={onReset}
-            disabled={locked || !edited}
-            className="subtle-action rounded-[5px] px-2.5 py-1 font-body text-[11px]"
-          >
-            {labels.reset}
-          </button>
-        )}
-      </div>
-      {open && (
-        // Two controls a row: the colour family and the size, the colours under
-        // the colour family, then the rest.
-        <div className="grid gap-x-3 gap-y-1.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-          <SliderCell
-            label={labels.hue}
-            range={controls.hue}
-            value={edit.hueShift}
-            locked={locked}
-            onChange={onHueShift}
-          />
+    // Two controls a row: the colour family and the size, the colours under
+    // the colour family, then the rest.
+    <div className="grid gap-x-3 gap-y-1.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+      <SliderCell
+        label={labels.hue}
+        range={controls.hue}
+        value={edit.hueShift}
+        locked={locked}
+        onChange={onHueShift}
+      />
 
-          {controls.size && (
-            <SliderCell
-              label={labels.size}
-              range={controls.size}
-              value={edit.size}
-              locked={locked}
-              onChange={(value) => onSlider("size", value)}
-            />
-          )}
-
-          <div className="flex h-6 min-w-0 items-center gap-1.5">
-            <span className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
-              {labels.colours}
-            </span>
-            {/* One row at every width: chips shrink before they wrap. */}
-            <div ref={chipRow} className="flex min-w-0 flex-1 items-center gap-1.5">
-              {chips.map((chip, i) => (
-                <Chip
-                  key={chip.id}
-                  chip={chip}
-                  name={template(labels.colourTemplate, { n: i + 1 })}
-                  removeLabel={template(labels.removeTemplate, { n: i + 1 })}
-                  locked={locked}
-                  onColour={(hex) => onColour(chip.id, hex)}
-                  onRemove={() => onRemoveColour(chip.id)}
-                />
-              ))}
-              {canAddColour && (
-                <button
-                  type="button"
-                  disabled={locked}
-                  aria-label={labels.addColour}
-                  title={labels.addColour}
-                  onClick={() => {
-                    // The added chip renders now, so its picker opens within this click.
-                    flushSync(onAddColour);
-                    const inputs = chipRow.current?.querySelectorAll<HTMLInputElement>('input[type="color"]');
-                    openPicker(inputs?.[inputs.length - 1]);
-                  }}
-                  className="subtle-action flex h-5 w-5 min-w-2.5 shrink items-center justify-center rounded-[3px] border border-dashed"
-                >
-                  <PlusIcon className="size-3" aria-hidden="true" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {SLIDERS.filter((slider) => slider !== "size").map((slider) => {
-            const range = controls[slider];
-            // Hidden where the shader lacks the value: it would change nothing.
-            if (!range) return null;
-            return (
-              <SliderCell
-                key={slider}
-                // Every shape range names itself, so the bare "shape" key never comes up.
-                label={labels[(range.label ?? slider) as Exclude<Slider, "shape"> | SliderLabel]}
-                range={range}
-                value={edit[slider]}
-                locked={locked}
-                onChange={(value) => onSlider(slider, value)}
-              />
-            );
-          })}
-        </div>
+      {controls.size && (
+        <SliderCell
+          label={labels.size}
+          range={controls.size}
+          value={edit.size}
+          locked={locked}
+          onChange={(value) => onSlider("size", value)}
+        />
       )}
+
+      <div className="flex h-6 min-w-0 items-center gap-1.5">
+        <span className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
+          {labels.colours}
+        </span>
+        {/* One row at every width: chips shrink before they wrap. */}
+        <div ref={chipRow} className="flex min-w-0 flex-1 items-center gap-1.5">
+          {chips.map((chip, i) => (
+            <Chip
+              key={chip.id}
+              chip={chip}
+              name={template(labels.colourTemplate, { n: i + 1 })}
+              removeLabel={template(labels.removeTemplate, { n: i + 1 })}
+              locked={locked}
+              onColour={(hex) => onColour(chip.id, hex)}
+              onRemove={() => onRemoveColour(chip.id)}
+            />
+          ))}
+          {canAddColour && (
+            <button
+              type="button"
+              disabled={locked}
+              aria-label={labels.addColour}
+              title={labels.addColour}
+              onClick={() => {
+                // The added chip renders now, so its picker opens within this click.
+                flushSync(onAddColour);
+                const inputs = chipRow.current?.querySelectorAll<HTMLInputElement>('input[type="color"]');
+                openPicker(inputs?.[inputs.length - 1]);
+              }}
+              className="subtle-action flex h-5 w-5 min-w-2.5 shrink items-center justify-center rounded-[3px] border border-dashed"
+            >
+              <PlusIcon className="size-3" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {SLIDERS.filter((slider) => slider !== "size").map((slider) => {
+        const range = controls[slider];
+        // Hidden where the shader lacks the value: it would change nothing.
+        if (!range) return null;
+        return (
+          <SliderCell
+            key={slider}
+            // Every shape range names itself, so the bare "shape" key never comes up.
+            label={labels[(range.label ?? slider) as Exclude<Slider, "shape"> | SliderLabel]}
+            range={range}
+            value={edit[slider]}
+            locked={locked}
+            onChange={(value) => onSlider(slider, value)}
+          />
+        );
+      })}
     </div>
   );
 }

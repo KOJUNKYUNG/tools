@@ -12,7 +12,7 @@ import {
 } from "@/lib/gallery/types";
 import type { FillBackground } from "@/lib/ppt/changeBackground";
 import { SolidColourGrid, type SolidColourLabels } from "./SolidColourGrid";
-import { RecipeEditArea, type RecipeEditProps } from "./RecipeEditArea";
+import { EditArea, type EditAreaProps } from "./EditArea";
 import { CornerSpinner } from "@/components/common/CornerSpinner";
 import { LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
 
@@ -35,8 +35,8 @@ export interface BackgroundFrame {
   onBack: () => void;
   /** A run is using the frame: it is shown as is and nothing here responds. */
   locked: boolean;
-  /** The recipe edit under the frame, for a Paper gallery item only. */
-  edit?: RecipeEditProps | null;
+  /** The edit area under the frame, for a Paper gallery item only. */
+  edit?: EditAreaProps | null;
   /** The spinner's name while the shown picture is behind the latest edit; none when it is current. */
   busyLabel?: string | null;
 }
@@ -187,7 +187,7 @@ export function BackgroundPicker({
             {/* The edit area's room is held for every picture, open or closed:
                 the frame keeps its size and the toggle its place. Its height
                 fits the toggle and four rows of two controls. */}
-            <div className="h-[9rem] shrink-0">{frame.edit ? <RecipeEditArea {...frame.edit} /> : null}</div>
+            <div className="h-[9rem] shrink-0">{frame.edit ? <EditArea {...frame.edit} /> : null}</div>
           </div>
         ) : activeCategory === "solid" ? (
           <SolidColourGrid

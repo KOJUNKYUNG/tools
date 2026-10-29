@@ -224,6 +224,7 @@
         },
         "recipeEdit": {
           "heading": "Edit",
+          "shape": "Shape",
           "hue": "Colour family",
           "size": "Size",
           "grain": "Grain",

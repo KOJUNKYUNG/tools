@@ -224,6 +224,7 @@
         },
         "recipeEdit": {
           "heading": "편집",
+          "shape": "모양",
           "hue": "색 계열",
           "size": "크기",
           "grain": "그레인",
