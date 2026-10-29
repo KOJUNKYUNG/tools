@@ -18,6 +18,11 @@ import type { LivePicture } from "@/components/image/LiveCanvas";
  */
 const PREVIEW_BOX = { long: 1920, short: 1080 };
 
+/** The preview box in the orientation of a slide of `ratio` (width / height). */
+function previewBox(ratio: number): ImageDims {
+  return ratio >= 1 ? { w: PREVIEW_BOX.long, h: PREVIEW_BOX.short } : { w: PREVIEW_BOX.short, h: PREVIEW_BOX.long };
+}
+
 export interface FilterPreviewInput {
   filters: FilterSet;
   kind: BackgroundKind;
@@ -61,7 +66,7 @@ interface Base {
 export function useFilterPreview({
   filters,
   kind,
-  imageUrl: pictureUrl,
+  imageUrl,
   colour = null,
   recipeLive,
   crop,
@@ -69,8 +74,8 @@ export function useFilterPreview({
   ratio,
   onPaperFail,
 }: FilterPreviewInput): LivePicture | null {
-  // What is shown, by which a drawing is matched to it: the colour, or the picture.
-  const imageUrl = colour ? `colour:${colour}` : pictureUrl;
+  // What is shown, by which a drawing is matched to it: the colour, or the picture's URL.
+  const shown = colour ? `colour:${colour}` : imageUrl;
   const baseRef = useRef<HTMLCanvasElement | null>(null);
   const outRef = useRef<HTMLCanvasElement | null>(null);
   const [image, setImage] = useState<{ url: string; img: HTMLImageElement } | null>(null);
@@ -108,12 +113,12 @@ export function useFilterPreview({
   const sourceW = sourceSize?.w;
   const sourceH = sourceSize?.h;
   useEffect(() => {
-    if (!filtered || !colour) return;
-    const url = `colour:${colour}`;
+    if (!filtered || !colour || !shown) return;
+    const url = shown;
     const frame = requestAnimationFrame(() => {
       // The colour at the size its picture is applied at, scaled into the preview box.
       const applied = filledSize({ w: ratio, h: 1 });
-      const box = ratio >= 1 ? { w: PREVIEW_BOX.long, h: PREVIEW_BOX.short } : { w: PREVIEW_BOX.short, h: PREVIEW_BOX.long };
+      const box = previewBox(ratio);
       const scale = Math.min(1, box.w / applied.width, box.h / applied.height);
       const canvas = (baseRef.current ??= document.createElement("canvas"));
       canvas.width = Math.max(1, Math.round(applied.width * scale));
@@ -125,7 +130,7 @@ export function useFilterPreview({
       setBase((prev) => ({ canvas, version: (prev?.version ?? 0) + 1, url, applied }));
     });
     return () => cancelAnimationFrame(frame);
-  }, [filtered, colour, ratio]);
+  }, [filtered, colour, shown, ratio]);
 
   useEffect(() => {
     // The recipe edit's drawing, or the picture.
@@ -144,7 +149,7 @@ export function useFilterPreview({
       // The size the applied picture is stored at, from the crop the run
       // takes (centred to fill until one is set); both read only the slide's aspect.
       const applied = fittedSize(crop ?? maxFitCrop(source, ratio, 1), { w: ratio, h: 1 });
-      const box = ratio >= 1 ? { w: PREVIEW_BOX.long, h: PREVIEW_BOX.short } : { w: PREVIEW_BOX.short, h: PREVIEW_BOX.long };
+      const box = previewBox(ratio);
       // Never larger than the part itself: an enlargement only blurs.
       const scale = Math.min(1, box.w / part.w, box.h / part.h);
       const canvas = (baseRef.current ??= document.createElement("canvas"));
@@ -207,5 +212,5 @@ export function useFilterPreview({
   }, [filtered, filters, kind, base, paperDrawn]);
 
   // A drawing of the last picture never shows over a new one.
-  return filtered && drawn && drawn.url === imageUrl ? drawn.live : null;
+  return filtered && drawn && drawn.url === shown ? drawn.live : null;
 }

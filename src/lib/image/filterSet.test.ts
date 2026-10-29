@@ -26,6 +26,10 @@ describe("is filtered", () => {
     expect(isFiltered(filtersAfter(kept, "pick"), "picture")).toBe(true);
   });
 
+  it("counts blur and a veil kept from a picture as unfiltered on a solid colour, so it stays a fill", () => {
+    expect(isFiltered({ ...NO_FILTERS, blur: 0.01, veil: -0.3 }, "solid")).toBe(false);
+  });
+
   it("counts grain or a Paper filter on a solid colour as filtered", () => {
     expect(isFiltered({ ...NO_FILTERS, grain: 0.05 }, "solid")).toBe(true);
     expect(isFiltered({ ...NO_FILTERS, paper: "paperTexture" }, "solid")).toBe(true);

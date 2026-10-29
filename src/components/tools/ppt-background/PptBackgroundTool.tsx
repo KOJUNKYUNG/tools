@@ -252,6 +252,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         : `${slideAspect.ratio}`;
 
   const bgFile = bgFiles[0] ?? null;
+  /** The slide's shape, as the image sizing reads it. */
+  const slide: SlideSize = { w: slideAspect.ratio, h: 1 };
+  /** The picked solid colour (CSS), not "no background". */
+  const solidColour = fill?.kind === "colour" ? `#${fill.rgb}` : null;
   // Only a Paper gallery item has a recipe to edit; photos, legacy gradients
   // and uploads are used as they are.
   const recipe = galleryImage?.source.kind === "paper" ? paperRecipe(galleryImage.name) : null;
@@ -316,7 +320,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       return changeBackground({
         pptxFile: files[0],
         background: solid
-          ? { kind: "picture", file: await solidPictureFile(solid.rgb, { w: slideAspect.ratio, h: 1 }) }
+          ? { kind: "picture", file: await solidPictureFile(solid.rgb, slide) }
           : (fill ?? { kind: "picture", file, crop: crop ?? undefined }),
         mode,
         targetSlides:
@@ -625,7 +629,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     filters,
     kind: backgroundKind,
     imageUrl: bgPreviewUrl,
-    colour: fill?.kind === "colour" ? `#${fill.rgb}` : null,
+    colour: solidColour,
     recipeLive: editLive,
     crop,
     sourceSize: pickSize,
@@ -635,7 +639,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   });
   // "No background" shows the deck's theme colour; white until it is read.
   const noneColour = themeBg ?? "#ffffff";
-  const fillColour = !fill ? null : fill.kind === "colour" ? `#${fill.rgb}` : noneColour;
+  const fillColour = !fill ? null : (solidColour ?? noneColour);
   const canRun =
     !!pptxFile &&
     (!!bgFile || !!fill) &&
@@ -702,9 +706,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const currentGroup = groups[curIndex];
   const currentThumbUrl = currentGroup ? groupThumbUrls.get(currentGroup.key) ?? null : null;
   const filledColour = (() => {
-    if (fill?.kind !== "colour" || !filterPreview) return null;
-    const { width, height } = filledSize({ w: slideAspect.ratio, h: 1 });
-    return { colour: `#${fill.rgb}`, size: { w: width, h: height } };
+    if (!solidColour || !filterPreview) return null;
+    const { width, height } = filledSize(slide);
+    return { colour: solidColour, size: { w: width, h: height } };
   })();
   const selectedZoom = fill ? filledColour : bgPreviewUrl;
   const zoomSrc = zoom === "selected" ? selectedZoom : zoom === "current" ? currentThumbUrl : null;
@@ -994,7 +998,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                     className="mt-2 line-clamp-2 min-h-[2.7em] font-body text-[10.5px] leading-[1.35]"
                     style={{
                       color: "var(--ink-soft)",
-                      visibility: crop && belowFullHd(crop, { w: slideAspect.ratio, h: 1 }) ? "visible" : "hidden",
+                      visibility: crop && belowFullHd(crop, slide) ? "visible" : "hidden",
                     }}
                   >
                     {labels.background.blurNotice}
