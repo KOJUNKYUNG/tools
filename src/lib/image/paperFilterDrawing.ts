@@ -8,6 +8,7 @@
  * Browser-only: WebGL2 and 2D canvases.
  */
 import { loadPaperDrawing, paperHost } from "@/lib/gallery/paperRuntime";
+import { drawScaledDown } from "./downscale";
 import type { FilterPlanStep } from "./filterSet";
 import { fillingProps, PAPER_FILTERS } from "./paperFilters";
 
@@ -50,8 +51,9 @@ function copyOut(canvas: HTMLCanvasElement, width: number, height: number): HTML
   copy.height = height;
   const ctx = copy.getContext("2d");
   if (!ctx) throw new Error("no 2d canvas context");
-  // Paper's canvas is within a pixel of the size (it rounds a ratio that is not whole).
-  ctx.drawImage(canvas, 0, 0, width, height);
+  // Paper's canvas is within a pixel of the size (it rounds a ratio that is
+  // not whole), or larger when it was drawn at the applied picture's size.
+  drawScaledDown(ctx, canvas, { x: 0, y: 0, w: canvas.width, h: canvas.height }, width, height);
   return copy;
 }
 

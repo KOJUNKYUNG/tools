@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { standInRect } from "@/lib/image/cropFrameView";
+import { drawScaledDown } from "@/lib/image/downscale";
 import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
 
 /** A canvas drawn elsewhere (a live preview), and how many times it has been drawn. */
@@ -69,8 +70,9 @@ export function LiveCanvas({ live, crop = null, sourceSize, className }: LiveCan
     }
     const source = { w: sourceW, h: sourceH };
     const part = standInRect(crop, source, { w: canvas.width, h: canvas.height }, el.clientWidth / el.clientHeight);
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(canvas, part.x, part.y, part.w, part.h, 0, 0, w, h);
+    // In halving steps: one large reduction skips pixels, which turns fine
+    // patterns (a halftone's dots) into noise the picture does not have.
+    drawScaledDown(ctx, canvas, part, w, h);
   }, [canvas, version, crop, sourceW, sourceH, ratio, resized]);
 
   return <canvas ref={ref} aria-hidden="true" className={className} />;

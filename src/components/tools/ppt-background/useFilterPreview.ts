@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { composeFilters, paperStepOf } from "@/lib/image/filterCanvas";
 import { filterPlan, isFiltered, laidPaperFilter, NO_FILTERS, type BackgroundKind, type FilterSet } from "@/lib/image/filterSet";
 import { drawPaperFilter } from "@/lib/image/paperFilterDrawing";
+import { fittedSize, type PixelSize } from "@/lib/image/slideImage";
 import type { PaperFilter } from "@/lib/image/paperFilters";
 import { standInRect } from "@/lib/image/cropFrameView";
-import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
+import { maxFitCrop, type CropRect, type ImageDims } from "@/lib/image/maxFitCrop";
+import { drawScaledDown } from "@/lib/image/downscale";
 import type { LivePicture } from "@/components/image/LiveCanvas";
 
 /**
@@ -38,6 +40,8 @@ interface Base {
   canvas: HTMLCanvasElement;
   version: number;
   url: string;
+  /** The size the applied picture of this crop is stored at (fitted inside 4K). */
+  applied: PixelSize;
 }
 
 /**
@@ -46,7 +50,9 @@ interface Base {
  * filtered by the same code as the applied picture, on a canvas copied as
  * the recipe edit's is. The Paper filter is drawn once per picture and
  * filter, one drawing at a time, and kept, so its strength and the pixel
- * filters redraw at most once a frame without drawing it again. Null while
+ * filters redraw at most once a frame without drawing it again. It is drawn
+ * at the applied picture's size and scaled down: a halftone's dots drawn at
+ * preview size come out coarser than the applied picture's. Null while
  * nothing is filtered (the picture shows as it is) or the picture is not
  * loaded yet.
  */
@@ -110,6 +116,9 @@ export function useFilterPreview({
           : { w: picture.width, h: picture.height };
       const source = sourceW && sourceH ? { w: sourceW, h: sourceH } : own;
       const part = standInRect(crop, source, own, ratio);
+      // The size the applied picture is stored at, from the crop the run
+      // takes (centred to fill until one is set); both read only the slide's aspect.
+      const applied = fittedSize(crop ?? maxFitCrop(source, ratio, 1), { w: ratio, h: 1 });
       const box = ratio >= 1 ? { w: PREVIEW_BOX.long, h: PREVIEW_BOX.short } : { w: PREVIEW_BOX.short, h: PREVIEW_BOX.long };
       // Never larger than the part itself: an enlargement only blurs.
       const scale = Math.min(1, box.w / part.w, box.h / part.h);
@@ -118,9 +127,9 @@ export function useFilterPreview({
       canvas.height = Math.max(1, Math.round(part.h * scale));
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(picture, part.x, part.y, part.w, part.h, 0, 0, canvas.width, canvas.height);
-      setBase((prev) => ({ canvas, version: (prev?.version ?? 0) + 1, url }));
+      // In halving steps, as the applied picture's fit: fine detail does not turn to noise.
+      drawScaledDown(ctx, picture, part, canvas.width, canvas.height);
+      setBase((prev) => ({ canvas, version: (prev?.version ?? 0) + 1, url, applied }));
     });
     return () => cancelAnimationFrame(frame);
   }, [filtered, imageUrl, loaded, recipeLive, crop, sourceW, sourceH, ratio]);
@@ -130,9 +139,9 @@ export function useFilterPreview({
     let current = true;
     paperQueue.current = paperQueue.current.then(async () => {
       if (!current) return;
-      const { width, height } = base.canvas;
-      // At full strength: the strength is laid when the drawing is.
-      const paperStep = paperStepOf(filterPlan({ ...NO_FILTERS, paper: paperFilter }, kind, { width, height }));
+      // At full strength: the strength is laid when the drawing is. Planned
+      // for the applied size, so its dots are the applied picture's.
+      const paperStep = paperStepOf(filterPlan({ ...NO_FILTERS, paper: paperFilter }, kind, base.applied));
       if (!paperStep) return;
       try {
         const canvas = await drawPaperFilter(base.canvas, paperStep);
