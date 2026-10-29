@@ -90,7 +90,8 @@ export function BackgroundPicker({
   const [custom, setCustom] = useState<string | null>(null);
   const [customPicked, setCustomPicked] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  /** The size the frame reported for its picture (an upload's is known only once it loads). */
+  // The size the frame is held in, as the frame reports it (an upload's is
+  // known only once it loads), tagged with its picture.
   const [measured, setMeasured] = useState<{ url: string; size: ImageDims } | null>(null);
   const frameUrl = frame?.imageUrl;
   const onSourceSize = useCallback(
@@ -99,8 +100,9 @@ export function BackgroundPicker({
     },
     [frameUrl],
   );
-  // A size measured on an earlier picture never shows under a new one.
-  const source = frame?.sourceSize ?? (measured && measured.url === frameUrl ? measured.size : null);
+  // A new picture remounts the frame, which reports again once it knows the
+  // size; until then the last picture's size is not shown.
+  const source = measured && measured.url === frameUrl ? measured.size : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2.5">
@@ -202,7 +204,7 @@ export function BackgroundPicker({
             {/* Pixel size: its line is always reserved, so it fills in and
                 follows the crop without moving the frame or the edit area. */}
             <p
-              className="-mt-1 h-3.5 shrink-0 truncate font-body text-[10.5px] leading-[1.35] tabular-nums"
+              className="-mt-1 h-[1.35em] shrink-0 truncate font-body text-[10.5px] leading-[1.35] tabular-nums"
               style={{ color: "var(--ink-soft)" }}
             >
               {source && frame.crop
