@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { template } from "@/lib/common/template";
 import { CropSelector } from "@/components/image/CropSelector";
 import { InlineGallery, type GalleryLabels } from "@/components/ppt/InlineGallery";
 import type { Dictionary } from "@/i18n/config";
@@ -59,6 +60,8 @@ interface BackgroundPickerProps {
   labels: {
     uploadLabel: string;
     backToGallery: string;
+    /** The line under the frame: `{sw} × {sh}` the source, `{w} × {h}` the crop. */
+    pixelSize: string;
     pictureAlt: string;
     handles: Dictionary["common"]["resizeHandles"];
     gallery: GalleryLabels;
@@ -87,6 +90,17 @@ export function BackgroundPicker({
   const [custom, setCustom] = useState<string | null>(null);
   const [customPicked, setCustomPicked] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** The size the frame reported for its picture (an upload's is known only once it loads). */
+  const [measured, setMeasured] = useState<{ url: string; size: ImageDims } | null>(null);
+  const frameUrl = frame?.imageUrl;
+  const onSourceSize = useCallback(
+    (size: ImageDims) => {
+      if (frameUrl) setMeasured({ url: frameUrl, size });
+    },
+    [frameUrl],
+  );
+  // A size measured on an earlier picture never shows under a new one.
+  const source = frame?.sourceSize ?? (measured && measured.url === frameUrl ? measured.size : null);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2.5">
@@ -177,6 +191,7 @@ export function BackgroundPicker({
                 targetHeight={1}
                 initialCrop={frame.crop}
                 onCropChange={frame.onCropChange}
+                onSourceSize={onSourceSize}
                 handleLabels={labels.handles}
                 readOnly={frame.locked}
                 // The selector draws a 1 px border around the picture.
@@ -184,6 +199,21 @@ export function BackgroundPicker({
               />
               {frame.busyLabel ? <CornerSpinner label={frame.busyLabel} /> : null}
             </div>
+            {/* Pixel size: its line is always reserved, so it fills in and
+                follows the crop without moving the frame or the edit area. */}
+            <p
+              className="-mt-1 h-3.5 shrink-0 truncate font-body text-[10.5px] leading-[1.35] tabular-nums"
+              style={{ color: "var(--ink-soft)" }}
+            >
+              {source && frame.crop
+                ? template(labels.pixelSize, {
+                    sw: source.w,
+                    sh: source.h,
+                    w: frame.crop.width,
+                    h: frame.crop.height,
+                  })
+                : " "}
+            </p>
             {/* The edit area's room is held for every picture, open or closed:
                 the frame keeps its size and the toggle its place. Its height
                 fits the toggle and four rows of two controls. */}

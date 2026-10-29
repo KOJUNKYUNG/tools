@@ -162,6 +162,7 @@
           "sourceGallery": "Gallery",
           "tooLarge": "Background image must be {size} or smaller.",
           "backToGallery": "Back to gallery",
+          "pixelSize": "Source {sw} × {sh} · used {w} × {h}",
           "blurNotice": "The selected part is small and may look blurry on a Full HD screen."
         },
         "gallery": {

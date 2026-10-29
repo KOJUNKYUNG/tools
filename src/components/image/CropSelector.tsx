@@ -74,6 +74,11 @@ interface CropSelectorProps {
   maxImageHeight?: string;
   /** Laid over the picture, exactly where it shows (e.g. a live drawing standing in for it). */
   overlay?: React.ReactNode;
+  /**
+   * Reports the size the frame is held in once it is known: `sourceSize`, or
+   * else the shown picture's own (upright) size after it loads.
+   */
+  onSourceSize?: (size: ImageDims) => void;
 }
 
 function sameRect(a: CropRect, b: CropRect): boolean {
@@ -92,6 +97,7 @@ export function CropSelector({
   readOnly = false,
   maxImageHeight,
   overlay,
+  onSourceSize,
 }: CropSelectorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -129,6 +135,11 @@ export function CropSelector({
     setCrop(rect);
     onCropChange(rect);
   }, [targetWidth, targetHeight, sourceW, sourceH, onCropChange]);
+
+  // Its own effect: a new callback must never re-place the frame.
+  useEffect(() => {
+    if (sourceW > 0 && sourceH > 0) onSourceSize?.({ w: sourceW, h: sourceH });
+  }, [sourceW, sourceH, onSourceSize]);
 
   const handleImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;

@@ -114,6 +114,7 @@ export interface PptBackgroundToolLabels {
     sourceGallery: string;
     tooLarge: string;
     backToGallery: string;
+    pixelSize: string;
     blurNotice: string;
   };
   gallery: GalleryLabels;
@@ -805,6 +806,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 labels={{
                   uploadLabel: labels.background.uploadLabel,
                   backToGallery: labels.background.backToGallery,
+                  pixelSize: labels.background.pixelSize,
                   pictureAlt: labels.preview.selectedCaption,
                   handles: labels.resizeHandles,
                   gallery: labels.gallery,
