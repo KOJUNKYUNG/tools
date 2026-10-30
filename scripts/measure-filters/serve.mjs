@@ -5,15 +5,19 @@
 // the final encode adds, the file size against the unfiltered result, and
 // the 4K filter time.
 //
+// It also serves the filter set's tuning lab at /lab (lab.html): the
+// spec-end visual QA's [임시] ranges, Paper filter settings and copy, tried on
+// real pictures and saved to tuning.json beside this file.
+//
 // Run: node scripts/measure-filters/run-headless.mjs (headless, real GPU),
-//      or preview_start "measure-filters" (.claude/launch.json).
+//      or preview_start "measure-filters" (.claude/launch.json) and open / or /lab.
 // Photos come from tests/fixtures (REAL_FIXTURES_DIR overrides): the loose
 // JPEG/PNG files, subfolders included, and the pictures inside its decks;
 // from the high-resolution set in tests/hires (HIRES_DIR overrides), both
 // local-only; and from the site's own gallery (public/gallery).
 
 import { createServer } from "node:http";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serveAppModule } from "../lib/appModules.mjs";
@@ -39,8 +43,15 @@ const folders = {
 const PORT = Number(process.env.MEASURE_FILTERS_PORT ?? 4330);
 const PAPER_DIST = join(root, "node_modules/@paper-design/shaders/dist");
 
+const TUNING = join(here, "tuning.json");
+
 const files = {
   "/": [join(here, "index.html"), "text/html; charset=utf-8"],
+  "/lab": [join(here, "lab.html"), "text/html; charset=utf-8"],
+  "/colourDifference.js": [join(here, "colourDifference.js"), "text/javascript"],
+  // The tool's copy, which the lab edits.
+  "/i18n/ko.json": [join(root, "src/i18n/dictionaries/ko.json"), "application/json"],
+  "/i18n/en.json": [join(root, "src/i18n/dictionaries/en.json"), "application/json"],
   "/lib/jszip.js": [join(root, "node_modules/jszip/dist/jszip.min.js"), "text/javascript"],
   // The gallery scripts' drawing code, which the app's Paper runtime imports.
   "/scripts/gallery/paper-draw.js": [join(root, "scripts/gallery/paper-draw.js"), "text/javascript"],
@@ -52,7 +63,19 @@ createServer(async (req, res) => {
   try {
     const path = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname);
     const route = /^\/[^/]+/.exec(path)?.[0]; // a picture folder's route, for a file below it
-    if (files[path]) {
+    if (path === "/api/tuning") {
+      if (req.method === "PUT") {
+        const chunks = [];
+        for await (const chunk of req) chunks.push(chunk);
+        const tuning = JSON.parse(Buffer.concat(chunks).toString("utf8")); // a malformed body fails here, unsaved
+        await writeFile(TUNING, JSON.stringify(tuning, null, 2) + "\n");
+        return void res.writeHead(204).end();
+      }
+      // Nothing saved yet: the lab starts from the app's own values.
+      const saved = await readFile(TUNING, "utf8").catch(() => "null");
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(saved);
+    } else if (files[path]) {
       const [file, type] = files[path];
       res.writeHead(200, { "content-type": type });
       res.end(await readFile(file));
