@@ -22,11 +22,10 @@
 // /fixtures/<name> to check an estimate against a real compression.
 
 import { createServer } from "node:http";
-import { stripTypeScriptTypes } from "node:module";
-import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { resolve, join, basename, relative, sep, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
+import { serveAppModule } from "../lib/appModules.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const root = resolve(here, "../..");
@@ -51,22 +50,12 @@ const files = {
   "/lib/heic-to.js": [join(root, "node_modules/heic-to/dist/heic-to.js"), "text/javascript"],
 };
 
-// The page runs the app's own code: any module under src/ is served from
-// /src/<path>.ts with its types stripped (transform mode, so parameter
-// properties work), its "@/" and extensionless relative imports pointed back
-// at this route, and each package at the global its script tag on the page
-// defines (served as /lib/global/<package>.js).
+// The page runs the app's own code (scripts/lib/appModules.mjs), each
+// package at the global its script tag on the page defines (served as
+// /lib/global/<package>.js).
 const PAGE_GLOBALS = { jszip: "JSZip", "browser-image-compression": "imageCompression", cfb: "CFB" };
 const GLOBAL_ROUTE = /^\/lib\/global\/(.+)\.js$/;
-const IMPORT = /(\bfrom\s*|\bimport\s*\(?\s*)(["'])([^"']+)\2/g;
-function browserImports(code) {
-  return code.replace(IMPORT, (all, lead, quote, spec) => {
-    if (PAGE_GLOBALS[spec]) return `${lead}${quote}/lib/global/${spec}.js${quote}`;
-    if (spec.startsWith("@/")) spec = "/src/" + spec.slice(2);
-    else if (!spec.startsWith(".")) return all;
-    return `${lead}${quote}${/\.[cm]?[jt]s$/.test(spec) ? spec : spec + ".ts"}${quote}`;
-  });
-}
+const PACKAGES = Object.fromEntries(Object.keys(PAGE_GLOBALS).map((name) => [name, `/lib/global/${name}.js`]));
 
 createServer(async (req, res) => {
   try {
@@ -80,18 +69,8 @@ createServer(async (req, res) => {
     } else if (pageGlobal) {
       res.writeHead(200, { "content-type": "text/javascript" });
       res.end(`export default globalThis.${pageGlobal};`);
-    } else if (path.startsWith("/src/") && path.endsWith(".ts")) {
-      const file = resolve(root, path.slice(1));
-      const inside = relative(join(root, "src"), file);
-      if (inside.startsWith("..") || isAbsolute(inside)) return void res.writeHead(404).end();
-      // A folder import ("@/types") means its index, at its own URL so the
-      // index's relative imports resolve inside the folder.
-      if (!existsSync(file) && existsSync(file.slice(0, -3) + "/index.ts")) {
-        return void res.writeHead(302, { location: path.slice(0, -3) + "/index.ts" }).end();
-      }
-      const code = stripTypeScriptTypes(await readFile(file, "utf8"), { mode: "transform" });
-      res.writeHead(200, { "content-type": "text/javascript" });
-      res.end(browserImports(code));
+    } else if (await serveAppModule(root, path, res, PACKAGES)) {
+      // Answered.
     } else if (path === "/fixtures") {
       // Decks, loose images as they would sit in a deck, and HEIC originals.
       const names = (await readdir(fixtures)).filter((n) => /\.(pptx|png|jpe?g|heic)$/i.test(n));

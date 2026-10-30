@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ppt-background filter measurement</title>
+<style>
+  body { font: 13px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #111; }
+  table { border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #ccc; padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  h2 { margin-top: 24px; font-size: 15px; }
+</style>
+<script src="/lib/jszip.js"></script>
+</head>
+<body>
+<h1>ppt-background filter measurement</h1>
+<p>Each photo is cut to the largest 16:9 frame at its centre and prepared the way ppt-background
+applies it (<code>slideImagePreparer</code> in <code>src/lib/image/slideImage.ts</code>, with the
+filter set's step from <code>src/lib/image/filterCanvas.ts</code>, as checked out): fitted inside 4K,
+filtered, then saved as JPEG (q0.85, 4:2:0) or PNG by the existing format rule. Per filter setting:</p>
+<ul>
+  <li><b>ΔE</b>: CIEDE2000 between the filtered picture before the final encode and the file the
+    deck receives, decoded; mean and 95th percentile over every second pixel in each direction.
+    It is the loss the encode adds, not the filter's own change, summarised over the results saved as
+    JPEG (<b>jpeg</b> counts them; a PNG is lossless). <b>none</b> is the unfiltered result's.
+    Pictures whose transparency is used stay PNG whatever the filters, so they are summarised apart.</li>
+  <li><b>size</b>: the filtered file's bytes over the unfiltered result's for the same photo (a whole
+    JPEG that fits 4K goes in unchanged, so its unfiltered result is the photo itself).</li>
+  <li><b>4K time</b>: the filter step alone, on photos whose crop fits to 3840 × 2160; a Paper filter's
+    includes reading the picture, mounting Paper (a new WebGL context) and drawing. <b>prepare</b> is
+    the whole preparation (cut, fit, filter, both encodes).</li>
+  <li><b>Solid colours</b>: a colour made into a 4K picture, as the tool does for a filtered solid colour
+    (its unfiltered result is a fill, so sizes are absolute).</li>
+</ul>
+<p>Settings come from the filter set's own ranges (<code>filtersFor</code>): blur, veil and grain default
+to 0 (off), so each is measured at half its range and at its maximum; the veil both ways. A Paper
+filter's default strength is its maximum, 100%. Photos: the site's own gallery pictures
+(<code>public/gallery</code>, the tool's most common input), the loose JPEG/PNG files in
+<code>tests/fixtures</code> and its subfolders, the pictures in its decks whose long side is at least
+1280 px, and the high-resolution set in <code>tests/hires</code>, deduplicated by bytes. Every picture is
+cut for a 16:9 slide, the default slide shape.
+Query <code>?sets=gallery,loose,decks,hires,solids&amp;limit=N</code> picks what to run (default all, no limit).</p>
+<p id="status">Starting…</p>
+<div id="out"></div>
+<script type="module">
+import { fittedSize, filledSize, slideImagePreparer } from "/src/lib/image/slideImage.ts";
+import { filterStep } from "/src/lib/image/filterCanvas.ts";
+import { filtersFor, NO_FILTERS } from "/src/lib/image/filterSet.ts";
+import { PAPER_FILTER_NAMES } from "/src/lib/image/paperFilters.ts";
+import { maxFitCrop } from "/src/lib/image/maxFitCrop.ts";
+import { downscaleImage } from "/src/lib/image/downscale.ts";
+import { displayedSize, readImageHeader } from "/src/lib/output-check/imageHeader.ts";
+
+const SLIDE = { w: 16, h: 9 };
+const params = new URLSearchParams(location.search);
+const sets = new Set((params.get("sets") ?? "gallery,loose,decks,hires,solids").split(","));
+const limit = Number(params.get("limit") ?? Infinity);
+// Two arbitrary colours, a mid grey and a dark blue: each is one flat colour before its filters.
+const SOLIDS = ["808080", "1f2a44"];
+// A deck picture smaller than this on its long side is a logo or an icon, not a background.
+const MIN_DECK_SIDE = 1280;
+const DE_STRIDE = 2;
+const status = (text) => (document.getElementById("status").textContent = text);
+
+// The settings measured, from the picture's offered ranges.
+const offered = filtersFor("picture", true);
+const half = (range) => range.max / 2;
+const pct = (v) => `${Math.round(v * 100)}%`;
+const CONFIGS = [
+  { name: `blur ${pct(half(offered.blur))} (half)`, set: { blur: half(offered.blur) } },
+  { name: `blur ${pct(offered.blur.max)} (max)`, set: { blur: offered.blur.max } },
+  { name: `veil ${pct(offered.veil.min / 2)} (half, dark)`, set: { veil: offered.veil.min / 2 } },
+  { name: `veil ${pct(offered.veil.min)} (max, dark)`, set: { veil: offered.veil.min } },
+  { name: `veil +${pct(offered.veil.max / 2)} (half, light)`, set: { veil: offered.veil.max / 2 } },
+  { name: `veil +${pct(offered.veil.max)} (max, light)`, set: { veil: offered.veil.max } },
+  { name: `grain ${half(offered.grain) * 100} (half)`, set: { grain: half(offered.grain) } },
+  { name: `grain ${offered.grain.max * 100} (max)`, set: { grain: offered.grain.max } },
+  ...PAPER_FILTER_NAMES.map((paper) => ({
+    name: `${paper} ${pct(offered.paper.strength.max)} (default = max)`,
+    set: { paper, paperStrength: offered.paper.strength.max },
+  })),
+  {
+    name: "blur + veil + grain (half)",
+    set: { blur: half(offered.blur), veil: offered.veil.min / 2, grain: half(offered.grain) },
+  },
+  {
+    name: "blur + veil + grain (max)",
+    set: { blur: offered.blur.max, veil: offered.veil.min, grain: offered.grain.max },
+  },
+].map((c) => ({ ...c, set: { ...NO_FILTERS, ...c.set } }));
+// What a solid colour takes: blur and the veil are not offered there.
+const SOLID_CONFIGS = CONFIGS.filter((c) => c.set.blur === 0 && c.set.veil === 0);
+
+async function list(route) {
+  const res = await fetch(route);
+  if (!res.ok) throw new Error(`${route}: ${await res.text()}`);
+  return res.json();
+}
+const bytesOf = async (url) => new Uint8Array(await (await fetch(url)).arrayBuffer());
+async function sha(bytes) {
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return Array.from(hash.slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// The photos, each { name, bytes }, deduplicated by bytes.
+async function photos() {
+  const found = [];
+  const seen = new Set();
+  const add = async (name, bytes) => {
+    const key = await sha(bytes);
+    if (seen.has(key)) return;
+    seen.add(key);
+    found.push({ name, bytes });
+  };
+  if (sets.has("gallery")) {
+    for (const name of await list("/gallery")) await add(`gallery › ${name}`, await bytesOf("/gallery/" + name));
+  }
+  const fixtureNames = sets.has("loose") || sets.has("decks") ? await list("/fixtures") : [];
+  if (sets.has("loose")) {
+    for (const name of fixtureNames.filter((n) => /\.(png|jpe?g)$/i.test(n))) {
+      await add(name, await bytesOf("/fixtures/" + encodeURIComponent(name)));
+    }
+  }
+  if (sets.has("decks")) {
+    for (const deck of fixtureNames.filter((n) => /\.pptx$/i.test(n))) {
+      const zip = await JSZip.loadAsync(await bytesOf("/fixtures/" + encodeURIComponent(deck)));
+      for (const part of Object.keys(zip.files).filter((p) => /^ppt\/media\/.+\.(png|jpe?g)$/i.test(p))) {
+        const bytes = await zip.file(part).async("uint8array");
+        const header = readImageHeader(bytes);
+        if (!header || Math.max(...displayedSize(header)) < MIN_DECK_SIDE) continue;
+        await add(`${deck} › ${part.slice("ppt/media/".length)}`, bytes);
+      }
+    }
+  }
+  if (sets.has("hires")) {
+    const names = await list("/hires").catch((e) => (console.warn(e), []));
+    for (const name of names) await add(`hires › ${name}`, await bytesOf("/hires/" + name));
+  }
+  return found.slice(0, limit);
+}
+
+// sRGB (8-bit) to CIELAB (D65).
+const LINEAR = Float64Array.from({ length: 256 }, (_, i) => {
+  const c = i / 255;
+  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+});
+const labF = (t) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116);
+function lab(px, i) {
+  const r = LINEAR[px[i]], g = LINEAR[px[i + 1]], b = LINEAR[px[i + 2]];
+  const fx = labF((0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / 0.95047);
+  const fy = labF(0.2126729 * r + 0.7151522 * g + 0.072175 * b);
+  const fz = labF((0.0193339 * r + 0.119192 * g + 0.9503041 * b) / 1.08883);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+
+const DEG = Math.PI / 180;
+const P25 = 25 ** 7;
+/** CIEDE2000 (Sharma, Wu and Dalal 2005), kL = kC = kH = 1. */
+function deltaE2000([L1, a1, b1], [L2, a2, b2]) {
+  const Cb = (Math.hypot(a1, b1) + Math.hypot(a2, b2)) / 2;
+  const G = 0.5 * (1 - Math.sqrt(Cb ** 7 / (Cb ** 7 + P25)));
+  const a1p = (1 + G) * a1, a2p = (1 + G) * a2;
+  const C1 = Math.hypot(a1p, b1), C2 = Math.hypot(a2p, b2);
+  let h1 = Math.atan2(b1, a1p); if (h1 < 0) h1 += 2 * Math.PI;
+  let h2 = Math.atan2(b2, a2p); if (h2 < 0) h2 += 2 * Math.PI;
+  const chroma = C1 * C2 !== 0;
+  let dh = 0;
+  if (chroma) {
+    dh = h2 - h1;
+    if (dh > Math.PI) dh -= 2 * Math.PI;
+    else if (dh < -Math.PI) dh += 2 * Math.PI;
+  }
+  const dL = L2 - L1, dC = C2 - C1, dH = 2 * Math.sqrt(C1 * C2) * Math.sin(dh / 2);
+  const Lb = (L1 + L2) / 2, Cbp = (C1 + C2) / 2;
+  let hb = h1 + h2;
+  if (chroma) hb = Math.abs(h1 - h2) > Math.PI ? (hb < 2 * Math.PI ? hb + 2 * Math.PI : hb - 2 * Math.PI) / 2 : hb / 2;
+  const T = 1 - 0.17 * Math.cos(hb - 30 * DEG) + 0.24 * Math.cos(2 * hb) + 0.32 * Math.cos(3 * hb + 6 * DEG) - 0.2 * Math.cos(4 * hb - 63 * DEG);
+  const dTheta = 30 * DEG * Math.exp(-(((hb / DEG - 275) / 25) ** 2));
+  const Rc = 2 * Math.sqrt(Cbp ** 7 / (Cbp ** 7 + P25));
+  const Sl = 1 + (0.015 * (Lb - 50) ** 2) / Math.sqrt(20 + (Lb - 50) ** 2);
+  const Sc = 1 + 0.045 * Cbp, Sh = 1 + 0.015 * Cbp * T;
+  const Rt = -Math.sin(2 * dTheta) * Rc;
+  return Math.sqrt((dL / Sl) ** 2 + (dC / Sc) ** 2 + (dH / Sh) ** 2 + Rt * (dC / Sc) * (dH / Sh));
+}
+
+/** Mean and 95th percentile of ΔE2000 between two same-size RGBA buffers, every `DE_STRIDE`th pixel. */
+function colourDifference(before, after, width, height) {
+  const BIN = 0.05;
+  const bins = new Uint32Array(2001); // 0 to 100 in 0.05 steps, the last holds the rest
+  let sum = 0, n = 0;
+  for (let y = 0; y < height; y += DE_STRIDE) {
+    for (let x = 0; x < width; x += DE_STRIDE) {
+      const i = (y * width + x) * 4;
+      const same = before[i] === after[i] && before[i + 1] === after[i + 1] && before[i + 2] === after[i + 2];
+      const de = same ? 0 : deltaE2000(lab(before, i), lab(after, i));
+      sum += de;
+      n++;
+      bins[Math.min(bins.length - 1, Math.floor(de / BIN))]++;
+    }
+  }
+  let seen = 0, p95 = 0;
+  for (let b = 0; b < bins.length; b++) {
+    seen += bins[b];
+    if (seen >= 0.95 * n) { p95 = (b + 1) * BIN; break; }
+  }
+  return { mean: sum / n, p95 };
+}
+
+function pixelsOf(canvas) {
+  return canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+}
+async function decoded(bytes, width, height) {
+  const bitmap = await createImageBitmap(new Blob([bytes]));
+  const canvas = new OffscreenCanvas(width, height);
+  canvas.getContext("2d").drawImage(bitmap, 0, 0);
+  bitmap.close();
+  const pixels = pixelsOf(canvas);
+  canvas.width = canvas.height = 0;
+  return pixels;
+}
+
+/**
+ * The picture `config` makes from `source` cut to `crop`, as applied: its
+ * bytes and format, the encode's colour difference, and the times. With no
+ * config, the unfiltered result (its colour difference against the fitted
+ * picture, which an unchanged whole JPEG matches exactly).
+ */
+async function prepare(source, crop, kind, config) {
+  let before = null, stepMs = null;
+  const filter = config && filterStep(config.set, kind);
+  const step = async (fitted) => {
+    const start = performance.now();
+    const out = filter ? await filter(fitted) : fitted;
+    stepMs = performance.now() - start;
+    before = pixelsOf(out);
+    return out;
+  };
+  const start = performance.now();
+  // Unfiltered: the tool's own preparation with no step, so a whole JPEG goes in as it is.
+  const prepared = await slideImagePreparer(filter ? step : undefined)(source, crop, SLIDE);
+  const prepareMs = performance.now() - start;
+  if (!before) {
+    const fitted = await downscaleImage(source, prepared.width, prepared.height, crop);
+    before = pixelsOf(fitted);
+    fitted.width = fitted.height = 0;
+  }
+  const after = await decoded(prepared.bytes, prepared.width, prepared.height);
+  let alpha = false;
+  for (let i = 3; i < before.length && !alpha; i += 4) alpha = before[i] !== 255;
+  return {
+    alpha,
+    format: prepared.format,
+    bytes: prepared.bytes.length,
+    width: prepared.width,
+    height: prepared.height,
+    deltaE: colourDifference(before, after, prepared.width, prepared.height),
+    stepMs,
+    prepareMs,
+  };
+}
+
+const median = (xs) => {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length === 0 ? null : s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+const round = (x, d = 2) => (x === null ? null : Math.round(x * 10 ** d) / 10 ** d);
+
+const quantile = (xs, q) => {
+  const s = [...xs].sort((a, b) => a - b);
+  return s.length === 0 ? null : s[Math.min(s.length - 1, Math.floor(q * s.length))];
+};
+const max = (xs) => (xs.length === 0 ? null : Math.max(...xs));
+
+/**
+ * Per setting: the encode's ΔE over the results saved as JPEG (a PNG is
+ * lossless, its ΔE 0), sizes over all, and times on 4K results only.
+ */
+function summarise(rows, names) {
+  return names.map((name) => {
+    const own = rows.filter((r) => r.config === name);
+    const jpeg = own.filter((r) => r.format === "jpeg");
+    const ratios = own.map((r) => r.ratio).filter((x) => x !== null);
+    const kb = own.map((r) => r.bytes / 1024);
+    const at4k = own.filter((r) => r.width === 3840 && r.height === 2160 && r.stepMs !== null);
+    return {
+      config: name,
+      n: own.length,
+      jpeg: jpeg.length,
+      deMean: round(median(jpeg.map((r) => r.deltaE.mean))),
+      deP95: round(median(jpeg.map((r) => r.deltaE.p95))),
+      deP95Max: round(max(jpeg.map((r) => r.deltaE.p95))),
+      sizeRatio: round(median(ratios)),
+      sizeRatioMax: round(max(ratios)),
+      kb: round(median(kb), 0),
+      kbP90: round(quantile(kb, 0.9), 0),
+      kbMax: round(max(kb), 0),
+      n4k: at4k.length,
+      ms4k: round(median(at4k.map((r) => r.stepMs)), 0),
+      ms4kMax: round(max(at4k.map((r) => r.stepMs)), 0),
+      prepareMs4k: round(median(at4k.map((r) => r.prepareMs)), 0),
+    };
+  });
+}
+
+function table({ title, summary }) {
+  const cols = Object.keys(summary[0]);
+  const head = cols.map((c) => `<th>${c}</th>`).join("");
+  const body = summary.map((s) => `<tr>${cols.map((c) => `<td>${s[c] ?? "–"}</td>`).join("")}</tr>`).join("");
+  document.getElementById("out").insertAdjacentHTML("beforeend", `<h2>${title}</h2><table><tr>${head}</tr>${body}</table>`);
+}
+
+function renderer() {
+  const gl = document.createElement("canvas").getContext("webgl2");
+  if (!gl) return "no WebGL2";
+  const info = gl.getExtension("WEBGL_debug_renderer_info");
+  const name = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+  gl.getExtension("WEBGL_lose_context")?.loseContext();
+  return name;
+}
+
+async function solidPicture(rgb) {
+  const { width, height } = filledSize(SLIDE);
+  const canvas = new OffscreenCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = `#${rgb}`;
+  ctx.fillRect(0, 0, width, height);
+  const blob = await canvas.convertToBlob({ type: "image/png" });
+  canvas.width = canvas.height = 0;
+  return { blob, crop: { x: 0, y: 0, width, height } };
+}
+
+async function main() {
+  const results = { renderer: renderer(), userAgent: navigator.userAgent, photos: [], rows: [], solidRows: [] };
+  status("Loading Paper (warm-up)…");
+  // Paper's modules load once per page; every filter's own mount and shader stay in its time.
+  const warm = await solidPicture("808080");
+  for (const config of CONFIGS.filter((c) => c.set.paper)) await prepare(warm.blob, warm.crop, "solid", config);
+
+  const found = await photos();
+  for (const [i, { name, bytes }] of found.entries()) {
+    const header = readImageHeader(bytes);
+    if (!header) continue;
+    const [w, h] = displayedSize(header);
+    const crop = maxFitCrop({ w, h }, SLIDE.w, SLIDE.h);
+    const fitted = fittedSize(crop, SLIDE);
+    results.photos.push({ name, format: header.format, width: w, height: h, fitted });
+    const source = new Blob([bytes]);
+    status(`Photo ${i + 1}/${found.length}: ${name}`);
+    const base = await prepare(source, crop, "picture", null);
+    results.photos.at(-1).alpha = base.alpha;
+    results.rows.push({ photo: name, config: "none", ...base, ratio: 1 });
+    for (const config of CONFIGS) {
+      status(`Photo ${i + 1}/${found.length}: ${name} — ${config.name}`);
+      const row = await prepare(source, crop, "picture", config);
+      results.rows.push({ photo: name, config: config.name, ...row, ratio: row.bytes / base.bytes });
+    }
+  }
+  if (sets.has("solids")) {
+    for (const rgb of SOLIDS) {
+      const { blob, crop } = await solidPicture(rgb);
+      for (const config of SOLID_CONFIGS) {
+        status(`Solid #${rgb} — ${config.name}`);
+        const row = await prepare(blob, crop, "solid", config);
+        // A solid colour's unfiltered result is a fill: no picture to compare sizes with.
+        results.solidRows.push({ photo: `#${rgb}`, config: config.name, ...row, ratio: null });
+      }
+    }
+  }
+  // A picture whose alpha is used stays PNG whatever its filters, so it is
+  // summarised apart from the opaque photos the format rule can make JPEG.
+  const names = ["none", ...CONFIGS.map((c) => c.name)];
+  const transparent = new Set(results.photos.filter((p) => p.alpha).map((p) => p.name));
+  const groups = [
+    ["Opaque photos", results.rows.filter((r) => !transparent.has(r.photo)), names],
+    ["Transparent pictures (always PNG)", results.rows.filter((r) => transparent.has(r.photo)), names],
+    ["Solid colours", results.solidRows, SOLID_CONFIGS.map((c) => c.name)],
+  ];
+  results.summaries = groups
+    .filter(([, rows]) => rows.length)
+    .map(([title, rows, configs]) => ({
+      title: `${title} (${new Set(rows.map((r) => r.photo)).size})`,
+      summary: summarise(rows, configs),
+    }));
+  status(`Done: ${results.photos.length} photos on ${results.renderer}`);
+  results.summaries.forEach(table);
+  window.__results = results;
+}
+
+main().catch((error) => {
+  console.error(error);
+  status(`Failed: ${error?.stack ?? error}`);
+  window.__results = { error: String(error?.stack ?? error) };
+});
+</script>
+</body>
+</html>

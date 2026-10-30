@@ -1,7 +1,7 @@
 // Headless Chrome over the DevTools protocol with Node's own WebSocket, so a
 // script needs no browser package. Shared by scripts that render or measure
-// in a real browser (scripts/gallery/render-shaders.mjs; the same pattern runs
-// inline in scripts/measure-ppt-ratios/run-headless.mjs).
+// in a real browser (scripts/gallery/render-shaders.mjs and the
+// measurement runners in scripts/measure-*).
 
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -26,10 +26,14 @@ export async function waitFor(check, what, timeoutMs = 30_000) {
   throw new Error(`timed out waiting for ${what}`);
 }
 
-/** A minimal DevTools protocol client: send(method, params) → result. */
+/**
+ * A minimal DevTools protocol client: send(method, params) → result. A
+ * closed socket rejects what it still owed, so no caller waits forever.
+ */
 function connect(url) {
   const ws = new WebSocket(url);
   let id = 0;
+  let closed = false;
   const pending = new Map();
   ws.addEventListener("message", (event) => {
     const msg = JSON.parse(event.data);
@@ -39,6 +43,11 @@ function connect(url) {
     if (msg.error) handler.reject(new Error(msg.error.message));
     else handler.resolve(msg.result);
   });
+  ws.addEventListener("close", (event) => {
+    closed = true;
+    for (const { reject } of pending.values()) reject(new Error(`DevTools socket closed (${event.code})`));
+    pending.clear();
+  });
   const opened = new Promise((resolve, reject) => {
     ws.addEventListener("open", resolve, { once: true });
     ws.addEventListener("error", reject, { once: true });
@@ -46,9 +55,13 @@ function connect(url) {
   return opened.then(() => ({
     send: (method, params = {}) =>
       new Promise((resolve, reject) => {
+        if (closed) return reject(new Error("DevTools socket closed"));
         pending.set(++id, { resolve, reject });
         ws.send(JSON.stringify({ id, method, params }));
       }),
+    get closed() {
+      return closed;
+    },
     close: () => ws.close(),
   }));
 }
@@ -84,14 +97,22 @@ export async function openHeadless(url, extraArgs = []) {
       const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
       return targets.find((t) => t.type === "page");
     }, "Chrome's page target");
-    const cdp = await connect(page.webSocketDebuggerUrl);
+    let cdp = await connect(page.webSocketDebuggerUrl);
     await cdp.send("Page.navigate", { url });
+    const evaluateParams = (expression) => ({ expression, returnByValue: true, awaitPromise: true });
     const evaluate = async (expression) => {
-      const { result, exceptionDetails } = await cdp.send("Runtime.evaluate", {
-        expression,
-        returnByValue: true,
-        awaitPromise: true,
-      });
+      let reply;
+      try {
+        reply = await cdp.send("Runtime.evaluate", evaluateParams(expression));
+      } catch (e) {
+        // The page outlives its socket (a long run's socket dropped while the
+        // machine slept): connect again, once, rather than lose the run.
+        if (!cdp.closed) throw e;
+        console.error("DevTools socket closed; reconnecting");
+        cdp = await connect(page.webSocketDebuggerUrl);
+        reply = await cdp.send("Runtime.evaluate", evaluateParams(expression));
+      }
+      const { result, exceptionDetails } = reply;
       if (exceptionDetails) throw new Error(exceptionDetails.exception?.description ?? exceptionDetails.text);
       return result.value;
     };

@@ -14,6 +14,12 @@
       "port": 4310
     },
     {
+      "name": "measure-filters",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/measure-filters/serve.mjs"],
+      "port": 4330
+    },
+    {
       "name": "gallery-lab",
       "runtimeExecutable": "node",
       "runtimeArgs": ["scripts/gallery/lab.mjs"],
