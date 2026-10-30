@@ -199,6 +199,13 @@ const QA = [
 // The grain options the lab tries beyond the app's grain (QA 10-31). At these values the lab
 // lays the app's own grain; otherwise its own (labGrain below).
 const GRAIN_APP = { size: 1, midtone: false, colour: 0 };
+// [임시] the user's ranges for the grain options, decided at QA (10-31: colour grain as a
+// slider, the response by brightness as a toggle that starts off). Colour as a share, shown ×100.
+const GRAIN_RANGES = {
+  size: { min: 0.5, max: 3, step: 0.1, default: 1 },
+  colour: { min: 0, max: 1, step: 0.05, default: 0 },
+  midtone: { default: false },
+};
 const ADVANCED = new Set(["fit", "scale", "rotation", "offsetX", "offsetY", "originX", "originY", "worldWidth", "worldHeight"]);
 const INTEGER = /count|rows|seed/i;
 const lookup = (dict, key) => key.split(".").reduce((o, k) => o?.[k], dict);
@@ -218,6 +225,7 @@ function appState() {
   return {
     values: { ...NO_FILTERS },
     grain: { ...GRAIN_APP },
+    grainRanges: structuredClone(GRAIN_RANGES),
     ranges,
     paper,
     copy,
@@ -240,6 +248,7 @@ function restoreFrom(t) {
   state = {
     values: { ...fresh.values, ...t.values },
     grain: { ...fresh.grain, ...t.grain },
+    grainRanges: { ...fresh.grainRanges, ...t.grainRanges },
     ranges: { ...fresh.ranges, ...t.ranges },
     paper: Object.fromEntries(PAPER_FILTER_NAMES.map((name) => {
       const s = t.paper?.[name];
@@ -263,7 +272,7 @@ function tuningToSave() {
   }
   const copy = Object.fromEntries(COPY_KEYS.filter((k) => state.copy[k].ko !== fresh.copy[k].ko || state.copy[k].en !== fresh.copy[k].en)
     .map((k) => [k, state.copy[k]]));
-  return { savedAt: new Date().toISOString(), values: state.values, grain: state.grain, ranges: state.ranges, paper, copy, qa: state.qa };
+  return { savedAt: new Date().toISOString(), values: state.values, grain: state.grain, grainRanges: state.grainRanges, ranges: state.ranges, paper, copy, qa: state.qa };
 }
 
 const copyKo = (key) => state.copy[key]?.ko ?? key;
@@ -402,24 +411,26 @@ function cellValue(i, j, seed) {
   return ((h & 0xffff) + 0.5) / 65536 + ((h >>> 16) + 0.5) / 65536 - 1;
 }
 
-/** Three box blurs along each axis of a one-channel field, close to a Gaussian of `sigma` px; edges clamp. */
+/**
+ * A Gaussian blur of `sigma` px along each axis of a one-channel field;
+ * edges clamp. An exact kernel, not box blurs, whose whole-pixel radius
+ * would draw every small sigma alike.
+ */
 function blurField(field, width, height, sigma) {
-  const r = Math.max(1, Math.floor((Math.sqrt((12 * sigma * sigma) / 3 + 1) - 1) / 2));
+  const radius = Math.ceil(3 * sigma);
+  const kernel = new Float32Array(2 * radius + 1);
+  let total = 0;
+  for (let k = -radius; k <= radius; k++) total += kernel[k + radius] = Math.exp(-(k * k) / (2 * sigma * sigma));
+  for (let k = 0; k < kernel.length; k++) kernel[k] /= total;
   const line = new Float32Array(Math.max(width, height));
   const pass = (count, length, at) => {
     for (let n = 0; n < count; n++) {
       for (let k = 0; k < length; k++) line[k] = field[at(n, k)];
-      for (let round = 0; round < 3; round++) {
+      for (let k = 0; k < length; k++) {
         let sum = 0;
-        for (let k = -r; k <= r; k++) sum += line[Math.min(length - 1, Math.max(0, k))];
-        const out = new Float32Array(length);
-        for (let k = 0; k < length; k++) {
-          out[k] = sum / (2 * r + 1);
-          sum += line[Math.min(length - 1, k + r + 1)] - line[Math.max(0, k - r)];
-        }
-        line.set(out);
+        for (let j = -radius; j <= radius; j++) sum += kernel[j + radius] * line[Math.min(length - 1, Math.max(0, k + j))];
+        field[at(n, k)] = sum;
       }
-      for (let k = 0; k < length; k++) field[at(n, k)] = line[k];
     }
   };
   pass(height, width, (y, x) => y * width + x);
@@ -715,7 +726,7 @@ function grainOptions() {
   box.style.gap = "6px";
   const size = document.createElement("label");
   size.className = "row";
-  size.innerHTML = '<span class="name">입자 크기 <small>Full HD 기준 px</small></span><input type="range" min="0.5" max="6" step="0.1">';
+  size.innerHTML = '<span class="name">입자 크기 <small>Full HD 기준 px</small></span><input type="range" min="0.1" max="6" step="0.1">';
   const sizeSlider = size.querySelector("input");
   sizeSlider.value = state.grain.size;
   const sizeNum = numberInput(state.grain.size, 0.1, (v) => { state.grain.size = v; sizeSlider.value = v; mark(); changed(); });
@@ -745,8 +756,32 @@ function grainOptions() {
       : "크기 1 · 밝기별 반응 끔 · 색 입자 0이면 앱의 입자와 똑같습니다.";
   };
   mark();
-  box.append(size, midtone, colour, note);
+  const midtoneDefault = document.createElement("div");
+  midtoneDefault.className = "sub two";
+  midtoneDefault.innerHTML = '<span>사용자 기본값</span><label style="display:flex;gap:4px"><input type="checkbox"> 켜진 채로 시작</label>';
+  const midtoneDefaultBox = midtoneDefault.querySelector("input");
+  midtoneDefaultBox.checked = state.grainRanges.midtone.default;
+  midtoneDefaultBox.addEventListener("change", () => { state.grainRanges.midtone.default = midtoneDefaultBox.checked; });
+  box.append(size, userRange(state.grainRanges.size, 1, GRAIN_RANGES.size), midtone, midtoneDefault,
+    colour, userRange(state.grainRanges.colour, 100, GRAIN_RANGES.colour), note);
   return box;
+}
+
+/** A grain option's user range (min, max, step, default), shown ×`shown`, marked where it left `start`. */
+function userRange(range, shown, start) {
+  const sub = document.createElement("div");
+  sub.className = "sub";
+  sub.innerHTML = "<span>사용자 범위</span>";
+  for (const [field, label] of [["min", "최소"], ["max", "최대"], ["step", "간격"], ["default", "기본값"]]) {
+    const l = document.createElement("label");
+    l.textContent = label;
+    const input = numberInput(round(range[field] * shown), 0.1, (v) => { range[field] = v / shown; mark(); });
+    const mark = () => input.classList.toggle("changed", Math.abs(range[field] - start[field]) > 1e-9);
+    mark();
+    l.append(input);
+    sub.append(l);
+  }
+  return sub;
 }
 
 function colorInput(value, onChange) {
