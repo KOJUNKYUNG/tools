@@ -190,10 +190,15 @@ const QA = [
   ["halftoneLook", "망점 Default: 자체 입자 0.2, 크림/짙은 회색. 순수 흑백으로 갈지"],
   ["cmykLoss", "CMYK: 저장 손실이 보이는지 (4K 적용 → 저장본 확대). 보이면 PNG 저장"],
   ["solidSize", "단색 + 입자의 파일 크기 (단색 → 4K 적용)"],
+  ["solidVeil", "단색에도 어둡게·밝게 (결정 10-31: 넣음). 범위만 확인"],
+  ["grainKind", "입자 방식: 크기, 밝기별 반응, 색 입자 (입자 옵션으로 비교)"],
   ["ranges", "범위·기본값 결정"],
   ["exposed", "노출할 Paper 설정 결정"],
   ["copy", "문구 결정"],
 ];
+// The grain options the lab tries beyond the app's grain (QA 10-31). At these values the lab
+// lays the app's own grain; otherwise its own (labGrain below).
+const GRAIN_APP = { size: 1, midtone: false, colour: 0 };
 const ADVANCED = new Set(["fit", "scale", "rotation", "offsetX", "offsetY", "originX", "originY", "worldWidth", "worldHeight"]);
 const INTEGER = /count|rows|seed/i;
 const lookup = (dict, key) => key.split(".").reduce((o, k) => o?.[k], dict);
@@ -212,6 +217,7 @@ function appState() {
   for (const key of COPY_KEYS) copy[key] = { ko: lookup(dictionaries.ko, key), en: lookup(dictionaries.en, key) };
   return {
     values: { ...NO_FILTERS },
+    grain: { ...GRAIN_APP },
     ranges,
     paper,
     copy,
@@ -233,6 +239,7 @@ function restoreFrom(t) {
   const fresh = appState();
   state = {
     values: { ...fresh.values, ...t.values },
+    grain: { ...fresh.grain, ...t.grain },
     ranges: { ...fresh.ranges, ...t.ranges },
     paper: Object.fromEntries(PAPER_FILTER_NAMES.map((name) => {
       const s = t.paper?.[name];
@@ -256,7 +263,7 @@ function tuningToSave() {
   }
   const copy = Object.fromEntries(COPY_KEYS.filter((k) => state.copy[k].ko !== fresh.copy[k].ko || state.copy[k].en !== fresh.copy[k].en)
     .map((k) => [k, state.copy[k]]));
-  return { savedAt: new Date().toISOString(), values: state.values, ranges: state.ranges, paper, copy, qa: state.qa };
+  return { savedAt: new Date().toISOString(), values: state.values, grain: state.grain, ranges: state.ranges, paper, copy, qa: state.qa };
 }
 
 const copyKo = (key) => state.copy[key]?.ko ?? key;
@@ -314,7 +321,7 @@ async function useSolid() {
   ctx.fillRect(0, 0, size.width, size.height);
   const blob = await canvas.convertToBlob({ type: "image/png" });
   picture = { id: `solid:${rgb}`, kind: "solid", blob, crop: { x: 0, y: 0, ...size }, fitted4k: size };
-  $("pictureInfo").textContent = `단색 ${rgb} · 효과가 있으면 ${size.width} × ${size.height} 그림으로 들어감 · 흐리게·어둡게/밝게는 단색에 없음`;
+  $("pictureInfo").textContent = `단색 ${rgb} · 효과가 있으면 ${size.width} × ${size.height} 그림으로 들어감 · 흐리게는 단색에 없음 · 어둡게·밝게만 쓰면 앱에서는 그림이 아니라 바뀐 색으로 들어갈 예정 (랩의 4K 적용은 그림으로 잼)`;
 }
 
 async function choosePicture() {
@@ -381,18 +388,120 @@ async function paperDrawn(step, fitted, size) {
   }
 }
 
-/** The filtered picture at `size`, as the tool bakes it: the plan for that size over the fitted picture. */
+// ── the lab's grain (options the app does not have yet) ──────
+/** The app's cell hash (pixelFilters.ts), so the lab's grain at the app's options is the same pattern. */
+function hash(i, j, seed) {
+  let h = (Math.imul(i, 0x27d4eb2d) + Math.imul(j, 0x165667b1) + Math.imul(seed, 0x9e3779b1)) | 0;
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+/** A cell's value, triangular in −1..1 around 0, as the app's grain draws it. */
+function cellValue(i, j, seed) {
+  const h = hash(i, j, seed);
+  return ((h & 0xffff) + 0.5) / 65536 + ((h >>> 16) + 0.5) / 65536 - 1;
+}
+
+/** Three box blurs along each axis of a one-channel field, close to a Gaussian of `sigma` px; edges clamp. */
+function blurField(field, width, height, sigma) {
+  const r = Math.max(1, Math.floor((Math.sqrt((12 * sigma * sigma) / 3 + 1) - 1) / 2));
+  const line = new Float32Array(Math.max(width, height));
+  const pass = (count, length, at) => {
+    for (let n = 0; n < count; n++) {
+      for (let k = 0; k < length; k++) line[k] = field[at(n, k)];
+      for (let round = 0; round < 3; round++) {
+        let sum = 0;
+        for (let k = -r; k <= r; k++) sum += line[Math.min(length - 1, Math.max(0, k))];
+        const out = new Float32Array(length);
+        for (let k = 0; k < length; k++) {
+          out[k] = sum / (2 * r + 1);
+          sum += line[Math.min(length - 1, k + r + 1)] - line[Math.max(0, k - r)];
+        }
+        line.set(out);
+      }
+      for (let k = 0; k < length; k++) field[at(n, k)] = line[k];
+    }
+  };
+  pass(height, width, (y, x) => y * width + x);
+  pass(width, height, (x, y) => y * width + x);
+}
+
+/**
+ * One grain pattern as a field of values around 0: the app's cells, and
+ * for a size above 1 that pattern blurred until its specks are about
+ * `size` times as wide, then scaled back to the app's spread, the way photo
+ * editors grow grain (noise, then a blur), so specks stay round.
+ */
+function grainField(width, height, cell, size, seed) {
+  const field = new Float32Array(width * height);
+  const c = size < 1 ? cell * size : cell;
+  for (let y = 0; y < height; y++) {
+    const row = Math.floor((y + 0.5) / c);
+    for (let x = 0; x < width; x++) field[y * width + x] = cellValue(Math.floor((x + 0.5) / c), row, seed);
+  }
+  if (size > 1) {
+    blurField(field, width, height, 0.5 * cell * Math.sqrt(size * size - 1));
+    let sq = 0;
+    for (const v of field) sq += v * v;
+    const spread = Math.sqrt(1 / 6) / Math.sqrt(sq / field.length); // a triangular −1..1 value's spread
+    for (let i = 0; i < field.length; i++) field[i] *= spread;
+  }
+  return field;
+}
+
+/**
+ * Grain with the lab's options. `size` scales the specks (1 = the app's;
+ * below 1 the cells shrink, and the change with them, as the app does for
+ * cells under a pixel). `midtone` weighs the change by 4·L·(1 − L), full at
+ * mid grey and none at black or white, the response an overlay-blended
+ * grain layer has. `colour` mixes in a separate pattern per channel.
+ */
+function labGrain(pixels, width, height, { amount, cell, seed }, { size, midtone, colour }) {
+  const scale = amount * 255 * (size < 1 ? Math.min(1, cell * size) / Math.min(1, cell) : 1);
+  const mono = grainField(width, height, cell, size, seed);
+  const channels = colour > 0 ? [1, 2, 3].map((k) => grainField(width, height, cell, size, seed + k)) : null;
+  for (let p = 0; p < width * height; p++) {
+    const i = p * 4;
+    let weight = scale;
+    if (midtone) {
+      const l = (0.2126 * pixels[i] + 0.7152 * pixels[i + 1] + 0.0722 * pixels[i + 2]) / 255;
+      weight *= 4 * l * (1 - l);
+    }
+    for (let k = 0; k < 3; k++) {
+      const v = channels ? (1 - colour) * mono[p] + colour * channels[k][p] : mono[p];
+      pixels[i + k] += Math.round(v * weight);
+    }
+  }
+}
+
+const labGrainOn = () => Object.entries(GRAIN_APP).some(([k, v]) => state.grain[k] !== v);
+
+/**
+ * The filtered picture at `size`, as the tool bakes it: the plan for that
+ * size over the fitted picture. Two lab changes: a solid colour takes the
+ * veil (QA 10-31; blur changes nothing on it), and the grain may take the
+ * lab's options.
+ */
 async function renderAt(size) {
   const start = performance.now();
   const fitted = await fittedAt(size);
-  const plan = filterPlan({ ...NO_FILTERS, ...state.values }, picture.kind, size);
+  const values = { ...NO_FILTERS, ...state.values };
+  // A solid colour planned as a picture without blur: the veil's step is the picture's.
+  const plan = picture.kind === "solid" ? filterPlan({ ...values, blur: 0 }, "picture", size) : filterPlan(values, picture.kind, size);
   const step = plan[0]?.filter === "paper" ? plan[0] : null;
   const drawn = step ? await paperDrawn(step, fitted, size) : undefined;
   const out = document.createElement("canvas");
   out.width = size.width;
   out.height = size.height;
-  out.getContext("2d", { willReadFrequently: true }).drawImage(fitted, 0, 0);
-  composeFilters(out, plan, drawn);
+  const ctx = out.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(fitted, 0, 0);
+  const grainStep = labGrainOn() ? plan.find((s) => s.filter === "grain") : null;
+  composeFilters(out, grainStep ? plan.filter((s) => s !== grainStep) : plan, drawn);
+  if (grainStep) {
+    const image = ctx.getImageData(0, 0, size.width, size.height);
+    labGrain(image.data, size.width, size.height, grainStep, state.grain);
+    ctx.putImageData(image, 0, 0);
+  }
   return { out, fitted, plan, ms: performance.now() - start };
 }
 
@@ -593,9 +702,51 @@ function buildSliders() {
       sub.append(l);
     }
     box.append(row, out, sub);
+    if (name === "grain") box.append(grainOptions());
     $("sliders").append(box);
     sync();
   }
+}
+
+/** The lab's grain options (not in the app yet): size, response by brightness, colour. */
+function grainOptions() {
+  const box = document.createElement("div");
+  box.className = "panel";
+  box.style.gap = "6px";
+  const size = document.createElement("label");
+  size.className = "row";
+  size.innerHTML = '<span class="name">입자 크기 <small>Full HD 기준 px</small></span><input type="range" min="0.5" max="6" step="0.1">';
+  const sizeSlider = size.querySelector("input");
+  sizeSlider.value = state.grain.size;
+  const sizeNum = numberInput(state.grain.size, 0.1, (v) => { state.grain.size = v; sizeSlider.value = v; mark(); changed(); });
+  sizeSlider.addEventListener("input", () => { state.grain.size = Number(sizeSlider.value); sizeNum.value = sizeSlider.value; mark(); changed(); });
+  size.append(sizeNum);
+  const colour = document.createElement("label");
+  colour.className = "row";
+  colour.innerHTML = '<span class="name">색 입자 <small>%</small></span><input type="range" min="0" max="100" step="1">';
+  const colourSlider = colour.querySelector("input");
+  colourSlider.value = state.grain.colour * 100;
+  const colourNum = numberInput(state.grain.colour * 100, 1, (v) => { state.grain.colour = v / 100; colourSlider.value = v; mark(); changed(); });
+  colourSlider.addEventListener("input", () => { state.grain.colour = Number(colourSlider.value) / 100; colourNum.value = colourSlider.value; mark(); changed(); });
+  colour.append(colourNum);
+  const midtone = document.createElement("label");
+  midtone.className = "row wide";
+  midtone.innerHTML = '<span class="name">밝기별 반응</span><span><input type="checkbox"> 중간 밝기에 진하게, 아주 어둡거나 밝은 곳은 약하게</span>';
+  const midtoneBox = midtone.querySelector("input");
+  midtoneBox.checked = state.grain.midtone;
+  midtoneBox.addEventListener("change", () => { state.grain.midtone = midtoneBox.checked; mark(); changed(); });
+  const note = document.createElement("p");
+  note.className = "hint";
+  const mark = () => {
+    sizeNum.classList.toggle("changed", state.grain.size !== GRAIN_APP.size);
+    colourNum.classList.toggle("changed", state.grain.colour !== GRAIN_APP.colour);
+    note.textContent = labGrainOn()
+      ? "랩 전용 입자로 그리는 중입니다(앱에는 아직 없음). 크기가 1보다 크면 노이즈를 흐려서 알갱이를 키웁니다(사진 편집기 방식). 색 입자는 4K 적용 후 저장본에서 JPEG 손실을 확인하세요."
+      : "크기 1 · 밝기별 반응 끔 · 색 입자 0이면 앱의 입자와 똑같습니다.";
+  };
+  mark();
+  box.append(size, midtone, colour, note);
+  return box;
 }
 
 function colorInput(value, onChange) {
