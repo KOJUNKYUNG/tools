@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { composeFilters, paperStepOf } from "@/lib/image/filterCanvas";
-import { filterPlan, isFiltered, laidPaperFilter, NO_FILTERS, type BackgroundKind, type FilterSet } from "@/lib/image/filterSet";
+import { adjustFilters, composeFilters, paperStepOf } from "@/lib/image/filterCanvas";
+import { bakesPicture, filterPlan, paperDrawingKey, type BackgroundKind, type FilterSet } from "@/lib/image/filterSet";
 import { drawPaperFilter } from "@/lib/image/paperFilterDrawing";
 import { filledSize, fittedSize, type PixelSize } from "@/lib/image/slideImage";
-import type { PaperFilter } from "@/lib/image/paperFilters";
 import { standInRect } from "@/lib/image/cropFrameView";
 import { maxFitCrop, type CropRect, type ImageDims } from "@/lib/image/maxFitCrop";
 import { drawScaledDown } from "@/lib/image/downscale";
@@ -55,13 +54,14 @@ interface Base {
  * The selected-background preview with the filter set baked in: the cropped
  * picture (or the recipe edit's live drawing, or a solid colour) drawn at preview size and
  * filtered by the same code as the applied picture, on a canvas copied as
- * the recipe edit's is. The Paper filter is drawn once per picture and
- * filter, one drawing at a time, and kept, so its strength and the pixel
- * filters redraw at most once a frame without drawing it again. It is drawn
- * at the applied picture's size and scaled down: a halftone's dots drawn at
- * preview size come out coarser than the applied picture's. Null while
- * nothing is filtered (the picture shows as it is) or the picture is not
- * loaded yet.
+ * the recipe edit's is. The Paper filter is drawn from the adjusted
+ * picture once per picture, filter, settings and adjustments, one drawing at
+ * a time, and kept, so its strength, the overlays and grain redraw at most
+ * once a frame without drawing it again. It is drawn at the applied
+ * picture's size and scaled down: a halftone's dots drawn at preview size
+ * come out coarser than the applied picture's. Null while the filters make
+ * no picture (the picture shows as it is, a solid colour as its fill) or
+ * the picture is not loaded yet.
  */
 export function useFilterPreview({
   filters,
@@ -80,11 +80,12 @@ export function useFilterPreview({
   const outRef = useRef<HTMLCanvasElement | null>(null);
   const [image, setImage] = useState<{ url: string; img: HTMLImageElement } | null>(null);
   const [base, setBase] = useState<Base | null>(null);
-  /** Paper's latest drawing, and the base and filter it was drawn for. */
+  /** Paper's latest drawing, the adjusted picture it was drawn from, and the base and key it was drawn for. */
   const [paperDrawn, setPaperDrawn] = useState<{
     canvas: HTMLCanvasElement;
+    adjusted: HTMLCanvasElement;
     version: number;
-    paperFilter: PaperFilter;
+    key: string;
   } | null>(null);
   /** The latest drawing, and the picture it was drawn from. */
   const [drawn, setDrawn] = useState<{ live: LivePicture; url: string } | null>(null);
@@ -92,9 +93,12 @@ export function useFilterPreview({
   const paperQueue = useRef<Promise<void>>(Promise.resolve());
   const onPaperFailRef = useRef(onPaperFail);
   onPaperFailRef.current = onPaperFail;
-  const filtered = isFiltered(filters, kind);
-  // Its drawing is kept across its strength.
-  const paperFilter = laidPaperFilter(filters, kind);
+  // The filters as they are when a queued drawing starts.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const filtered = bakesPicture(filters, kind);
+  // Its drawing is kept across what is laid after it.
+  const paperKey = paperDrawingKey(filters, kind);
 
   useEffect(() => {
     if (!filtered || colour || !imageUrl) return;
@@ -165,17 +169,26 @@ export function useFilterPreview({
   }, [filtered, colour, imageUrl, loaded, recipeLive, crop, sourceW, sourceH, ratio]);
 
   useEffect(() => {
-    if (!base || !paperFilter) return;
+    if (!base || !paperKey) return;
     let current = true;
     paperQueue.current = paperQueue.current.then(async () => {
       if (!current) return;
-      // At full strength: the strength is laid when the drawing is. Planned
-      // for the applied size, so its dots are the applied picture's.
-      const paperStep = paperStepOf(filterPlan({ ...NO_FILTERS, paper: paperFilter }, kind, base.applied));
+      const set = filtersRef.current;
+      // The adjustments at preview size, the picture the filter is drawn from.
+      const { width, height } = base.canvas;
+      const adjusted = document.createElement("canvas");
+      adjusted.width = width;
+      adjusted.height = height;
+      const ctx = adjusted.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+      ctx.drawImage(base.canvas, 0, 0);
+      adjustFilters(adjusted, filterPlan(set, kind, { width, height }));
+      // Planned for the applied size, so its dots are the applied picture's.
+      const paperStep = paperStepOf(filterPlan(set, kind, base.applied));
       if (!paperStep) return;
       try {
-        const canvas = await drawPaperFilter(base.canvas, paperStep);
-        if (current) setPaperDrawn({ canvas, version: base.version, paperFilter });
+        const canvas = await drawPaperFilter(adjusted, paperStep);
+        if (current) setPaperDrawn({ canvas, adjusted, version: base.version, key: paperKey });
       } catch (err) {
         console.error("Paper filter preview failed to draw", err);
         if (current) onPaperFailRef.current();
@@ -184,32 +197,30 @@ export function useFilterPreview({
     return () => {
       current = false;
     };
-  }, [base, paperFilter, kind]);
+  }, [base, paperKey, kind]);
 
   useEffect(() => {
     if (!filtered || !base) return;
     const { width, height } = base.canvas;
     const plan = filterPlan(filters, kind, { width, height });
     const paperStep = paperStepOf(plan);
-    const paperCanvas =
-      paperStep && paperDrawn?.version === base.version && paperDrawn.paperFilter === paperStep.paper
-        ? paperDrawn.canvas
-        : undefined;
+    const paper = paperStep && paperDrawn?.version === base.version && paperDrawn.key === paperKey ? paperDrawn : undefined;
     // Until Paper's drawing of this picture is in, the last preview stays.
-    if (paperStep && !paperCanvas) return;
+    if (paperStep && !paper) return;
     const frame = requestAnimationFrame(() => {
       const canvas = (outRef.current ??= document.createElement("canvas"));
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return;
-      ctx.drawImage(base.canvas, 0, 0);
-      composeFilters(canvas, plan, paperCanvas);
+      // The adjusted picture the drawing was made from, or the picture, every step still to come.
+      ctx.drawImage(paper?.adjusted ?? base.canvas, 0, 0);
+      composeFilters(canvas, plan, paper?.canvas);
       // A new version tells each copy to take the canvas again.
       setDrawn((prev) => ({ live: { canvas, version: (prev?.live.version ?? 0) + 1 }, url: base.url }));
     });
     return () => cancelAnimationFrame(frame);
-  }, [filtered, filters, kind, base, paperDrawn]);
+  }, [filtered, filters, kind, base, paperDrawn, paperKey]);
 
   // A drawing of the last picture never shows over a new one.
   return filtered && drawn && drawn.url === shown ? drawn.live : null;

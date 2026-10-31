@@ -22,7 +22,16 @@ import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { normalizeImageFile } from "@/lib/image/heic";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import { belowFullHd, filledSize, slideImagePreparer, type PrepareStep, type SlideSize } from "@/lib/image/slideImage";
-import { filtersAfter, filtersFor, isFiltered, NO_FILTERS, type BackgroundKind, type FilterSet } from "@/lib/image/filterSet";
+import {
+  bakesPicture,
+  filteredColour,
+  filtersAfter,
+  filtersFor,
+  isFiltered,
+  NO_FILTERS,
+  type BackgroundKind,
+  type FilterSet,
+} from "@/lib/image/filterSet";
 import { filterStep } from "@/lib/image/filterCanvas";
 import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
 import { paperRecipe, type PaperRecipe } from "@/lib/gallery/recipes";
@@ -304,9 +313,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     download,
   } = useToolProcessor<Uint8Array>({
     processor: async (files, onProgress) => {
-      // A filtered solid colour goes in as a picture of the colour, whole,
-      // its filters baked in as a picture's are; an unfiltered one stays a fill.
-      const solid = fill?.kind === "colour" && isFiltered(filters, "solid") ? fill : null;
+      // A solid colour with grain or a Paper filter goes in as a picture of
+      // the colour, whole, its filters baked in as a picture's are; otherwise
+      // it stays a fill, of the colour its colour effects make.
+      const solid = fill?.kind === "colour" && bakesPicture(filters, "solid") ? fill : null;
+      const filledFill = fill?.kind === "colour" ? { ...fill, rgb: filteredColour(filters, `#${fill.rgb}`).slice(1) } : fill;
       // An edited pick is drawn now, at the gallery file's size, so the frame
       // set on the file applies to it as is. The drawing is the gauge's first
       // share, so the gauge moves from the click on.
@@ -321,7 +332,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         pptxFile: files[0],
         background: solid
           ? { kind: "picture", file: await solidPictureFile(solid.rgb, slide) }
-          : (fill ?? { kind: "picture", file, crop: crop ?? undefined }),
+          : (filledFill ?? { kind: "picture", file, crop: crop ?? undefined }),
         mode,
         targetSlides:
           mode === "specific-slides"
@@ -639,7 +650,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   });
   // "No background" shows the deck's theme colour; white until it is read.
   const noneColour = themeBg ?? "#ffffff";
-  const fillColour = !fill ? null : (solidColour ?? noneColour);
+  // A solid colour as its fill: with its colour effects.
+  const fillColour = !fill ? null : solidColour ? filteredColour(filters, solidColour) : noneColour;
   const canRun =
     !!pptxFile &&
     (!!bgFile || !!fill) &&

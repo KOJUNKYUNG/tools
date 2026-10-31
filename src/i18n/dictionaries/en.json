@@ -252,9 +252,15 @@
         },
         "filters": {
           "effects": "Effects",
+          "tabs": {
+            "adjust": "Adjust",
+            "style": "Style",
+            "overlay": "Overlay",
+            "grain": "Grain"
+          },
           "blur": "Blur",
-          "veil": "Dark / light",
-          "grain": "Grain",
+          "saturation": "Saturation",
+          "contrast": "Contrast",
           "paper": "Style",
           "paperNone": "None",
           "paperFilters": {
@@ -265,6 +271,32 @@
             "halftoneCmyk": "CMYK"
           },
           "strength": "Strength",
+          "settings": {
+            "size": "Size",
+            "angle": "Angle",
+            "shape": "Shape",
+            "colorShadow": "Shadow",
+            "seed": "Pattern",
+            "colorFront": "Dots",
+            "colorBack": "Back",
+            "originalColors": "Own colours",
+            "contrast": "Contrast",
+            "gridNoise": "Scatter"
+          },
+          "shapes": {
+            "lines": "Lines",
+            "linesIrregular": "Irregular lines",
+            "wave": "Wave",
+            "zigzag": "Zigzag",
+            "pattern": "Pattern"
+          },
+          "overlay": "Colour",
+          "overlayColour": "Overlay colour",
+          "veil": "Dark / light",
+          "grain": "Grain",
+          "grainSize": "Grain size",
+          "grainColour": "Colour grain",
+          "grainResponse": "By brightness",
           "reset": "Clear effects"
         },
         "solid": {

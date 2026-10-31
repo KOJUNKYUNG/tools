@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { NumberField } from "@/components/common/NumberField";
 import { shownValue, typedValue, type SliderRange } from "@/lib/gallery/recipeEdit";
@@ -11,19 +11,25 @@ export const GROUP_LABEL = "font-mono text-[10px] font-medium uppercase tracking
 /** Every label of the area takes the same width, so each control starts at the same place. */
 export const LABEL_BOX = "line-clamp-2 w-16 shrink-0 break-keep leading-[1.15]";
 
-/** A labelled slider with a number field for its value, in one cell of the area's grid. */
+/**
+ * A labelled slider with a number field for its value, in one cell of the
+ * area's grid; `lead`, a control the value belongs with (the overlay's
+ * colour), sits between the label and the slider.
+ */
 export function SliderCell({
   label,
   range,
   value,
   locked,
   onChange,
+  lead,
 }: {
   label: string;
   range: SliderRange;
   value: number;
   locked: boolean;
   onChange: (value: number) => void;
+  lead?: ReactNode;
 }) {
   const id = useId();
   const shownNow = shownValue(range, value);
@@ -32,6 +38,7 @@ export function SliderCell({
       <label htmlFor={id} className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
         {label}
       </label>
+      {lead}
       <input
         id={id}
         type="range"
