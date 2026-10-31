@@ -87,12 +87,14 @@ export function SliderCell({
 }
 
 /**
- * How far one arrow step of the number field moves, as read: one whole unit,
+ * How far one arrow step of the number field moves, as read: the range's own
+ * arrow step where it sets one (blur's 0.1%); else one whole unit,
  * or the slider's step where that is coarser (5%), on the grid the browser
  * steps on (from the range's minimum); where a whole unit is off that grid
  * (dithering's pixel size from 0.5), the slider's own step.
  */
 function arrowStep(range: SliderRange): number {
+  if (range.arrowStep) return range.arrowStep;
   const step = range.step * range.shown.times;
   const whole = Math.max(1, step);
   const min = shownValue(range, range.min);

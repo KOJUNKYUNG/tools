@@ -22,6 +22,8 @@ interface PreviewLightboxProps {
   fullscreenLabels?: { enter: string; exit: string };
   /** Told when the lightbox starts or stops filling the screen, so the picture can be drawn for it. */
   onFullscreenChange?: (fullscreen: boolean) => void;
+  /** The finished picture itself (a URL), shown over all while the lightbox fills the screen. */
+  actual?: string | null;
   /** Show only this part of the image (its aspect is then the box's). */
   crop?: CropRect | null;
   /** The size `crop` is held in, when known before `src` loads (see CroppedImage). */
@@ -46,6 +48,7 @@ export function PreviewLightbox({
   onClose,
   fullscreenLabels,
   onFullscreenChange,
+  actual,
   crop,
   sourceSize,
   busyLabel,
@@ -130,6 +133,10 @@ export function PreviewLightbox({
             sourceSize={{ w: finished.canvas.width, h: finished.canvas.height }}
             className="pointer-events-none absolute inset-0 size-full"
           />
+        ) : null}
+        {fullscreen && actual ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={actual} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 size-full" />
         ) : null}
       </div>
       {busyLabel ? <CornerSpinner label={busyLabel} className="left-2.5 top-2.5" /> : null}

@@ -75,7 +75,7 @@ export function EditArea({ heading, open, onOpenChange, groups, note, locked }: 
           {heading}
         </button>
         {open && tabbed && (
-          <div role="tablist" aria-label={heading} className="flex min-w-0 gap-0.5">
+          <div role="tablist" aria-label={heading} className="flex shrink-0 gap-0.5">
             {groups.map((group) => (
               <button
                 key={group.name}
@@ -97,7 +97,7 @@ export function EditArea({ heading, open, onOpenChange, groups, note, locked }: 
         )}
         {summary && (
           // What is laid, in view while the controls are closed or show another group; cut short, never wrapped.
-          <span className="min-w-0 truncate font-body text-[10.5px]" style={{ color: "var(--ink-soft)" }} title={summary}>
+          <span className="min-w-0 flex-1 truncate font-body text-[10.5px]" style={{ color: "var(--ink-soft)" }} title={summary}>
             {summary}
           </span>
         )}

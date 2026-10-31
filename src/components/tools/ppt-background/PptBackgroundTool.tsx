@@ -20,7 +20,7 @@ import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
 import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { normalizeImageFile } from "@/lib/image/heic";
-import type { CropRect } from "@/lib/image/maxFitCrop";
+import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import { belowFullHd, filledSize, slideImagePreparer, type PrepareStep, type SlideSize } from "@/lib/image/slideImage";
 import {
   activeFilters,
@@ -651,10 +651,57 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     crop,
     sourceSize: pickSize,
     ratio: slideAspect.ratio,
-    large: zoomFullscreen && zoom === "selected",
     // The preview would go on showing the picture without the filter: say so, as a run does.
     onPaperFail: () => toast.error(labels.errors.filterDrawFailed, { id: "filter-preview" }),
   });
+  /**
+   * The picture the run would put in the deck, made by the same steps (the
+   * edited recipe drawn, cut, fitted inside 4K, filtered, saved as PNG or
+   * JPEG), while the zoom fills the screen: the preview is drawn at Full HD
+   * from stand-ins, and grain and dots show differently when stretched to a
+   * screen, so the full screen shows the file itself. Null until it is made,
+   * or where the background is a fill.
+   */
+  const [actualUrl, setActualUrl] = useState<string | null>(null);
+  /** The file for the full screen is being made. */
+  const [actualPending, setActualPending] = useState(false);
+  const slideRatio = slideAspect.ratio;
+  useEffect(() => {
+    setActualUrl(null);
+    setActualPending(false);
+    if (!zoomFullscreen || zoom !== "selected") return;
+    const solid = fill?.kind === "colour" ? fill : null;
+    // A fill (no background, or a colour its effects keep a colour) shows as its colour.
+    if (fill && !(solid && bakesPicture(filters, "solid"))) return;
+    let current = true;
+    let url: string | null = null;
+    setActualPending(true);
+    void (async () => {
+      const slide = { w: slideRatio, h: 1 };
+      const source = solid ? await solidPictureFile(solid.rgb, slide) : editedProps ? await drawRecipeFile(editedProps) : bgFile;
+      if (!source || !current) return;
+      const bitmap = await createImageBitmap(source);
+      const size = { w: bitmap.width, h: bitmap.height };
+      bitmap.close();
+      const cut = solid ? { x: 0, y: 0, width: size.w, height: size.h } : (crop ?? maxFitCrop(size, slideRatio, 1));
+      const prepared = await slideImagePreparer(filterStep(filters, solid ? "solid" : "picture"))(source, cut, slide);
+      if (!current) return;
+      // The bytes are the prepared picture's own buffer; a Blob takes them as they are.
+      url = URL.createObjectURL(new Blob([prepared.bytes as Uint8Array<ArrayBuffer>], { type: `image/${prepared.format}` }));
+      setActualUrl(url);
+    })()
+      .catch((err) => {
+        // The preview stays in its place; the run reports its own failure.
+        console.error("Full-screen picture failed to draw", err);
+      })
+      .finally(() => {
+        if (current) setActualPending(false);
+      });
+    return () => {
+      current = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [zoomFullscreen, zoom, fill, filters, editedProps, bgFile, crop, slideRatio]);
   // "No background" shows the deck's theme colour; white until it is read.
   const noneColour = themeBg ?? "#ffffff";
   // A solid colour as its fill: with its colour effects.
@@ -1097,12 +1144,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   aspect={aspectCss}
                   crop={zoom === "selected" ? crop : null}
                   sourceSize={zoom === "selected" ? pickSize : undefined}
-                  busyLabel={zoom === "selected" && editPending ? labels.recipeEdit.drawing : null}
+                  busyLabel={zoom === "selected" && (editPending || actualPending) ? labels.recipeEdit.drawing : null}
                   live={zoom === "selected" ? editLive : null}
                   finished={zoom === "selected" ? filterPreview : null}
                   closeLabel={labels.preview.close}
                   fullscreenLabels={{ enter: labels.preview.fullscreen, exit: labels.preview.exitFullscreen }}
                   onFullscreenChange={setZoomFullscreen}
+                  actual={zoom === "selected" ? actualUrl : null}
                   onClose={() => setZoom(null)}
                 />
               )}

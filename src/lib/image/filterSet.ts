@@ -58,8 +58,8 @@ export interface OfferedFilters {
 
 // Ranges set at the spec-end visual QA (2026-10-31); saturation, contrast
 // and the colour overlay [임시] until their own look.
-/** 0 to 5% of the width. */
-const BLUR: SliderRange = { min: 0, max: 0.05, step: 0.001, shown: { times: 100, suffix: "%" } };
+/** 0 to 5% of the width; arrows step 0.1%, since 1% already blurs strongly. */
+const BLUR: SliderRange = { min: 0, max: 0.05, step: 0.001, shown: { times: 100, suffix: "%" }, arrowStep: 0.1 };
 /** −100% (grey) to +100%. */
 const SATURATION: SliderRange = { min: -1, max: 1, step: 0.01, shown: { times: 100, suffix: "%" } };
 /** −50% to +50%. */
