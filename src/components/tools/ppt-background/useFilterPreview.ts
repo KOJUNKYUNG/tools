@@ -17,6 +17,18 @@ import type { LivePicture } from "@/components/image/LiveCanvas";
  */
 const PREVIEW_BOX = { long: 1920, short: 1080 };
 
+/**
+ * How long the filters stay unchanged before the preview is drawn at full
+ * size; changes within it (a slider being dragged) draw a draft.
+ */
+const SETTLE_MS = 200;
+/**
+ * A draft's share of the preview's size: a quarter of the pixels, which the
+ * pixel filters (JavaScript, a pixel at a time) run about four times as fast,
+ * so a dragged slider keeps up; the full size follows once it stops.
+ */
+const DRAFT_SCALE = 0.5;
+
 /** The preview box in the orientation of a slide of `ratio` (width / height). */
 function previewBox(ratio: number): ImageDims {
   return ratio >= 1 ? { w: PREVIEW_BOX.long, h: PREVIEW_BOX.short } : { w: PREVIEW_BOX.short, h: PREVIEW_BOX.long };
@@ -41,6 +53,25 @@ export interface FilterPreviewInput {
   onPaperFail: () => void;
 }
 
+/** A Paper drawing of the preview, and what it was drawn for. */
+interface PaperDrawn {
+  canvas: HTMLCanvasElement;
+  /** The adjusted picture it was drawn from, at its size. */
+  adjusted: HTMLCanvasElement;
+  /** The base's version and the drawing's key (paperDrawingKey) it was drawn for. */
+  version: number;
+  key: string;
+  /** Drawn for a draft, at its size: replaced once the filters rest. */
+  draft: boolean;
+}
+
+/** The size the preview is drawn at: the base's, or a draft's share of it. */
+function previewSize(base: Base, drafting: boolean): PixelSize {
+  const { width, height } = base.canvas;
+  if (!drafting) return { width, height };
+  return { width: Math.max(1, Math.round(width * DRAFT_SCALE)), height: Math.max(1, Math.round(height * DRAFT_SCALE)) };
+}
+
 /** The cropped picture at preview size, the input of every filter; a new version on each drawing. */
 interface Base {
   canvas: HTMLCanvasElement;
@@ -59,7 +90,9 @@ interface Base {
  * a time, and kept, so its strength, the overlays and grain redraw at most
  * once a frame without drawing it again. It is drawn at the applied
  * picture's size and scaled down: a halftone's dots drawn at preview size
- * come out coarser than the applied picture's. Null while the filters make
+ * come out coarser than the applied picture's. While the filters keep
+ * changing, the preview is a half-size draft (the Paper filter drawn at that
+ * size too), and the full size follows once they rest. Null while the filters make
  * no picture (the picture shows as it is, a solid colour as its fill) or
  * the picture is not loaded yet.
  */
@@ -80,13 +113,13 @@ export function useFilterPreview({
   const outRef = useRef<HTMLCanvasElement | null>(null);
   const [image, setImage] = useState<{ url: string; img: HTMLImageElement } | null>(null);
   const [base, setBase] = useState<Base | null>(null);
-  /** Paper's latest drawing, the adjusted picture it was drawn from, and the base and key it was drawn for. */
-  const [paperDrawn, setPaperDrawn] = useState<{
-    canvas: HTMLCanvasElement;
-    adjusted: HTMLCanvasElement;
-    version: number;
-    key: string;
-  } | null>(null);
+  /** Paper's latest drawing of the preview. */
+  const [paperDrawn, setPaperDrawn] = useState<PaperDrawn | null>(null);
+  const paperDrawnRef = useRef(paperDrawn);
+  paperDrawnRef.current = paperDrawn;
+  /** The filters once they last rested; while they differ from the current ones, the preview is a draft. */
+  const [settled, setSettled] = useState(filters);
+  const drafting = settled !== filters;
   /** The latest drawing, and the picture it was drawn from. */
   const [drawn, setDrawn] = useState<{ live: LivePicture; url: string } | null>(null);
   /** Paper drawings run one after another; one whose base or filter has changed meanwhile is skipped. */
@@ -99,6 +132,12 @@ export function useFilterPreview({
   const filtered = bakesPicture(filters, kind);
   // Its drawing is kept across what is laid after it.
   const paperKey = paperDrawingKey(filters, kind);
+
+  useEffect(() => {
+    if (settled === filters) return;
+    const timer = setTimeout(() => setSettled(filters), SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [filters, settled]);
 
   useEffect(() => {
     if (!filtered || colour || !imageUrl) return;
@@ -170,25 +209,29 @@ export function useFilterPreview({
 
   useEffect(() => {
     if (!base || !paperKey) return;
+    // The drawing in hand serves: a full one at any time, a draft while drafting.
+    const kept = paperDrawnRef.current;
+    if (kept && kept.version === base.version && kept.key === paperKey && (!kept.draft || drafting)) return;
     let current = true;
     paperQueue.current = paperQueue.current.then(async () => {
       if (!current) return;
       const set = filtersRef.current;
-      // The adjustments at preview size, the picture the filter is drawn from.
-      const { width, height } = base.canvas;
+      // The adjustments at the preview's size (a draft's while drafting), the picture the filter is drawn from.
+      const { width, height } = previewSize(base, drafting);
       const adjusted = document.createElement("canvas");
       adjusted.width = width;
       adjusted.height = height;
       const ctx = adjusted.getContext("2d", { willReadFrequently: true });
       if (!ctx) return;
-      ctx.drawImage(base.canvas, 0, 0);
+      ctx.drawImage(base.canvas, 0, 0, width, height);
       adjustFilters(adjusted, filterPlan(set, kind, { width, height }));
-      // Planned for the applied size, so its dots are the applied picture's.
-      const paperStep = paperStepOf(filterPlan(set, kind, base.applied));
+      // Planned for the applied size, so its dots are the applied picture's;
+      // a draft's for its own size, which draws in a fraction of the time.
+      const paperStep = paperStepOf(filterPlan(set, kind, drafting ? { width, height } : base.applied));
       if (!paperStep) return;
       try {
         const canvas = await drawPaperFilter(adjusted, paperStep);
-        if (current) setPaperDrawn({ canvas, adjusted, version: base.version, key: paperKey });
+        if (current) setPaperDrawn({ canvas, adjusted, version: base.version, key: paperKey, draft: drafting });
       } catch (err) {
         console.error("Paper filter preview failed to draw", err);
         if (current) onPaperFailRef.current();
@@ -197,15 +240,18 @@ export function useFilterPreview({
     return () => {
       current = false;
     };
-  }, [base, paperKey, kind]);
+  }, [base, paperKey, kind, drafting]);
 
   useEffect(() => {
     if (!filtered || !base) return;
-    const { width, height } = base.canvas;
+    const { width, height } = previewSize(base, drafting);
     const plan = filterPlan(filters, kind, { width, height });
     const paperStep = paperStepOf(plan);
-    const paper = paperStep && paperDrawn?.version === base.version && paperDrawn.key === paperKey ? paperDrawn : undefined;
-    // Until Paper's drawing of this picture is in, the last preview stays.
+    const paper =
+      paperStep && paperDrawn?.version === base.version && paperDrawn.key === paperKey && (drafting || !paperDrawn.draft)
+        ? paperDrawn
+        : undefined;
+    // Until Paper's drawing of this picture is in (a full one once the filters rest), the last preview stays.
     if (paperStep && !paper) return;
     const frame = requestAnimationFrame(() => {
       const canvas = (outRef.current ??= document.createElement("canvas"));
@@ -214,13 +260,13 @@ export function useFilterPreview({
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return;
       // The adjusted picture the drawing was made from, or the picture, every step still to come.
-      ctx.drawImage(paper?.adjusted ?? base.canvas, 0, 0);
+      ctx.drawImage(paper?.adjusted ?? base.canvas, 0, 0, width, height);
       composeFilters(canvas, plan, paper?.canvas);
       // A new version tells each copy to take the canvas again.
       setDrawn((prev) => ({ live: { canvas, version: (prev?.live.version ?? 0) + 1 }, url: base.url }));
     });
     return () => cancelAnimationFrame(frame);
-  }, [filtered, filters, kind, base, paperDrawn, paperKey]);
+  }, [filtered, filters, kind, base, paperDrawn, paperKey, drafting]);
 
   // A drawing of the last picture never shows over a new one.
   return filtered && drawn && drawn.url === shown ? drawn.live : null;
