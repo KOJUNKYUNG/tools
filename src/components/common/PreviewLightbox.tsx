@@ -69,10 +69,10 @@ export function PreviewLightbox({
     return () => {
       document.removeEventListener("fullscreenchange", sync);
       // Closed while filling the screen: the screen is given back.
-      if (el && document.fullscreenElement === el) {
-        void document.exitFullscreen();
-        onFullscreenChange?.(false);
-      }
+      if (el && document.fullscreenElement === el) void document.exitFullscreen();
+      // Always told, as the close button's exit may end after this listener
+      // is gone: a full screen left recorded would keep the file being made.
+      onFullscreenChange?.(false);
     };
   }, [onFullscreenChange]);
   const toggleFullscreen = () => {
