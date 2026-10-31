@@ -99,7 +99,11 @@ export function FilterControls({ offered, filters, onChange, locked, labels }: F
   const shown = tabs.includes(tab) ? tab : tabs[0];
   const paper = filters.paper && paperOffer?.filters.includes(filters.paper) ? filters.paper : null;
   // The chosen style differs from its defaults: its reset has something to undo.
-  const paperEdited = !!paper && (filters.paperStrength !== 1 || Object.keys(filters.paperSettings[paper] ?? {}).length > 0);
+  const paperValues = paper ? settingValues(paper, filters.paperSettings) : null;
+  const paperEdited =
+    !!paper &&
+    (filters.paperStrength !== 1 ||
+      Object.entries(settingsOf(paper)).some(([prop, setting]) => paperValues?.[prop] !== setting.default));
 
   return (
     <div className="flex flex-col gap-1.5">

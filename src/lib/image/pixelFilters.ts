@@ -168,6 +168,12 @@ function cellValue(i: number, j: number, seed: number): number {
 const spreadFields = new Map<string, Float32Array>();
 /** The colour grain's four patterns. */
 const SPREAD_FIELDS_KEPT = 4;
+/**
+ * The largest field kept: a preview's (Full HD, 8 MB a field). A 4K
+ * apply's fields (33 MB each) are drawn once and let go, rather than held
+ * for the life of the page.
+ */
+const SPREAD_FIELD_KEPT_PIXELS = 1920 * 1920;
 
 /** The cells blurred by `spread` px and scaled back to the cells' spread (a triangular −1..1 value's, √(1/6)). */
 function spreadField(width: number, height: number, cell: number, seed: number, spread: number, cellAt: Pattern): Float32Array {
@@ -184,6 +190,7 @@ function spreadField(width: number, height: number, cell: number, seed: number, 
     const k = Math.sqrt(1 / 6) / rms;
     for (let p = 0; p < field.length; p++) field[p] *= k;
   }
+  if (field.length > SPREAD_FIELD_KEPT_PIXELS) return field;
   if (spreadFields.size >= SPREAD_FIELDS_KEPT) spreadFields.delete(spreadFields.keys().next().value!);
   spreadFields.set(key, field);
   return field;

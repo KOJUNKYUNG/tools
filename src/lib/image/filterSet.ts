@@ -4,6 +4,7 @@
  * changes the picture, and the steps it bakes into a picture of a given size.
  * Pure: the pixels are pixelFilters.ts's, the canvas the tool's.
  */
+import { parseHex } from "@/lib/gallery/oklch";
 import type { SliderRange } from "@/lib/gallery/recipeEdit";
 import { PAPER_FILTER_NAMES, paperParams, type PaperFilter, type PaperSettings, type PaperValue } from "./paperFilters";
 import { contrast, overlay, saturate, veil, type Rgb } from "./pixelFilters";
@@ -184,10 +185,9 @@ export type FilterPlanStep =
    */
   | { filter: "grain"; amount: number; cell: number; seed: number; spread: number; colour: number; response: boolean };
 
-/** `#rrggbb` as RGB. */
+/** A CSS hex colour as RGB; black where it is not one (the colour picker only gives `#rrggbb`). */
 function rgbOf(hex: string): Rgb {
-  const n = Number.parseInt(hex.slice(1, 7), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return parseHex(hex)?.rgb ?? [0, 0, 0];
 }
 
 /**
@@ -263,8 +263,9 @@ export function paperDrawingKey(filters: FilterSet, kind: BackgroundKind): strin
   // The steps are the same at every size; only their pixel values differ.
   const plan = filterPlan(filters, kind, { width: 1, height: 1 });
   const at = plan.findIndex((step) => step.filter === "paper");
-  if (at < 0) return null;
-  const { strength: _strength, ...paper } = plan[at] as Extract<FilterPlanStep, { filter: "paper" }>;
+  const step = plan[at];
+  if (step?.filter !== "paper") return null;
+  const { strength: _strength, ...paper } = step;
   return JSON.stringify([plan.slice(0, at), paper]);
 }
 
