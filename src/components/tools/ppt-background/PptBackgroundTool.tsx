@@ -198,6 +198,9 @@ export interface PptBackgroundToolLabels {
     fillSwatch: string;
     slideCountTemplate: string;
     zoom: string;
+    /** The zoom's toggle to fill the screen with the picture, as a slide show does, and back. */
+    fullscreen: string;
+    exitFullscreen: string;
     close: string;
   };
   fileUpload: Dictionary["common"]["fileUpload"];
@@ -1095,6 +1098,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   live={zoom === "selected" ? editLive : null}
                   finished={zoom === "selected" ? filterPreview : null}
                   closeLabel={labels.preview.close}
+                  fullscreenLabels={{ enter: labels.preview.fullscreen, exit: labels.preview.exitFullscreen }}
                   onClose={() => setZoom(null)}
                 />
               )}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import { Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { CroppedImage } from "@/components/image/CroppedImage";
 import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
 import { CornerSpinner } from "./CornerSpinner";
@@ -13,6 +15,11 @@ interface PreviewLightboxProps {
   aspect: string;
   closeLabel: string;
   onClose: () => void;
+  /**
+   * Names of the toggle that fills the whole screen with the picture, as a
+   * slide show does, and back; no toggle without them.
+   */
+  fullscreenLabels?: { enter: string; exit: string };
   /** Show only this part of the image (its aspect is then the box's). */
   crop?: CropRect | null;
   /** The size `crop` is held in, when known before `src` loads (see CroppedImage). */
@@ -25,17 +32,60 @@ interface PreviewLightboxProps {
   finished?: LivePicture | null;
 }
 
-export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop, sourceSize, busyLabel, live, finished }: PreviewLightboxProps) {
+/** A square corner button over the lightbox. */
+const CORNER_BUTTON = "flex size-8 items-center justify-center rounded-[8px] border";
+const CORNER_STYLE = { background: "var(--surface)", borderColor: "var(--border)", color: "var(--ink-strong)" };
+
+export function PreviewLightbox({
+  src,
+  alt,
+  aspect,
+  closeLabel,
+  onClose,
+  fullscreenLabels,
+  crop,
+  sourceSize,
+  busyLabel,
+  live,
+  finished,
+}: PreviewLightboxProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  // Whether the lightbox fills the screen: the browser's state, which Esc also ends.
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    const sync = () => setFullscreen(el !== null && document.fullscreenElement === el);
+    document.addEventListener("fullscreenchange", sync);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      // Closed while filling the screen: the screen is given back.
+      if (el && document.fullscreenElement === el) void document.exitFullscreen();
+    };
+  }, []);
+  const toggleFullscreen = () => {
+    if (fullscreen) void document.exitFullscreen();
+    // Refused (a browser or frame without it): the lightbox stays as it is.
+    else void ref.current?.requestFullscreen().catch(() => {});
+  };
+
   return (
     <div
-      className="absolute inset-0 z-10 flex items-center justify-center p-4"
-      style={{ background: "color-mix(in oklch, var(--surface) 92%, #000)" }}
+      ref={ref}
+      className={fullscreen ? "flex items-center justify-center" : "absolute inset-0 z-10 flex items-center justify-center p-4"}
+      // On the full screen the picture sits on black, as a slide show's slide does.
+      style={{ background: fullscreen ? "#000" : "color-mix(in oklch, var(--surface) 92%, #000)" }}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="relative max-h-full max-w-full overflow-hidden border"
-        style={{ borderColor: "var(--border)", boxShadow: "var(--shadow-lg)", aspectRatio: aspect }}
+        className={fullscreen ? "relative max-h-full max-w-full overflow-hidden" : "relative max-h-full max-w-full overflow-hidden border"}
+        style={{
+          borderColor: "var(--border)",
+          boxShadow: fullscreen ? undefined : "var(--shadow-lg)",
+          aspectRatio: aspect,
+          // Filled to the screen's height or width, whichever the slide's aspect meets first.
+          ...(fullscreen ? { width: `min(100vw, calc(100vh * (${aspect})))` } : {}),
+        }}
       >
         {typeof src !== "string" ? (
           // Sized like an image of that size, as CroppedImage is.
@@ -45,12 +95,18 @@ export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop, s
             viewBox={`0 0 ${src.size.w} ${src.size.h}`}
             width={src.size.w}
             height={src.size.h}
-            className="block max-h-full max-w-full"
+            className={fullscreen ? "block size-full" : "block max-h-full max-w-full"}
           >
             <rect width="100%" height="100%" fill={src.colour} />
           </svg>
         ) : crop ? (
-          <CroppedImage src={src} alt={alt} crop={crop} sourceSize={sourceSize} className="block max-h-full max-w-full" />
+          <CroppedImage
+            src={src}
+            alt={alt}
+            crop={crop}
+            sourceSize={sourceSize}
+            className={fullscreen ? "block size-full" : "block max-h-full max-w-full"}
+          />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={src} alt={alt} className="size-full object-contain" />
@@ -67,17 +123,34 @@ export function PreviewLightbox({ src, alt, aspect, closeLabel, onClose, crop, s
         ) : null}
       </div>
       {busyLabel ? <CornerSpinner label={busyLabel} className="left-2.5 top-2.5" /> : null}
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label={closeLabel}
-        className="absolute right-2.5 top-2.5 flex size-8 items-center justify-center rounded-[8px] border"
-        style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--ink-strong)" }}
-      >
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 6 L18 18 M18 6 L6 18" />
-        </svg>
-      </button>
+      <div className="absolute right-2.5 top-2.5 flex gap-1.5">
+        {fullscreenLabels && (
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label={fullscreen ? fullscreenLabels.exit : fullscreenLabels.enter}
+            title={fullscreen ? fullscreenLabels.exit : fullscreenLabels.enter}
+            className={CORNER_BUTTON}
+            style={CORNER_STYLE}
+          >
+            {fullscreen ? <Minimize2Icon className="size-4" aria-hidden="true" /> : <Maximize2Icon className="size-4" aria-hidden="true" />}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            if (fullscreen) void document.exitFullscreen();
+            onClose();
+          }}
+          aria-label={closeLabel}
+          className={CORNER_BUTTON}
+          style={CORNER_STYLE}
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 6 L18 18 M18 6 L6 18" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }

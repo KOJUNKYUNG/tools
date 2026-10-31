@@ -348,7 +348,9 @@
           "fillSwatch": "Fill",
           "slideCountTemplate": "{n} slides",
           "zoom": "Zoom",
-          "close": "Close"
+          "close": "Close",
+          "fullscreen": "Full screen",
+          "exitFullscreen": "Exit full screen"
         }
       }
     },

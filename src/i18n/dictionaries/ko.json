@@ -348,7 +348,9 @@
           "fillSwatch": "채우기 배경",
           "slideCountTemplate": "슬라이드 {n}장",
           "zoom": "확대",
-          "close": "닫기"
+          "close": "닫기",
+          "fullscreen": "전체 화면",
+          "exitFullscreen": "전체 화면 끝내기"
         }
       }
     },
