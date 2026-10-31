@@ -257,7 +257,6 @@
           "tabs": {
             "adjust": "조정",
             "style": "스타일",
-            "overlay": "덮개",
             "grain": "그레인"
           },
           "blur": "흐리게",
@@ -273,6 +272,7 @@
             "halftoneCmyk": "CMYK"
           },
           "strength": "강도",
+          "paperDefaults": "기본값으로",
           "settings": {
             "size": "크기",
             "angle": "각도",
@@ -295,11 +295,13 @@
           "overlay": "색 덮개",
           "overlayColour": "덮개 색",
           "veil": "어둡게·밝게",
+          "darken": "어둡게",
+          "lighten": "밝게",
           "grain": "그레인",
           "grainSize": "입자 크기",
           "grainColour": "색 입자",
           "grainResponse": "밝기 반응",
-          "reset": "효과 끄기"
+          "reset": "효과 초기화"
         },
         "solid": {
           "tab": "단색",

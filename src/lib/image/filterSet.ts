@@ -268,6 +268,18 @@ export function paperDrawingKey(filters: FilterSet, kind: BackgroundKind): strin
   return JSON.stringify([plan.slice(0, at), paper]);
 }
 
+/** A filter the plan lays, as the effects group's summary names it: the veil by its way, a Paper filter by name. */
+export type ActiveFilter = "blur" | "saturation" | "contrast" | PaperFilter | "overlay" | "darken" | "lighten" | "grain";
+
+/** The filters `filters` lays on a `kind` background, in the plan's order. */
+export function activeFilters(filters: FilterSet, kind: BackgroundKind): ActiveFilter[] {
+  return filterPlan(filters, kind, { width: 1, height: 1 }).map((step) => {
+    if (step.filter === "paper") return step.paper;
+    if (step.filter === "veil") return step.amount < 0 ? "darken" : "lighten";
+    return step.filter;
+  });
+}
+
 /** Whether `filters` changes a `kind` background at all: the effects group's reset has something to clear. */
 export function isFiltered(filters: FilterSet, kind: BackgroundKind): boolean {
   return filterPlan(filters, kind, { width: 1, height: 1 }).length > 0;

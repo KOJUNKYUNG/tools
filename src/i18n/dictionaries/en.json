@@ -257,7 +257,6 @@
           "tabs": {
             "adjust": "Adjust",
             "style": "Style",
-            "overlay": "Overlay",
             "grain": "Grain"
           },
           "blur": "Blur",
@@ -273,6 +272,7 @@
             "halftoneCmyk": "CMYK"
           },
           "strength": "Strength",
+          "paperDefaults": "Defaults",
           "settings": {
             "size": "Size",
             "angle": "Angle",
@@ -295,11 +295,13 @@
           "overlay": "Colour",
           "overlayColour": "Overlay colour",
           "veil": "Dark / light",
+          "darken": "Darker",
+          "lighten": "Lighter",
           "grain": "Grain",
           "grainSize": "Grain size",
           "grainColour": "Colour grain",
           "grainResponse": "By brightness",
-          "reset": "Clear effects"
+          "reset": "Reset effects"
         },
         "solid": {
           "tab": "Solid",

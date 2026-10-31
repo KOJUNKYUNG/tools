@@ -114,6 +114,11 @@ export type PaperFilter = keyof typeof PAPER_FILTERS;
 // Object.keys types its result as string[]; the keys are the table's own.
 export const PAPER_FILTER_NAMES = Object.keys(PAPER_FILTERS) as PaperFilter[];
 
+/** Whether `name` is one of the Paper filters. */
+export function isPaperFilter(name: string): name is PaperFilter {
+  return Object.hasOwn(PAPER_FILTERS, name);
+}
+
 /** The user's values of each Paper filter's settings, each filter's kept while another is chosen. */
 export type PaperSettings = Partial<Record<PaperFilter, Record<string, PaperValue>>>;
 

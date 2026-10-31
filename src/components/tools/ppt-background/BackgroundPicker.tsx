@@ -242,10 +242,14 @@ export function BackgroundPicker({
                 labels={labels.solid}
               />
             </div>
-            {/* The area's room is held on this tab whatever is picked, open or
-                closed, as under the frame: the colours keep their height and the
-                toggle its place. In line with the tiles. */}
-            <div className="h-[9rem] shrink-0 px-4">{fillEdit ? <EditArea {...fillEdit} /> : null}</div>
+            {/* Once a colour with effects is picked, the area's room is held, open
+                or closed, as under the frame, so the toggle keeps its place; until
+                then the colours take the whole tab. In line with the tiles. */}
+            {fillEdit && (
+              <div className="h-[9rem] shrink-0 px-4">
+                <EditArea {...fillEdit} />
+              </div>
+            )}
           </div>
         ) : (
           <InlineGallery

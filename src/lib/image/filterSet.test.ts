@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  activeFilters,
   bakesPicture,
   filteredColour,
   filterPlan,
@@ -299,6 +300,20 @@ describe("filters offered for a background", () => {
     expect(paper?.filters).toEqual(["flutedGlass", "paperTexture", "halftoneDuotone", "halftoneMosaic", "halftoneCmyk"]);
     expect(paper?.strength).toMatchObject({ min: 0, max: 1 });
     expect(filtersFor("picture", false)?.paper ?? null).toBeNull();
+  });
+});
+
+describe("the effects in use", () => {
+  it("names the filters laid, in the plan's order, the veil by its way and the style by name", () => {
+    expect(activeFilters(NO_FILTERS, "picture")).toEqual([]);
+    const set: FilterSet = { ...NO_FILTERS, grain: 0.1, veil: -0.2, paper: "flutedGlass", blur: 0.01 };
+    expect(activeFilters(set, "picture")).toEqual(["blur", "flutedGlass", "darken", "grain"]);
+    expect(activeFilters({ ...NO_FILTERS, veil: 0.2, overlay: 0.3 }, "picture")).toEqual(["overlay", "lighten"]);
+  });
+
+  it("leaves out what the background does not take", () => {
+    expect(activeFilters({ ...NO_FILTERS, blur: 0.01, paper: "halftoneDuotone", saturation: -1 }, "solid")).toEqual(["saturation"]);
+    expect(activeFilters({ ...NO_FILTERS, veil: 0.2 }, "none")).toEqual([]);
   });
 });
 

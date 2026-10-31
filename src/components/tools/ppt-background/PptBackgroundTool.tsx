@@ -23,6 +23,7 @@ import { normalizeImageFile } from "@/lib/image/heic";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import { belowFullHd, filledSize, slideImagePreparer, type PrepareStep, type SlideSize } from "@/lib/image/slideImage";
 import {
+  activeFilters,
   bakesPicture,
   filteredColour,
   filtersAfter,
@@ -66,7 +67,7 @@ import { themeBackground } from "@/lib/ppt/themeBackground";
 import { RecipeEditControls, type RecipeEditLabels } from "./RecipeEditControls";
 import { useRecipePreview } from "./useRecipePreview";
 import { useFilterPreview } from "./useFilterPreview";
-import { FilterControls, type FilterLabels } from "./FilterControls";
+import { FilterControls, filterSummary, type FilterLabels } from "./FilterControls";
 
 const PPTX_ACCEPT = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
@@ -731,6 +732,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         name: labels.filters.effects,
         resetLabel: labels.filters.reset,
         edited: isFiltered(filters, backgroundKind),
+        summary: filterSummary(activeFilters(filters, backgroundKind), labels.filters),
         onReset: () => setFilters((f) => filtersAfter(f, "reset")),
         controls: (
           <FilterControls

@@ -12,6 +12,8 @@ export interface EditGroup {
   resetLabel: string;
   /** The group differs from its start: its reset has something to undo. */
   edited: boolean;
+  /** What the group lays now, in a few words, shown in the toggle's row open or closed (the effects in use). */
+  summary?: string;
   onReset: () => void;
 }
 
@@ -49,6 +51,10 @@ export function EditArea({ heading, open, onOpenChange, groups, note, locked }: 
   // toggle, the tabs and the reset never move.
   const shown = groups.find((group) => group.name === chosen) ?? groups[0];
   const tabbed = groups.length > 1;
+  const summary = groups
+    .map((group) => group.summary)
+    .filter(Boolean)
+    .join(" · ");
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex h-6 items-center gap-2">
@@ -88,6 +94,12 @@ export function EditArea({ heading, open, onOpenChange, groups, note, locked }: 
               </button>
             ))}
           </div>
+        )}
+        {summary && (
+          // What is laid, in view while the controls are closed or show another group; cut short, never wrapped.
+          <span className="min-w-0 truncate font-body text-[10.5px]" style={{ color: "var(--ink-soft)" }} title={summary}>
+            {summary}
+          </span>
         )}
         {open && (
           <button

@@ -3,8 +3,9 @@
 import { useId, useState } from "react";
 import { ShuffleIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { FilterSet, OfferedFilters } from "@/lib/image/filterSet";
+import type { ActiveFilter, FilterSet, OfferedFilters } from "@/lib/image/filterSet";
 import {
+  isPaperFilter,
   nextPattern,
   settingShown,
   settingsOf,
@@ -22,7 +23,7 @@ import { GROUP_LABEL, LABEL_BOX, SliderCell } from "./SliderCell";
 export interface FilterLabels {
   /** The filter set's group in the edit area. */
   effects: string;
-  /** The group's four parts, in the order the plan lays them. */
+  /** The group's three parts. */
   tabs: Record<FilterTab, string>;
   blur: string;
   saturation: string;
@@ -35,6 +36,8 @@ export interface FilterLabels {
   paperFilters: Record<PaperFilter, string>;
   /** The Paper filter's strength slider. */
   strength: string;
+  /** Puts the chosen Paper filter's strength and settings back to their defaults. */
+  paperDefaults: string;
   /** Each Paper setting's name, by prop. */
   settings: Record<string, string>;
   /** The glass shapes' names, by Paper's option. */
@@ -45,6 +48,9 @@ export interface FilterLabels {
   overlayColour: string;
   /** The light or dark veil slider. */
   veil: string;
+  /** The veil in the summary of what is laid, by its way. */
+  darken: string;
+  lighten: string;
   grain: string;
   grainSize: string;
   grainColour: string;
@@ -53,9 +59,12 @@ export interface FilterLabels {
   reset: string;
 }
 
-/** The effects group's parts: the picture's adjustments, the Paper style, the overlays, grain. */
-type FilterTab = "adjust" | "style" | "overlay" | "grain";
-const TABS: readonly FilterTab[] = ["adjust", "style", "overlay", "grain"];
+/**
+ * The effects group's parts: the colour and tone (the adjustments and the
+ * overlays, laid before and after the style), the Paper style, grain.
+ */
+type FilterTab = "adjust" | "style" | "grain";
+const TABS: readonly FilterTab[] = ["adjust", "style", "grain"];
 
 /** The filter set's controls, the "effects" group of a picture's edit area (CONTEXT "Filter set"). */
 export interface FilterControlsProps {
@@ -65,6 +74,11 @@ export interface FilterControlsProps {
   /** A run uses the pick: shown as is, nothing responds. */
   locked: boolean;
   labels: FilterLabels;
+}
+
+/** The filters laid, by name, in the plan's order: the edit area's summary of the effects in use. */
+export function filterSummary(active: ActiveFilter[], labels: FilterLabels): string {
+  return active.map((filter) => (isPaperFilter(filter) ? labels.paperFilters[filter] : labels[filter])).join(" · ");
 }
 
 /** A selected toggle: the underline (DESIGN.md). */
@@ -84,23 +98,40 @@ export function FilterControls({ offered, filters, onChange, locked, labels }: F
   const tabs = TABS.filter((t) => t !== "style" || paperOffer);
   const shown = tabs.includes(tab) ? tab : tabs[0];
   const paper = filters.paper && paperOffer?.filters.includes(filters.paper) ? filters.paper : null;
+  // The chosen style differs from its defaults: its reset has something to undo.
+  const paperEdited = !!paper && (filters.paperStrength !== 1 || Object.keys(filters.paperSettings[paper] ?? {}).length > 0);
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div role="tablist" aria-label={labels.effects} className="flex h-6 min-w-0 items-center gap-0.5">
-        {tabs.map((t) => (
+      <div className="flex h-6 min-w-0 items-center gap-2">
+        <div role="tablist" aria-label={labels.effects} className="flex min-w-0 items-center gap-0.5">
+          {tabs.map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={t === shown}
+              onClick={() => setTab(t)}
+              className={TOGGLE}
+              style={toggleStyle(t === shown)}
+            >
+              {labels.tabs[t]}
+            </button>
+          ))}
+        </div>
+        {shown === "style" && paper && (
           <button
-            key={t}
             type="button"
-            role="tab"
-            aria-selected={t === shown}
-            onClick={() => setTab(t)}
-            className={TOGGLE}
-            style={toggleStyle(t === shown)}
+            onClick={() => {
+              const { [paper]: _dropped, ...others } = filters.paperSettings;
+              onChange({ paperStrength: 1, paperSettings: others });
+            }}
+            disabled={locked || !paperEdited}
+            className="subtle-action ml-auto shrink-0 rounded-[5px] px-2 py-0.5 font-body text-[11px]"
           >
-            {labels.tabs[t]}
+            {labels.paperDefaults}
           </button>
-        ))}
+        )}
       </div>
       {/* Two controls a row, as the recipe edit's. */}
       <div
@@ -134,6 +165,31 @@ export function FilterControls({ offered, filters, onChange, locked, labels }: F
               locked={locked}
               onChange={(value) => onChange({ contrast: value })}
             />
+            <SliderCell
+              label={labels.veil}
+              range={offered.veil}
+              value={filters.veil}
+              locked={locked}
+              onChange={(value) => onChange({ veil: value })}
+            />
+            {/* Across the row: its colour takes room the slider still needs. */}
+            <div className="col-span-2">
+              <SliderCell
+                label={labels.overlay}
+                range={offered.overlay}
+                value={filters.overlay}
+                locked={locked}
+                onChange={(value) => onChange({ overlay: value })}
+                lead={
+                  <Swatch
+                    colour={filters.overlayColour}
+                    label={labels.overlayColour}
+                    locked={locked}
+                    onColour={(hex) => onChange({ overlayColour: hex })}
+                  />
+                }
+              />
+            </div>
           </>
         )}
         {shown === "style" && paperOffer && (
@@ -177,32 +233,6 @@ export function FilterControls({ offered, filters, onChange, locked, labels }: F
                 labels={labels}
               />
             )}
-          </>
-        )}
-        {shown === "overlay" && (
-          <>
-            <SliderCell
-              label={labels.overlay}
-              range={offered.overlay}
-              value={filters.overlay}
-              locked={locked}
-              onChange={(value) => onChange({ overlay: value })}
-              lead={
-                <Swatch
-                  colour={filters.overlayColour}
-                  label={labels.overlayColour}
-                  locked={locked}
-                  onColour={(hex) => onChange({ overlayColour: hex })}
-                />
-              }
-            />
-            <SliderCell
-              label={labels.veil}
-              range={offered.veil}
-              value={filters.veil}
-              locked={locked}
-              onChange={(value) => onChange({ veil: value })}
-            />
           </>
         )}
         {shown === "grain" && (
