@@ -318,25 +318,30 @@ function SettingCell({
     case "toggle":
       return <ToggleCell label={label} checked={Boolean(value)} locked={locked} onChange={onChange} />;
     case "choice":
+      // A single-select, so the underline toggle (DESIGN.md); each option
+      // drawn as its shape, which fits half a row where the names would not.
       return (
-        <div className={CELL}>
-          <label htmlFor={id} className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
+        <div role="group" aria-labelledby={id} className={CELL}>
+          <span id={id} className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
             {label}
-          </label>
-          <select
-            id={id}
-            value={String(value)}
-            disabled={locked}
-            onChange={(e) => onChange(e.target.value)}
-            className="h-6 min-w-0 flex-1 rounded-[5px] border px-1 font-body text-[11px]"
-            style={{ borderColor: "var(--border)", background: "var(--surface-2)", color: "var(--ink-strong)" }}
-          >
+          </span>
+          <div className="flex min-w-0 gap-0.5">
             {setting.options.map((option) => (
-              <option key={option} value={option}>
-                {shapes[option] ?? option}
-              </option>
+              <button
+                key={option}
+                type="button"
+                aria-pressed={value === option}
+                aria-label={shapes[option] ?? option}
+                title={shapes[option] ?? option}
+                onClick={() => onChange(option)}
+                disabled={locked}
+                className="border-b-2 px-1 py-0.5 transition-colors"
+                style={toggleStyle(value === option)}
+              >
+                <ShapeGlyph shape={option} />
+              </button>
             ))}
-          </select>
+          </div>
         </div>
       );
     case "pattern":
@@ -364,6 +369,23 @@ function SettingCell({
     default:
       return setting satisfies never;
   }
+}
+
+/** The fluted glass's grid shapes, drawn as their flutes. */
+const SHAPE_PATHS: Record<string, string> = {
+  lines: "M3 2v12M8 2v12M13 2v12",
+  linesIrregular: "M2 2v12M5 2v12M10 2v12M12 2v12",
+  wave: "M5 1c-2 2.3 2 4.7 0 7s2 4.7 0 7M11 1c-2 2.3 2 4.7 0 7s2 4.7 0 7",
+  zigzag: "M5 1 3 4.5 5 8 3 11.5 5 15M11 1 9 4.5 11 8 9 11.5 11 15",
+  pattern: "M2.5 2.5h4.5v4.5h-4.5zM9 2.5h4.5v4.5h-4.5zM2.5 9h4.5v4.5h-4.5zM9 9h4.5v4.5h-4.5z",
+};
+
+function ShapeGlyph({ shape }: { shape: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={1.4} aria-hidden="true">
+      <path d={SHAPE_PATHS[shape] ?? ""} />
+    </svg>
+  );
 }
 
 /** A labelled checkbox in one cell. */
