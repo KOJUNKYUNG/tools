@@ -156,9 +156,11 @@ are used as they are. An unedited pick is the gallery file itself, never a
 fresh drawing (a GPU drawing differs slightly from the file); an edited one
 is drawn at the file's composition and size and then cropped like any
 picture. Grain and softness here are the shader's own, changing how the
-shape is drawn: grain only along colour edges, softness as colours mixing
-into each other. Grain dots over the whole picture and blur are effects
-laid over a finished picture, so they belong to the [filter set](#filter-set).
+shape is drawn: grain along colour edges and the recipe's own grain dots
+(mesh and grain gradients, kept at the spec-end visual QA, 2026-11-01:
+they are part of how the recipe looks), softness as colours mixing into
+each other. Blur, and grain laid over any finished picture, belong to the
+[filter set](#filter-set).
 Where WebGL2 is missing the edit is not offered; a failed drawing of an edit
 is an error, never a silent fall back to the unedited file.
 _Avoid_: "customising the gallery file" (the file is never changed); calling
