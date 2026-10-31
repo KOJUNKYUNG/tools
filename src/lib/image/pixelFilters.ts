@@ -12,12 +12,62 @@
  */
 export function veil(pixels: Uint8ClampedArray, amount: number): void {
   if (amount === 0) return;
-  const share = Math.min(1, Math.abs(amount));
   const target = amount > 0 ? 255 : 0;
+  overlay(pixels, [target, target, target], Math.abs(amount));
+}
+
+/** An RGB colour, each channel 0 to 255. */
+export type Rgb = readonly [number, number, number];
+
+/**
+ * A colour overlay: every pixel blended towards `colour` by `amount`, a
+ * share from 0 to 1, as a shape of that colour laid over the picture at
+ * that opacity would show.
+ */
+export function overlay(pixels: Uint8ClampedArray, colour: Rgb, amount: number): void {
+  if (amount <= 0) return;
+  const share = Math.min(1, amount);
+  const [r, g, b] = colour;
   for (let i = 0; i < pixels.length; i += 4) {
-    pixels[i] += (target - pixels[i]) * share;
-    pixels[i + 1] += (target - pixels[i + 1]) * share;
-    pixels[i + 2] += (target - pixels[i + 2]) * share;
+    pixels[i] += (r - pixels[i]) * share;
+    pixels[i + 1] += (g - pixels[i + 1]) * share;
+    pixels[i + 2] += (b - pixels[i + 2]) * share;
+  }
+}
+
+/** A pixel's luma (Rec. 709 weights, as CSS filters use), 0 to 255. */
+function luma(r: number, g: number, b: number): number {
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * Saturation: each channel moved away from the pixel's luma by `1 + amount`,
+ * so −1 is grey, 0 the picture, and above 0 more colourful (CSS's
+ * `saturate()`, keeping the luma). Channels clip at 0 and 255.
+ */
+export function saturate(pixels: Uint8ClampedArray, amount: number): void {
+  if (amount === 0) return;
+  const k = 1 + amount;
+  for (let i = 0; i < pixels.length; i += 4) {
+    const l = luma(pixels[i], pixels[i + 1], pixels[i + 2]);
+    pixels[i] = l + (pixels[i] - l) * k;
+    pixels[i + 1] = l + (pixels[i + 1] - l) * k;
+    pixels[i + 2] = l + (pixels[i + 2] - l) * k;
+  }
+}
+
+/**
+ * Contrast: each channel moved away from mid grey by `1 + amount`, so below
+ * 0 the picture fades towards grey and above 0 its darks and lights part
+ * (CSS's `contrast()`). Channels clip at 0 and 255.
+ */
+export function contrast(pixels: Uint8ClampedArray, amount: number): void {
+  if (amount === 0) return;
+  const k = 1 + amount;
+  for (let i = 0; i < pixels.length; i += 4) {
+    pixels[i] = 127.5 + (pixels[i] - 127.5) * k;
+    pixels[i + 1] = 127.5 + (pixels[i + 1] - 127.5) * k;
+    pixels[i + 2] = 127.5 + (pixels[i + 2] - 127.5) * k;
   }
 }
 
@@ -29,6 +79,16 @@ export interface GrainParams {
   cell: number;
   /** The pattern: the same seed lays the same pattern. */
   seed: number;
+  /**
+   * Larger grain: the cells blurred by a Gaussian of this standard deviation
+   * in px, then scaled back to the cells' spread, so specks grow round and
+   * as strong (noise, then a blur, as photo editors grow grain). 0 = cells.
+   */
+  spread?: number;
+  /** Colour grain: the share of a separate pattern per channel mixed into the shared one, 0 to 1. */
+  colour?: number;
+  /** Response by brightness: the change weighed by 4·L·(1 − L), full at mid grey, none at black or white. */
+  response?: boolean;
 }
 
 /**
@@ -38,27 +98,122 @@ export interface GrainParams {
  * flat field keeps its mean, and comes from a hash of the cell and `seed`,
  * so a preview and its result laid with the same grid share one pattern.
  * A channel clips at 0 and 255, so near black, white or a pure colour the
- * change is smaller there than on the other channels.
+ * change is smaller there than on the other channels. `spread`, `colour`
+ * and `response` change its look (see GrainParams); at 0, 0 and off it is
+ * the plain cells.
  */
-export function grain(pixels: Uint8ClampedArray, width: number, height: number, { amount, cell, seed }: GrainParams): void {
+export function grain(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+  { amount, cell, seed, spread = 0, colour = 0, response = false }: GrainParams,
+): void {
   if (amount === 0) return;
   const scale = amount * 255;
+  const mono = grainPattern(width, height, cell, seed, spread);
+  // Colour grain: one more pattern per channel, from the next seeds.
+  const channels = colour > 0 ? [1, 2, 3].map((k) => grainPattern(width, height, cell, seed + k, spread)) : null;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const p = y * width + x;
+      const i = p * 4;
+      let weight = scale;
+      if (response) {
+        const l = luma(pixels[i], pixels[i + 1], pixels[i + 2]) / 255;
+        weight *= 4 * l * (1 - l);
+      }
+      const shared = mono(x, y, p);
+      if (!channels) {
+        const d = Math.round(shared * weight);
+        pixels[i] += d;
+        pixels[i + 1] += d;
+        pixels[i + 2] += d;
+      } else {
+        for (let k = 0; k < 3; k++) pixels[i + k] += Math.round(((1 - colour) * shared + colour * channels[k](x, y, p)) * weight);
+      }
+    }
+  }
+}
+
+/** A grain pattern's value at pixel (x, y), index p: triangular in −1..1 around 0. */
+type Pattern = (x: number, y: number, p: number) => number;
+
+/**
+ * One grain pattern: each pixel's cell value, read straight from the hash,
+ * or, with a spread, a field of those values blurred and scaled back.
+ */
+function grainPattern(width: number, height: number, cell: number, seed: number, spread: number): Pattern {
   // The cell under each pixel's centre, by column and by row.
   const column = new Int32Array(width);
   for (let x = 0; x < width; x++) column[x] = Math.floor((x + 0.5) / cell);
-  for (let y = 0; y < height; y++) {
-    const row = Math.floor((y + 0.5) / cell);
-    for (let x = 0; x < width; x++) {
-      const h = hash(column[x], row, seed);
-      // Two uniforms from the hash's halves, centred so their sum's mean is exactly 1.
-      const tri = ((h & 0xffff) + 0.5) / 65536 + ((h >>> 16) + 0.5) / 65536 - 1;
-      const d = Math.round(tri * scale);
-      const i = (y * width + x) * 4;
-      pixels[i] += d;
-      pixels[i + 1] += d;
-      pixels[i + 2] += d;
-    }
+  const row = new Int32Array(height);
+  for (let y = 0; y < height; y++) row[y] = Math.floor((y + 0.5) / cell);
+  const cellAt: Pattern = (x, y) => cellValue(column[x], row[y], seed);
+  if (spread <= 0) return cellAt;
+  const field = spreadField(width, height, cell, seed, spread, cellAt);
+  return (_x, _y, p) => field[p];
+}
+
+/** A cell's value from the hash: two uniforms from its halves, centred so their sum's mean is exactly 1. */
+function cellValue(i: number, j: number, seed: number): number {
+  const h = hash(i, j, seed);
+  return ((h & 0xffff) + 0.5) / 65536 + ((h >>> 16) + 0.5) / 65536 - 1;
+}
+
+/**
+ * The last blurred fields, by size, cell, seed and spread: a field does not
+ * depend on the picture, so a preview redrawn for another filter, and the
+ * channels' patterns, reuse it rather than blur again.
+ */
+const spreadFields = new Map<string, Float32Array>();
+/** The colour grain's four patterns. */
+const SPREAD_FIELDS_KEPT = 4;
+
+/** The cells blurred by `spread` px and scaled back to the cells' spread (a triangular −1..1 value's, √(1/6)). */
+function spreadField(width: number, height: number, cell: number, seed: number, spread: number, cellAt: Pattern): Float32Array {
+  const key = `${width}x${height}/${cell}/${seed}/${spread}`;
+  const kept = spreadFields.get(key);
+  if (kept) return kept;
+  const field = new Float32Array(width * height);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) field[y * width + x] = cellAt(x, y, 0);
+  gaussianField(field, width, height, spread);
+  let squares = 0;
+  for (let p = 0; p < field.length; p++) squares += field[p] * field[p];
+  const rms = Math.sqrt(squares / field.length);
+  if (rms > 0) {
+    const k = Math.sqrt(1 / 6) / rms;
+    for (let p = 0; p < field.length; p++) field[p] *= k;
   }
+  if (spreadFields.size >= SPREAD_FIELDS_KEPT) spreadFields.delete(spreadFields.keys().next().value!);
+  spreadFields.set(key, field);
+  return field;
+}
+
+/**
+ * A Gaussian blur of `sigma` px along each axis of a one-channel field,
+ * edges read as the edge value. An exact kernel, not box blurs: grain's
+ * sigmas are a pixel or two, where box blurs' whole-pixel radii would
+ * draw neighbouring sizes alike.
+ */
+function gaussianField(field: Float32Array, width: number, height: number, sigma: number): void {
+  const radius = Math.ceil(3 * sigma);
+  const kernel = new Float32Array(2 * radius + 1);
+  let total = 0;
+  for (let k = -radius; k <= radius; k++) total += kernel[k + radius] = Math.exp(-(k * k) / (2 * sigma * sigma));
+  for (let k = 0; k < kernel.length; k++) kernel[k] /= total;
+  const line = new Float32Array(Math.max(width, height));
+  const pass = (count: number, length: number, at: (n: number, k: number) => number) => {
+    for (let n = 0; n < count; n++) {
+      for (let k = 0; k < length; k++) line[k] = field[at(n, k)];
+      for (let k = 0; k < length; k++) {
+        let sum = 0;
+        for (let j = -radius; j <= radius; j++) sum += kernel[j + radius] * line[Math.min(length - 1, Math.max(0, k + j))];
+        field[at(n, k)] = sum;
+      }
+    }
+  };
+  pass(height, width, (y, x) => y * width + x);
+  pass(width, height, (x, y) => y * width + x);
 }
 
 /** A well-mixed 32-bit hash of a cell and a seed (the murmur3 finaliser). */

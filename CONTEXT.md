@@ -166,14 +166,20 @@ Paper's grain a filter.
 
 ### Filter set
 The effects ppt-background lays over a finished background picture, after
-its crop and fit and before its format is chosen, baked into its pixels:
-blur, grain and a light or dark veil, which combine, and one at a time of
-Paper Shaders' image filters (fluted glass, paper texture, halftone dots in
-a black-and-white duotone and in a mosaic of the picture's colours, CMYK
-halftone), which redraw the whole picture. They apply
-to any picture, gallery or uploaded, and to a solid colour, which then goes
-into the deck as a picture instead of a colour; a solid colour takes only
-the filters that change a flat colour (not blur or the veil). "No
+its crop and fit and before its format is chosen, baked into its pixels.
+They combine, in one fixed order the user does not change: the
+adjustments (blur, saturation, contrast), then one at a time of Paper
+Shaders' image filters (the "style": fluted glass, paper texture, halftone
+dots in two colours and in a mosaic of the picture's colours, CMYK
+halftone), which redraw the adjusted picture, then the overlays (a colour
+overlay, then a light or dark veil) over everything, so they tone the
+style's own colours too, and grain last (its size, colour and response by
+brightness as options). Each style offers a few of its own settings. They
+apply to any picture, gallery or uploaded, and to a solid colour, which
+takes every filter but blur (which changes nothing on it) and the
+two-colour halftone (which replaces the colour): its colour effects only
+change the colour it is filled with, and grain or a style makes it go into
+the deck as a picture instead of a colour. "No
 background" takes none: it is the theme's colour by definition. Strengths
 are set as shares of the picture, never in pixels, so the preview and the
 4K result look alike and a projector's downscale does not erase the grain.

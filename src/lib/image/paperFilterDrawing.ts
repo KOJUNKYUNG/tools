@@ -75,8 +75,8 @@ export async function drawPaperFilter(picture: AnyCanvas, step: PaperStep): Prom
   }
   const { image, release } = await input;
   const { shader, preset } = PAPER_FILTERS[step.paper];
-  // The picture fills the box whatever the preset frames it at.
-  const spec = { shader, ...fillingProps(drawing.presetParams(shader, preset)), image };
+  // The preset, the step's props over it, and the picture filling the box whatever the preset frames it at.
+  const spec = { shader, ...fillingProps({ ...drawing.presetParams(shader, preset), ...step.params }), image };
   const el = paperHost();
   try {
     const start = performance.now();

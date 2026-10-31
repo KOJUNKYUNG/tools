@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { filterPlan, filtersAfter, filtersFor, isFiltered, laidPaperFilter, NO_FILTERS, type FilterSet } from "./filterSet";
+import {
+  bakesPicture,
+  filteredColour,
+  filterPlan,
+  filtersAfter,
+  filtersFor,
+  isFiltered,
+  NO_FILTERS,
+  paperDrawingKey,
+  type FilterSet,
+} from "./filterSet";
 
 const FULL_HD = { width: 1920, height: 1080 };
 
@@ -19,32 +29,48 @@ describe("is filtered", () => {
     expect(isFiltered({ ...NO_FILTERS, veil: 0.2 }, "picture")).toBe(true);
   });
 
-  it("does not apply a veil kept from a picture to a solid colour, and brings it back on the next picture", () => {
-    const kept = filtersAfter({ ...NO_FILTERS, veil: -0.2 }, "pick");
+  it("does not apply blur kept from a picture to a solid colour, and brings it back on the next picture", () => {
+    const kept = filtersAfter({ ...NO_FILTERS, blur: 0.01 }, "pick");
     expect(isFiltered(kept, "solid")).toBe(false);
     expect(filterPlan(kept, "solid", FULL_HD)).toEqual([]);
     expect(isFiltered(filtersAfter(kept, "pick"), "picture")).toBe(true);
   });
 
-  it("counts blur and a veil kept from a picture as unfiltered on a solid colour, so it stays a fill", () => {
-    expect(isFiltered({ ...NO_FILTERS, blur: 0.01, veil: -0.3 }, "solid")).toBe(false);
+  it("changes a solid colour's fill with its colour effects, without making it a picture", () => {
+    for (const change of [{ veil: -0.3 }, { saturation: -1 }, { contrast: 0.2 }, { overlay: 0.4 }]) {
+      const set = { ...NO_FILTERS, ...change };
+      expect(isFiltered(set, "solid")).toBe(true);
+      expect(bakesPicture(set, "solid")).toBe(false);
+    }
   });
 
-  it("counts grain or a Paper filter on a solid colour as filtered", () => {
-    expect(isFiltered({ ...NO_FILTERS, grain: 0.05 }, "solid")).toBe(true);
-    expect(isFiltered({ ...NO_FILTERS, paper: "paperTexture" }, "solid")).toBe(true);
+  it("makes a solid colour a picture with grain or a Paper filter", () => {
+    expect(bakesPicture({ ...NO_FILTERS, grain: 0.05 }, "solid")).toBe(true);
+    expect(bakesPicture({ ...NO_FILTERS, paper: "paperTexture" }, "solid")).toBe(true);
   });
 
-  it("lays only the Paper filter and grain on a solid colour, keeping blur and the veil for the next picture", () => {
-    const all: FilterSet = { blur: 0.01, veil: -0.3, grain: 0.1, paper: "paperTexture", paperStrength: 0.8 };
+  it("makes a picture with any filter a filtered picture", () => {
+    expect(bakesPicture({ ...NO_FILTERS, veil: -0.3 }, "picture")).toBe(true);
+    expect(bakesPicture(NO_FILTERS, "picture")).toBe(false);
+  });
+
+  it("lays every filter but blur on a solid colour, keeping blur for the next picture", () => {
+    const all: FilterSet = { ...NO_FILTERS, blur: 0.01, saturation: 0.2, veil: -0.3, grain: 0.1, paper: "paperTexture", paperStrength: 0.8 };
     const kept = filtersAfter(all, "pick");
-    expect(filterPlan(kept, "solid", FULL_HD).map((step) => step.filter)).toEqual(["paper", "grain"]);
+    expect(filterPlan(kept, "solid", FULL_HD).map((step) => step.filter)).toEqual(["saturation", "paper", "veil", "grain"]);
     expect(filterPlan(filtersAfter(kept, "pick"), "picture", FULL_HD).map((step) => step.filter)).toEqual([
-      "paper",
       "blur",
+      "saturation",
+      "paper",
       "veil",
       "grain",
     ]);
+  });
+
+  it("does not lay the duotone halftone kept from a picture on a solid colour", () => {
+    const duotone: FilterSet = { ...NO_FILTERS, paper: "halftoneDuotone" };
+    expect(filterPlan(duotone, "solid", FULL_HD)).toEqual([]);
+    expect(filterPlan({ ...NO_FILTERS, paper: "halftoneMosaic" }, "solid", FULL_HD)).toMatchObject([{ filter: "paper" }]);
   });
 
   it("counts nothing on no background as filtered", () => {
@@ -63,9 +89,44 @@ describe("filter plan for an output size", () => {
     expect(NO_FILTERS).toMatchObject({ paper: null, paperStrength: 1 });
   });
 
-  it("lays the Paper filter, then blur, then the veil, then grain", () => {
-    const all: FilterSet = { blur: 0.01, veil: -0.3, grain: 0.1, paper: "flutedGlass", paperStrength: 0.8 };
-    expect(filterPlan(all, "picture", FULL_HD).map((step) => step.filter)).toEqual(["paper", "blur", "veil", "grain"]);
+  it("lays the adjustments, then the Paper filter, then the overlays, then grain", () => {
+    const all: FilterSet = {
+      ...NO_FILTERS,
+      blur: 0.01,
+      saturation: -0.5,
+      contrast: 0.2,
+      paper: "flutedGlass",
+      paperStrength: 0.8,
+      overlay: 0.3,
+      veil: -0.3,
+      grain: 0.1,
+    };
+    expect(filterPlan(all, "picture", FULL_HD).map((step) => step.filter)).toEqual([
+      "blur",
+      "saturation",
+      "contrast",
+      "paper",
+      "overlay",
+      "veil",
+      "grain",
+    ]);
+  });
+
+  it("draws the Paper filter with its tuned props and the user's settings over their defaults", () => {
+    const [cmyk] = filterPlan({ ...NO_FILTERS, paper: "halftoneCmyk" }, "picture", FULL_HD);
+    expect(cmyk).toMatchObject({ filter: "paper", params: { softness: 0.65, size: 0.2, contrast: 1 } });
+    const [glass] = filterPlan(
+      { ...NO_FILTERS, paper: "flutedGlass", paperSettings: { flutedGlass: { shape: "wave" }, halftoneCmyk: { size: 0.9 } } },
+      "picture",
+      FULL_HD,
+    );
+    expect(glass).toMatchObject({ filter: "paper", params: { shape: "wave", size: 0.5 } });
+  });
+
+  it("lays the colour overlay in its colour, at its share", () => {
+    expect(filterPlan({ ...NO_FILTERS, overlay: 0.4, overlayColour: "#ff8000" }, "picture", FULL_HD)).toEqual([
+      { filter: "overlay", colour: [255, 128, 0], amount: 0.4 },
+    ]);
   });
 
   it("lays the chosen Paper filter at its strength", () => {
@@ -93,11 +154,17 @@ describe("filter plan for an output size", () => {
     expect(filterPlan({ ...NO_FILTERS, paper: null, paperStrength: 1 }, "picture", FULL_HD)).toEqual([]);
   });
 
-  it("names the Paper filter the plan lays, at any size, or none", () => {
-    expect(laidPaperFilter({ ...NO_FILTERS, paper: "flutedGlass", paperStrength: 0.4 }, "picture")).toBe("flutedGlass");
-    expect(laidPaperFilter({ ...NO_FILTERS, paper: "flutedGlass", paperStrength: 0 }, "picture")).toBeNull();
-    expect(laidPaperFilter(NO_FILTERS, "picture")).toBeNull();
-    expect(laidPaperFilter({ ...NO_FILTERS, paper: "flutedGlass" }, "none")).toBeNull();
+  it("keys the Paper drawing by what it is drawn from, not by what is laid after it", () => {
+    const glass: FilterSet = { ...NO_FILTERS, paper: "flutedGlass", paperStrength: 0.4 };
+    const key = paperDrawingKey(glass, "picture");
+    expect(key).not.toBeNull();
+    expect(paperDrawingKey({ ...glass, paperStrength: 0.9, veil: -0.4, overlay: 0.2, grain: 0.1 }, "picture")).toBe(key);
+    expect(paperDrawingKey({ ...glass, blur: 0.01 }, "picture")).not.toBe(key);
+    expect(paperDrawingKey({ ...glass, paperSettings: { flutedGlass: { angle: 45 } } }, "picture")).not.toBe(key);
+    expect(paperDrawingKey({ ...glass, paper: "paperTexture" }, "picture")).not.toBe(key);
+    expect(paperDrawingKey({ ...glass, paperStrength: 0 }, "picture")).toBeNull();
+    expect(paperDrawingKey(NO_FILTERS, "picture")).toBeNull();
+    expect(paperDrawingKey(glass, "none")).toBeNull();
   });
 
   it("sizes the blur as a share of the width, so 1280 and 3840 blur alike", () => {
@@ -111,7 +178,7 @@ describe("filter plan for an output size", () => {
     const [hd] = filterPlan(grainy, "picture", FULL_HD);
     const [small] = filterPlan(grainy, "picture", { width: 1280, height: 720 });
     const [uhd] = filterPlan(grainy, "picture", { width: 3840, height: 2160 });
-    expect(hd).toMatchObject({ filter: "grain", amount: 0.1, cell: 1 });
+    expect(hd).toMatchObject({ filter: "grain", amount: 0.1, cell: 1, spread: 0, colour: 0, response: false });
     expect(uhd).toMatchObject({ filter: "grain", amount: 0.1, cell: 2 });
     expect(small).toMatchObject({ filter: "grain", cell: 2 / 3 });
     // One pattern at every size.
@@ -138,6 +205,29 @@ describe("filter plan for an output size", () => {
     expect(small.filter === "grain" && small.amount).toBeCloseTo(0.1);
   });
 
+  it("grows grain specks by a blur of the cells above size 1, scaled with the size", () => {
+    const grainy: FilterSet = { ...NO_FILTERS, grain: 0.1, grainSize: 2 };
+    const [hd] = filterPlan(grainy, "picture", FULL_HD);
+    const [uhd] = filterPlan(grainy, "picture", { width: 3840, height: 2160 });
+    expect(hd).toMatchObject({ cell: 1, amount: 0.1 });
+    expect(hd.filter === "grain" && hd.spread).toBeCloseTo(0.5 * Math.sqrt(3));
+    expect(uhd.filter === "grain" && uhd.spread).toBeCloseTo(Math.sqrt(3));
+  });
+
+  it("lays smaller grain specks as smaller cells below size 1", () => {
+    const fine: FilterSet = { ...NO_FILTERS, grain: 0.1, grainSize: 0.5 };
+    expect(filterPlan(fine, "picture", { width: 3840, height: 2160 })).toMatchObject([{ cell: 1, amount: 0.1, spread: 0 }]);
+    const [hd] = filterPlan(fine, "picture", FULL_HD);
+    expect(hd).toMatchObject({ cell: 0.5 });
+    expect(hd.filter === "grain" && hd.amount).toBeCloseTo(0.05);
+  });
+
+  it("passes the grain's colour and response through", () => {
+    expect(filterPlan({ ...NO_FILTERS, grain: 0.1, grainColour: 0.4, grainResponse: true }, "picture", FULL_HD)).toMatchObject([
+      { filter: "grain", colour: 0.4, response: true },
+    ]);
+  });
+
   it("lays the veil as a signed share of the way to black or white, at any size", () => {
     const dark = { ...NO_FILTERS, veil: -0.3 };
     expect(filterPlan(dark, "picture", FULL_HD)).toEqual([{ filter: "veil", amount: -0.3 }]);
@@ -146,7 +236,7 @@ describe("filter plan for an output size", () => {
 });
 
 describe("filter state across the tool", () => {
-  const veiled: FilterSet = { blur: 0.01, veil: -0.3, grain: 0.1, paper: "flutedGlass", paperStrength: 0.5 };
+  const veiled: FilterSet = { ...NO_FILTERS, blur: 0.01, veil: -0.3, grain: 0.1, paper: "flutedGlass", paperStrength: 0.5 };
 
   it("keeps the filters when another background is picked", () => {
     expect(filtersAfter(veiled, "pick")).toEqual(veiled);
@@ -190,24 +280,18 @@ describe("filters offered for a background", () => {
     expect(filtersFor("none", true)).toBeNull();
   });
 
-  it("hides the veil on a solid colour, where it would only change the colour picked", () => {
-    expect(filtersFor("solid", true)?.veil ?? null).toBeNull();
-  });
-
   it("hides blur on a solid colour, where it changes nothing", () => {
     expect(filtersFor("solid", true)?.blur ?? null).toBeNull();
   });
 
-  it("offers a solid colour grain and the five Paper filters", () => {
+  it("offers a solid colour the colour effects, grain and every Paper filter but the duotone halftone", () => {
     const offered = filtersFor("solid", true);
-    expect(offered?.grain).toMatchObject({ min: 0 });
-    expect(offered?.paper?.filters).toEqual(["flutedGlass", "paperTexture", "halftoneDuotone", "halftoneMosaic", "halftoneCmyk"]);
+    expect(offered).toMatchObject({ saturation: { min: -1 }, contrast: {}, overlay: { min: 0 }, veil: {}, grain: { min: 0 } });
+    expect(offered?.paper?.filters).toEqual(["flutedGlass", "paperTexture", "halftoneMosaic", "halftoneCmyk"]);
   });
 
-  it("offers a solid colour grain only without WebGL2", () => {
-    const offered = filtersFor("solid", false);
-    expect(offered?.grain).toMatchObject({ min: 0 });
-    expect(offered).toMatchObject({ blur: null, veil: null, paper: null });
+  it("offers a solid colour no Paper filter without WebGL2", () => {
+    expect(filtersFor("solid", false)).toMatchObject({ blur: null, paper: null });
   });
 
   it("offers a picture the five Paper filters, with a strength from 0 to 100%, only with WebGL2", () => {
@@ -215,5 +299,18 @@ describe("filters offered for a background", () => {
     expect(paper?.filters).toEqual(["flutedGlass", "paperTexture", "halftoneDuotone", "halftoneMosaic", "halftoneCmyk"]);
     expect(paper?.strength).toMatchObject({ min: 0, max: 1 });
     expect(filtersFor("picture", false)?.paper ?? null).toBeNull();
+  });
+});
+
+describe("a solid colour's fill", () => {
+  it("is the colour itself without colour effects, or with grain or blur only", () => {
+    expect(filteredColour(NO_FILTERS, "#1f2a44")).toBe("#1f2a44");
+    expect(filteredColour({ ...NO_FILTERS, grain: 0.2, blur: 0.02 }, "#1f2a44")).toBe("#1f2a44");
+  });
+
+  it("takes the veil, saturation and the colour overlay as the picture's pixels would", () => {
+    expect(filteredColour({ ...NO_FILTERS, veil: -0.5 }, "#c86432")).toBe("#643219");
+    expect(filteredColour({ ...NO_FILTERS, saturation: -1 }, "#ff0000")).toBe("#363636");
+    expect(filteredColour({ ...NO_FILTERS, overlay: 0.5, overlayColour: "#ffffff" }, "#000000")).toBe("#808080");
   });
 });

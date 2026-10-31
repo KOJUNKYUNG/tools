@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blur, grain, veil } from "./pixelFilters";
+import { blur, contrast, grain, overlay, saturate, veil } from "./pixelFilters";
 
 /** RGBA pixels, four numbers each. */
 const pixels = (...rgba: number[]) => Uint8ClampedArray.from(rgba);
@@ -70,6 +70,107 @@ describe("grain", () => {
     const picture = field(W, H, [128, 128, 128, 77]);
     grain(picture, W, H, { amount: 0.2, cell: 1, seed: 1 });
     for (let i = 3; i < picture.length; i += 4) expect(picture[i]).toBe(77);
+  });
+  /** The mean absolute difference between horizontal neighbours' red, over a flat grey field with grain. */
+  const roughness = (options: Partial<Parameters<typeof grain>[3]>) => {
+    const picture = field(W, H, [128, 128, 128, 255]);
+    grain(picture, W, H, { amount: 0.15, cell: 1, seed: 4, ...options });
+    let sum = 0;
+    for (let y = 0; y < H; y++) for (let x = 1; x < W; x++) sum += Math.abs(picture[(y * W + x) * 4] - picture[(y * W + x - 1) * 4]);
+    return sum / (H * (W - 1));
+  };
+  /** The standard deviation of red over a flat grey field with grain. */
+  const deviation = (options: Partial<Parameters<typeof grain>[3]>) => {
+    const picture = field(W, H, [128, 128, 128, 255]);
+    grain(picture, W, H, { amount: 0.15, cell: 1, seed: 4, ...options });
+    let sq = 0;
+    for (let i = 0; i < picture.length; i += 4) sq += (picture[i] - 128) ** 2;
+    return Math.sqrt(sq / (W * H));
+  };
+
+  it("lays the plain cells at no spread, no colour and no response", () => {
+    const plain = field(W, H, [90, 140, 200, 255]);
+    const options = field(W, H, [90, 140, 200, 255]);
+    grain(plain, W, H, { amount: 0.15, cell: 1, seed: 7 });
+    grain(options, W, H, { amount: 0.15, cell: 1, seed: 7, spread: 0, colour: 0, response: false });
+    expect(options).toEqual(plain);
+  });
+
+  it("grows smoother with every step of spread, at about the same strength", () => {
+    const spreads = [0, 0.3, 0.6, 0.9, 1.2];
+    const rough = spreads.map((spread) => roughness({ spread }));
+    for (let k = 1; k < rough.length; k++) expect(rough[k]).toBeLessThan(rough[k - 1]);
+    for (const spread of spreads) expect(deviation({ spread })).toBeCloseTo(deviation({ spread: 0 }), -0.5);
+  });
+
+  it("moves the channels apart with colour grain, and alike without", () => {
+    const picture = field(W, H, [128, 128, 128, 255]);
+    grain(picture, W, H, { amount: 0.15, cell: 1, seed: 7, colour: 0.5 });
+    let apart = 0;
+    for (let i = 0; i < picture.length; i += 4) if (picture[i] !== picture[i + 1] || picture[i] !== picture[i + 2]) apart++;
+    expect(apart).toBeGreaterThan((W * H) / 2);
+  });
+
+  it("with the response by brightness, leaves black and white alone and changes mid grey", () => {
+    for (const level of [0, 255]) {
+      const picture = field(W, H, [level, level, level, 255]);
+      grain(picture, W, H, { amount: 0.2, cell: 1, seed: 7, response: true });
+      expect(picture).toEqual(field(W, H, [level, level, level, 255]));
+    }
+    expect(deviation({ response: true })).toBeGreaterThan(0.9 * deviation({}));
+  });
+});
+
+describe("saturate", () => {
+  it("leaves pixels unchanged at 0", () => {
+    const picture = pixels(200, 100, 50, 255);
+    saturate(picture, 0);
+    expect([...picture]).toEqual([200, 100, 50, 255]);
+  });
+
+  it("turns a colour grey of its own luma at −1, alpha untouched", () => {
+    const picture = pixels(200, 100, 50, 90);
+    saturate(picture, -1);
+    const l = Math.round(0.2126 * 200 + 0.7152 * 100 + 0.0722 * 50);
+    expect([...picture]).toEqual([l, l, l, 90]);
+  });
+
+  it("moves channels away from the luma above 0, and leaves grey grey", () => {
+    const picture = pixels(150, 120, 100, 255, 128, 128, 128, 255);
+    saturate(picture, 0.5);
+    expect(picture[0] - picture[2]).toBeGreaterThan(50);
+    expect([...picture.slice(4)]).toEqual([128, 128, 128, 255]);
+  });
+});
+
+describe("contrast", () => {
+  it("leaves pixels unchanged at 0", () => {
+    const picture = pixels(10, 128, 250, 255);
+    contrast(picture, 0);
+    expect([...picture]).toEqual([10, 128, 250, 255]);
+  });
+
+  it("fades towards mid grey below 0 and parts darks and lights above", () => {
+    const low = pixels(0, 255, 64, 255);
+    contrast(low, -0.5);
+    expect([...low]).toEqual([64, 191, 96, 255]);
+    const high = pixels(64, 191, 128, 255);
+    contrast(high, 0.5);
+    expect([...high]).toEqual([32, 223, 128, 255]);
+  });
+});
+
+describe("overlay", () => {
+  it("leaves pixels unchanged at 0", () => {
+    const picture = pixels(10, 128, 250, 255);
+    overlay(picture, [255, 0, 0], 0);
+    expect([...picture]).toEqual([10, 128, 250, 255]);
+  });
+
+  it("blends every pixel towards the colour by the share, alpha untouched", () => {
+    const picture = pixels(0, 100, 200, 40);
+    overlay(picture, [200, 0, 100], 0.5);
+    expect([...picture]).toEqual([100, 50, 150, 40]);
   });
 });
 
