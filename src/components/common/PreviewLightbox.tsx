@@ -20,6 +20,8 @@ interface PreviewLightboxProps {
    * slide show does, and back; no toggle without them.
    */
   fullscreenLabels?: { enter: string; exit: string };
+  /** Told when the lightbox starts or stops filling the screen, so the picture can be drawn for it. */
+  onFullscreenChange?: (fullscreen: boolean) => void;
   /** Show only this part of the image (its aspect is then the box's). */
   crop?: CropRect | null;
   /** The size `crop` is held in, when known before `src` loads (see CroppedImage). */
@@ -43,6 +45,7 @@ export function PreviewLightbox({
   closeLabel,
   onClose,
   fullscreenLabels,
+  onFullscreenChange,
   crop,
   sourceSize,
   busyLabel,
@@ -54,14 +57,21 @@ export function PreviewLightbox({
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
     const el = ref.current;
-    const sync = () => setFullscreen(el !== null && document.fullscreenElement === el);
+    const sync = () => {
+      const now = el !== null && document.fullscreenElement === el;
+      setFullscreen(now);
+      onFullscreenChange?.(now);
+    };
     document.addEventListener("fullscreenchange", sync);
     return () => {
       document.removeEventListener("fullscreenchange", sync);
       // Closed while filling the screen: the screen is given back.
-      if (el && document.fullscreenElement === el) void document.exitFullscreen();
+      if (el && document.fullscreenElement === el) {
+        void document.exitFullscreen();
+        onFullscreenChange?.(false);
+      }
     };
-  }, []);
+  }, [onFullscreenChange]);
   const toggleFullscreen = () => {
     if (fullscreen) void document.exitFullscreen();
     // Refused (a browser or frame without it): the lightbox stays as it is.

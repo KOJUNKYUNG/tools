@@ -256,6 +256,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [keptCovering, setKeptCovering] = useState<Set<string>>(new Set());
   const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
   const [zoom, setZoom] = useState<null | "selected" | "current">(null);
+  /** The zoom fills the screen: the filtered preview is drawn at the screen's size. */
+  const [zoomFullscreen, setZoomFullscreen] = useState(false);
 
   const aspectCss =
     slideAspect.kind === "4:3"
@@ -649,6 +651,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     crop,
     sourceSize: pickSize,
     ratio: slideAspect.ratio,
+    large: zoomFullscreen && zoom === "selected",
     // The preview would go on showing the picture without the filter: say so, as a run does.
     onPaperFail: () => toast.error(labels.errors.filterDrawFailed, { id: "filter-preview" }),
   });
@@ -1099,6 +1102,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   finished={zoom === "selected" ? filterPreview : null}
                   closeLabel={labels.preview.close}
                   fullscreenLabels={{ enter: labels.preview.fullscreen, exit: labels.preview.exitFullscreen }}
+                  onFullscreenChange={setZoomFullscreen}
                   onClose={() => setZoom(null)}
                 />
               )}

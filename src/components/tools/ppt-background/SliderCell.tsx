@@ -14,7 +14,8 @@ export const LABEL_BOX = "line-clamp-2 w-16 shrink-0 break-keep leading-[1.15]";
 /**
  * A labelled slider with a number field for its value, in one cell of the
  * area's grid; `lead`, a control the value belongs with (the overlay's
- * colour), sits between the label and the slider.
+ * colour), sits right after the label inside the label's width, so the
+ * slider starts and ends where every other cell's does.
  */
 export function SliderCell({
   label,
@@ -35,10 +36,18 @@ export function SliderCell({
   const shownNow = shownValue(range, value);
   return (
     <div className="flex h-6 min-w-0 items-center gap-1.5">
-      <label htmlFor={id} className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
-        {label}
-      </label>
-      {lead}
+      {lead ? (
+        <span className="flex w-16 shrink-0 items-center gap-1">
+          <label htmlFor={id} className={cn(GROUP_LABEL, "min-w-0 truncate")} style={{ color: "var(--ink-soft)" }}>
+            {label}
+          </label>
+          {lead}
+        </span>
+      ) : (
+        <label htmlFor={id} className={cn(GROUP_LABEL, LABEL_BOX)} style={{ color: "var(--ink-soft)" }}>
+          {label}
+        </label>
+      )}
       <input
         id={id}
         type="range"

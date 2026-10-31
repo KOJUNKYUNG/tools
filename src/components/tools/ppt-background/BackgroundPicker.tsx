@@ -226,8 +226,12 @@ export function BackgroundPicker({
           </div>
         ) : activeCategory === "solid" ? (
           <div className="flex h-full min-h-0 flex-col gap-2.5">
-            {/* The colours scroll in the room the edit area leaves. */}
-            <div className="min-h-0 flex-1">
+            {/* The colours scroll in the room the edit area leaves, in the
+                gallery's panel, so every tab of the picker looks alike. */}
+            <div
+              className="min-h-0 flex-1 rounded-[10px] border"
+              style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+            >
               <SolidColourGrid
                 value={fill}
                 onSelect={(next, fromCustom) => {
@@ -244,9 +248,9 @@ export function BackgroundPicker({
             </div>
             {/* Once a colour with effects is picked, the area's room is held, open
                 or closed, as under the frame, so the toggle keeps its place; until
-                then the colours take the whole tab. In line with the tiles. */}
+                then the colours take the whole tab. In line with the panel, as under the frame. */}
             {fillEdit && (
-              <div className="h-[9rem] shrink-0 px-4">
+              <div className="h-[9rem] shrink-0">
                 <EditArea {...fillEdit} />
               </div>
             )}

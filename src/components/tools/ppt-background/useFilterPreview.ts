@@ -29,9 +29,23 @@ const SETTLE_MS = 200;
  */
 const DRAFT_SCALE = 0.5;
 
-/** The preview box in the orientation of a slide of `ratio` (width / height). */
-function previewBox(ratio: number): ImageDims {
-  return ratio >= 1 ? { w: PREVIEW_BOX.long, h: PREVIEW_BOX.short } : { w: PREVIEW_BOX.short, h: PREVIEW_BOX.long };
+/** The largest picture applied: 4K, the cap the run fits pictures inside. */
+const APPLIED_BOX = { long: 3840, short: 2160 };
+
+/**
+ * The preview box in the orientation of a slide of `ratio` (width / height):
+ * Full HD, or, `large` (the zoom filling the screen), the screen's own
+ * pixels up to 4K, so grain and dots are drawn for the size they are seen
+ * at rather than stretched from Full HD, which smooths them.
+ */
+function previewBox(ratio: number, large: boolean): ImageDims {
+  let { long, short } = PREVIEW_BOX;
+  if (large) {
+    const dpr = window.devicePixelRatio || 1;
+    long = Math.min(APPLIED_BOX.long, Math.max(long, Math.round(Math.max(screen.width, screen.height) * dpr)));
+    short = Math.min(APPLIED_BOX.short, Math.max(short, Math.round(Math.min(screen.width, screen.height) * dpr)));
+  }
+  return ratio >= 1 ? { w: long, h: short } : { w: short, h: long };
 }
 
 export interface FilterPreviewInput {
@@ -49,6 +63,8 @@ export interface FilterPreviewInput {
   sourceSize?: ImageDims;
   /** The slide's width / height. */
   ratio: number;
+  /** Drawn for the whole screen (the zoom filling it) rather than at Full HD. */
+  large?: boolean;
   /** The Paper filter failed to draw; the preview stays on its last drawing. */
   onPaperFail: () => void;
 }
@@ -105,6 +121,7 @@ export function useFilterPreview({
   crop,
   sourceSize,
   ratio,
+  large = false,
   onPaperFail,
 }: FilterPreviewInput): LivePicture | null {
   // What is shown, by which a drawing is matched to it: the colour, or the picture's URL.
@@ -161,7 +178,7 @@ export function useFilterPreview({
     const frame = requestAnimationFrame(() => {
       // The colour at the size its picture is applied at, scaled into the preview box.
       const applied = filledSize({ w: ratio, h: 1 });
-      const box = previewBox(ratio);
+      const box = previewBox(ratio, large);
       const scale = Math.min(1, box.w / applied.width, box.h / applied.height);
       const canvas = (baseRef.current ??= document.createElement("canvas"));
       canvas.width = Math.max(1, Math.round(applied.width * scale));
@@ -173,7 +190,7 @@ export function useFilterPreview({
       setBase((prev) => ({ canvas, version: (prev?.version ?? 0) + 1, url, applied }));
     });
     return () => cancelAnimationFrame(frame);
-  }, [filtered, colour, shown, ratio]);
+  }, [filtered, colour, shown, ratio, large]);
 
   useEffect(() => {
     // The recipe edit's drawing, or the picture.
@@ -192,7 +209,7 @@ export function useFilterPreview({
       // The size the applied picture is stored at, from the crop the run
       // takes (centred to fill until one is set); both read only the slide's aspect.
       const applied = fittedSize(crop ?? maxFitCrop(source, ratio, 1), { w: ratio, h: 1 });
-      const box = previewBox(ratio);
+      const box = previewBox(ratio, large);
       // Never larger than the part itself: an enlargement only blurs.
       const scale = Math.min(1, box.w / part.w, box.h / part.h);
       const canvas = (baseRef.current ??= document.createElement("canvas"));
@@ -205,7 +222,7 @@ export function useFilterPreview({
       setBase((prev) => ({ canvas, version: (prev?.version ?? 0) + 1, url, applied }));
     });
     return () => cancelAnimationFrame(frame);
-  }, [filtered, colour, imageUrl, loaded, recipeLive, crop, sourceW, sourceH, ratio]);
+  }, [filtered, colour, imageUrl, loaded, recipeLive, crop, sourceW, sourceH, ratio, large]);
 
   useEffect(() => {
     if (!base || !paperKey) return;

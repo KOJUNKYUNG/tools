@@ -172,24 +172,22 @@ export function FilterControls({ offered, filters, onChange, locked, labels }: F
               locked={locked}
               onChange={(value) => onChange({ veil: value })}
             />
-            {/* Across the row: its colour takes room the slider still needs. */}
-            <div className="col-span-2">
-              <SliderCell
-                label={labels.overlay}
-                range={offered.overlay}
-                value={filters.overlay}
-                locked={locked}
-                onChange={(value) => onChange({ overlay: value })}
-                lead={
-                  <Swatch
-                    colour={filters.overlayColour}
-                    label={labels.overlayColour}
-                    locked={locked}
-                    onColour={(hex) => onChange({ overlayColour: hex })}
-                  />
-                }
-              />
-            </div>
+            <SliderCell
+              label={labels.overlay}
+              range={offered.overlay}
+              value={filters.overlay}
+              locked={locked}
+              onChange={(value) => onChange({ overlay: value })}
+              lead={
+                <Swatch
+                  colour={filters.overlayColour}
+                  label={labels.overlayColour}
+                  locked={locked}
+                  onColour={(hex) => onChange({ overlayColour: hex })}
+                  small
+                />
+              }
+            />
           </>
         )}
         {shown === "style" && paperOffer && (
@@ -452,15 +450,18 @@ function Swatch({
   label,
   locked,
   onColour,
+  small = false,
 }: {
   colour: string;
   label: string;
   locked: boolean;
   onColour: (hex: string) => void;
+  /** Fits inside a label's width, beside its name. */
+  small?: boolean;
 }) {
   return (
     <label
-      className="relative block h-5 w-5 shrink-0 overflow-hidden rounded-[3px] border"
+      className={cn("relative block shrink-0 overflow-hidden rounded-[3px] border", small ? "size-4" : "size-5")}
       style={{ background: colour, borderColor: "var(--border)" }}
       title={label}
     >
