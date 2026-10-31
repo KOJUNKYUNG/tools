@@ -153,7 +153,7 @@ import { maxFitCrop } from "/src/lib/image/maxFitCrop.ts";
 import { downscaleImage, drawScaledDown } from "/src/lib/image/downscale.ts";
 import { fittedSize, filledSize, slideImagePreparer } from "/src/lib/image/slideImage.ts";
 import { filterPlan, filtersFor, NO_FILTERS } from "/src/lib/image/filterSet.ts";
-import { composeFilters } from "/src/lib/image/filterCanvas.ts";
+import { adjustFilters, composeFilters } from "/src/lib/image/filterCanvas.ts";
 import { PAPER_FILTERS, PAPER_FILTER_NAMES, fillingProps } from "/src/lib/image/paperFilters.ts";
 import { loadPaperDrawing, paperHost } from "/src/lib/gallery/paperRuntime.ts";
 import { displayedSize, readImageHeader } from "/src/lib/output-check/imageHeader.ts";
@@ -330,7 +330,7 @@ async function useSolid() {
   ctx.fillRect(0, 0, size.width, size.height);
   const blob = await canvas.convertToBlob({ type: "image/png" });
   picture = { id: `solid:${rgb}`, kind: "solid", blob, crop: { x: 0, y: 0, ...size }, fitted4k: size };
-  $("pictureInfo").textContent = `단색 ${rgb} · 효과가 있으면 ${size.width} × ${size.height} 그림으로 들어감 · 흐리게는 단색에 없음 · 어둡게·밝게만 쓰면 앱에서는 그림이 아니라 바뀐 색으로 들어갈 예정 (랩의 4K 적용은 그림으로 잼)`;
+  $("pictureInfo").textContent = `단색 ${rgb} · 효과가 있으면 ${size.width} × ${size.height} 그림으로 들어감 · 흐리게는 단색에 없음 · 색만 바꾸는 효과(채도·대비·덮개)만 쓰면 앱에서는 그림이 아니라 바뀐 색으로 들어감 (랩의 4K 적용은 그림으로 잼)`;
 }
 
 async function choosePicture() {
@@ -360,10 +360,11 @@ async function fittedAt(size) {
   return fittedCache.get(key);
 }
 
-/** The fitted picture as Paper's input texture (Paper takes only an image element), decoded once. */
-async function inputImage(fitted, key) {
+/** The adjusted picture as Paper's input texture (Paper takes only an image element), decoded once. */
+async function inputImage(adjusted, key) {
   if (!inputCache.has(key)) {
-    const url = URL.createObjectURL(await fitted.convertToBlob({ type: "image/png" }));
+    const blob = await new Promise((resolve) => adjusted.toBlob(resolve, "image/png"));
+    const url = URL.createObjectURL(blob);
     const image = new Image();
     image.src = url;
     await image.decode();
@@ -372,13 +373,18 @@ async function inputImage(fitted, key) {
   return inputCache.get(key);
 }
 
-/** `step`'s Paper filter with the lab's params, at the fitted size, as paperFilterDrawing.ts draws it. */
-async function paperDrawn(step, fitted, size) {
+/**
+ * `step`'s Paper filter with the lab's params, drawn from the adjusted
+ * picture (`adjustments`, the plan's steps before it), at the fitted size,
+ * as paperFilterDrawing.ts draws it.
+ */
+async function paperDrawn(step, adjusted, adjustments, size) {
   const { params } = state.paper[step.paper];
-  const key = JSON.stringify([picture.id, size.width, step.paper, params]);
+  const input = JSON.stringify([picture.id, size.width, adjustments]);
+  const key = JSON.stringify([input, step.paper, params]);
   if (paperCache.has(key)) return paperCache.get(key);
   const drawing = await loadPaperDrawing();
-  const image = await inputImage(fitted, `${picture.id}|${size.width}`);
+  const image = await inputImage(adjusted, input);
   const spec = { shader: PAPER_FILTERS[step.paper].shader, ...fillingProps(params), image };
   const el = paperHost();
   try {
@@ -397,122 +403,28 @@ async function paperDrawn(step, fitted, size) {
   }
 }
 
-// ── the lab's grain (options the app does not have yet) ──────
-/** The app's cell hash (pixelFilters.ts), so the lab's grain at the app's options is the same pattern. */
-function hash(i, j, seed) {
-  let h = (Math.imul(i, 0x27d4eb2d) + Math.imul(j, 0x165667b1) + Math.imul(seed, 0x9e3779b1)) | 0;
-  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
-  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
-  return (h ^ (h >>> 16)) >>> 0;
-}
-/** A cell's value, triangular in −1..1 around 0, as the app's grain draws it. */
-function cellValue(i, j, seed) {
-  const h = hash(i, j, seed);
-  return ((h & 0xffff) + 0.5) / 65536 + ((h >>> 16) + 0.5) / 65536 - 1;
-}
-
-/**
- * A Gaussian blur of `sigma` px along each axis of a one-channel field;
- * edges clamp. An exact kernel, not box blurs, whose whole-pixel radius
- * would draw every small sigma alike.
- */
-function blurField(field, width, height, sigma) {
-  const radius = Math.ceil(3 * sigma);
-  const kernel = new Float32Array(2 * radius + 1);
-  let total = 0;
-  for (let k = -radius; k <= radius; k++) total += kernel[k + radius] = Math.exp(-(k * k) / (2 * sigma * sigma));
-  for (let k = 0; k < kernel.length; k++) kernel[k] /= total;
-  const line = new Float32Array(Math.max(width, height));
-  const pass = (count, length, at) => {
-    for (let n = 0; n < count; n++) {
-      for (let k = 0; k < length; k++) line[k] = field[at(n, k)];
-      for (let k = 0; k < length; k++) {
-        let sum = 0;
-        for (let j = -radius; j <= radius; j++) sum += kernel[j + radius] * line[Math.min(length - 1, Math.max(0, k + j))];
-        field[at(n, k)] = sum;
-      }
-    }
-  };
-  pass(height, width, (y, x) => y * width + x);
-  pass(width, height, (x, y) => y * width + x);
-}
-
-/**
- * One grain pattern as a field of values around 0: the app's cells, and
- * for a size above 1 that pattern blurred until its specks are about
- * `size` times as wide, then scaled back to the app's spread, the way photo
- * editors grow grain (noise, then a blur), so specks stay round.
- */
-function grainField(width, height, cell, size, seed) {
-  const field = new Float32Array(width * height);
-  const c = size < 1 ? cell * size : cell;
-  for (let y = 0; y < height; y++) {
-    const row = Math.floor((y + 0.5) / c);
-    for (let x = 0; x < width; x++) field[y * width + x] = cellValue(Math.floor((x + 0.5) / c), row, seed);
-  }
-  if (size > 1) {
-    blurField(field, width, height, 0.5 * cell * Math.sqrt(size * size - 1));
-    let sq = 0;
-    for (const v of field) sq += v * v;
-    const spread = Math.sqrt(1 / 6) / Math.sqrt(sq / field.length); // a triangular −1..1 value's spread
-    for (let i = 0; i < field.length; i++) field[i] *= spread;
-  }
-  return field;
-}
-
-/**
- * Grain with the lab's options. `size` scales the specks (1 = the app's;
- * below 1 the cells shrink, and the change with them, as the app does for
- * cells under a pixel). `midtone` weighs the change by 4·L·(1 − L), full at
- * mid grey and none at black or white, the response an overlay-blended
- * grain layer has. `colour` mixes in a separate pattern per channel.
- */
-function labGrain(pixels, width, height, { amount, cell, seed }, { size, midtone, colour }) {
-  const scale = amount * 255 * (size < 1 ? Math.min(1, cell * size) / Math.min(1, cell) : 1);
-  const mono = grainField(width, height, cell, size, seed);
-  const channels = colour > 0 ? [1, 2, 3].map((k) => grainField(width, height, cell, size, seed + k)) : null;
-  for (let p = 0; p < width * height; p++) {
-    const i = p * 4;
-    let weight = scale;
-    if (midtone) {
-      const l = (0.2126 * pixels[i] + 0.7152 * pixels[i + 1] + 0.0722 * pixels[i + 2]) / 255;
-      weight *= 4 * l * (1 - l);
-    }
-    for (let k = 0; k < 3; k++) {
-      const v = channels ? (1 - colour) * mono[p] + colour * channels[k][p] : mono[p];
-      pixels[i + k] += Math.round(v * weight);
-    }
-  }
-}
-
+// The grain options the app has had since the QA (10-31); the lab passes them through.
 const labGrainOn = () => Object.entries(GRAIN_APP).some(([k, v]) => state.grain[k] !== v);
 
 /**
  * The filtered picture at `size`, as the tool bakes it: the plan for that
- * size over the fitted picture. Two lab changes: a solid colour takes the
- * veil (QA 10-31; blur changes nothing on it), and the grain may take the
- * lab's options.
+ * size over the fitted picture, with the lab's grain options.
  */
 async function renderAt(size) {
   const start = performance.now();
   const fitted = await fittedAt(size);
-  const values = { ...NO_FILTERS, ...state.values };
-  // A solid colour planned as a picture without blur: the veil's step is the picture's.
-  const plan = picture.kind === "solid" ? filterPlan({ ...values, blur: 0 }, "picture", size) : filterPlan(values, picture.kind, size);
-  const step = plan[0]?.filter === "paper" ? plan[0] : null;
-  const drawn = step ? await paperDrawn(step, fitted, size) : undefined;
+  const { size: grainSize, colour: grainColour, midtone: grainResponse } = state.grain;
+  const values = { ...NO_FILTERS, ...state.values, grainSize, grainColour, grainResponse };
+  const plan = filterPlan(values, picture.kind, size);
   const out = document.createElement("canvas");
   out.width = size.width;
   out.height = size.height;
-  const ctx = out.getContext("2d", { willReadFrequently: true });
-  ctx.drawImage(fitted, 0, 0);
-  const grainStep = labGrainOn() ? plan.find((s) => s.filter === "grain") : null;
-  composeFilters(out, grainStep ? plan.filter((s) => s !== grainStep) : plan, drawn);
-  if (grainStep) {
-    const image = ctx.getImageData(0, 0, size.width, size.height);
-    labGrain(image.data, size.width, size.height, grainStep, state.grain);
-    ctx.putImageData(image, 0, 0);
-  }
+  out.getContext("2d", { willReadFrequently: true }).drawImage(fitted, 0, 0);
+  // The app's order: the adjustments, the Paper filter drawn from them, then the rest.
+  adjustFilters(out, plan);
+  const at = plan.findIndex((s) => s.filter === "paper");
+  const drawn = at >= 0 ? await paperDrawn(plan[at], out, plan.slice(0, at), size) : undefined;
+  composeFilters(out, plan, drawn);
   return { out, fitted, plan, ms: performance.now() - start };
 }
 
@@ -752,7 +664,7 @@ function grainOptions() {
     sizeNum.classList.toggle("changed", state.grain.size !== GRAIN_APP.size);
     colourNum.classList.toggle("changed", state.grain.colour !== GRAIN_APP.colour);
     note.textContent = labGrainOn()
-      ? "랩 전용 입자로 그리는 중입니다(앱에는 아직 없음). 크기가 1보다 크면 노이즈를 흐려서 알갱이를 키웁니다(사진 편집기 방식). 색 입자는 4K 적용 후 저장본에서 JPEG 손실을 확인하세요."
+      ? "앱의 그레인 옵션으로 그리는 중입니다. 크기가 1보다 크면 노이즈를 흐려서 알갱이를 키웁니다(사진 편집기 방식)."
       : "크기 1 · 밝기별 반응 끔 · 색 입자 0이면 앱의 입자와 똑같습니다.";
   };
   mark();

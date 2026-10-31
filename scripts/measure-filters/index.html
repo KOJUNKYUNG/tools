@@ -33,7 +33,9 @@ filtered, then saved as JPEG (q0.85, 4:2:0) or PNG by the existing format rule. 
     (its unfiltered result is a fill, so sizes are absolute).</li>
 </ul>
 <p>Settings come from the filter set's own ranges (<code>filtersFor</code>): blur, veil and grain default
-to 0 (off), so each is measured at half its range and at its maximum; the veil both ways. A Paper
+to 0 (off), so each is measured at half its range and at its maximum; the veil both ways; grain's
+size, colour and response by brightness at its maximum; saturation, contrast and the colour overlay
+at their ends. A Paper
 filter's default strength is its maximum, 100%. Photos: the site's own gallery pictures
 (<code>public/gallery</code>, the tool's most common input), the loose JPEG/PNG files in
 <code>tests/fixtures</code> and its subfolders, the pictures in its decks whose long side is at least
@@ -45,7 +47,7 @@ Query <code>?sets=gallery,loose,decks,hires,solids&amp;limit=N</code> picks what
 <script type="module">
 import { fittedSize, filledSize, slideImagePreparer } from "/src/lib/image/slideImage.ts";
 import { filterStep } from "/src/lib/image/filterCanvas.ts";
-import { filtersFor, NO_FILTERS } from "/src/lib/image/filterSet.ts";
+import { bakesPicture, filtersFor, NO_FILTERS } from "/src/lib/image/filterSet.ts";
 import { PAPER_FILTER_NAMES } from "/src/lib/image/paperFilters.ts";
 import { maxFitCrop } from "/src/lib/image/maxFitCrop.ts";
 import { downscaleImage } from "/src/lib/image/downscale.ts";
@@ -75,6 +77,14 @@ const CONFIGS = [
   { name: `veil +${pct(offered.veil.max)} (max, light)`, set: { veil: offered.veil.max } },
   { name: `grain ${half(offered.grain) * 100} (half)`, set: { grain: half(offered.grain) } },
   { name: `grain ${offered.grain.max * 100} (max)`, set: { grain: offered.grain.max } },
+  { name: `grain max, size ${offered.grainSize.max}`, set: { grain: offered.grain.max, grainSize: offered.grainSize.max } },
+  { name: `grain max, colour ${pct(offered.grainColour.max)}`, set: { grain: offered.grain.max, grainColour: offered.grainColour.max } },
+  { name: "grain max, by brightness", set: { grain: offered.grain.max, grainResponse: true } },
+  { name: `saturation ${pct(offered.saturation.min)} (grey)`, set: { saturation: offered.saturation.min } },
+  { name: `saturation +${pct(offered.saturation.max)} (max)`, set: { saturation: offered.saturation.max } },
+  { name: `contrast ${pct(offered.contrast.min)} (min)`, set: { contrast: offered.contrast.min } },
+  { name: `contrast +${pct(offered.contrast.max)} (max)`, set: { contrast: offered.contrast.max } },
+  { name: `colour overlay ${pct(offered.overlay.max)} (max)`, set: { overlay: offered.overlay.max } },
   ...PAPER_FILTER_NAMES.map((paper) => ({
     name: `${paper} ${pct(offered.paper.strength.max)} (default = max)`,
     set: { paper, paperStrength: offered.paper.strength.max },
@@ -88,8 +98,8 @@ const CONFIGS = [
     set: { blur: offered.blur.max, veil: offered.veil.min, grain: offered.grain.max },
   },
 ].map((c) => ({ ...c, set: { ...NO_FILTERS, ...c.set } }));
-// What a solid colour takes: blur and the veil are not offered there.
-const SOLID_CONFIGS = CONFIGS.filter((c) => c.set.blur === 0 && c.set.veil === 0);
+// What makes a solid colour a picture (grain or a Paper filter); its colour effects alone keep it a fill.
+const SOLID_CONFIGS = CONFIGS.filter((c) => bakesPicture(c.set, "solid"));
 
 async function list(route) {
   const res = await fetch(route);
