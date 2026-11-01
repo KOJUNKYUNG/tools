@@ -4,7 +4,7 @@
 // and the table load on first use only: the tool's first load does not carry
 // them.
 
-import { paperDrawing } from "../../../scripts/gallery/paper-draw.js";
+import { loadPaperDrawing, paperHost, type PaperDrawing } from "./paperRuntime";
 import type { PaperRecipe } from "./recipes";
 
 /**
@@ -16,48 +16,8 @@ const APPLY_RATIO = 3;
 /** Pixel ratio of the live preview: 1280 × 720, the same composition. */
 const PREVIEW_RATIO = 1;
 
-// paper-draw.js is plain JS (allowJs, not type-checked): its helpers' types
-// are inferred loosely, and the mount is Paper's ShaderMount.
-type Drawing = ReturnType<typeof paperDrawing>;
-type Mount = Awaited<ReturnType<Drawing["mountStill"]>>;
-
-let loading: Promise<Drawing> | null = null;
-
-function loadDrawing(): Promise<Drawing> {
-  loading ??= Promise.all([
-    import("@paper-design/shaders"),
-    import("../../../scripts/gallery/paper-props.json"),
-  ]).then(([paper, props]) => paperDrawing(paper, props.default));
-  // A failed load (offline) may be tried again.
-  loading.catch(() => {
-    loading = null;
-  });
-  return loading;
-}
-
-let webgl2: boolean | null = null;
-
-/** Whether this browser can draw Paper Shaders, which need WebGL2. */
-export function webgl2Available(): boolean {
-  if (webgl2 === null) {
-    const gl = document.createElement("canvas").getContext("webgl2");
-    webgl2 = gl !== null;
-    gl?.getExtension("WEBGL_lose_context")?.loseContext();
-  }
-  return webgl2;
-}
-
-/**
- * An element to draw in: laid out at the still's 1280 × 720 CSS size (the
- * composition depends on it) but off screen.
- */
-function hostElement(): HTMLDivElement {
-  const el = document.createElement("div");
-  el.setAttribute("aria-hidden", "true");
-  Object.assign(el.style, { position: "fixed", left: "-20000px", top: "0", pointerEvents: "none" });
-  document.body.append(el);
-  return el;
-}
+/** Paper's ShaderMount, as paper-draw.js mounts it. */
+type Mount = Awaited<ReturnType<PaperDrawing["mountStill"]>>;
 
 /** The drawing as a PNG; a lost WebGL context is refused, since its canvas reads blank. */
 function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -77,8 +37,8 @@ function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
  * there is no unedited file to fall back to.
  */
 export async function drawRecipeFile(props: PaperRecipe): Promise<File> {
-  const drawing = await loadDrawing();
-  const el = hostElement();
+  const drawing = await loadPaperDrawing();
+  const el = paperHost();
   try {
     const start = performance.now();
     const blob = await drawing.drawStill(el, props, APPLY_RATIO, canvasPng);
@@ -101,8 +61,8 @@ export interface RecipePreview {
 
 /** Open a preview for `props`'s shader. */
 export async function openRecipePreview(props: PaperRecipe): Promise<RecipePreview> {
-  const drawing = await loadDrawing();
-  const el = hostElement();
+  const drawing = await loadPaperDrawing();
+  const el = paperHost();
   let mount: Mount | undefined;
   try {
     mount = await drawing.mountStill(el, props, { preserveDrawingBuffer: true, pixelRatio: PREVIEW_RATIO });

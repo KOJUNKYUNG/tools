@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { template } from "@/lib/common/template";
 import { CropSelector } from "@/components/image/CropSelector";
 import { InlineGallery, type GalleryLabels } from "@/components/ppt/InlineGallery";
 import type { Dictionary } from "@/i18n/config";
@@ -12,7 +13,7 @@ import {
 } from "@/lib/gallery/types";
 import type { FillBackground } from "@/lib/ppt/changeBackground";
 import { SolidColourGrid, type SolidColourLabels } from "./SolidColourGrid";
-import { RecipeEditArea, type RecipeEditProps } from "./RecipeEditArea";
+import { EditArea, type EditAreaProps } from "./EditArea";
 import { CornerSpinner } from "@/components/common/CornerSpinner";
 import { LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
 
@@ -35,8 +36,8 @@ export interface BackgroundFrame {
   onBack: () => void;
   /** A run is using the frame: it is shown as is and nothing here responds. */
   locked: boolean;
-  /** The recipe edit under the frame, for a Paper gallery item only. */
-  edit?: RecipeEditProps | null;
+  /** The edit area under the frame. */
+  edit?: EditAreaProps | null;
   /** The spinner's name while the shown picture is behind the latest edit; none when it is current. */
   busyLabel?: string | null;
 }
@@ -56,9 +57,13 @@ interface BackgroundPickerProps {
   themeBackground: string;
   /** A run is using the picked fill: the "단색" tab shows it and nothing responds. */
   fillLocked: boolean;
+  /** The edit area under the colours, while a solid colour (not "no background") is picked. */
+  fillEdit?: EditAreaProps | null;
   labels: {
     uploadLabel: string;
     backToGallery: string;
+    /** The line under the frame: `{sw} × {sh}` the source, `{w} × {h}` the crop. */
+    pixelSize: string;
     pictureAlt: string;
     handles: Dictionary["common"]["resizeHandles"];
     gallery: GalleryLabels;
@@ -76,6 +81,7 @@ export function BackgroundPicker({
   onFillSelect,
   themeBackground,
   fillLocked,
+  fillEdit = null,
   labels,
 }: BackgroundPickerProps) {
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>("all");
@@ -87,6 +93,19 @@ export function BackgroundPicker({
   const [custom, setCustom] = useState<string | null>(null);
   const [customPicked, setCustomPicked] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // The size the frame is held in, as the frame reports it (an upload's is
+  // known only once it loads), tagged with its picture.
+  const [measured, setMeasured] = useState<{ url: string; size: ImageDims } | null>(null);
+  const frameUrl = frame?.imageUrl;
+  const onSourceSize = useCallback(
+    (size: ImageDims) => {
+      if (frameUrl) setMeasured({ url: frameUrl, size });
+    },
+    [frameUrl],
+  );
+  // A new picture remounts the frame, which reports again once it knows the
+  // size; until then the last picture's size is not shown.
+  const source = measured && measured.url === frameUrl ? measured.size : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2.5">
@@ -177,6 +196,7 @@ export function BackgroundPicker({
                 targetHeight={1}
                 initialCrop={frame.crop}
                 onCropChange={frame.onCropChange}
+                onSourceSize={onSourceSize}
                 handleLabels={labels.handles}
                 readOnly={frame.locked}
                 // The selector draws a 1 px border around the picture.
@@ -184,25 +204,57 @@ export function BackgroundPicker({
               />
               {frame.busyLabel ? <CornerSpinner label={frame.busyLabel} /> : null}
             </div>
+            {/* Pixel size: its line is always reserved, so it fills in and
+                follows the crop without moving the frame or the edit area. */}
+            <p
+              className="-mt-1 h-[1.35em] shrink-0 truncate font-body text-[10.5px] leading-[1.35] tabular-nums"
+              style={{ color: "var(--ink-soft)" }}
+            >
+              {source && frame.crop
+                ? template(labels.pixelSize, {
+                    sw: source.w,
+                    sh: source.h,
+                    w: frame.crop.width,
+                    h: frame.crop.height,
+                  })
+                : " "}
+            </p>
             {/* The edit area's room is held for every picture, open or closed:
                 the frame keeps its size and the toggle its place. Its height
                 fits the toggle and four rows of two controls. */}
-            <div className="h-[9rem] shrink-0">{frame.edit ? <RecipeEditArea {...frame.edit} /> : null}</div>
+            <div className="h-[9rem] shrink-0">{frame.edit ? <EditArea {...frame.edit} /> : null}</div>
           </div>
         ) : activeCategory === "solid" ? (
-          <SolidColourGrid
-            value={fill}
-            onSelect={(next, fromCustom) => {
-              setCustomPicked(fromCustom);
-              onFillSelect(next);
-            }}
-            themeBackground={themeBackground}
-            custom={custom}
-            customPicked={customPicked}
-            onCustom={setCustom}
-            locked={fillLocked}
-            labels={labels.solid}
-          />
+          <div className="flex h-full min-h-0 flex-col gap-2.5">
+            {/* The colours scroll in the room the edit area leaves, in the
+                gallery's panel, so every tab of the picker looks alike. */}
+            <div
+              className="min-h-0 flex-1 rounded-[10px] border"
+              style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+            >
+              <SolidColourGrid
+                value={fill}
+                onSelect={(next, fromCustom) => {
+                  setCustomPicked(fromCustom);
+                  onFillSelect(next);
+                }}
+                themeBackground={themeBackground}
+                custom={custom}
+                customPicked={customPicked}
+                onCustom={setCustom}
+                locked={fillLocked}
+                labels={labels.solid}
+              />
+            </div>
+            {/* Once a colour with effects is picked, the area's room is held, open
+                or closed, as under the frame, so the toggle keeps its place; until
+                then the colours take the whole tab. In line with the panel, as under the frame. */}
+            {fillEdit && (
+              <div className="h-[9rem] shrink-0">
+                <EditArea {...fillEdit} />
+              </div>
+            )}
+          </div>
         ) : (
           <InlineGallery
             onSelect={onGallerySelect}

@@ -40,7 +40,7 @@ function oklchToLinear({ l: L, c, h }: Oklch): [number, number, number] {
 const inGamut = (rgb: number[]) => rgb.every((v) => v >= -1e-6 && v <= 1 + 1e-6);
 
 /** `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` as 0–255 channels and the alpha's own hex. */
-function parseHex(hex: string): { rgb: [number, number, number]; alpha: string } | null {
+export function parseHex(hex: string): { rgb: [number, number, number]; alpha: string } | null {
   const m = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(hex);
   if (!m) return null;
   let digits = m[1].toLowerCase();

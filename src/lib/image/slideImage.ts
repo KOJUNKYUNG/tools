@@ -53,6 +53,18 @@ export function fittedSize(crop: CropRect, slide: SlideSize): PixelSize {
 }
 
 /**
+ * The largest picture of the slide's aspect the 4K box holds: what a crop of
+ * any larger picture is stored at, so the size a picture made for the slide
+ * (a filtered solid colour) is drawn at.
+ */
+export function filledSize(slide: SlideSize): PixelSize {
+  const box = screenBox(slide);
+  const ratio = slide.w / slide.h;
+  if (ratio >= box.width / box.height) return { width: box.width, height: Math.round(box.width / ratio) };
+  return { width: Math.round(box.height * ratio), height: box.height };
+}
+
+/**
  * Whether a crop is too small to fill a Full HD screen without being
  * enlarged, so it may look blurry there: its long side in the slide's
  * orientation (width, or height for a portrait slide) is under 1920 pixels.
@@ -104,9 +116,9 @@ const JPEG_QUALITY = 0.85;
 /** Rows scanned at a time for transparency: bounds the pixel buffer to ~16 MB. */
 const SCAN_PIXELS = 4_000_000;
 
-/** Whether any pixel of `bitmap` is less than fully opaque, read in bands. */
-function alphaUsed(bitmap: ImageBitmap): boolean {
-  const { width, height } = bitmap;
+/** Whether any pixel of `picture` is less than fully opaque, read in bands. */
+function alphaUsed(picture: ImageBitmap | OffscreenCanvas): boolean {
+  const { width, height } = picture;
   const band = Math.max(1, Math.min(height, Math.floor(SCAN_PIXELS / width)));
   const canvas = new OffscreenCanvas(width, band);
   try {
@@ -115,7 +127,7 @@ function alphaUsed(bitmap: ImageBitmap): boolean {
     for (let y = 0; y < height; y += band) {
       const rows = Math.min(band, height - y);
       ctx.clearRect(0, 0, width, band);
-      ctx.drawImage(bitmap, 0, y, width, rows, 0, 0, width, rows);
+      ctx.drawImage(picture, 0, y, width, rows, 0, 0, width, rows);
       const pixels = ctx.getImageData(0, 0, width, rows).data;
       for (let i = 3; i < pixels.length; i += 4) if (pixels[i] !== 255) return true;
     }
@@ -134,40 +146,59 @@ async function encode(canvas: OffscreenCanvas, format: PreparedImage["format"]):
 }
 
 /**
- * The browser preparer: cut, fit, then save as `preparedFormat` decides,
- * scanning a PNG's pixels for transparency (a JPEG has none). A picture
- * taken whole at its own size that stays in its format goes in as uploaded:
- * re-encoding it could only lose quality or grow it. So a whole JPEG is
- * never re-encoded, and a whole PNG is re-encoded only to measure the rule.
+ * A change to the picture between its fit and its encoding, such as effects
+ * baked into its pixels: given the fitted picture, it returns the picture to
+ * encode, the same canvas or a new one of the same size (the prepared
+ * picture states the fitted size).
  */
-export const prepareSlideImage: PrepareSlideImage = async (source, crop, slide) => {
-  const bytes = new Uint8Array(await source.arrayBuffer());
-  const header = readImageHeader(bytes);
-  const size = fittedSize(crop, slide);
+export type PrepareStep = (fitted: OffscreenCanvas) => OffscreenCanvas | Promise<OffscreenCanvas>;
 
-  const whole =
-    header !== null &&
-    header.format !== "webp" &&
-    header.orientation === 1 &&
-    !hasUnreadOrientation(bytes) &&
-    crop.x === 0 &&
-    crop.y === 0 &&
-    crop.width === header.width &&
-    crop.height === header.height &&
-    size.width === crop.width &&
-    size.height === crop.height;
-  if (whole && header.format === "jpeg") return { bytes, format: "jpeg", ...size };
+/**
+ * The browser preparer: cut, fit, run `step` when given, then save as
+ * `preparedFormat` decides, scanning a PNG's pixels for transparency (a JPEG
+ * has none). Without a step, a picture taken whole at its own size that
+ * stays in its format goes in as uploaded: re-encoding it could only lose
+ * quality or grow it. So a whole JPEG is never re-encoded, and a whole PNG
+ * is re-encoded only to measure the rule. A step changes the pixels, so its
+ * picture is always encoded, and scanned for transparency as it comes out.
+ */
+export function slideImagePreparer(step?: PrepareStep): PrepareSlideImage {
+  return async (source, crop, slide) => {
+    const bytes = new Uint8Array(await source.arrayBuffer());
+    const header = readImageHeader(bytes);
+    const size = fittedSize(crop, slide);
 
-  // The <img> that measured the picture may decode what createImageBitmap
-  // cannot; either way the file is the problem, not the tool.
-  const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" }).catch(() => {
-    throw new Error(`${INVALID_INPUT_PREFIX}: the background image could not be decoded`);
-  });
-  try {
-    const alpha = header?.format !== "jpeg" && alphaUsed(bitmap);
-    if (whole && alpha) return { bytes, format: "png", ...size };
-    const canvas = await downscaleImage(bitmap, size.width, size.height, crop);
+    const whole =
+      !step &&
+      header !== null &&
+      header.format !== "webp" &&
+      header.orientation === 1 &&
+      !hasUnreadOrientation(bytes) &&
+      crop.x === 0 &&
+      crop.y === 0 &&
+      crop.width === header.width &&
+      crop.height === header.height &&
+      size.width === crop.width &&
+      size.height === crop.height;
+    if (whole && header.format === "jpeg") return { bytes, format: "jpeg", ...size };
+
+    // The <img> that measured the picture may decode what createImageBitmap
+    // cannot; either way the file is the problem, not the tool.
+    const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" }).catch(() => {
+      throw new Error(`${INVALID_INPUT_PREFIX}: the background image could not be decoded`);
+    });
+    let canvas: OffscreenCanvas | null = null;
     try {
+      const sourceAlpha = !step && header?.format !== "jpeg" && alphaUsed(bitmap);
+      if (whole && sourceAlpha) return { bytes, format: "png", ...size };
+      canvas = await downscaleImage(bitmap, size.width, size.height, crop);
+      if (step) {
+        const fitted = canvas;
+        canvas = await step(fitted);
+        if (canvas !== fitted) fitted.width = fitted.height = 0;
+      }
+      // A step may change the transparency, so its picture is scanned as it comes out.
+      const alpha = step ? alphaUsed(canvas) : sourceAlpha;
       // Measured on the canvas's own PNG, not the upload's: a badly
       // compressed graphic would otherwise look worth turning into JPEG.
       const png = await encode(canvas, "png");
@@ -177,9 +208,11 @@ export const prepareSlideImage: PrepareSlideImage = async (source, crop, slide) 
       }
       return { bytes: whole ? bytes : png, format: "png", ...size };
     } finally {
-      canvas.width = canvas.height = 0;
+      if (canvas) canvas.width = canvas.height = 0;
+      bitmap.close();
     }
-  } finally {
-    bitmap.close();
-  }
-};
+  };
+}
+
+/** The shared preparation with no step. */
+export const prepareSlideImage: PrepareSlideImage = slideImagePreparer();

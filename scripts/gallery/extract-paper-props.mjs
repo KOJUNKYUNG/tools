@@ -1,8 +1,9 @@
 // Writes scripts/gallery/paper-props.json: for every Paper shader that needs
-// no input image, the React component's props (names, kinds, ranges), how each
-// prop becomes a shader uniform, and Paper's own presets. The lab and the
-// headless renderer read it, so props copied from shaders.paper.design mean
-// exactly what they mean there.
+// no input image, and for the image filters ppt-background's filter set uses
+// (CONTEXT "Filter set"), the React component's props (names, kinds, ranges),
+// how each prop becomes a shader uniform, and Paper's own presets. The lab,
+// the headless renderer, the recipe edit and the filter set read it, so props
+// copied from shaders.paper.design mean exactly what they mean there.
 //
 // Source: @paper-design/shaders-react at the version of the installed
 // @paper-design/shaders (Apache-2.0, © Lost Coast Labs), fetched with
@@ -21,6 +22,9 @@ import * as paper from "@paper-design/shaders";
 const here = fileURLToPath(new URL(".", import.meta.url));
 const vanillaDir = fileURLToPath(new URL("../../node_modules/@paper-design/shaders/", import.meta.url));
 const version = JSON.parse(readFileSync(join(vanillaDir, "package.json"), "utf8")).version;
+
+/** The image filters of the filter set; Paper's other shaders that take a picture are left out. */
+const IMAGE_FILTERS = ["fluted-glass.js", "paper-texture.js", "halftone-dots.js", "halftone-cmyk.js"];
 
 const tmp = mkdtempSync(join(tmpdir(), "paper-react-"));
 try {
@@ -44,7 +48,8 @@ try {
   const shaders = {};
   for (const file of readdirSync(reactDir).filter((f) => f.endsWith(".js"))) {
     const src = readFileSync(join(reactDir, file), "utf8");
-    if (src.includes("u_image")) continue; // filters and logo effects need an input picture
+    // Other filters and the logo effects need an input picture the app never hands them.
+    if (src.includes("u_image") && !IMAGE_FILTERS.includes(file)) continue;
     const component = src.match(/const (\w+) = memo\(function/)?.[1];
     const fragment = src.match(/\b(\w+FragmentShader)\b/)?.[1];
     const block = src.match(/const uniforms = \{([\s\S]*?)\n  \};/)?.[1];
@@ -55,12 +60,19 @@ try {
     const props = {};
     let noiseTexture = false;
     for (const line of block.split("\n")) {
+      // Paper texture spreads its noise texture in, as `...noiseTexture`.
+      if (/^\s*\.\.\.noiseTexture,?\s*$/.test(line)) noiseTexture = true;
       const m = line.match(/^\s*(u_\w+): (.+?),?\s*$/);
       if (!m) continue;
       const [, uniform, expr] = m;
       const doc = docs[uniform] ?? {};
       let match;
       if (expr === "getShaderNoiseTexture()") noiseTexture = true;
+      else if (uniform === "u_image") props[expr] = { uniform, kind: "image", doc: doc.text };
+      else if ((match = expr.match(/^Boolean\((\w+)\)$/)) && props[match[1]]?.kind === "image") {
+        // Set with the picture: whether one is given (paper texture draws without one).
+        props[match[1]].flag = uniform;
+      }
       else if ((match = expr.match(/^(\w+)\.map\(getShaderColorFromString\)$/))) {
         const meta = paper[`${name}Meta`];
         props[match[1]] = { uniform, kind: "colors", max: meta?.maxColorCount ?? 10, doc: doc.text };
@@ -86,7 +98,9 @@ try {
       return new Function(...scope, `return (${literal});`)(...scope.map((k) => paper[k]));
     });
     const sizing = /\.\.\.defaultPatternSizing/.test(src) ? "pattern" : "object";
-    shaders[name] = { component, fragment, sizing, noiseTexture, props, presets };
+    // The textures Paper's component has mipmapped (the input picture, so a downscale stays smooth).
+    const mipmaps = src.match(/mipmaps: \[([^\]]*)\]/)?.[1].match(/"(\w+)"/g)?.map((s) => s.slice(1, -1));
+    shaders[name] = { component, fragment, sizing, noiseTexture, ...(mipmaps ? { mipmaps } : {}), props, presets };
   }
   const out = join(here, "paper-props.json");
   writeFileSync(out, JSON.stringify({ source: `@paper-design/shaders-react@${version} (Apache-2.0, Lost Coast Labs)`, version, shaders }, null, 1) + "\n");

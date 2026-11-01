@@ -37,6 +37,7 @@
       "memory": "브라우저 메모리가 부족합니다. 파일 크기나 개수를 줄여 다시 시도해 주세요.",
       "invalidFile": "지원하지 않거나 손상된 파일입니다.",
       "heicConvertFailed": "HEIC 파일을 변환할 수 없습니다.",
+      "filterDrawFailed": "이 브라우저에서 효과를 그리지 못했습니다(그래픽 메모리 부족 등). 다시 시도하거나, 스타일을 없음으로 바꿔 주세요.",
       "recipeDrawFailed": "이 브라우저에서 편집한 배경을 그리지 못했습니다(그래픽 메모리 부족 등). 다시 시도하거나, 원래대로를 눌러 갤러리 그림을 그대로 써 주세요.",
       "readFailed": "파일을 읽을 수 없습니다.",
       "pdfOpenFailedTemplate": "{name}: 손상되었거나 암호화된 PDF입니다."
@@ -162,6 +163,7 @@
           "sourceGallery": "갤러리",
           "tooLarge": "배경 이미지는 최대 {size}까지 올릴 수 있습니다.",
           "backToGallery": "갤러리로",
+          "pixelSize": "원본 {sw} × {sh} · 사용 {w} × {h}",
           "blurNotice": "선택한 부분이 작아 Full HD 화면에서 흐릿하게 보일 수 있습니다."
         },
         "gallery": {
@@ -224,6 +226,7 @@
         },
         "recipeEdit": {
           "heading": "편집",
+          "shape": "모양",
           "hue": "색 계열",
           "size": "크기",
           "grain": "그레인",
@@ -246,8 +249,59 @@
           "addColour": "색 추가",
           "removeTemplate": "색 {n} 빼기",
           "reset": "원래대로",
-          "unavailable": "이 브라우저는 WebGL2를 지원하지 않아 그림을 편집할 수 없어요. 고른 그림은 그대로 쓸 수 있어요.",
+          "unavailable": "이 브라우저는 WebGL2를 지원하지 않아 모양을 편집할 수 없어요. 효과는 쓸 수 있어요.",
           "drawing": "미리보기 그리는 중"
+        },
+        "filters": {
+          "effects": "효과",
+          "tabs": {
+            "adjust": "조정",
+            "style": "스타일",
+            "grain": "그레인"
+          },
+          "blur": "흐리게",
+          "saturation": "채도",
+          "contrast": "대비",
+          "paper": "스타일",
+          "paperNone": "없음",
+          "paperFilters": {
+            "flutedGlass": "유리",
+            "paperTexture": "종이",
+            "halftoneDuotone": "망점",
+            "halftoneMosaic": "모자이크",
+            "halftoneCmyk": "CMYK"
+          },
+          "strength": "강도",
+          "paperDefaults": "기본값으로",
+          "settings": {
+            "size": "크기",
+            "angle": "각도",
+            "shape": "모양",
+            "colorShadow": "그림자",
+            "seed": "무늬",
+            "colorFront": "점",
+            "colorBack": "바탕",
+            "originalColors": "원래 색 사용",
+            "contrast": "대비",
+            "gridNoise": "흐트러짐"
+          },
+          "shapes": {
+            "lines": "직선",
+            "linesIrregular": "불규칙 직선",
+            "wave": "물결",
+            "zigzag": "지그재그",
+            "pattern": "무늬"
+          },
+          "overlay": "색 덮개",
+          "overlayColour": "덮개 색",
+          "veil": "어둡게·밝게",
+          "darken": "어둡게",
+          "lighten": "밝게",
+          "grain": "그레인",
+          "grainSize": "입자 크기",
+          "grainColour": "색 입자",
+          "grainResponse": "밝기 반응",
+          "reset": "효과 초기화"
         },
         "solid": {
           "tab": "단색",
@@ -294,7 +348,9 @@
           "fillSwatch": "채우기 배경",
           "slideCountTemplate": "슬라이드 {n}장",
           "zoom": "확대",
-          "close": "닫기"
+          "close": "닫기",
+          "fullscreen": "전체 화면",
+          "exitFullscreen": "전체 화면 끝내기"
         }
       }
     },

@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>효과 조정 랩</title>
+<style>
+/* Layout: the picture on the left (sticky), the panels on the right; one column on narrow screens. As scripts/gallery/lab.html. */
+:root {
+  --bg: #f4f4f3; --surface: #ffffff; --ink: #141414; --ink-soft: #5f5f5f; --line: #d9d9d9;
+  --mark: #141414; --mark-ink: #ffffff; --warn: #8a5a00; --warn-bg: #fff4dc; --changed: #e9f0ff;
+  --font: "Pretendard", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111111; --surface: #1b1b1b; --ink: #efefef; --ink-soft: #a3a3a3; --line: #343434;
+    --mark: #efefef; --mark-ink: #111111; --warn: #ffd27a; --warn-bg: #3a2c0c; --changed: #1d2a44; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; } /* .row and .panel set display, which would show hidden ones */
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.55 var(--font); }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 20px; padding: 20px; align-items: start; }
+@media (max-width: 1080px) { .app { grid-template-columns: minmax(0, 1fr); } }
+.left { position: sticky; top: 20px; display: grid; gap: 10px; min-width: 0; }
+@media (max-width: 1080px) { .left { position: static; } }
+.stage { position: relative; width: 100%; aspect-ratio: 16 / 9; background: repeating-conic-gradient(#ccc 0 25%, #eee 0 50%) 0 0 / 16px 16px; border: 1px solid var(--line); cursor: crosshair; }
+.stage canvas, .zoom canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.zoom { position: relative; width: 100%; aspect-ratio: 16 / 9; border: 1px solid var(--line); background: #000; }
+.mark { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid #fff; outline: 1px solid #000; pointer-events: none; }
+.under { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; color: var(--ink-soft); font-size: 13px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.panel { display: grid; gap: 14px; min-width: 0; }
+.box { background: var(--surface); border: 1px solid var(--line); padding: 14px; display: grid; gap: 10px; min-width: 0; }
+.box h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-soft); }
+.row { display: grid; grid-template-columns: 120px minmax(0, 1fr) 76px; gap: 8px; align-items: center; }
+.row.wide { grid-template-columns: 120px minmax(0, 1fr); }
+.row .name { font-family: var(--mono); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub { display: grid; grid-template-columns: 120px repeat(4, minmax(0, 1fr)); gap: 6px; align-items: center; font-size: 12px; color: var(--ink-soft); }
+.sub.two { grid-template-columns: 120px repeat(2, minmax(0, 1fr)); }
+.sub label { display: grid; gap: 2px; }
+.slider { display: grid; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.slider:last-child { border-bottom: 0; padding-bottom: 0; }
+.out { color: var(--warn); font-size: 12px; }
+input, select, textarea, button { font: inherit; color: var(--ink); }
+input[type="number"], input[type="text"], select, textarea {
+  background: var(--bg); border: 1px solid var(--line); padding: 4px 6px; min-width: 0; width: 100%;
+}
+input[type="number"] { font-family: var(--mono); font-size: 12.5px; }
+input[type="range"] { width: 100%; accent-color: var(--ink); }
+input[type="color"] { width: 34px; height: 28px; padding: 0; border: 1px solid var(--line); background: none; }
+input.changed, textarea.changed { background: var(--changed); }
+textarea { font-size: 12.5px; min-height: 2.2em; resize: vertical; }
+button { background: var(--surface); border: 1px solid var(--ink); padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+button.primary { background: var(--mark); color: var(--mark-ink); }
+button:disabled { opacity: 0.4; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.buttons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.color { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.color input[type="text"] { font-family: var(--mono); font-size: 12.5px; }
+.notice { background: var(--warn-bg); color: var(--warn); padding: 8px 10px; font-size: 13px; }
+.hint { color: var(--ink-soft); font-size: 12.5px; margin: 0; }
+details summary { cursor: pointer; color: var(--ink-soft); font-size: 13px; }
+details[open] { display: grid; gap: 10px; }
+.copy { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+.copy .key { grid-column: 1 / -1; font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); margin-top: 6px; }
+.qa { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; align-items: start; }
+.qa textarea { grid-column: 2; }
+.result { display: grid; grid-template-columns: auto auto; gap: 2px 14px; font-size: 13px; justify-content: start; }
+.status { font-size: 13px; color: var(--ink-soft); min-height: 1.4em; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="left">
+    <div class="stage" id="stage"><canvas id="view"></canvas><div class="mark" id="mark"></div></div>
+    <div class="under">
+      <label>보기 <select id="viewMode">
+        <option value="filtered">효과 적용</option>
+        <option value="source">원본</option>
+        <option value="saved" disabled>저장본 (4K 적용 후)</option>
+      </select></label>
+      <label>작업 크기 <select id="workSize">
+        <option value="3840">4K (적용과 같음)</option>
+        <option value="1920">1920</option>
+        <option value="1280">1280 (빠름)</option>
+      </select></label>
+      <span class="num" id="renderInfo"></span>
+    </div>
+    <div class="zoom"><canvas id="zoom"></canvas></div>
+    <p class="hint">아래는 1:1 확대(화면 픽셀 = 그림 픽셀)입니다. 위 그림을 누르면 그 자리를 확대합니다. 작업 크기가 4K일 때 덱에 들어가는 그대로입니다.</p>
+  </div>
+
+  <div class="panel">
+    <div class="box">
+      <h2>그림</h2>
+      <label class="row wide"><span class="name">그림</span><select id="picture"></select></label>
+      <label class="row wide"><span class="name">올리기</span><input type="file" id="upload" accept="image/png,image/jpeg,image/webp"></label>
+      <div class="row wide" id="solidRow" hidden><span class="name">단색</span><span class="color"><input type="color" id="solid" value="#1f2a44"></span></div>
+      <p class="hint" id="pictureInfo"></p>
+    </div>
+
+    <div class="box">
+      <h2>4K 적용 (도구와 같은 준비 과정)</h2>
+      <div class="buttons"><button type="button" class="primary" id="apply">4K로 적용해 보기</button></div>
+      <div class="result" id="result"></div>
+      <p class="hint">저장 형식·크기와, 마지막 저장으로 생기는 색 손실(ΔE, CIEDE2000)을 잽니다. 2.3 안팎부터 눈에 띄기 시작합니다. 적용 뒤 보기를 "저장본"으로 바꾸면 덱에 들어가는 파일 그대로를 봅니다.</p>
+    </div>
+
+    <div class="box">
+      <h2>범위 (슬라이더는 사용자 범위보다 넓게 움직입니다)</h2>
+      <div id="sliders" class="panel" style="gap:10px"></div>
+      <p class="hint">숫자는 화면에 보이는 단위입니다(%, 입자는 ×100). "사용자 범위"가 도구 슬라이더의 최소·최대·간격·기본값이 됩니다.</p>
+    </div>
+
+    <div class="box">
+      <h2>스타일 (Paper 필터)</h2>
+      <label class="row wide"><span class="name" id="paperLabel">스타일</span><select id="paper"></select></label>
+      <div id="paperBox" class="panel" style="gap:10px">
+        <label class="row wide"><span class="name">Paper 프리셋</span><select id="preset"></select></label>
+        <div class="buttons"><button type="button" id="presetReset">프리셋 값으로 되돌리기</button></div>
+        <p class="hint">"노출"을 켠 값이 사용자에게 슬라이더로 보입니다(그 범위와 함께). 나머지는 여기서 정한 값으로 고정됩니다. 그림은 늘 꽉 채워 그립니다(fit = cover, scale ≥ 1).</p>
+        <div id="props" class="panel" style="gap:8px"></div>
+        <details><summary>위치·크기 (고급)</summary><div id="advProps" class="panel" style="gap:8px"></div></details>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>문구 (한국어 · 영어)</h2>
+      <div class="copy" id="copy"></div>
+      <p class="hint">바뀐 칸은 색으로 표시됩니다. 이 페이지의 이름표도 한국어 문구를 따라갑니다.</p>
+    </div>
+
+    <div class="box">
+      <h2>QA 항목</h2>
+      <div class="qa" id="qa"></div>
+    </div>
+
+    <div class="box">
+      <h2>저장</h2>
+      <div class="buttons">
+        <button type="button" class="primary" id="save">tuning.json에 저장</button>
+        <button type="button" id="restore">앱 값으로 처음부터</button>
+      </div>
+      <div class="status" id="status" role="status"></div>
+      <p class="hint">저장한 값은 scripts/measure-filters/tuning.json에 남고, 다음에 랩을 열면 이어서 시작합니다. 앱에는 따로 반영합니다.</p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { maxFitCrop } from "/src/lib/image/maxFitCrop.ts";
+import { downscaleImage, drawScaledDown } from "/src/lib/image/downscale.ts";
+import { fittedSize, filledSize, slideImagePreparer } from "/src/lib/image/slideImage.ts";
+import { filterPlan, filtersFor, NO_FILTERS } from "/src/lib/image/filterSet.ts";
+import { adjustFilters, composeFilters } from "/src/lib/image/filterCanvas.ts";
+import { PAPER_FILTERS, PAPER_FILTER_NAMES, fillingProps } from "/src/lib/image/paperFilters.ts";
+import { loadPaperDrawing, paperHost } from "/src/lib/gallery/paperRuntime.ts";
+import { displayedSize, readImageHeader } from "/src/lib/output-check/imageHeader.ts";
+import { colourDifference } from "/colourDifference.js";
+
+const $ = (id) => document.getElementById(id);
+const SLIDE = { w: 16, h: 9 };
+const catalog = (await import("/scripts/gallery/paper-props.json")).default;
+const dictionaries = {
+  ko: await (await fetch("/i18n/ko.json")).json(),
+  en: await (await fetch("/i18n/en.json")).json(),
+};
+
+// ── the app's values, the lab's starting point ───────────────
+const offered = filtersFor("picture", true);
+const SLIDERS = {
+  // `explore`: how far the lab's slider goes, in shown units (×100), past the user's range.
+  blur: { copy: "blur", app: offered.blur, explore: [0, 5, 0.05] },
+  veil: { copy: "veil", app: offered.veil, explore: [-100, 100, 1] },
+  grain: { copy: "grain", app: offered.grain, explore: [0, 50, 0.5] },
+  paperStrength: { copy: "strength", app: offered.paper.strength, explore: [0, 100, 1] },
+};
+const SHOWN = 100; // every filter slider shows its share ×100
+const FILTERS = "tools.ppt-background.page.filters";
+const COPY_KEYS = [
+  ...["effects", "blur", "veil", "grain", "paper", "paperNone"].map((k) => `${FILTERS}.${k}`),
+  ...PAPER_FILTER_NAMES.map((k) => `${FILTERS}.paperFilters.${k}`),
+  ...["strength", "reset"].map((k) => `${FILTERS}.${k}`),
+  "tools.ppt-background.page.background.pixelSize",
+  "common.errors.filterDrawFailed",
+];
+const QA = [
+  ["paperEdge", "종이: 4K 좌우 가장자리의 밝은 띠 (확대로 확인)"],
+  ["halftoneLook", "망점 Default: 자체 입자 0.2, 크림/짙은 회색. 순수 흑백으로 갈지"],
+  ["cmykLoss", "CMYK: 저장 손실이 보이는지 (4K 적용 → 저장본 확대). 보이면 PNG 저장"],
+  ["solidSize", "단색 + 입자의 파일 크기 (단색 → 4K 적용)"],
+  ["solidVeil", "단색에도 어둡게·밝게 (결정 10-31: 넣음). 범위만 확인"],
+  ["grainKind", "입자 방식: 크기, 밝기별 반응, 색 입자 (입자 옵션으로 비교)"],
+  ["ranges", "범위·기본값 결정"],
+  ["exposed", "노출할 Paper 설정 결정"],
+  ["copy", "문구 결정"],
+];
+// The grain options the lab tries beyond the app's grain (QA 10-31). At these values the lab
+// lays the app's own grain; otherwise its own (labGrain below).
+const GRAIN_APP = { size: 1, midtone: false, colour: 0 };
+// [임시] the user's ranges for the grain options, decided at QA (10-31: colour grain as a
+// slider, the response by brightness as a toggle that starts off). Colour as a share, shown ×100.
+const GRAIN_RANGES = {
+  size: { min: 0.5, max: 3, step: 0.1, default: 1 },
+  colour: { min: 0, max: 1, step: 0.05, default: 0 },
+  midtone: { default: false },
+};
+const ADVANCED = new Set(["fit", "scale", "rotation", "offsetX", "offsetY", "originX", "originY", "worldWidth", "worldHeight"]);
+const INTEGER = /count|rows|seed/i;
+const lookup = (dict, key) => key.split(".").reduce((o, k) => o?.[k], dict);
+
+function appState() {
+  const ranges = {};
+  for (const [name, { app }] of Object.entries(SLIDERS)) {
+    ranges[name] = { min: app.min, max: app.max, step: app.step, default: NO_FILTERS[name] };
+  }
+  const paper = {};
+  for (const name of PAPER_FILTER_NAMES) {
+    const { shader, preset } = PAPER_FILTERS[name];
+    paper[name] = { preset, params: presetParamsOf(shader, preset), exposed: {} };
+  }
+  const copy = {};
+  for (const key of COPY_KEYS) copy[key] = { ko: lookup(dictionaries.ko, key), en: lookup(dictionaries.en, key) };
+  return {
+    values: { ...NO_FILTERS },
+    grain: { ...GRAIN_APP },
+    grainRanges: structuredClone(GRAIN_RANGES),
+    ranges,
+    paper,
+    copy,
+    qa: Object.fromEntries(QA.map(([id]) => [id, { done: false, note: "" }])),
+  };
+}
+function presetParamsOf(shader, presetName) {
+  const preset = catalog.shaders[shader].presets.find((p) => p.name === presetName);
+  const { image: _image, speed: _speed, frame: _frame, ...params } = structuredClone(preset.params);
+  return params;
+}
+
+let state = appState();
+const saved = await (await fetch("/api/tuning")).json();
+if (saved) restoreFrom(saved);
+
+/** Saved tuning on top of the app's values: Paper params are kept as changes from their preset. */
+function restoreFrom(t) {
+  const fresh = appState();
+  state = {
+    values: { ...fresh.values, ...t.values },
+    grain: { ...fresh.grain, ...t.grain },
+    grainRanges: { ...fresh.grainRanges, ...t.grainRanges },
+    ranges: { ...fresh.ranges, ...t.ranges },
+    paper: Object.fromEntries(PAPER_FILTER_NAMES.map((name) => {
+      const s = t.paper?.[name];
+      if (!s) return [name, fresh.paper[name]];
+      const base = presetParamsOf(PAPER_FILTERS[name].shader, s.preset);
+      return [name, { preset: s.preset, params: { ...base, ...s.params }, exposed: s.exposed ?? {} }];
+    })),
+    copy: Object.fromEntries(COPY_KEYS.map((k) => [k, { ...fresh.copy[k], ...t.copy?.[k] }])),
+    qa: { ...fresh.qa, ...t.qa },
+  };
+}
+
+function tuningToSave() {
+  const fresh = appState();
+  const paper = {};
+  for (const name of PAPER_FILTER_NAMES) {
+    const { preset, params, exposed } = state.paper[name];
+    const base = presetParamsOf(PAPER_FILTERS[name].shader, preset);
+    const changed = Object.fromEntries(Object.entries(params).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(base[k])));
+    paper[name] = { shader: PAPER_FILTERS[name].shader, preset, params: changed, exposed };
+  }
+  const copy = Object.fromEntries(COPY_KEYS.filter((k) => state.copy[k].ko !== fresh.copy[k].ko || state.copy[k].en !== fresh.copy[k].en)
+    .map((k) => [k, state.copy[k]]));
+  return { savedAt: new Date().toISOString(), values: state.values, grain: state.grain, grainRanges: state.grainRanges, ranges: state.ranges, paper, copy, qa: state.qa };
+}
+
+const copyKo = (key) => state.copy[key]?.ko ?? key;
+
+// ── the picture ──────────────────────────────────────────────
+// { id, kind: "picture" | "solid", blob, crop, fitted4k }; the fitted canvases per size are cached.
+let picture = null;
+const fittedCache = new Map();
+const inputCache = new Map();
+const paperCache = new Map();
+
+async function list(route) {
+  const res = await fetch(route);
+  return res.ok ? res.json() : [];
+}
+async function fillPictureList() {
+  const groups = [
+    ["갤러리", "/gallery", (await list("/gallery"))],
+    ["fixtures", "/fixtures", (await list("/fixtures")).filter((n) => /\.(png|jpe?g)$/i.test(n))],
+    ["고해상도", "/hires", await list("/hires")],
+  ];
+  for (const [label, route, names] of groups) {
+    if (!names.length) continue;
+    const g = document.createElement("optgroup");
+    g.label = label;
+    for (const n of names) g.append(new Option(n, `${route}/${n}`));
+    $("picture").append(g);
+  }
+  const g = document.createElement("optgroup");
+  g.label = "단색";
+  g.append(new Option("단색 (아래에서 색 고르기)", "solid"));
+  $("picture").append(g);
+}
+
+async function usePictureBytes(id, blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const header = readImageHeader(bytes);
+  const [w, h] = header ? displayedSize(header) : await (async () => {
+    const b = await createImageBitmap(blob);
+    const size = [b.width, b.height];
+    b.close();
+    return size;
+  })();
+  const crop = maxFitCrop({ w, h }, SLIDE.w, SLIDE.h);
+  picture = { id, kind: "picture", blob, crop, fitted4k: fittedSize(crop, SLIDE), source: { w, h } };
+  $("pictureInfo").textContent = `원본 ${w} × ${h} · 가운데 16:9 ${crop.width} × ${crop.height} · 4K 맞춤 ${picture.fitted4k.width} × ${picture.fitted4k.height}`;
+}
+
+async function useSolid() {
+  const size = filledSize(SLIDE);
+  const rgb = $("solid").value;
+  const canvas = new OffscreenCanvas(size.width, size.height);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = rgb;
+  ctx.fillRect(0, 0, size.width, size.height);
+  const blob = await canvas.convertToBlob({ type: "image/png" });
+  picture = { id: `solid:${rgb}`, kind: "solid", blob, crop: { x: 0, y: 0, ...size }, fitted4k: size };
+  $("pictureInfo").textContent = `단색 ${rgb} · 효과가 있으면 ${size.width} × ${size.height} 그림으로 들어감 · 흐리게는 단색에 없음 · 색만 바꾸는 효과(채도·대비·덮개)만 쓰면 앱에서는 그림이 아니라 바뀐 색으로 들어감 (랩의 4K 적용은 그림으로 잼)`;
+}
+
+async function choosePicture() {
+  const value = $("picture").value;
+  $("solidRow").hidden = value !== "solid";
+  if (value === "solid") await useSolid();
+  else await usePictureBytes(value, await (await fetch(value.split("/").map(encodeURIComponent).join("/"))).blob());
+  clearSaved();
+  schedule();
+}
+
+// ── drawing ──────────────────────────────────────────────────
+function sizeFor(target) {
+  const { width, height } = picture.fitted4k;
+  if (width <= target) return { width, height };
+  return { width: target, height: Math.round((target * height) / width) };
+}
+
+async function fittedAt(size) {
+  const key = `${picture.id}|${size.width}`;
+  if (!fittedCache.has(key)) {
+    fittedCache.clear();
+    inputCache.clear();
+    paperCache.clear();
+    fittedCache.set(key, await downscaleImage(picture.blob, size.width, size.height, picture.crop));
+  }
+  return fittedCache.get(key);
+}
+
+/** The adjusted picture as Paper's input texture (Paper takes only an image element), decoded once. */
+async function inputImage(adjusted, key) {
+  if (!inputCache.has(key)) {
+    const blob = await new Promise((resolve) => adjusted.toBlob(resolve, "image/png"));
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    inputCache.set(key, image);
+  }
+  return inputCache.get(key);
+}
+
+/**
+ * `step`'s Paper filter with the lab's params, drawn from the adjusted
+ * picture (`adjustments`, the plan's steps before it), at the fitted size,
+ * as paperFilterDrawing.ts draws it.
+ */
+async function paperDrawn(step, adjusted, adjustments, size) {
+  const { params } = state.paper[step.paper];
+  const input = JSON.stringify([picture.id, size.width, adjustments]);
+  const key = JSON.stringify([input, step.paper, params]);
+  if (paperCache.has(key)) return paperCache.get(key);
+  const drawing = await loadPaperDrawing();
+  const image = await inputImage(adjusted, input);
+  const spec = { shader: PAPER_FILTERS[step.paper].shader, ...fillingProps(params), image };
+  const el = paperHost();
+  try {
+    const drawn = await drawing.drawStill(el, spec, step.pixelRatio, (canvas) => {
+      const copy = document.createElement("canvas");
+      copy.width = size.width;
+      copy.height = size.height;
+      drawScaledDown(copy.getContext("2d"), canvas, { x: 0, y: 0, w: canvas.width, h: canvas.height }, size.width, size.height);
+      return copy;
+    }, step.box);
+    paperCache.clear();
+    paperCache.set(key, drawn);
+    return drawn;
+  } finally {
+    el.remove();
+  }
+}
+
+// The grain options the app has had since the QA (10-31); the lab passes them through.
+const labGrainOn = () => Object.entries(GRAIN_APP).some(([k, v]) => state.grain[k] !== v);
+
+/**
+ * The filtered picture at `size`, as the tool bakes it: the plan for that
+ * size over the fitted picture, with the lab's grain options.
+ */
+async function renderAt(size) {
+  const start = performance.now();
+  const fitted = await fittedAt(size);
+  const { size: grainSize, colour: grainColour, midtone: grainResponse } = state.grain;
+  const values = { ...NO_FILTERS, ...state.values, grainSize, grainColour, grainResponse };
+  const plan = filterPlan(values, picture.kind, size);
+  const out = document.createElement("canvas");
+  out.width = size.width;
+  out.height = size.height;
+  out.getContext("2d", { willReadFrequently: true }).drawImage(fitted, 0, 0);
+  // The app's order: the adjustments, the Paper filter drawn from them, then the rest.
+  adjustFilters(out, plan);
+  const at = plan.findIndex((s) => s.filter === "paper");
+  const drawn = at >= 0 ? await paperDrawn(plan[at], out, plan.slice(0, at), size) : undefined;
+  composeFilters(out, plan, drawn);
+  return { out, fitted, plan, ms: performance.now() - start };
+}
+
+let current = null; // { out, fitted, size }
+let savedView = null; // the decoded 4K file after an apply
+let running = false;
+let again = false;
+let zoomAt = { x: 0.5, y: 0.5 };
+
+async function schedule() {
+  if (!picture) return;
+  if (running) { again = true; return; }
+  running = true;
+  try {
+    do {
+      again = false;
+      const size = sizeFor(Number($("workSize").value));
+      const { out, fitted, plan, ms } = await renderAt(size);
+      current = { out, fitted, size };
+      $("renderInfo").textContent = `${size.width} × ${size.height} · ${plan.map((s) => s.filter).join(" → ") || "효과 없음"} · ${Math.round(ms)} ms`;
+      show();
+    } while (again);
+  } catch (e) {
+    console.error(e);
+    status(`그리지 못했습니다: ${e.message}`);
+  } finally {
+    running = false;
+  }
+}
+
+function shown() {
+  const mode = $("viewMode").value;
+  if (mode === "saved" && savedView) return savedView;
+  return mode === "source" ? current?.fitted : current?.out;
+}
+
+function show() {
+  const source = shown();
+  if (!source) return;
+  const dpr = devicePixelRatio || 1;
+  const view = $("view");
+  view.width = Math.round(view.clientWidth * dpr);
+  view.height = Math.round(view.clientHeight * dpr);
+  const ctx = view.getContext("2d");
+  ctx.clearRect(0, 0, view.width, view.height);
+  drawScaledDown(ctx, source, { x: 0, y: 0, w: source.width, h: source.height }, view.width, view.height);
+  // 1:1 around the point picked on the picture.
+  const zoom = $("zoom");
+  zoom.width = Math.round(zoom.clientWidth * dpr);
+  zoom.height = Math.round(zoom.clientHeight * dpr);
+  const w = Math.min(zoom.width, source.width);
+  const h = Math.min(zoom.height, source.height);
+  const x = Math.max(0, Math.min(source.width - w, Math.round(zoomAt.x * source.width - w / 2)));
+  const y = Math.max(0, Math.min(source.height - h, Math.round(zoomAt.y * source.height - h / 2)));
+  const zctx = zoom.getContext("2d");
+  zctx.imageSmoothingEnabled = false;
+  zctx.clearRect(0, 0, zoom.width, zoom.height);
+  zctx.drawImage(source, x, y, w, h, 0, 0, w, h);
+  Object.assign($("mark").style, { left: `${zoomAt.x * 100}%`, top: `${zoomAt.y * 100}%` });
+}
+
+$("stage").addEventListener("click", (e) => {
+  const r = $("stage").getBoundingClientRect();
+  zoomAt = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+  show();
+});
+new ResizeObserver(() => show()).observe($("stage"));
+$("viewMode").addEventListener("change", show);
+$("workSize").addEventListener("change", schedule);
+$("picture").addEventListener("change", choosePicture);
+$("solid").addEventListener("input", choosePicture);
+$("upload").addEventListener("change", async () => {
+  const file = $("upload").files[0];
+  if (!file) return;
+  await usePictureBytes(`upload:${file.name}:${file.size}`, file);
+  $("solidRow").hidden = true;
+  clearSaved();
+  schedule();
+});
+
+// ── 4K apply ─────────────────────────────────────────────────
+function clearSaved() {
+  savedView = null;
+  $("viewMode").querySelector('[value="saved"]').disabled = true;
+  if ($("viewMode").value === "saved") $("viewMode").value = "filtered";
+  $("result").replaceChildren();
+}
+
+async function decoded(bytes, width, height) {
+  const bitmap = await createImageBitmap(new Blob([bytes]));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  canvas.getContext("2d", { willReadFrequently: true }).drawImage(bitmap, 0, 0);
+  bitmap.close();
+  return canvas;
+}
+
+$("apply").addEventListener("click", async () => {
+  if (!picture) return;
+  $("apply").disabled = true;
+  status("4K로 적용하는 중…");
+  try {
+    let before = null;
+    let filterMs = 0;
+    const step = async (fitted) => {
+      const { out, ms } = await renderAt({ width: fitted.width, height: fitted.height });
+      filterMs = ms;
+      const ctx = fitted.getContext("2d");
+      ctx.clearRect(0, 0, fitted.width, fitted.height);
+      ctx.drawImage(out, 0, 0);
+      before = ctx.getImageData(0, 0, fitted.width, fitted.height).data;
+      return fitted;
+    };
+    const prepared = await slideImagePreparer(step)(picture.blob, picture.crop, SLIDE);
+    // A solid colour with no filters stays a fill; a picture's unfiltered result is the tool's own.
+    const base = picture.kind === "picture" ? await slideImagePreparer()(picture.blob, picture.crop, SLIDE) : null;
+    savedView = await decoded(prepared.bytes, prepared.width, prepared.height);
+    const after = savedView.getContext("2d").getImageData(0, 0, prepared.width, prepared.height).data;
+    const de = colourDifference(before, after, prepared.width, prepared.height);
+    const kb = (n) => `${Math.round(n / 1024).toLocaleString()} KB`;
+    const rows = [
+      ["크기", `${prepared.width} × ${prepared.height}`],
+      ["저장 형식", prepared.format.toUpperCase()],
+      ["파일", kb(prepared.bytes.length)],
+      ["효과 없을 때", base ? `${kb(base.bytes.length)} (${base.format.toUpperCase()}) → ×${(prepared.bytes.length / base.bytes.length).toFixed(2)}` : "채우기 (그림 없음)"],
+      ["저장 손실 ΔE", prepared.format === "png" ? "0 (PNG, 손실 없음)" : `평균 ${de.mean.toFixed(2)} · 95% ${de.p95.toFixed(2)}`],
+      // The whole preparation's time varies with the browser it runs in; run-headless.mjs measures it.
+      ["효과 시간", `${Math.round(filterMs)} ms`],
+    ];
+    $("result").replaceChildren(...rows.flatMap(([k, v]) => {
+      const a = document.createElement("span");
+      a.textContent = k;
+      const b = document.createElement("span");
+      b.className = "num";
+      b.textContent = v;
+      return [a, b];
+    }));
+    $("viewMode").querySelector('[value="saved"]').disabled = false;
+    status("적용했습니다. 보기를 \"저장본\"으로 바꿔 파일 그대로를 확인할 수 있습니다.");
+  } catch (e) {
+    console.error(e);
+    status(`적용하지 못했습니다: ${e.message}`);
+  } finally {
+    $("apply").disabled = false;
+  }
+});
+
+// ── panels ───────────────────────────────────────────────────
+function changed() {
+  clearSaved();
+  schedule();
+}
+
+function numberInput(value, step, onChange) {
+  const input = document.createElement("input");
+  input.type = "number";
+  input.step = step;
+  input.value = value;
+  input.addEventListener("input", () => { if (input.value !== "") onChange(Number(input.value)); });
+  return input;
+}
+
+const round = (x) => Math.round(x * 1e6) / 1e6;
+
+function buildSliders() {
+  $("sliders").replaceChildren();
+  for (const [name, { copy, explore: [lo, hi, step] }] of Object.entries(SLIDERS)) {
+    const range = state.ranges[name];
+    const box = document.createElement("div");
+    box.className = "slider";
+    const row = document.createElement("label");
+    row.className = "row";
+    row.innerHTML = `<span class="name">${copyKo(`${FILTERS}.${copy}`)} <small>${name}</small></span><input type="range" min="${lo}" max="${hi}" step="${step}">`;
+    const slider = row.querySelector("input");
+    const out = document.createElement("div");
+    out.className = "out";
+    const sync = () => {
+      const v = state.values[name];
+      slider.value = v * SHOWN;
+      num.value = round(v * SHOWN);
+      out.textContent = v < range.min || v > range.max ? "사용자 범위 밖" : "";
+    };
+    const num = numberInput(round(state.values[name] * SHOWN), step, (v) => { state.values[name] = v / SHOWN; sync(); changed(); });
+    slider.addEventListener("input", () => { state.values[name] = Number(slider.value) / SHOWN; sync(); changed(); });
+    row.append(num);
+    const sub = document.createElement("div");
+    sub.className = "sub";
+    sub.innerHTML = '<span>사용자 범위</span>';
+    for (const [field, label] of [["min", "최소"], ["max", "최대"], ["step", "간격"], ["default", "기본값"]]) {
+      const l = document.createElement("label");
+      l.textContent = label;
+      const input = numberInput(round(range[field] * SHOWN), step, (v) => { range[field] = v / SHOWN; mark(); sync(); });
+      const app = field === "default" ? NO_FILTERS[name] : SLIDERS[name].app[field];
+      const mark = () => input.classList.toggle("changed", Math.abs(range[field] - app) > 1e-9);
+      mark();
+      l.append(input);
+      sub.append(l);
+    }
+    box.append(row, out, sub);
+    if (name === "grain") box.append(grainOptions());
+    $("sliders").append(box);
+    sync();
+  }
+}
+
+/** The lab's grain options (not in the app yet): size, response by brightness, colour. */
+function grainOptions() {
+  const box = document.createElement("div");
+  box.className = "panel";
+  box.style.gap = "6px";
+  const size = document.createElement("label");
+  size.className = "row";
+  size.innerHTML = '<span class="name">입자 크기 <small>Full HD 기준 px</small></span><input type="range" min="0.1" max="6" step="0.1">';
+  const sizeSlider = size.querySelector("input");
+  sizeSlider.value = state.grain.size;
+  const sizeNum = numberInput(state.grain.size, 0.1, (v) => { state.grain.size = v; sizeSlider.value = v; mark(); changed(); });
+  sizeSlider.addEventListener("input", () => { state.grain.size = Number(sizeSlider.value); sizeNum.value = sizeSlider.value; mark(); changed(); });
+  size.append(sizeNum);
+  const colour = document.createElement("label");
+  colour.className = "row";
+  colour.innerHTML = '<span class="name">색 입자 <small>%</small></span><input type="range" min="0" max="100" step="1">';
+  const colourSlider = colour.querySelector("input");
+  colourSlider.value = state.grain.colour * 100;
+  const colourNum = numberInput(state.grain.colour * 100, 1, (v) => { state.grain.colour = v / 100; colourSlider.value = v; mark(); changed(); });
+  colourSlider.addEventListener("input", () => { state.grain.colour = Number(colourSlider.value) / 100; colourNum.value = colourSlider.value; mark(); changed(); });
+  colour.append(colourNum);
+  const midtone = document.createElement("label");
+  midtone.className = "row wide";
+  midtone.innerHTML = '<span class="name">밝기별 반응</span><span><input type="checkbox"> 중간 밝기에 진하게, 아주 어둡거나 밝은 곳은 약하게</span>';
+  const midtoneBox = midtone.querySelector("input");
+  midtoneBox.checked = state.grain.midtone;
+  midtoneBox.addEventListener("change", () => { state.grain.midtone = midtoneBox.checked; mark(); changed(); });
+  const note = document.createElement("p");
+  note.className = "hint";
+  const mark = () => {
+    sizeNum.classList.toggle("changed", state.grain.size !== GRAIN_APP.size);
+    colourNum.classList.toggle("changed", state.grain.colour !== GRAIN_APP.colour);
+    note.textContent = labGrainOn()
+      ? "앱의 그레인 옵션으로 그리는 중입니다. 크기가 1보다 크면 노이즈를 흐려서 알갱이를 키웁니다(사진 편집기 방식)."
+      : "크기 1 · 밝기별 반응 끔 · 색 입자 0이면 앱의 입자와 똑같습니다.";
+  };
+  mark();
+  const midtoneDefault = document.createElement("div");
+  midtoneDefault.className = "sub two";
+  midtoneDefault.innerHTML = '<span>사용자 기본값</span><label style="display:flex;gap:4px"><input type="checkbox"> 켜진 채로 시작</label>';
+  const midtoneDefaultBox = midtoneDefault.querySelector("input");
+  midtoneDefaultBox.checked = state.grainRanges.midtone.default;
+  midtoneDefaultBox.addEventListener("change", () => { state.grainRanges.midtone.default = midtoneDefaultBox.checked; });
+  box.append(size, userRange(state.grainRanges.size, 1, GRAIN_RANGES.size), midtone, midtoneDefault,
+    colour, userRange(state.grainRanges.colour, 100, GRAIN_RANGES.colour), note);
+  return box;
+}
+
+/** A grain option's user range (min, max, step, default), shown ×`shown`, marked where it left `start`. */
+function userRange(range, shown, start) {
+  const sub = document.createElement("div");
+  sub.className = "sub";
+  sub.innerHTML = "<span>사용자 범위</span>";
+  for (const [field, label] of [["min", "최소"], ["max", "최대"], ["step", "간격"], ["default", "기본값"]]) {
+    const l = document.createElement("label");
+    l.textContent = label;
+    const input = numberInput(round(range[field] * shown), 0.1, (v) => { range[field] = v / shown; mark(); });
+    const mark = () => input.classList.toggle("changed", Math.abs(range[field] - start[field]) > 1e-9);
+    mark();
+    l.append(input);
+    sub.append(l);
+  }
+  return sub;
+}
+
+function colorInput(value, onChange) {
+  const wrap = document.createElement("span");
+  wrap.className = "color";
+  wrap.innerHTML = '<input type="color"><input type="text" spellcheck="false">';
+  const [picker, text] = wrap.querySelectorAll("input");
+  const sync = (v) => { text.value = v; if (/^#[0-9a-f]{6}/i.test(v)) picker.value = v.slice(0, 7); };
+  sync(value);
+  picker.addEventListener("input", () => { const v = picker.value + (text.value.length === 9 ? text.value.slice(7) : ""); sync(v); onChange(v); });
+  text.addEventListener("change", () => { sync(text.value.trim()); onChange(text.value.trim()); });
+  return wrap;
+}
+
+function buildPaperList() {
+  $("paperLabel").textContent = copyKo(`${FILTERS}.paper`);
+  const sel = $("paper");
+  sel.replaceChildren(new Option(copyKo(`${FILTERS}.paperNone`), ""),
+    ...PAPER_FILTER_NAMES.map((n) => new Option(`${copyKo(`${FILTERS}.paperFilters.${n}`)} (${n})`, n)));
+  sel.value = state.values.paper ?? "";
+}
+
+function buildPaper() {
+  const name = state.values.paper;
+  $("paperBox").hidden = !name;
+  if (!name) return;
+  const filter = state.paper[name];
+  const def = catalog.shaders[PAPER_FILTERS[name].shader];
+  $("preset").replaceChildren(...def.presets.map((p) => new Option(p.name, p.name)));
+  $("preset").value = filter.preset;
+  const base = presetParamsOf(PAPER_FILTERS[name].shader, filter.preset);
+  $("props").replaceChildren();
+  $("advProps").replaceChildren();
+  for (const [prop, p] of Object.entries(def.props)) {
+    if (p.kind === "image" || filter.params[prop] === undefined) continue;
+    const box = document.createElement("div");
+    box.className = "slider";
+    box.title = p.doc ?? "";
+    const row = document.createElement("div");
+    const set = (v) => {
+      filter.params[prop] = v;
+      highlight();
+      changed();
+    };
+    let control;
+    if (p.kind === "color") {
+      row.className = "row wide";
+      control = colorInput(filter.params[prop], set);
+      row.innerHTML = `<span class="name">${prop}</span>`;
+      row.append(control);
+    } else if (p.kind === "enum") {
+      row.className = "row wide";
+      row.innerHTML = `<span class="name">${prop}</span><select></select>`;
+      control = row.querySelector("select");
+      for (const o of p.options) control.append(new Option(o, o));
+      control.value = filter.params[prop];
+      control.addEventListener("change", () => set(control.value));
+    } else if (typeof filter.params[prop] === "boolean") {
+      row.className = "row wide";
+      row.innerHTML = `<span class="name">${prop}</span><input type="checkbox">`;
+      control = row.querySelector("input");
+      control.checked = filter.params[prop];
+      control.addEventListener("change", () => set(control.checked));
+    } else {
+      row.className = "row";
+      const hasRange = p.min !== undefined && p.max !== undefined;
+      const step = INTEGER.test(prop) ? 1 : hasRange ? Math.max((p.max - p.min) / 200, 0.001) : 0.01;
+      row.innerHTML = `<span class="name">${prop}</span>` + (hasRange ? `<input type="range" min="${p.min}" max="${p.max}" step="${step}">` : "<span></span>");
+      const slider = row.querySelector('input[type="range"]');
+      const num = numberInput(filter.params[prop], step, (v) => { if (slider) slider.value = v; set(v); });
+      if (slider) {
+        slider.value = filter.params[prop];
+        slider.addEventListener("input", () => { num.value = slider.value; set(Number(slider.value)); });
+      }
+      row.append(num);
+      control = num;
+    }
+    const highlight = () => {
+      const target = control.querySelector?.('input[type="text"]') ?? control;
+      target.classList.toggle("changed", JSON.stringify(filter.params[prop]) !== JSON.stringify(base[prop]));
+    };
+    highlight();
+    // Whether the user gets this value as a slider, and its range.
+    const sub = document.createElement("div");
+    sub.className = "sub two";
+    const expose = document.createElement("label");
+    expose.style.display = "flex";
+    expose.style.gap = "4px";
+    expose.innerHTML = '<input type="checkbox"> 노출';
+    const box2 = expose.querySelector("input");
+    box2.checked = Boolean(filter.exposed[prop]);
+    sub.append(expose);
+    const limits = document.createElement("span");
+    limits.style.display = "contents";
+    const drawLimits = () => {
+      limits.replaceChildren();
+      const e = filter.exposed[prop];
+      if (!e || p.kind !== "number") return;
+      for (const field of ["min", "max"]) {
+        const l = document.createElement("label");
+        l.textContent = field === "min" ? "최소" : "최대";
+        l.append(numberInput(e[field], 0.001, (v) => { e[field] = v; }));
+        limits.append(l);
+      }
+    };
+    box2.addEventListener("change", () => {
+      if (box2.checked) filter.exposed[prop] = p.kind === "number" ? { min: p.min ?? 0, max: p.max ?? 1 } : {};
+      else delete filter.exposed[prop];
+      drawLimits();
+    });
+    drawLimits();
+    sub.append(limits);
+    box.append(row, sub);
+    (ADVANCED.has(prop) ? $("advProps") : $("props")).append(box);
+  }
+}
+
+$("paper").addEventListener("change", () => {
+  const name = $("paper").value || null;
+  state.values.paper = name;
+  buildPaper();
+  changed();
+});
+$("preset").addEventListener("change", () => {
+  const name = state.values.paper;
+  state.paper[name].preset = $("preset").value;
+  state.paper[name].params = presetParamsOf(PAPER_FILTERS[name].shader, $("preset").value);
+  buildPaper();
+  changed();
+});
+$("presetReset").addEventListener("click", () => {
+  const name = state.values.paper;
+  state.paper[name].params = presetParamsOf(PAPER_FILTERS[name].shader, state.paper[name].preset);
+  buildPaper();
+  changed();
+});
+
+function buildCopy() {
+  const fresh = appState().copy;
+  $("copy").replaceChildren();
+  for (const key of COPY_KEYS) {
+    const label = document.createElement("div");
+    label.className = "key";
+    label.textContent = key.replace("tools.ppt-background.page.", "");
+    $("copy").append(label);
+    for (const lang of ["ko", "en"]) {
+      const area = document.createElement("textarea");
+      area.rows = state.copy[key][lang].length > 40 ? 3 : 1;
+      area.value = state.copy[key][lang];
+      area.setAttribute("aria-label", `${key} ${lang}`);
+      const mark = () => area.classList.toggle("changed", area.value !== fresh[key][lang]);
+      mark();
+      area.addEventListener("input", () => {
+        state.copy[key][lang] = area.value;
+        mark();
+        // The lab's own labels follow the Korean copy.
+        if (lang === "ko") { buildSliders(); buildPaperList(); }
+      });
+      $("copy").append(area);
+    }
+  }
+}
+
+function buildQa() {
+  $("qa").replaceChildren();
+  for (const [id, label] of QA) {
+    const item = state.qa[id];
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = item.done;
+    check.addEventListener("change", () => { item.done = check.checked; });
+    const text = document.createElement("span");
+    text.textContent = label;
+    const note = document.createElement("textarea");
+    note.placeholder = "메모";
+    note.value = item.note;
+    note.addEventListener("input", () => { item.note = note.value; });
+    $("qa").append(check, text, note);
+  }
+}
+
+function buildAll() {
+  buildSliders();
+  buildPaperList();
+  buildPaper();
+  buildCopy();
+  buildQa();
+}
+
+// ── save ─────────────────────────────────────────────────────
+function status(text) { $("status").textContent = text; }
+$("save").addEventListener("click", async () => {
+  try {
+    const res = await fetch("/api/tuning", { method: "PUT", body: JSON.stringify(tuningToSave()) });
+    if (!res.ok) throw new Error(await res.text());
+    status(`저장했습니다 (${new Date().toLocaleTimeString()}).`);
+  } catch (e) {
+    status(`저장하지 못했습니다: ${e.message}`);
+  }
+});
+$("restore").addEventListener("click", () => {
+  if (!confirm("저장하지 않은 값을 버리고 앱 값으로 처음부터 시작할까요? (저장된 tuning.json은 다시 저장할 때까지 그대로입니다)")) return;
+  state = appState();
+  buildAll();
+  changed();
+  status("앱 값으로 돌아갔습니다.");
+});
+
+buildAll();
+await fillPictureList();
+await choosePicture();
+</script>
+</body>
+</html>

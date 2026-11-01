@@ -37,6 +37,7 @@
       "memory": "Your browser ran out of memory. Try fewer or smaller files.",
       "invalidFile": "This file isn't supported or is damaged.",
       "heicConvertFailed": "Couldn't convert the HEIC file.",
+      "filterDrawFailed": "Your browser couldn't draw the effect (it may have run short of graphics memory). Try again, or set Style to None.",
       "recipeDrawFailed": "Your browser couldn't draw the edited background (it may have run short of graphics memory). Try again, or press Reset to use the gallery picture as it is.",
       "readFailed": "Could not read the file.",
       "pdfOpenFailedTemplate": "{name}: This PDF is damaged or encrypted."
@@ -162,6 +163,7 @@
           "sourceGallery": "Gallery",
           "tooLarge": "Background image must be {size} or smaller.",
           "backToGallery": "Back to gallery",
+          "pixelSize": "Source {sw} × {sh} · used {w} × {h}",
           "blurNotice": "The selected part is small and may look blurry on a Full HD screen."
         },
         "gallery": {
@@ -224,6 +226,7 @@
         },
         "recipeEdit": {
           "heading": "Edit",
+          "shape": "Shape",
           "hue": "Colour family",
           "size": "Size",
           "grain": "Grain",
@@ -246,8 +249,59 @@
           "addColour": "Add a colour",
           "removeTemplate": "Remove colour {n}",
           "reset": "Reset",
-          "unavailable": "This browser can't edit pictures (no WebGL2 support). You can still use the picture as it is.",
+          "unavailable": "This browser can't edit the shape (no WebGL2 support). Effects still work.",
           "drawing": "Drawing the preview"
+        },
+        "filters": {
+          "effects": "Effects",
+          "tabs": {
+            "adjust": "Adjust",
+            "style": "Style",
+            "grain": "Grain"
+          },
+          "blur": "Blur",
+          "saturation": "Saturation",
+          "contrast": "Contrast",
+          "paper": "Style",
+          "paperNone": "None",
+          "paperFilters": {
+            "flutedGlass": "Glass",
+            "paperTexture": "Paper",
+            "halftoneDuotone": "Halftone",
+            "halftoneMosaic": "Mosaic",
+            "halftoneCmyk": "CMYK"
+          },
+          "strength": "Strength",
+          "paperDefaults": "Defaults",
+          "settings": {
+            "size": "Size",
+            "angle": "Angle",
+            "shape": "Shape",
+            "colorShadow": "Shadow",
+            "seed": "Pattern",
+            "colorFront": "Dots",
+            "colorBack": "Back",
+            "originalColors": "Own colours",
+            "contrast": "Contrast",
+            "gridNoise": "Scatter"
+          },
+          "shapes": {
+            "lines": "Lines",
+            "linesIrregular": "Irregular lines",
+            "wave": "Wave",
+            "zigzag": "Zigzag",
+            "pattern": "Pattern"
+          },
+          "overlay": "Colour",
+          "overlayColour": "Overlay colour",
+          "veil": "Dark / light",
+          "darken": "Darker",
+          "lighten": "Lighter",
+          "grain": "Grain",
+          "grainSize": "Grain size",
+          "grainColour": "Colour grain",
+          "grainResponse": "By brightness",
+          "reset": "Reset effects"
         },
         "solid": {
           "tab": "Solid",
@@ -294,7 +348,9 @@
           "fillSwatch": "Fill",
           "slideCountTemplate": "{n} slides",
           "zoom": "Zoom",
-          "close": "Close"
+          "close": "Close",
+          "fullscreen": "Full screen",
+          "exitFullscreen": "Exit full screen"
         }
       }
     },

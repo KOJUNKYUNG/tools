@@ -57,6 +57,8 @@ export interface SliderRange {
   step: number;
   /** How its number field reads the value: times this, with the suffix. */
   shown: { times: number; suffix?: string };
+  /** One arrow step of the number field, as read, where a whole unit is too coarse (blur's 0.1%). */
+  arrowStep?: number;
   /** Named so in place of the slider's own name. */
   label?: SliderLabel;
 }

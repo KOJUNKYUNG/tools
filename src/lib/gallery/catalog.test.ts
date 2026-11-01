@@ -18,6 +18,7 @@ import {
 } from "./recipeEdit";
 import { paperRecipe } from "./recipes";
 import { GALLERY_CATEGORIES, type GalleryCategory } from "./types";
+import { fillingProps, PAPER_FILTERS } from "@/lib/image/paperFilters";
 
 const publicDir = path.resolve(__dirname, "../../../public");
 const onDisk = (url: string) => path.join(publicDir, url);
@@ -27,7 +28,12 @@ const recipes: { name: string; category?: string }[] = JSON.parse(
 );
 
 /** Paper's prop → uniform table (`scripts/gallery/extract-paper-props.mjs`). */
-const paperProps: { shaders: Record<string, { props: Record<string, { kind: string; max?: number }> }> } = JSON.parse(
+const paperProps: {
+  shaders: Record<
+    string,
+    { props: Record<string, { kind: string; max?: number }>; presets: { name: string; params: Record<string, unknown> }[] }
+  >;
+} = JSON.parse(
   readFileSync(path.resolve(__dirname, "../../../scripts/gallery/paper-props.json"), "utf8"),
 );
 
@@ -186,5 +192,68 @@ describe("gallery catalog", () => {
   ] as const)("every image has a %s title", (_, dict) => {
     const titles: Record<string, string> = dict.tools["ppt-background"].page.gallery.titles;
     for (const img of GALLERY_IMAGES) expect(titles[img.id], img.id).toBeTruthy();
+  });
+});
+
+describe("Paper image filters", () => {
+  /** The filter set's image filters (CONTEXT "Filter set"), by their key in Paper's prop table. */
+  const IMAGE_FILTERS = ["flutedGlass", "paperTexture", "halftoneDots", "halftoneCmyk"];
+
+  it("Paper's prop table holds each image filter, with its input picture among its props", () => {
+    for (const shader of IMAGE_FILTERS) {
+      const props = paperProps.shaders[shader]?.props;
+      expect(props, `${shader} in paper-props.json`).toBeDefined();
+      expect(props.image, `${shader}.image`).toMatchObject({ kind: "image" });
+    }
+  });
+
+  it("Paper's prop table holds each of the filter set's chosen presets", () => {
+    // Spec #123: fluted glass, paper texture and the halftone duotone at Default; the halftone mosaic at
+    // Mosaic; CMYK at Vintage (chosen at the spec-end visual QA, 2026-10-31).
+    const chosen = [
+      ["flutedGlass", "Default"],
+      ["paperTexture", "Default"],
+      ["halftoneDots", "Default"],
+      ["halftoneDots", "Mosaic"],
+      ["halftoneCmyk", "Vintage"],
+    ];
+    for (const [shader, preset] of chosen) {
+      expect(paperProps.shaders[shader].presets.map((p) => p.name), `${shader} ${preset}`).toContain(preset);
+    }
+  });
+
+  it("draws each filter of the filter set at the shader and preset the spec chose", () => {
+    const chosen = Object.fromEntries(Object.entries(PAPER_FILTERS).map(([name, { shader, preset }]) => [name, { shader, preset }]));
+    expect(chosen).toEqual({
+      flutedGlass: { shader: "flutedGlass", preset: "Default" },
+      paperTexture: { shader: "paperTexture", preset: "Default" },
+      halftoneDuotone: { shader: "halftoneDots", preset: "Default" },
+      halftoneMosaic: { shader: "halftoneDots", preset: "Mosaic" },
+      halftoneCmyk: { shader: "halftoneCmyk", preset: "Vintage" },
+    });
+  });
+
+  it.each(Object.entries(PAPER_FILTERS))("%s: its shader and preset are in Paper's prop table", (_, { shader, preset }) => {
+    expect(IMAGE_FILTERS).toContain(shader);
+    expect(paperProps.shaders[shader].presets.map((p) => p.name)).toContain(preset);
+  });
+
+  it("every preset of every image filter, made to fill the slide, covers it at a scale of 1 or more", () => {
+    for (const shader of IMAGE_FILTERS) {
+      for (const { name, params } of paperProps.shaders[shader].presets) {
+        const filled = fillingProps(params);
+        expect(filled.fit, `${shader} ${name}`).toBe("cover");
+        expect(filled.scale, `${shader} ${name}`).toBeGreaterThanOrEqual(1);
+        // Only the sizing changes: Paper texture's Default is drawn contain at 0.9.
+        expect({ ...params, fit: filled.fit, scale: filled.scale }).toEqual(filled);
+      }
+    }
+    const paperTexture = paperProps.shaders.paperTexture.presets[0].params;
+    expect(fillingProps(paperTexture)).toMatchObject({ fit: "cover", scale: 1 });
+  });
+
+  it("keeps a preset's enlargement: fluted glass's Abstract is drawn at scale 4", () => {
+    const abstract = paperProps.shaders.flutedGlass.presets.find((p) => p.name === "Abstract")!.params;
+    expect(fillingProps(abstract)).toMatchObject({ fit: "cover", scale: 4 });
   });
 });

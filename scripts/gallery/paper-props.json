@@ -971,6 +971,379 @@
     }
    ]
   },
+  "flutedGlass": {
+   "component": "FlutedGlass",
+   "fragment": "flutedGlassFragmentShader",
+   "sizing": "object",
+   "noiseTexture": false,
+   "mipmaps": [
+    "u_image"
+   ],
+   "props": {
+    "image": {
+     "uniform": "u_image",
+     "kind": "image",
+     "doc": "Source image texture"
+    },
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "colorShadow": {
+     "uniform": "u_colorShadow",
+     "kind": "color",
+     "doc": "Shadows color in RGBA, needs shadows > 0"
+    },
+    "colorHighlight": {
+     "uniform": "u_colorHighlight",
+     "kind": "color",
+     "doc": "Highlights color in RGBA, needs highlights > 0"
+    },
+    "shadows": {
+     "uniform": "u_shadows",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Color gradient added over image and background, following distortion shape, needs colorShadow alpha > 0 (0 to 1)"
+    },
+    "size": {
+     "uniform": "u_size",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Size of the distortion shape grid (0 to 1)"
+    },
+    "angle": {
+     "uniform": "u_angle",
+     "kind": "number",
+     "min": 0,
+     "max": 180,
+     "doc": "Direction of the grid relative to the image in degrees (0 to 180)"
+    },
+    "distortion": {
+     "uniform": "u_distortion",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Power of distortion applied within each stripe (0 to 1)"
+    },
+    "shift": {
+     "uniform": "u_shift",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Texture shift in direction opposite to the grid, needs distortion > 0 (-1 to 1)"
+    },
+    "blur": {
+     "uniform": "u_blur",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "One-directional blur over the image and extra blur around edges (0 to 1)"
+    },
+    "edges": {
+     "uniform": "u_edges",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Glass distortion and softness on the image edges (0 to 1)"
+    },
+    "stretch": {
+     "uniform": "u_stretch",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Extra distortion along the grid lines (0 to 1)"
+    },
+    "distortionShape": {
+     "uniform": "u_distortionShape",
+     "kind": "enum",
+     "enum": "GlassDistortionShapes",
+     "options": [
+      "prism",
+      "lens",
+      "contour",
+      "cascade",
+      "flat"
+     ],
+     "doc": "Shape of distortion (1 = prism, 2 = lens, 3 = contour, 4 = cascade, 5 = flat)"
+    },
+    "highlights": {
+     "uniform": "u_highlights",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Thin strokes along distortion shape, useful for antialiasing on small grid (0 to 1)"
+    },
+    "shape": {
+     "uniform": "u_shape",
+     "kind": "enum",
+     "enum": "GlassGridShapes",
+     "options": [
+      "lines",
+      "linesIrregular",
+      "wave",
+      "zigzag",
+      "pattern"
+     ],
+     "doc": "Grid shape (1 = lines, 2 = linesIrregular, 3 = wave, 4 = zigzag, 5 = pattern)"
+    },
+    "marginLeft": {
+     "uniform": "u_marginLeft",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Distance from the left edge to the effect (0 to 1)"
+    },
+    "marginRight": {
+     "uniform": "u_marginRight",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Distance from the right edge to the effect (0 to 1)"
+    },
+    "marginTop": {
+     "uniform": "u_marginTop",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Distance from the top edge to the effect (0 to 1)"
+    },
+    "marginBottom": {
+     "uniform": "u_marginBottom",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Distance from the bottom edge to the effect (0 to 1)"
+    },
+    "grainMixer": {
+     "uniform": "u_grainMixer",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of grain distortion applied to shape edges, needs distortion > 0 (0 to 1)"
+    },
+    "grainOverlay": {
+     "uniform": "u_grainOverlay",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Post-processing black/white grain overlay (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.1,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.1 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "cover",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#00000000",
+      "colorShadow": "#000000",
+      "colorHighlight": "#ffffff",
+      "shadows": 0.25,
+      "size": 0.5,
+      "angle": 0,
+      "distortionShape": "prism",
+      "highlights": 0.1,
+      "shape": "lines",
+      "distortion": 0.5,
+      "shift": 0,
+      "blur": 0,
+      "edges": 0.25,
+      "stretch": 0,
+      "margin": 0,
+      "marginLeft": 0,
+      "marginRight": 0,
+      "marginTop": 0,
+      "marginBottom": 0,
+      "grainMixer": 0,
+      "grainOverlay": 0
+     }
+    },
+    {
+     "name": "Abstract",
+     "params": {
+      "fit": "cover",
+      "scale": 4,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#00000000",
+      "colorShadow": "#000000",
+      "colorHighlight": "#ffffff",
+      "shadows": 0,
+      "size": 0.7,
+      "angle": 30,
+      "distortionShape": "flat",
+      "highlights": 0,
+      "shape": "linesIrregular",
+      "distortion": 1,
+      "shift": 0,
+      "blur": 1,
+      "edges": 0.5,
+      "stretch": 1,
+      "margin": 0,
+      "marginLeft": 0,
+      "marginRight": 0,
+      "marginTop": 0,
+      "marginBottom": 0,
+      "grainMixer": 0.1,
+      "grainOverlay": 0.1
+     }
+    },
+    {
+     "name": "Waves",
+     "params": {
+      "fit": "cover",
+      "scale": 1.2,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#00000000",
+      "colorShadow": "#000000",
+      "colorHighlight": "#ffffff",
+      "shadows": 0,
+      "size": 0.9,
+      "angle": 0,
+      "distortionShape": "contour",
+      "highlights": 0,
+      "shape": "wave",
+      "distortion": 0.5,
+      "shift": 0,
+      "blur": 0.1,
+      "edges": 0.5,
+      "stretch": 1,
+      "margin": 0,
+      "marginLeft": 0,
+      "marginRight": 0,
+      "marginTop": 0,
+      "marginBottom": 0,
+      "grainMixer": 0,
+      "grainOverlay": 0.05
+     }
+    },
+    {
+     "name": "Folds",
+     "params": {
+      "fit": "cover",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#00000000",
+      "colorShadow": "#000000",
+      "colorHighlight": "#ffffff",
+      "shadows": 0.4,
+      "size": 0.4,
+      "angle": 0,
+      "distortionShape": "cascade",
+      "highlights": 0,
+      "shape": "lines",
+      "distortion": 0.75,
+      "shift": 0,
+      "blur": 0.25,
+      "edges": 0.5,
+      "stretch": 0,
+      "margin": 0.1,
+      "marginLeft": 0.1,
+      "marginRight": 0.1,
+      "marginTop": 0.1,
+      "marginBottom": 0.1,
+      "grainMixer": 0,
+      "grainOverlay": 0
+     }
+    }
+   ]
+  },
   "godRays": {
    "component": "GodRays",
    "fragment": "godRaysFragmentShader",
@@ -1493,6 +1866,635 @@
       "intensity": 0.15,
       "noise": 0.5,
       "shape": "blob"
+     }
+    }
+   ]
+  },
+  "halftoneCmyk": {
+   "component": "HalftoneCmyk",
+   "fragment": "halftoneCmykFragmentShader",
+   "sizing": "object",
+   "noiseTexture": true,
+   "props": {
+    "image": {
+     "uniform": "u_image",
+     "kind": "image",
+     "doc": "Source image texture"
+    },
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background (paper) color in RGBA"
+    },
+    "colorC": {
+     "uniform": "u_colorC",
+     "kind": "color",
+     "doc": "Cyan ink color in RGBA"
+    },
+    "colorM": {
+     "uniform": "u_colorM",
+     "kind": "color",
+     "doc": "Magenta ink color in RGBA"
+    },
+    "colorY": {
+     "uniform": "u_colorY",
+     "kind": "color",
+     "doc": "Yellow ink color in RGBA"
+    },
+    "colorK": {
+     "uniform": "u_colorK",
+     "kind": "color",
+     "doc": "Black ink color in RGBA"
+    },
+    "size": {
+     "uniform": "u_size",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Halftone cell size (0 to 1)"
+    },
+    "contrast": {
+     "uniform": "u_contrast",
+     "kind": "number",
+     "min": 0,
+     "max": 2,
+     "doc": "Image contrast adjustment (0 to 2)"
+    },
+    "softness": {
+     "uniform": "u_softness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Edge softness of dots (0 to 1)"
+    },
+    "grainSize": {
+     "uniform": "u_grainSize",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Size of grain texture, applied to both grain and overlay, needs grainMixer or grainOverlay > 0 (0 to 1)"
+    },
+    "grainMixer": {
+     "uniform": "u_grainMixer",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of grain affecting dot size (0 to 1)"
+    },
+    "grainOverlay": {
+     "uniform": "u_grainOverlay",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of grain overlay on final output (0 to 1)"
+    },
+    "gridNoise": {
+     "uniform": "u_gridNoise",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of smooth noise applied to both dot positions and color sampling, positions only with sharp type (0 to 1)"
+    },
+    "floodC": {
+     "uniform": "u_floodC",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Flat cyan dot size adjustment applied uniformly, needs colorC alpha > 0 (0 to 1)"
+    },
+    "floodM": {
+     "uniform": "u_floodM",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Flat magenta dot size adjustment applied uniformly, needs colorM alpha > 0 (0 to 1)"
+    },
+    "floodY": {
+     "uniform": "u_floodY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Flat yellow dot size adjustment applied uniformly, needs colorY alpha > 0 (0 to 1)"
+    },
+    "floodK": {
+     "uniform": "u_floodK",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Flat black dot size adjustment applied uniformly, needs colorK alpha > 0 (0 to 1)"
+    },
+    "gainC": {
+     "uniform": "u_gainC",
+     "kind": "number",
+     "doc": "Proportional cyan dot size gain, needs colorC alpha > 0 (enhances existing dots, -1 to 1)"
+    },
+    "gainM": {
+     "uniform": "u_gainM",
+     "kind": "number",
+     "doc": "Proportional magenta dot size gain, needs colorM alpha > 0 (enhances existing dots, -1 to 1)"
+    },
+    "gainY": {
+     "uniform": "u_gainY",
+     "kind": "number",
+     "doc": "Proportional yellow dot size gain, needs colorY alpha > 0 (enhances existing dots, -1 to 1)"
+    },
+    "gainK": {
+     "uniform": "u_gainK",
+     "kind": "number",
+     "doc": "Proportional black dot size gain, needs colorK alpha > 0 (enhances existing dots, -1 to 1)"
+    },
+    "type": {
+     "uniform": "u_type",
+     "kind": "enum",
+     "enum": "HalftoneCmykTypes",
+     "options": [
+      "dots",
+      "ink",
+      "sharp"
+     ],
+     "doc": "Dot shape style (0 = dots, 1 = ink, 2 = sharp)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.1,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.1 to 4)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "cover",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#fbfaf5",
+      "colorC": "#00b4ff",
+      "colorM": "#fc519f",
+      "colorY": "#ffd800",
+      "colorK": "#231f20",
+      "size": 0.2,
+      "contrast": 1,
+      "softness": 1,
+      "grainSize": 0.5,
+      "grainMixer": 0,
+      "grainOverlay": 0,
+      "gridNoise": 0.2,
+      "floodC": 0.15,
+      "floodM": 0,
+      "floodY": 0,
+      "floodK": 0,
+      "gainC": 0.3,
+      "gainM": 0,
+      "gainY": 0.2,
+      "gainK": 0,
+      "type": "ink"
+     }
+    },
+    {
+     "name": "Drops",
+     "params": {
+      "fit": "cover",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#eeefd7",
+      "colorC": "#00b2ff",
+      "colorM": "#fc4f4f",
+      "colorY": "#ffd900",
+      "colorK": "#231f20",
+      "size": 0.88,
+      "contrast": 1.15,
+      "softness": 0,
+      "grainSize": 0.01,
+      "grainMixer": 0.05,
+      "grainOverlay": 0.25,
+      "gridNoise": 0.5,
+      "floodC": 0.15,
+      "floodM": 0,
+      "floodY": 0,
+      "floodK": 0,
+      "gainC": 1,
+      "gainM": 0.44,
+      "gainY": -1,
+      "gainK": 0,
+      "type": "ink"
+     }
+    },
+    {
+     "name": "Newspaper",
+     "params": {
+      "fit": "cover",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#f2f1e8",
+      "colorC": "#7a7a75",
+      "colorM": "#7a7a75",
+      "colorY": "#7a7a75",
+      "colorK": "#231f20",
+      "size": 0.01,
+      "contrast": 2,
+      "softness": 0.2,
+      "grainSize": 0,
+      "grainMixer": 0,
+      "grainOverlay": 0.2,
+      "gridNoise": 0.6,
+      "floodC": 0,
+      "floodM": 0,
+      "floodY": 0,
+      "floodK": 0.1,
+      "gainC": -0.17,
+      "gainM": -0.45,
+      "gainY": -0.45,
+      "gainK": 0,
+      "type": "dots"
+     }
+    },
+    {
+     "name": "Vintage",
+     "params": {
+      "fit": "cover",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#fffaf0",
+      "colorC": "#59afc5",
+      "colorM": "#d8697c",
+      "colorY": "#fad85c",
+      "colorK": "#2d2824",
+      "size": 0.2,
+      "contrast": 1.25,
+      "softness": 0.4,
+      "grainSize": 0.5,
+      "grainMixer": 0.15,
+      "grainOverlay": 0.1,
+      "gridNoise": 0.45,
+      "floodC": 0.15,
+      "floodM": 0,
+      "floodY": 0,
+      "floodK": 0,
+      "gainC": 0.3,
+      "gainM": 0,
+      "gainY": 0.2,
+      "gainK": 0,
+      "type": "sharp"
+     }
+    }
+   ]
+  },
+  "halftoneDots": {
+   "component": "HalftoneDots",
+   "fragment": "halftoneDotsFragmentShader",
+   "sizing": "object",
+   "noiseTexture": false,
+   "props": {
+    "image": {
+     "uniform": "u_image",
+     "kind": "image",
+     "doc": "Source image texture"
+    },
+    "colorFront": {
+     "uniform": "u_colorFront",
+     "kind": "color",
+     "doc": "Foreground color in RGBA, needs originalColors off"
+    },
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Background color in RGBA"
+    },
+    "size": {
+     "uniform": "u_size",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Grid size relative to the image box (0 to 1)"
+    },
+    "radius": {
+     "uniform": "u_radius",
+     "kind": "number",
+     "min": 0,
+     "max": 2,
+     "doc": "Maximum dot size relative to grid cell (0 to 2)"
+    },
+    "contrast": {
+     "uniform": "u_contrast",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Contrast applied to the sampled image, at 0 the luminance is flat so all the dots get equal size (0 to 1)"
+    },
+    "originalColors": {
+     "uniform": "u_originalColors",
+     "kind": "number",
+     "doc": "Use sampled image's original colors instead of colorFront"
+    },
+    "inverted": {
+     "uniform": "u_inverted",
+     "kind": "number",
+     "doc": "Inverts the image luminance, doesn't affect the color scheme, needs contrast > 0"
+    },
+    "grainMixer": {
+     "uniform": "u_grainMixer",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Strength of grain distortion applied to shape edges (0 to 1)"
+    },
+    "grainOverlay": {
+     "uniform": "u_grainOverlay",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Post-processing black/white grain overlay (0 to 1)"
+    },
+    "grainSize": {
+     "uniform": "u_grainSize",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Scale applied to both grain distortion and grain overlay, needs grainMixer or grainOverlay > 0 (0 to 1)"
+    },
+    "grid": {
+     "uniform": "u_grid",
+     "kind": "enum",
+     "enum": "HalftoneDotsGrids",
+     "options": [
+      "square",
+      "hex"
+     ],
+     "doc": "Grid type (0 = square, 1 = hex)"
+    },
+    "type": {
+     "uniform": "u_type",
+     "kind": "enum",
+     "enum": "HalftoneDotsTypes",
+     "options": [
+      "classic",
+      "gooey",
+      "holes",
+      "soft"
+     ],
+     "doc": "Dot style (0 = classic, 1 = gooey, 2 = holes, 3 = soft)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.1,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.1 to 4)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "cover",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#f2f1e8",
+      "colorFront": "#2b2b2b",
+      "size": 0.5,
+      "radius": 1.25,
+      "contrast": 0.4,
+      "originalColors": false,
+      "inverted": false,
+      "grainMixer": 0.2,
+      "grainOverlay": 0.2,
+      "grainSize": 0.5,
+      "grid": "hex",
+      "type": "gooey"
+     }
+    },
+    {
+     "name": "LED screen",
+     "params": {
+      "fit": "cover",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colorFront": "#29ff7b",
+      "size": 0.5,
+      "radius": 1.5,
+      "contrast": 0.3,
+      "originalColors": false,
+      "inverted": false,
+      "grainMixer": 0,
+      "grainOverlay": 0,
+      "grainSize": 0.5,
+      "grid": "square",
+      "type": "soft"
+     }
+    },
+    {
+     "name": "Mosaic",
+     "params": {
+      "fit": "cover",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#000000",
+      "colorFront": "#b2aeae",
+      "size": 0.6,
+      "radius": 2,
+      "contrast": 0.01,
+      "originalColors": true,
+      "inverted": false,
+      "grainMixer": 0,
+      "grainOverlay": 0,
+      "grainSize": 0.5,
+      "grid": "hex",
+      "type": "classic"
+     }
+    },
+    {
+     "name": "Round and square",
+     "params": {
+      "fit": "cover",
+      "scale": 1,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#141414",
+      "colorFront": "#ff8000",
+      "size": 0.8,
+      "radius": 1,
+      "contrast": 1,
+      "originalColors": false,
+      "inverted": true,
+      "grainMixer": 0.05,
+      "grainOverlay": 0.3,
+      "grainSize": 0.5,
+      "grid": "square",
+      "type": "holes"
      }
     }
    ]
@@ -2080,6 +3082,395 @@
       "colorBack": "#ffffff",
       "brightness": 0,
       "contrast": 1
+     }
+    }
+   ]
+  },
+  "paperTexture": {
+   "component": "PaperTexture",
+   "fragment": "paperTextureFragmentShader",
+   "sizing": "object",
+   "noiseTexture": true,
+   "mipmaps": [
+    "u_image"
+   ],
+   "props": {
+    "image": {
+     "uniform": "u_image",
+     "kind": "image",
+     "doc": "Optional source image texture",
+     "flag": "u_isImage"
+    },
+    "colorBack": {
+     "uniform": "u_colorBack",
+     "kind": "color",
+     "doc": "Color behind the paper sheet in RGBA"
+    },
+    "colorPaper": {
+     "uniform": "u_colorPaper",
+     "kind": "color",
+     "doc": "Color of the paper sheet in RGBA"
+    },
+    "colorShadow": {
+     "uniform": "u_colorShadow",
+     "kind": "color",
+     "doc": "Color of the patterns over the paper sheet in RGBA"
+    },
+    "blending": {
+     "uniform": "u_blending",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Amount of image-to-paper blending, needs image (0 to 1)"
+    },
+    "distortion": {
+     "uniform": "u_distortion",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "How much the image bends with the paper surface, needs image (-1 to 1)"
+    },
+    "clip": {
+     "uniform": "u_clip",
+     "kind": "number",
+     "doc": "Cuts the paper sheet to the image frame, needs image"
+    },
+    "angle": {
+     "uniform": "u_angle",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Direction the surface is lit from in degrees, also the roughness rows direction, needs crumples, wrinkles, folds, roughnessRows or drops > 0 (0 to 360)"
+    },
+    "seed": {
+     "uniform": "u_seed",
+     "kind": "number",
+     "min": 0,
+     "max": 1000,
+     "doc": "Seed applied to every pattern (0 to 1000)"
+    },
+    "roughness": {
+     "uniform": "u_roughness",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Fine grain covering the surface evenly (0 to 1)"
+    },
+    "roughnessSize": {
+     "uniform": "u_roughnessSize",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Scale of the roughness grain, needs roughness > 0 (0 to 1)"
+    },
+    "roughnessRows": {
+     "uniform": "u_roughnessRows",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Lines the roughness up into stripes, 0 = even scatter, 1 = laid-paper rows, needs roughness > 0 (0 to 1)"
+    },
+    "fiber": {
+     "uniform": "u_fiber",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Curly thread-like noise covering the surface evenly (0 to 1)"
+    },
+    "fiberSize": {
+     "uniform": "u_fiberSize",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Scale of the fiber noise, needs fiber > 0 (0 to 1)"
+    },
+    "folds": {
+     "uniform": "u_folds",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Straight vertical and horizontal fold lines producing ridges and valleys (0 to 1)"
+    },
+    "foldSizeX": {
+     "uniform": "u_foldSizeX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Size of the vertical folds, needs folds > 0 (0 to 1)"
+    },
+    "foldSizeY": {
+     "uniform": "u_foldSizeY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Size of the horizontal folds, needs folds > 0 (0 to 1)"
+    },
+    "foldOffsetX": {
+     "uniform": "u_foldOffsetX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Shifts the vertical folds across the surface, needs folds > 0 (0 to 1)"
+    },
+    "foldOffsetY": {
+     "uniform": "u_foldOffsetY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Shifts the horizontal folds across the surface, needs folds > 0 (0 to 1)"
+    },
+    "wrinkles": {
+     "uniform": "u_wrinkles",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Crumple-like facets repeating across the surface (0 to 1)"
+    },
+    "wrinkleSize": {
+     "uniform": "u_wrinkleSize",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Scale of the wrinkle facets, needs wrinkles > 0 (0 to 1)"
+    },
+    "crumples": {
+     "uniform": "u_crumples",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "A set of irregular folding lines (0 to 1)"
+    },
+    "crumpleCount": {
+     "uniform": "u_crumpleCount",
+     "kind": "number",
+     "min": 2,
+     "max": 15,
+     "doc": "Number of facets in the crumple field, needs crumples > 0 (2 to 15)"
+    },
+    "drops": {
+     "uniform": "u_drops",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Visibility of the speckle pattern, darkens the image instead of coloring it (0 to 1)"
+    },
+    "fit": {
+     "uniform": "u_fit",
+     "kind": "enum",
+     "enum": "ShaderFitOptions",
+     "options": [
+      "none",
+      "contain",
+      "cover"
+     ],
+     "doc": "How to fit the rendered shader into the canvas dimensions (0 = none, 1 = contain, 2 = cover)"
+    },
+    "scale": {
+     "uniform": "u_scale",
+     "kind": "number",
+     "min": 0.01,
+     "max": 4,
+     "doc": "Overall zoom level of the graphics (0.01 to 4)"
+    },
+    "rotation": {
+     "uniform": "u_rotation",
+     "kind": "number",
+     "min": 0,
+     "max": 360,
+     "doc": "Overall rotation angle of the graphics in degrees (0 to 360)"
+    },
+    "offsetX": {
+     "uniform": "u_offsetX",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Horizontal offset of the graphics center (-1 to 1)"
+    },
+    "offsetY": {
+     "uniform": "u_offsetY",
+     "kind": "number",
+     "min": -1,
+     "max": 1,
+     "doc": "Vertical offset of the graphics center (-1 to 1)"
+    },
+    "originX": {
+     "uniform": "u_originX",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world width in the canvas (0 to 1)"
+    },
+    "originY": {
+     "uniform": "u_originY",
+     "kind": "number",
+     "min": 0,
+     "max": 1,
+     "doc": "Reference point for positioning world height in the canvas (0 to 1)"
+    },
+    "worldWidth": {
+     "uniform": "u_worldWidth",
+     "kind": "number"
+    },
+    "worldHeight": {
+     "uniform": "u_worldHeight",
+     "kind": "number"
+    }
+   },
+   "presets": [
+    {
+     "name": "Default",
+     "params": {
+      "fit": "contain",
+      "scale": 0.9,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#d3d2ab",
+      "colorPaper": "#ffffff",
+      "colorShadow": "#cccccc",
+      "blending": 1,
+      "distortion": 0.75,
+      "clip": false,
+      "angle": 300,
+      "seed": 4,
+      "roughness": 0.4,
+      "roughnessSize": 0.5,
+      "roughnessRows": 0,
+      "fiber": 0.4,
+      "fiberSize": 0.5,
+      "folds": 0.5,
+      "foldSizeX": 1,
+      "foldSizeY": 1,
+      "foldOffsetX": 0,
+      "foldOffsetY": 0,
+      "wrinkles": 1,
+      "wrinkleSize": 0.65,
+      "crumples": 0,
+      "crumpleCount": 6,
+      "drops": 0.4
+     }
+    },
+    {
+     "name": "Spread",
+     "params": {
+      "fit": "contain",
+      "scale": 0.9,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#ffffff00",
+      "colorPaper": "#ffffffb5",
+      "colorShadow": "#b3b3b3",
+      "blending": 1,
+      "distortion": -0.3,
+      "clip": true,
+      "angle": 236,
+      "seed": 613,
+      "roughness": 0.15,
+      "roughnessSize": 0.25,
+      "roughnessRows": 0,
+      "fiber": 0.5,
+      "fiberSize": 0.5,
+      "folds": 1,
+      "foldSizeX": 0.4,
+      "foldSizeY": 0.89,
+      "foldOffsetX": 0,
+      "foldOffsetY": 0,
+      "wrinkles": 0,
+      "wrinkleSize": 0.65,
+      "crumples": 0,
+      "crumpleCount": 9,
+      "drops": 0
+     }
+    },
+    {
+     "name": "Creased",
+     "params": {
+      "fit": "contain",
+      "scale": 0.9,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#d3d2ab",
+      "colorPaper": "#ffffff",
+      "colorShadow": "#b3b3b3",
+      "blending": 1,
+      "distortion": -0.5,
+      "clip": false,
+      "angle": 60,
+      "seed": 49,
+      "roughness": 0.4,
+      "roughnessSize": 0.25,
+      "roughnessRows": 0,
+      "fiber": 0.4,
+      "fiberSize": 0.5,
+      "folds": 0,
+      "foldSizeX": 0.6,
+      "foldSizeY": 0.89,
+      "foldOffsetX": 0.59,
+      "foldOffsetY": 1,
+      "wrinkles": 0,
+      "wrinkleSize": 0.65,
+      "crumples": 1,
+      "crumpleCount": 4,
+      "drops": 0
+     }
+    },
+    {
+     "name": "Flat",
+     "params": {
+      "fit": "contain",
+      "scale": 0.9,
+      "rotation": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "originX": 0.5,
+      "originY": 0.5,
+      "worldWidth": 0,
+      "worldHeight": 0,
+      "speed": 0,
+      "frame": 0,
+      "colorBack": "#d4cdab",
+      "colorPaper": "#ffffffa8",
+      "colorShadow": "#b3b3b3",
+      "blending": 1,
+      "distortion": 0,
+      "clip": false,
+      "angle": 0,
+      "seed": 455,
+      "roughness": 1,
+      "roughnessSize": 0.5,
+      "roughnessRows": 0.6,
+      "fiber": 0.7,
+      "fiberSize": 1,
+      "folds": 0,
+      "foldSizeX": 0,
+      "foldSizeY": 0.44,
+      "foldOffsetX": 0,
+      "foldOffsetY": 0,
+      "wrinkles": 0,
+      "wrinkleSize": 0,
+      "crumples": 0,
+      "crumpleCount": 6,
+      "drops": 0.2
      }
     }
    ]
