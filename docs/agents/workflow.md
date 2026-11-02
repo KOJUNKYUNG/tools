@@ -55,6 +55,20 @@ Deck properties misreport the producer (Canva and 미리캔버스 write `Microso
 
 The script is TypeScript run by Node itself (type stripping); `scripts/lib/register.mjs` resolves the `@/` alias and extensionless imports, so it needs no extra package.
 
+## Leaving-the-screen check
+
+`pnpm check:leaving-screen` checks what happens when the user leaves the screen during a run (CONTEXT "Leaving the screen"), in real Chrome on the real GPU, through the tool's real page. Run it after a change to how a tool waits, draws or yields, and after bumping pdf.js, pdf-lib or Paper. It is local-only: not part of `pnpm test`, `pnpm verify`, or CI. It runs the last production build, so run `pnpm build` first (`--origin=<url>` takes a running app instead, but a dev server's freezes are not a user's).
+
+```bash
+pnpm check:leaving-screen --tool=pdf-arrange --fixture=<file in tests/fixtures>
+```
+
+It runs the tool twice on the same file, once visible and once minimized from the click on and restored after `--hide-for` seconds (15; past 300 the browser's timers are at their slowest), and prints pass or fail per comparison: both runs ended in a result, the visible run stayed on screen, the window was hidden before the run ended (a run too fast to catch fails here, so use a larger file), and each saved file has the same content (a PDF by its pages' pixels, a picture by its pixels, a zip or `.pptx` entry by entry; bytes may differ). It exits non-zero on any failure. It also prints how long the run took hidden, the progress when the window was hidden and when it came back, and the visible run's longest freeze, as the longest gap between frames, during the run and from upload to the start.
+
+`--tool` takes any tool whose run needs only a file. ppt-background sets up a Paper item first: `--edit=recipe` (the default) moves its hue, `--edit=filter` adds the first Paper filter. With `--context-loss` it forces a WebGL context loss during the apply, on screen and while minimized, and prints how each run ended: an error or the right picture passes, a hang or another picture fails.
+
+`--compare <a> <b>` compares two files by content on its own. `--keep` leaves the outputs in the temporary folder to look into a failure; otherwise they are removed. Inputs stay in `tests/fixtures/` (`REAL_FIXTURES_DIR` overrides the folder). A Chrome window opens, and it may sit behind other windows, but keep the screen on: with it off, Chrome sends no frames and the visible run fails its check.
+
 ## UI verification
 
 Every UI change passes two checks, in order:

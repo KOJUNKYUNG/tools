@@ -16,6 +16,7 @@
     "test:coverage": "vitest run --coverage",
     "test:real": "vitest run --config vitest.real.config.ts",
     "report:ppt-background": "node --import ./scripts/lib/register.mjs scripts/ppt-background-coverage/report.ts",
+    "check:leaving-screen": "node scripts/check-leaving-screen/run.mjs",
     "gallery:build": "node --import ./scripts/lib/register.mjs scripts/gallery/build.ts",
     "gallery:shaders": "node scripts/gallery/render-shaders.mjs",
     "gallery:lab": "node scripts/gallery/lab.mjs",
