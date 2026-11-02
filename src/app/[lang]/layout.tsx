@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { RunLinesProvider } from "@/components/common/RunLinesProvider";
+import { ProcessingStatusCopyProvider } from "@/components/common/ProcessingStatusCopyProvider";
 import { getDictionary, type Locale } from "@/i18n/config";
 import { defaultLocale, locales } from "@/i18n/locales";
 import { LangSync } from "./lang-sync";
@@ -19,7 +19,9 @@ export default async function LangLayout({
   return (
     <>
       <LangSync lang={lang} />
-      <RunLinesProvider runLines={dict.common.runLines}>{children}</RunLinesProvider>
+      <ProcessingStatusCopyProvider copy={dict.common.processingStatus}>
+        {children}
+      </ProcessingStatusCopyProvider>
     </>
   );
 }

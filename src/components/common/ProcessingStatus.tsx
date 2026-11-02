@@ -2,7 +2,7 @@
 
 import type { ProcessingState } from "@/types";
 import type { RunLine } from "@/lib/runPresence";
-import { useRunLines } from "./RunLinesProvider";
+import { useProcessingStatusCopy } from "./ProcessingStatusCopyProvider";
 import {
   DownloadIcon,
   RotateCcwIcon,
@@ -38,15 +38,6 @@ interface ProcessingStatusProps {
   };
 }
 
-const DEFAULTS = {
-  processing: "처리 중…",
-  done: "완료",
-  doneBody: "파일이 준비되었습니다.",
-  download: "다운로드",
-  error: "오류 발생",
-  retry: "재시도",
-} as const;
-
 export function ProcessingStatus({
   status,
   progress = 0,
@@ -58,9 +49,9 @@ export function ProcessingStatus({
   onTryAnother,
   labels,
 }: ProcessingStatusProps) {
-  const runLineCopy = useRunLines();
+  const copy = useProcessingStatusCopy();
   if (status === "idle") return null;
-  const L = { ...DEFAULTS, ...labels };
+  const L = { ...copy, ...labels };
 
   return (
     <div className="h-full">
@@ -98,10 +89,10 @@ export function ProcessingStatus({
             style={{ color: "var(--ink)" }}
           >
             <span aria-hidden className="invisible [grid-area:1/1]">
-              {runLineCopy.stayOnScreen}
+              {copy.stayOnScreen}
             </span>
             {runLine === "stayOnScreen" && (
-              <span className="[grid-area:1/1]">{runLineCopy.stayOnScreen}</span>
+              <span className="[grid-area:1/1]">{copy.stayOnScreen}</span>
             )}
           </div>
         </div>

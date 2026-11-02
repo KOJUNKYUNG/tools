@@ -42,7 +42,11 @@
       "readFailed": "Could not read the file.",
       "pdfOpenFailedTemplate": "{name}: This PDF is damaged or encrypted."
     },
-    "runLines": {
+    "processingStatus": {
+      "processing": "Processing…",
+      "download": "Download",
+      "error": "Error",
+      "retry": "Retry",
       "stayOnScreen": "Please stay on this screen until the job is finished. If you leave, it may pause for a while."
     },
     "themeToggle": "Toggle theme",

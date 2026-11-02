@@ -4,7 +4,7 @@ import ko from "./dictionaries/ko.json";
 
 const HANGUL = /[\uac00-\ud7a3]/;
 
-describe.each(["errors", "runLines"] as const)("common.%s", (group) => {
+describe.each(["errors", "processingStatus"] as const)("common.%s", (group) => {
   it("has the same messages in both languages, none empty", () => {
     expect(Object.keys(en.common[group]).sort()).toEqual(Object.keys(ko.common[group]).sort());
     for (const message of [...Object.values(en.common[group]), ...Object.values(ko.common[group])]) {

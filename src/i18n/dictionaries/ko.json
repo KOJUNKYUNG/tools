@@ -42,7 +42,11 @@
       "readFailed": "파일을 읽을 수 없습니다.",
       "pdfOpenFailedTemplate": "{name}: 손상되었거나 암호화된 PDF입니다."
     },
-    "runLines": {
+    "processingStatus": {
+      "processing": "처리 중…",
+      "download": "다운로드",
+      "error": "오류 발생",
+      "retry": "재시도",
       "stayOnScreen": "작업이 끝날 때까지 이 화면을 벗어나지 말아 주세요. 벗어나면 잠시 멈출 수 있어요."
     },
     "themeToggle": "테마 바꾸기",
