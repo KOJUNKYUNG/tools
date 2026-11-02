@@ -52,6 +52,7 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
     setFiles,
     status,
     progress,
+    runLine,
     errorMessage,
     result,
     run,
@@ -233,6 +234,7 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
               <ProcessingStatus
                 status={status}
                 progress={progress}
+                runLine={runLine}
                 errorMessage={errorMessage}
                 onRetry={handleAgain}
                 labels={{ processing: labels.processing }}

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { getErrorMessage, type GetErrorMessageOptions } from "@/lib/errors";
 import type { ProcessingState } from "@/types";
+import type { RunLine } from "./runPresence";
+import { useRunPresence } from "./useRunPresence";
 
 export interface UseToolProcessorConfig<TResult> {
   processor: (
@@ -20,6 +22,8 @@ export interface UseToolProcessorReturn<TResult> {
   setFiles: Dispatch<SetStateAction<File[]>>;
   status: ProcessingState;
   progress: number;
+  /** The line under the progress; pass it to `ProcessingStatus`. */
+  runLine: RunLine;
   errorMessage: string;
   result: TResult | null;
   run: () => Promise<void>;
@@ -37,6 +41,7 @@ export function useToolProcessor<TResult>({
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const [result, setResult] = useState<TResult | null>(null);
+  const { runLine, beginRun, endRun } = useRunPresence();
 
   const processorRef = useRef(processor);
   const onDownloadRef = useRef(onDownload);
@@ -61,6 +66,7 @@ export function useToolProcessor<TResult>({
     setProgress(0);
     setErrorMessage("");
     setResult(null);
+    beginRun();
 
     try {
       const res = await processorRef.current(files, (value) => {
@@ -69,23 +75,26 @@ export function useToolProcessor<TResult>({
       });
       // A newer run (or a reset via retry) started while we awaited — discard.
       if (gen !== generationRef.current) return;
+      endRun();
       setResult(res);
       setStatus("done");
     } catch (err) {
       if (gen !== generationRef.current) return;
+      endRun();
       setErrorMessage(getErrorMessage(err, errorOptionsRef.current).message);
       setStatus("error");
     }
-  }, [files]);
+  }, [files, beginRun, endRun]);
 
   const retry = useCallback(() => {
     // Invalidate any in-flight run so its late result can't overwrite this reset.
     generationRef.current++;
+    endRun();
     setStatus("idle");
     setProgress(0);
     setErrorMessage("");
     setResult(null);
-  }, []);
+  }, [endRun]);
 
   const download = useCallback(() => {
     if (!result) return;
@@ -97,6 +106,7 @@ export function useToolProcessor<TResult>({
     setFiles,
     status,
     progress,
+    runLine,
     errorMessage,
     result,
     run,

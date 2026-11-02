@@ -70,6 +70,7 @@ export function ImageCompressTool({
     setFiles,
     status,
     progress,
+    runLine,
     errorMessage,
     result,
     run,
@@ -407,6 +408,7 @@ export function ImageCompressTool({
                   <ProcessingStatus
                     status={status}
                     progress={progress}
+                    runLine={runLine}
                     errorMessage={errorMessage}
                     onRetry={retry}
                   />

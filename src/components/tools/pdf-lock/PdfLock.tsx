@@ -61,6 +61,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
     setFiles,
     status,
     progress,
+    runLine,
     errorMessage,
     result,
     run,
@@ -334,6 +335,7 @@ export function PdfLock({ labels, inline = false }: PdfLockProps) {
             <ProcessingStatus
               status={status}
               progress={progress}
+              runLine={runLine}
               errorMessage={errorMessage}
               onRetry={retry}
               labels={{ processing: labels.processing }}

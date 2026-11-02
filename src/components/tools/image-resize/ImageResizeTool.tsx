@@ -90,6 +90,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
     setFiles,
     status,
     progress,
+    runLine,
     errorMessage,
     result,
     run,
@@ -481,6 +482,7 @@ export function ImageResizeTool({ labels, inline = false, lang }: ImageResizeToo
                     <ProcessingStatus
                       status={status}
                       progress={progress}
+                      runLine={runLine}
                       errorMessage={errorMessage}
                       onRetry={retry}
                       onDownload={download}

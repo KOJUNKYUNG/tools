@@ -313,6 +313,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     setFiles: setPptxFilesRaw,
     status,
     progress,
+    runLine,
     errorMessage,
     run,
     retry,
@@ -1127,6 +1128,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 <ProcessingStatus
                   status={status}
                   progress={progress}
+                  runLine={runLine}
                   errorMessage={errorMessage}
                   onRetry={retry}
                   labels={labels.processing}

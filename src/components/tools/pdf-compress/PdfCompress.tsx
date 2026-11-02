@@ -78,6 +78,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
     setFiles,
     status,
     progress,
+    runLine,
     errorMessage,
     result,
     run,
@@ -468,6 +469,7 @@ export function PdfCompress({ labels, inline = false }: PdfCompressProps) {
                 <ProcessingStatus
                   status={status}
                   progress={progress}
+                  runLine={runLine}
                   errorMessage={errorMessage}
                   onRetry={retry}
                   labels={{ processing: labels.processing }}

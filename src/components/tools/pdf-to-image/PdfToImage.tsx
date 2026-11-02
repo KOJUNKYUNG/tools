@@ -74,6 +74,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
     setFiles,
     status,
     progress,
+    runLine,
     errorMessage,
     result,
     run,
@@ -390,6 +391,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
           <ProcessingStatus
             status={status}
             progress={progress}
+            runLine={runLine}
             errorMessage={errorMessage}
             onRetry={retry}
             onDownload={download}

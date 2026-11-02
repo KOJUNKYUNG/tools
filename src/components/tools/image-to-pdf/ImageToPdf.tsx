@@ -168,6 +168,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
     setFiles,
     status,
     progress,
+    runLine,
     errorMessage,
     result,
     run,
@@ -485,6 +486,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         <ProcessingStatus
           status={status}
           progress={progress}
+          runLine={runLine}
           errorMessage={errorMessage}
           onRetry={retry}
           onDownload={download}

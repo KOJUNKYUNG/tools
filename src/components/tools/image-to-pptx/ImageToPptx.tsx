@@ -157,6 +157,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     setFiles,
     status,
     progress,
+    runLine,
     errorMessage,
     result,
     run,
@@ -619,6 +620,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         <ProcessingStatus
           status={status}
           progress={progress}
+          runLine={runLine}
           errorMessage={errorMessage}
           onRetry={retry}
           onDownload={download}

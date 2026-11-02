@@ -1,6 +1,8 @@
 "use client";
 
 import type { ProcessingState } from "@/types";
+import type { RunLine } from "@/hooks/runPresence";
+import { useRunLines } from "./RunLinesProvider";
 import {
   DownloadIcon,
   RotateCcwIcon,
@@ -12,6 +14,8 @@ import {
 interface ProcessingStatusProps {
   status: ProcessingState;
   progress?: number;
+  /** From `useToolProcessor`: the line under the progress. */
+  runLine: RunLine;
   errorMessage?: string;
   onRetry?: () => void;
   onDownload?: () => void;
@@ -46,6 +50,7 @@ const DEFAULTS = {
 export function ProcessingStatus({
   status,
   progress = 0,
+  runLine,
   errorMessage,
   onRetry,
   onDownload,
@@ -53,6 +58,7 @@ export function ProcessingStatus({
   onTryAnother,
   labels,
 }: ProcessingStatusProps) {
+  const runLines = useRunLines();
   if (status === "idle") return null;
   const L = { ...DEFAULTS, ...labels };
 
@@ -83,6 +89,20 @@ export function ProcessingStatus({
                 background: "var(--ink-strong)",
               }}
             />
+          </div>
+          {/* The hidden copy holds the line's space from the start of the run,
+              so that the fixed landing workspace does not shift when it shows. */}
+          <div
+            role="status"
+            className="grid break-keep font-body text-[11px] leading-snug [overflow-wrap:anywhere]"
+            style={{ color: "var(--ink)" }}
+          >
+            <span aria-hidden className="invisible [grid-area:1/1]">
+              {runLines?.stayOnScreen}
+            </span>
+            {runLine === "stayOnScreen" && (
+              <span className="[grid-area:1/1]">{runLines?.stayOnScreen}</span>
+            )}
           </div>
         </div>
       )}
