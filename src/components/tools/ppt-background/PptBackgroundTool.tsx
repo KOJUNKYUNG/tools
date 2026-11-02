@@ -53,7 +53,7 @@ import {
   type RecipeEdit,
 } from "@/lib/gallery/recipeEdit";
 import { drawRecipeFile } from "@/lib/gallery/drawRecipe";
-import { webgl2Available } from "@/lib/gallery/paperRuntime";
+import { LostContextError, webgl2Available } from "@/lib/gallery/paperRuntime";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
 import { BackgroundPicker } from "./BackgroundPicker";
@@ -362,6 +362,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     errorOptions: { copy: labels.errors, corruptOutputHint: labels.processing.errorCorrupt },
   });
 
+  /** What a failed drawing tells the user: that leaving the screen stopped it, or `otherwise`. */
+  function drawFailureCopy(err: unknown, otherwise: string): string {
+    return err instanceof LostContextError && err.afterLeaving ? labels.errors.drawingInterrupted : otherwise;
+  }
+
   /**
    * The edited pick as a file. A failed drawing stops the run with its own
    * message: the unedited gallery file never stands in for the edit.
@@ -371,7 +376,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       return await drawRecipeFile(props);
     } catch (err) {
       console.error("Edited background failed to draw", err);
-      throw new UserFacingError(labels.errors.recipeDrawFailed);
+      throw new UserFacingError(drawFailureCopy(err, labels.errors.recipeDrawFailed));
     }
   }
 
@@ -388,7 +393,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         return await step(fitted);
       } catch (err) {
         console.error("Filters failed to draw", err);
-        throw new UserFacingError(labels.errors.filterDrawFailed);
+        throw new UserFacingError(drawFailureCopy(err, labels.errors.filterDrawFailed));
       }
     };
   }
@@ -633,7 +638,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     editAvailable && bgFile && (editOpen || editedProps) ? recipe : null,
     editedProps,
     // The frame would go on showing the unedited file: say so, as a run does.
-    () => toast.error(labels.errors.recipeDrawFailed, { id: "recipe-preview" }),
+    (err) => toast.error(drawFailureCopy(err, labels.errors.recipeDrawFailed), { id: "recipe-preview" }),
   );
   /** The gallery pick's size, which the frame is held in and the live preview stands in for. */
   const pickSize = useMemo(
@@ -654,7 +659,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     sourceSize: pickSize,
     ratio: slideAspect.ratio,
     // The preview would go on showing the picture without the filter: say so, as a run does.
-    onPaperFail: () => toast.error(labels.errors.filterDrawFailed, { id: "filter-preview" }),
+    onPaperFail: (err) => toast.error(drawFailureCopy(err, labels.errors.filterDrawFailed), { id: "filter-preview" }),
   });
   /**
    * The picture the run would put in the deck, made by the same steps (the

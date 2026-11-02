@@ -39,6 +39,7 @@
       "heicConvertFailed": "Couldn't convert the HEIC file.",
       "filterDrawFailed": "Your browser couldn't draw the effect (it may have run short of graphics memory). Try again, or set Style to None.",
       "recipeDrawFailed": "Your browser couldn't draw the edited background (it may have run short of graphics memory). Try again, or press Reset to use the gallery picture as it is.",
+      "drawingInterrupted": "Drawing stopped because the screen turned off or you left the window. Please try again.",
       "readFailed": "Could not read the file.",
       "pdfOpenFailedTemplate": "{name}: This PDF is damaged or encrypted."
     },

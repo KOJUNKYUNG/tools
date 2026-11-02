@@ -14,16 +14,21 @@ import type { LivePicture } from "@/components/image/LiveCanvas";
  * `drawn` is what to show, null while the pick is unedited (the gallery file
  * shows then, and `live` is null). `onError` hears of a preview that failed
  * to open or draw, which would otherwise go on showing the gallery file under
- * the edit. `pending` holds while the preview is still opening.
+ * the edit, and passes the failure on; a context lost under an unedited pick
+ * shows nothing wrong, so it is not told of that. `pending` holds while the
+ * preview is still opening.
  */
 export function useRecipePreview(
   recipe: PaperRecipe | null,
   drawn: PaperRecipe | null,
-  onError: () => void,
+  onError: (err: unknown) => void,
 ): { live: LivePicture | null; pending: boolean } {
   const [preview, setPreview] = useState<RecipePreview | null>(null);
   const [live, setLive] = useState<LivePicture | null>(null);
-  /** The recipe whose preview failed (to open, or its context): the next change opens it again. */
+  /**
+   * The recipe whose preview failed (to open, or its context): it opens again
+   * on the next change, or at once when a context is lost under an edit.
+   */
   const [failedName, setFailedName] = useState<string | null>(null);
   // The same, for the drawing effect, which must not run again on the failure itself.
   const failedRef = useRef<string | null>(null);
@@ -36,14 +41,16 @@ export function useRecipePreview(
 
   const onErrorRef = useRef(onError);
   const recipeRef = useRef(recipe);
+  const drawnRef = useRef(drawn);
   // The latest of each, for the effects below (synced first, as effects run in order).
   useEffect(() => {
     onErrorRef.current = onError;
     recipeRef.current = recipe;
+    drawnRef.current = drawn;
   });
   const fail = (what: string, err: unknown) => {
     console.error(`Recipe preview failed to ${what}`, err);
-    onErrorRef.current();
+    onErrorRef.current(err);
   };
 
   const name = recipe?.name ?? null;
@@ -54,18 +61,17 @@ export function useRecipePreview(
     let opened: RecipePreview | null = null;
     // A context lost after a drawing (a GPU reset, sleep) blanks the canvas
     // its copies read: drop the preview and say so, rather than show the
-    // gallery file. Not the loss dispose causes, so it is let go first.
-    const lost = (event: Event) => {
+    // gallery file. An unedited pick shows the file anyway: nothing to say.
+    const lost = (err: unknown) => {
       setPreview(null);
       setLive(null);
       failed(start.name);
-      fail("draw", event);
+      if (drawnRef.current) fail("draw", err);
     };
-    openRecipePreview(start)
+    openRecipePreview(start, lost)
       .then((p) => {
         if (open) {
           opened = p;
-          p.canvas.addEventListener("webglcontextlost", lost);
           setPreview(p);
           failed(null);
         } else p.dispose();
@@ -77,7 +83,6 @@ export function useRecipePreview(
       });
     return () => {
       open = false;
-      opened?.canvas.removeEventListener("webglcontextlost", lost);
       opened?.dispose();
       setPreview(null);
     };

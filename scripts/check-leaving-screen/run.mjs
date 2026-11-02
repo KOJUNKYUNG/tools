@@ -5,7 +5,9 @@
 // checks that only a run that truly stops is called paused (the tab's title and
 // the was-paused line), and reports the visible run's longest main-thread
 // freeze. With --context-loss it forces a WebGL context loss during a
-// ppt-background apply and reports how the run ends.
+// ppt-background apply and during its preview, on screen and minimized, and
+// checks what the user is told, that a retry or the next edit draws again, and
+// that the applied picture is the right one.
 //
 // Run: pnpm build, then
 //   pnpm check:leaving-screen --tool=pdf-arrange --fixture=<file>
@@ -64,8 +66,8 @@ const PHOTO_ITEM = "/gallery/nature/balkhash-lake-thumb.jpg";
 /** ppt-background's setups (--edit), and whether a run of each draws with Paper, so truly stops while hidden. */
 const DRAWS_WITH_PAPER = { recipe: true, filter: true, photo: false, effect: false };
 
-/** The copy of a run on the page openTool opens: the checks follow it while it is [임시]. */
-const RUN_COPY = JSON.parse(await readFile(join(root, "src/i18n/dictionaries/en.json"), "utf8")).common.processingStatus;
+/** The copy of the page openTool opens: the checks follow it while it is [임시]. */
+const { processingStatus: RUN_COPY, errors: ERROR_COPY } = JSON.parse(await readFile(join(root, "src/i18n/dictionaries/en.json"), "utf8")).common;
 
 const seconds = (ms) => `${(ms / 1000).toFixed(1)} s`;
 
@@ -366,36 +368,46 @@ async function checkLeaving(browser, reader, options, work) {
   return checks.every(Boolean);
 }
 
-/**
- * Forces a context loss at each moment and reports how the run ends: an error
- * or the right picture passes; a hang, or a picture that is not the right one,
- * fails.
- */
-async function checkContextLoss(browser, reader, options, work) {
-  const reference = join(work, "reference");
-  await mkdir(reference);
-  const visible = await visibleRun(browser, options, reference);
-  printRun("Reference (no loss)", visible);
-  if (visible.ending !== "done") return verdict(false, "the reference run ended in a result");
-  console.log();
-  // A slow deck is not a hung one.
-  const hangMs = Math.max(MIN_HANG_MS, visible.ms * 5);
+/** What differs between the saved result of the run in `downloads` and the reference; nothing when it is the same picture. */
+async function wrongPicture(browser, reader, reference, downloads) {
+  await collectSaves(browser, downloads);
+  const comparisons = await compareRuns(browser, reader, reference, downloads);
+  return comparisons.every((c) => c.same) ? "" : `WRONG PICTURE${listDiffs(comparisons.flatMap((c) => c.diffs))}`;
+}
 
+const primaryReady = (browser) =>
+  browser.evaluate(`(() => { const b = document.querySelector("button.btn-primary"); return !!b && !b.disabled; })()`);
+
+/**
+ * Forces a context loss during an apply, at each moment, and judges how the
+ * run ends: in an error that says what the user should hear, with a retry that
+ * gives the right picture. A hang fails, and so does a picture that is not the
+ * right one, or another message.
+ */
+async function checkApplyLoss(browser, reader, options, work, reference, hangMs) {
+  const existing = options.edit === "recipe" ? ERROR_COPY.recipeDrawFailed : ERROR_COPY.filterDrawFailed;
   const scenarios = [
-    { name: "on screen, just after the drawing's context is created", moment: "create" },
-    { name: "on screen, once the drawing's canvas has its size", moment: "sized" },
-    { name: "minimized, while the drawing waits", hidden: true },
+    { name: "on screen, as the drawing's context is created", moment: "at-once", message: existing },
+    { name: "on screen, just after the drawing's context is created", moment: "create", message: existing },
+    { name: "on screen, once the drawing's canvas has its size", moment: "sized", message: existing },
+    { name: "minimized, as the drawing's context is created", moment: "at-once", hiddenFromStart: true, message: ERROR_COPY.drawingInterrupted },
+    { name: "minimized, while the drawing waits", hiddenMidRun: true, message: ERROR_COPY.drawingInterrupted },
   ];
   const checks = [];
   for (const [i, scenario] of scenarios.entries()) {
-    const downloads = join(work, `loss-${i}`);
+    const downloads = join(work, `apply-loss-${i}`);
     await mkdir(downloads);
     await setUp(browser, options, downloads);
     const contextsBefore = await browser.evaluate("__check.contexts.length");
+    if (scenario.hiddenFromStart) await browser.setWindow("minimized");
     if (scenario.moment) await browser.evaluate(`__check.lossArmedFor = ${JSON.stringify(scenario.moment)}`);
     await startRun(browser);
     let whileHidden = "";
-    if (scenario.hidden) {
+    if (scenario.hiddenFromStart) {
+      await sleep(3000);
+      await browser.setWindow("normal");
+    }
+    if (scenario.hiddenMidRun) {
       await sleep(HIDE_AFTER_MS);
       await browser.setWindow("minimized");
       // No drawing context by then is judged below: the loss would miss the drawing.
@@ -412,27 +424,134 @@ async function checkContextLoss(browser, reader, options, work) {
     }
     const ended = await waitFor(() => hasEnded(browser), "the run", hangMs).catch(() => false);
     const r = await browser.evaluate("__check.report()");
-    let outcome;
-    let pass;
+    const line = `${options.edit}, ${scenario.name}${whileHidden}`;
     if (r.drawingContextsLost === 0) {
-      outcome = `the drawing lost no context (${r.drawingContexts} new contexts), so this says nothing (${r.ending ?? "no end"})`;
-      pass = false;
+      checks.push(verdict(false, `${line}: the drawing lost no context (${r.drawingContexts} new contexts), so this says nothing (${r.ending ?? "no end"})`));
     } else if (!ended) {
-      outcome = `HANG: no end ${seconds(hangMs)} after the screen was back, progress ${await browser.evaluate("__check.progress")}%`;
-      pass = false;
-    } else if (r.ending === "error") {
-      outcome = `error after ${seconds(r.ms)}: ${r.error}`;
-      pass = true;
+      checks.push(verdict(false, `${line}: HANG: no end ${seconds(hangMs)} after the screen was back, progress ${await browser.evaluate("__check.progress")}%`));
+    } else if (r.ending === "done") {
+      // The drawing outlived its loss, so there is nothing to tell the user.
+      const wrong = await wrongPicture(browser, reader, reference, downloads);
+      checks.push(verdict(!wrong, `${line}: ${wrong || `result after ${seconds(r.ms)}, the same as the reference`}`));
     } else {
-      await collectSaves(browser, downloads);
-      const comparisons = await compareRuns(browser, reader, reference, downloads);
-      pass = comparisons.every((c) => c.same);
-      outcome = pass
-        ? `result after ${seconds(r.ms)}, the same as the reference`
-        : `WRONG PICTURE${listDiffs(comparisons.flatMap((c) => c.diffs))}`;
+      checks.push(
+        verdict(r.error === scenario.message, `${line}: error after ${seconds(r.ms)}: ${r.error}`),
+        verdict(r.titleAtEnd === r.titleAtStart, `${line}: the tab's title is back (${JSON.stringify(r.titleAtEnd)})`),
+      );
+      // The input and the settings kept, one click tries again.
+      if (await browser.evaluate("__check.retry()")) {
+        await waitFor(() => primaryReady(browser), "the tool to be ready again", 5000);
+        await startRun(browser);
+        await waitFor(() => hasEnded(browser), "the retried run", hangMs);
+        const again = await browser.evaluate("__check.report()");
+        const wrong = again.ending === "done" ? await wrongPicture(browser, reader, reference, downloads) : `ended in ${again.ending}: ${again.error}`;
+        checks.push(verdict(!wrong, `${line}: ${wrong || "the retry gave the same picture as the reference"}`));
+      } else {
+        checks.push(verdict(false, `${line}: no retry button`));
+      }
     }
-    checks.push(verdict(pass, `${options.edit}, ${scenario.name}${whileHidden}: ${outcome}`));
   }
+  return checks;
+}
+
+/** A toast with `message`, waited for; false when none came. */
+const toastSaid = (browser, message) =>
+  waitFor(() => browser.evaluate(`__check.toasts().some((t) => t.includes(${JSON.stringify(message)}))`), "the toast", 10_000).catch(() => false);
+
+/**
+ * A recipe edit's preview losing its live context: it says so and draws again
+ * on the next edit. The edit ends where it started, so the apply should give
+ * the reference's picture.
+ */
+async function loseRecipePreview(browser, hidden) {
+  if (hidden) await browser.setWindow("minimized");
+  await browser.evaluate("__check.loseContexts()");
+  await sleep(2000);
+  if (hidden) await browser.setWindow("normal");
+  const slider = `document.querySelector('[role="tabpanel"] input[type="range"]')`;
+  const rightWords = await toastSaid(browser, hidden ? ERROR_COPY.drawingInterrupted : ERROR_COPY.recipeDrawFailed);
+  await setInput(browser, slider, "Number(el.min) + ((Number(el.max) - Number(el.min)) * 2) / 3");
+  const drew = await waitFor(() => browser.evaluate("__check.liveDrawings() > 0"), "the preview to draw again", 10_000).catch(() => false);
+  await setInput(browser, slider, SLIDER_MOVED);
+  return { rightWords, drew };
+}
+
+/**
+ * A filter's preview losing its context while it draws (its context lives only
+ * that long). On screen the full-size drawing is lost: the preview says so, and
+ * the next edit, even one that does not change the filter's drawing, draws
+ * again. Minimized, a change draws only a draft, replaced before the screen is
+ * back: losing it costs nothing, so nothing is said and the full size draws on
+ * return. The edits end where they started, so the apply should give the
+ * reference's picture.
+ */
+async function loseFilterPreview(browser, hidden) {
+  const filters = `document.querySelectorAll('[role="group"] button[aria-pressed]')`;
+  const strength = `document.querySelector('[role="tabpanel"] [role="tabpanel"] input[type="range"]')`;
+  // A drawing that succeeded, by the timing it records.
+  const drawings = `performance.getEntriesByName("ontab:paper-filter").length`;
+  const drewSince = (count) =>
+    waitFor(() => browser.evaluate(`${drawings} > ${count}`), "the preview to draw again", 10_000).catch(() => false);
+  const original = await browser.evaluate(`${strength}.value`);
+  let rightWords;
+  let drew;
+  if (hidden) {
+    const before = await browser.evaluate(drawings);
+    await browser.setWindow("minimized");
+    await browser.evaluate(`__check.lossArmedFor = "create"; ${filters}[2].click()`);
+    await sleep(2000);
+    await browser.setWindow("normal");
+    drew = await drewSince(before);
+    await sleep(SETTLE_MS);
+    rightWords = (await browser.evaluate("__check.toasts().length")) === 0;
+  } else {
+    await browser.evaluate(`__check.lossArmedFor = "second"; ${filters}[2].click()`);
+    rightWords = await toastSaid(browser, ERROR_COPY.filterDrawFailed);
+    await sleep(SETTLE_MS);
+    const before = await browser.evaluate(drawings);
+    await setInput(browser, strength, SLIDER_MOVED);
+    drew = await drewSince(before);
+  }
+  await browser.evaluate(`${filters}[1].click()`);
+  await setInput(browser, strength, JSON.stringify(original));
+  return { rightWords, drew };
+}
+
+/** A context lost during a preview, on screen and minimized. */
+async function checkPreviewLoss(browser, reader, options, work, reference, hangMs) {
+  const lose = options.edit === "recipe" ? loseRecipePreview : loseFilterPreview;
+  const checks = [];
+  for (const hidden of [false, true]) {
+    const downloads = join(work, `preview-loss-${hidden ? "hidden" : "visible"}`);
+    await mkdir(downloads);
+    await setUp(browser, options, downloads);
+    const line = `${options.edit}, preview, ${hidden ? "minimized" : "on screen"}`;
+    const { rightWords, drew } = await lose(browser, hidden);
+    await sleep(SETTLE_MS);
+    checks.push(verdict(rightWords, `${line}: the user was told what applies, or nothing where nothing failed`), verdict(drew, `${line}: the preview drew again`));
+    await startRun(browser);
+    const ended = await waitFor(() => hasEnded(browser), "the run", hangMs).catch(() => false);
+    const r = await browser.evaluate("__check.report()");
+    const wrong = !ended ? "HANG" : r.ending === "done" ? await wrongPicture(browser, reader, reference, downloads) : `ended in ${r.ending}: ${r.error}`;
+    checks.push(verdict(!wrong, `${line}: ${wrong || "applying gave the same picture as the reference"}`));
+  }
+  return checks;
+}
+
+/** Forces context losses and judges what follows. True when all pass. */
+async function checkContextLoss(browser, reader, options, work) {
+  const reference = join(work, "reference");
+  await mkdir(reference);
+  const visible = await visibleRun(browser, options, reference);
+  printRun("Reference (no loss)", visible);
+  if (visible.ending !== "done") return verdict(false, "the reference run ended in a result");
+  console.log();
+  // A slow deck is not a hung one.
+  const hangMs = Math.max(MIN_HANG_MS, visible.ms * 5);
+  const checks = [
+    ...(await checkApplyLoss(browser, reader, options, work, reference, hangMs)),
+    ...(await checkPreviewLoss(browser, reader, options, work, reference, hangMs)),
+  ];
   return checks.every(Boolean);
 }
 

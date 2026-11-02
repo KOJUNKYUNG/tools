@@ -79,9 +79,12 @@
   };
   new MutationObserver(watchRun).observe(document, { subtree: true, childList: true, characterData: true });
 
-  /** The tool's primary button clicked, and the run's clock started. */
+  /** The tool's primary button clicked, and the run's clock started (again, after a retry). */
   check.start = () => {
     check.startAt = performance.now();
+    check.endAt = null;
+    check.ending = null;
+    check.error = null;
     check.titleAtStart = document.title;
     document.querySelector("button.btn-primary").click();
   };
@@ -136,12 +139,36 @@
     }
   };
 
-  // "create": just after the next new context. "sized": once its canvas has
-  // left the size it started at, which Paper's wait for its size depends on.
+  /** The toasts showing. */
+  check.toasts = () => [...document.querySelectorAll("[data-sonner-toast]")].map((t) => t.textContent);
+
+  /** The error card's retry button clicked; false when there is none. */
+  check.retry = () => {
+    const icon = document.querySelector(".lucide-triangle-alert:not([data-sonner-toast] *)");
+    const button = icon?.parentElement.querySelector("button");
+    button?.click();
+    return !!button;
+  };
+
+  /** How many WebGL contexts are alive and hold a drawing, by the pixel at the centre of each. */
+  check.liveDrawings = () =>
+    check.contexts.filter(({ gl }) => {
+      if (gl.isContextLost()) return false;
+      const pixel = new Uint8Array(4);
+      gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+      return pixel[3] > 0;
+    }).length;
+
+  // "at-once": before the code that asked for the next new context has used it.
+  // "create": just after it. "second": just after the one following it, as a
+  // preview's full drawing follows its draft. "sized": once its canvas has left
+  // the size it started at, which Paper's wait for its size depends on.
   const armedLoss = (canvas) => {
     const moment = check.lossArmedFor;
     if (!moment) return;
-    check.lossArmedFor = null;
+    check.lossArmedFor = moment === "second" ? "create" : null;
+    if (moment === "second") return;
+    if (moment === "at-once") return check.loseContexts();
     if (moment === "create") return void setTimeout(check.loseContexts);
     const startWidth = canvas.width;
     const poll = () => (canvas.width !== startWidth ? check.loseContexts() : requestAnimationFrame(poll));
