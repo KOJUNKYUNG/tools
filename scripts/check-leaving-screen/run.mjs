@@ -15,11 +15,11 @@
 // the browser's slowest timers); --timeout=<s> how long a run may take (600);
 // --origin=<url> an app already running, instead of `next start` on the last
 // build (a dev server's freezes are not the user's); --keep leaves the outputs in
-// the temporary folder, to look into a failure.
+// their folder, to look into a failure.
 //
 // Fixtures come from tests/fixtures (REAL_FIXTURES_DIR overrides). Outputs go
-// to a temporary folder, removed at the end. A Chrome window opens: keep the
-// machine awake and its screen on, since with the screen off Chrome sends no
+// to a folder under tests/ (gitignored), removed at the end. A Chrome window
+// opens: keep the machine awake and its screen on, since with the screen off Chrome sends no
 // frames and the "visible" run proves nothing (the check fails it then).
 // CHROME_PATH overrides the Chrome binary. Local only: not part of pnpm verify.
 
@@ -27,7 +27,6 @@ import { spawn } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { createServer } from "node:net";
-import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -50,8 +49,8 @@ const args = Object.fromEntries(
 const HIDE_AFTER_MS = Number(args["hide-after"] ?? 0);
 const HIDE_FOR_MS = Number(args["hide-for"] ?? 15) * 1000;
 const TIMEOUT_MS = Number(args.timeout ?? 600) * 1000;
-/** After a forced loss, a run still going this long after the screen is back counts as hung. */
-const HANG_MS = 90_000;
+/** After a forced loss, a run still going at least this long after the screen is back counts as hung. */
+const MIN_HANG_MS = 90_000;
 /** Lets a page's thumbnails finish, so that their work is not counted as the run's. */
 const SETTLE_MS = 1500;
 
@@ -92,80 +91,62 @@ async function startApp() {
   return { origin, close: () => next.kill() };
 }
 
-class Browser {
-  static async open(blankPage) {
-    const browser = new Browser();
-    const instrument = await readFile(join(here, "instrument.js"), "utf8");
-    browser.chrome = await openChrome(blankPage, {
-      headless: false,
-      args: [
-        ...REAL_GPU_ARGS,
-        "--window-size=1400,1000",
-        // A window covered by another app counts as hidden on Windows, which
-        // would hide the "visible" run; minimizing still hides it.
-        "--disable-features=CalculateNativeWinOcclusion",
-      ],
-      beforeNavigate: async (send) => {
-        await send("Page.enable");
-        await send("Page.addScriptToEvaluateOnNewDocument", { source: instrument });
-      },
-    });
-    const { windowId } = await browser.chrome.send("Browser.getWindowForTarget");
-    browser.windowId = windowId;
-    return browser;
-  }
+async function openBrowser(blankPage) {
+  const instrument = await readFile(join(here, "instrument.js"), "utf8");
+  const chrome = await openChrome(blankPage, {
+    headless: false,
+    args: [
+      ...REAL_GPU_ARGS,
+      "--window-size=1400,1000",
+      // A window covered by another app counts as hidden on Windows, which
+      // would hide the "visible" run; minimizing still hides it.
+      "--disable-features=CalculateNativeWinOcclusion",
+    ],
+    beforeNavigate: async (send) => {
+      await send("Page.enable");
+      await send("Page.addScriptToEvaluateOnNewDocument", { source: instrument });
+    },
+  });
+  const { windowId } = await chrome.send("Browser.getWindowForTarget");
+  const evaluate = chrome.evaluate;
+  return {
+    evaluate,
+    close: chrome.close,
+    /** Runs `expression` as a click does: a save needs a user's gesture. */
+    gesture: (expression) => chrome.send("Runtime.evaluate", { expression, userGesture: true, awaitPromise: true }),
+    setWindow: (windowState) => chrome.send("Browser.setWindowBounds", { windowId, bounds: { windowState } }),
+    navigate: (url) => chrome.send("Page.navigate", { url }),
 
-  evaluate = (expression) => this.chrome.evaluate(expression);
-
-  /** Runs `expression` as a click does: a save needs a user's gesture. */
-  gesture(expression) {
-    return this.chrome.send("Runtime.evaluate", { expression, userGesture: true, awaitPromise: true });
-  }
-
-  setWindow(windowState) {
-    return this.chrome.send("Browser.setWindowBounds", { windowId: this.windowId, bounds: { windowState } });
-  }
-
-  navigate = (url) => this.chrome.send("Page.navigate", { url });
-
-  /** The tool's page freshly loaded with `fixture` in its file input, saves going to `downloads`. */
-  async openTool(origin, tool, fixture, downloads) {
-    await this.chrome.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: downloads });
-    await this.navigate(`${origin}/en/tools/${tool}`);
-    const accepts = fixture.toLowerCase().match(/\.[^.]+$/)?.[0];
-    const input = `[...document.querySelectorAll('input[type="file"]')].find((i) => i.accept.includes(${JSON.stringify(accepts)}))`;
-    // Hydrated, so that the change event reaches the tool.
-    await waitFor(
-      () =>
-        this.evaluate(`(() => {
-          const input = ${input};
-          return location.pathname.includes(${JSON.stringify(tool)}) && !!input && Object.keys(input).some((k) => k.startsWith("__reactProps"));
-        })()`),
-      `the ${tool} page's file input`,
-    );
-    await this.evaluate("__check.marks.uploaded = performance.now()");
-    const { result } = await this.chrome.send("Runtime.evaluate", { expression: input });
-    await this.chrome.send("DOM.setFileInputFiles", { files: [fixture], objectId: result.objectId });
-  }
-
-  /** Waits until the primary button can start a run. */
-  waitForReady(what) {
-    return waitFor(
-      () => this.evaluate(`(() => { const b = document.querySelector("button.btn-primary"); return !!b && !b.disabled; })()`),
-      what,
-      TIMEOUT_MS,
-    );
-  }
+    /** The tool's page freshly loaded with `fixture` in its file input, saves going to `downloads`. */
+    async openTool({ origin, tool, fixture }, downloads) {
+      await chrome.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: downloads });
+      await chrome.send("Page.navigate", { url: `${origin}/en/tools/${tool}` });
+      const extension = fixture.toLowerCase().match(/\.[^.]+$/)?.[0];
+      const input = `[...document.querySelectorAll('input[type="file"]')].find((i) => i.accept.includes(${JSON.stringify(extension)}))`;
+      // Hydrated, so that the change event reaches the tool.
+      await waitFor(
+        () =>
+          evaluate(`(() => {
+            const input = ${input};
+            return location.pathname.includes(${JSON.stringify(tool)}) && !!input && Object.keys(input).some((k) => k.startsWith("__reactProps"));
+          })()`),
+        `the ${tool} page's file input`,
+      );
+      await evaluate("__check.uploadedAt = performance.now()");
+      const { result } = await chrome.send("Runtime.evaluate", { expression: input });
+      await chrome.send("DOM.setFileInputFiles", { files: [fixture], objectId: result.objectId });
+    },
+  };
 }
 
-/** A control's value set as typing does, so that React hears it; `value` is an expression of the element. */
-function setInput(browser, selector, value) {
+/** A control's value set as typing does, so that React hears it. */
+function setInput(browser, selector, valueExpression) {
   return waitFor(
     () =>
       browser.evaluate(`(() => {
         const el = ${selector};
         if (!el) return false;
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ${value("el")});
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ${valueExpression});
         el.dispatchEvent(new Event("input", { bubbles: true }));
         return true;
       })()`),
@@ -179,13 +160,13 @@ function setInput(browser, selector, value) {
  * filter), with its preview drawn. Selectors go by structure, not copy, which
  * is still [임시].
  */
-async function setUpPaperBackground(browser, edit) {
+async function setUpPaperBackground(browser, { edit }) {
   const click = (selector) =>
     waitFor(() => browser.evaluate(`(() => { const el = ${selector}; el?.click(); return !!el; })()`), selector);
   await click(`document.querySelector('img[src=${JSON.stringify(PAPER_ITEM)}]')?.closest("button")`);
   await click(`document.querySelector('button[aria-expanded="false"]')`);
   if (edit === "recipe") {
-    await setInput(browser, `document.querySelector('[role="tabpanel"] input[type="range"]')`, (slider) => `Number(${slider}.min) + (Number(${slider}.max) - Number(${slider}.min)) / 3`);
+    await setInput(browser, `document.querySelector('[role="tabpanel"] input[type="range"]')`, "Number(el.min) + (Number(el.max) - Number(el.min)) / 3");
   } else {
     const tab = (list, n) => `document.querySelectorAll('[role="tablist"]')[${list}]?.querySelectorAll('[role="tab"]')[${n}]`;
     await click(tab(0, 1)); // The edit area's "effects".
@@ -195,12 +176,21 @@ async function setUpPaperBackground(browser, edit) {
   await sleep(SETTLE_MS);
 }
 
-async function setUp(browser, origin, options, downloads) {
-  await browser.openTool(origin, options.tool, options.fixture, downloads);
-  if (options.tool === "ppt-background") await setUpPaperBackground(browser, options.edit);
+/** What a tool needs beyond its file before a run can start. */
+const TOOL_SET_UP = {
+  "ppt-background": setUpPaperBackground,
   // Its text watermark, the default, needs a text.
-  if (options.tool === "pdf-watermark") await setInput(browser, `document.querySelector('input[type="text"]')`, () => `"Ontab"`);
-  await browser.waitForReady("the tool to take the file");
+  "pdf-watermark": (browser) => setInput(browser, `document.querySelector('input[type="text"]')`, `"Ontab"`),
+};
+
+async function setUp(browser, options, downloads) {
+  await browser.openTool(options, downloads);
+  await TOOL_SET_UP[options.tool]?.(browser, options);
+  await waitFor(
+    () => browser.evaluate(`(() => { const b = document.querySelector("button.btn-primary"); return !!b && !b.disabled; })()`),
+    "the tool to take the file",
+    TIMEOUT_MS,
+  );
   await sleep(SETTLE_MS);
 }
 
@@ -230,42 +220,22 @@ async function collectSaves(browser, downloads) {
   );
 }
 
-/** What the page recorded of its run. */
-function runReport(browser) {
-  return browser.evaluate(`(() => {
-    const c = __check;
-    const end = c.endAt ?? performance.now();
-    const hiddenAt = c.visibility.find((v) => v.hidden);
-    const shownAt = hiddenAt && c.visibility.find((v) => !v.hidden && v.at > hiddenAt.at);
-    return {
-      ms: end - c.startAt,
-      ending: c.ending,
-      error: c.error,
-      framesInRun: c.framesInRun,
-      visibilityChanges: c.visibility.length,
-      leftBeforeEnd: !!hiddenAt && hiddenAt.at < end,
-      finishedWhileHidden: !!hiddenAt && (!shownAt || shownAt.at > end),
-      hiddenMs: hiddenAt ? Math.max(0, Math.min(shownAt?.at ?? end, end) - hiddenAt.at) : 0,
-      progressAtHide: hiddenAt?.progress ?? null,
-      progressAtShow: shownAt?.progress ?? c.progress,
-      runFreeze: c.longestFreeze(c.startAt, end),
-      loadFreeze: c.longestFreeze(c.marks.uploaded, c.startAt),
-      lostEvents: c.lostEvents,
-    };
-  })()`);
-}
-
-async function visibleRun(browser, origin, options, downloads) {
-  await setUp(browser, origin, options, downloads);
-  await startRun(browser);
-  await waitFor(() => hasEnded(browser), "the visible run to end", TIMEOUT_MS);
-  const report = await runReport(browser);
+/** The ended run's report, and what it saved. */
+async function finishRun(browser, downloads) {
+  const report = await browser.evaluate("__check.report()");
   if (report.ending === "done") await collectSaves(browser, downloads);
   return report;
 }
 
-async function minimizedRun(browser, origin, options, downloads) {
-  await setUp(browser, origin, options, downloads);
+async function visibleRun(browser, options, downloads) {
+  await setUp(browser, options, downloads);
+  await startRun(browser);
+  await waitFor(() => hasEnded(browser), "the visible run to end", TIMEOUT_MS);
+  return finishRun(browser, downloads);
+}
+
+async function minimizedRun(browser, options, downloads) {
+  await setUp(browser, options, downloads);
   await startRun(browser);
   await sleep(HIDE_AFTER_MS);
   await browser.setWindow("minimized");
@@ -273,9 +243,7 @@ async function minimizedRun(browser, origin, options, downloads) {
   while (Date.now() - hiddenSince < HIDE_FOR_MS && !(await hasEnded(browser))) await sleep(250);
   await browser.setWindow("normal");
   await waitFor(() => hasEnded(browser), "the minimized run to end", TIMEOUT_MS);
-  const report = await runReport(browser);
-  if (report.ending === "done") await collectSaves(browser, downloads);
-  return report;
+  return finishRun(browser, downloads);
 }
 
 function printRun(name, r) {
@@ -295,15 +263,24 @@ function verdict(pass, line) {
   return pass;
 }
 
+const listDiffs = (diffs) => (diffs.length ? `: ${diffs.slice(0, 5).join("; ")}${diffs.length > 5 ? `; ${diffs.length - 5} more` : ""}` : "");
+
+/** Two runs' saved files, read in the blank page. */
+async function compareRuns(browser, reader, dirA, dirB) {
+  await browser.navigate(reader.page);
+  await waitFor(() => browser.evaluate(`location.href === ${JSON.stringify(reader.page)} && document.readyState === "complete"`), "the blank page");
+  return compareFolders(dirA, dirB, reader);
+}
+
 /** The runs and their outputs compared. True when all pass. */
-async function checkLeaving(browser, comparer, origin, options, work) {
+async function checkLeaving(browser, reader, options, work) {
   const dirs = { visible: join(work, "visible"), hidden: join(work, "hidden") };
   await mkdir(dirs.visible);
   await mkdir(dirs.hidden);
 
-  const visible = await visibleRun(browser, origin, options, dirs.visible);
+  const visible = await visibleRun(browser, options, dirs.visible);
   printRun("Visible", visible);
-  const hidden = await minimizedRun(browser, origin, options, dirs.hidden);
+  const hidden = await minimizedRun(browser, options, dirs.hidden);
   printRun("Minimized", hidden);
   console.log();
 
@@ -320,13 +297,18 @@ async function checkLeaving(browser, comparer, origin, options, work) {
       `the window was minimized before the run ended (hidden ${seconds(hidden.hiddenMs)}, after ${HIDE_AFTER_MS} ms)`,
     ),
   ];
+  // An edit that did not register would apply the gallery's file, with no drawing to wait for.
+  if (options.edit) {
+    checks.push(
+      verdict(
+        visible.drawingContexts > 0 && hidden.drawingContexts > 0,
+        `both runs drew with Paper (${visible.drawingContexts} and ${hidden.drawingContexts} new WebGL contexts)`,
+      ),
+    );
+  }
   if (visible.ending === "done" && hidden.ending === "done") {
-    await browser.navigate(comparer.origin);
-    const comparisons = await compareFolders(dirs.visible, dirs.hidden, comparer);
-    for (const c of comparisons) {
-      const diffs = c.diffs.length ? `: ${c.diffs.slice(0, 5).join("; ")}${c.diffs.length > 5 ? `; ${c.diffs.length - 5} more` : ""}` : "";
-      checks.push(verdict(c.same, `${c.name} (${c.what})${diffs}`));
-    }
+    const comparisons = await compareRuns(browser, reader, dirs.visible, dirs.hidden);
+    for (const c of comparisons) checks.push(verdict(c.same, `${c.name} (${c.what})${listDiffs(c.diffs)}`));
     if (comparisons.length === 0) checks.push(verdict(false, "neither run saved a file"));
   }
   return checks.every(Boolean);
@@ -337,13 +319,15 @@ async function checkLeaving(browser, comparer, origin, options, work) {
  * or the right picture passes; a hang, or a picture that is not the right one,
  * fails.
  */
-async function checkContextLoss(browser, comparer, origin, options, work) {
+async function checkContextLoss(browser, reader, options, work) {
   const reference = join(work, "reference");
   await mkdir(reference);
-  const visible = await visibleRun(browser, origin, options, reference);
+  const visible = await visibleRun(browser, options, reference);
   printRun("Reference (no loss)", visible);
   if (visible.ending !== "done") return verdict(false, "the reference run ended in a result");
   console.log();
+  // A slow deck is not a hung one.
+  const hangMs = Math.max(MIN_HANG_MS, visible.ms * 5);
 
   const scenarios = [
     { name: "on screen, just after the drawing's context is created", moment: "create" },
@@ -354,7 +338,7 @@ async function checkContextLoss(browser, comparer, origin, options, work) {
   for (const [i, scenario] of scenarios.entries()) {
     const downloads = join(work, `loss-${i}`);
     await mkdir(downloads);
-    await setUp(browser, origin, options, downloads);
+    await setUp(browser, options, downloads);
     const contextsBefore = await browser.evaluate("__check.contexts.length");
     if (scenario.moment) await browser.evaluate(`__check.lossArmedFor = ${JSON.stringify(scenario.moment)}`);
     await startRun(browser);
@@ -362,10 +346,11 @@ async function checkContextLoss(browser, comparer, origin, options, work) {
     if (scenario.hidden) {
       await sleep(HIDE_AFTER_MS);
       await browser.setWindow("minimized");
+      // No drawing context by then is judged below: the loss would miss the drawing.
       await waitFor(
         () => browser.evaluate(`__check.endAt !== null || __check.contexts.length > ${contextsBefore}`),
         "the drawing's context",
-        HANG_MS,
+        hangMs,
       ).catch(() => {});
       await browser.evaluate("__check.loseContexts()");
       await sleep(3000);
@@ -373,56 +358,62 @@ async function checkContextLoss(browser, comparer, origin, options, work) {
       whileHidden = ` (3 s after the loss, still hidden: ${state})`;
       await browser.setWindow("normal");
     }
-    const ended = await waitFor(() => hasEnded(browser), "the run", HANG_MS).catch(() => false);
-    const r = await runReport(browser);
+    const ended = await waitFor(() => hasEnded(browser), "the run", hangMs).catch(() => false);
+    const r = await browser.evaluate("__check.report()");
     let outcome;
     let pass;
-    if (r.lostEvents === 0) {
-      outcome = `no loss happened, so this says nothing (${r.ending ?? "no end"})`;
+    if (r.drawingContextsLost === 0) {
+      outcome = `the drawing lost no context (${r.drawingContexts} new contexts), so this says nothing (${r.ending ?? "no end"})`;
       pass = false;
     } else if (!ended) {
-      outcome = `HANG: no end ${seconds(HANG_MS)} after the screen was back, progress ${await browser.evaluate("__check.progress")}%`;
+      outcome = `HANG: no end ${seconds(hangMs)} after the screen was back, progress ${await browser.evaluate("__check.progress")}%`;
       pass = false;
     } else if (r.ending === "error") {
       outcome = `error after ${seconds(r.ms)}: ${r.error}`;
       pass = true;
     } else {
       await collectSaves(browser, downloads);
-      await browser.navigate(comparer.origin);
-      const comparisons = await compareFolders(reference, downloads, comparer);
+      const comparisons = await compareRuns(browser, reader, reference, downloads);
       pass = comparisons.every((c) => c.same);
       outcome = pass
         ? `result after ${seconds(r.ms)}, the same as the reference`
-        : `WRONG PICTURE: ${comparisons.flatMap((c) => c.diffs).slice(0, 3).join("; ")}`;
+        : `WRONG PICTURE${listDiffs(comparisons.flatMap((c) => c.diffs))}`;
     }
     checks.push(verdict(pass, `${options.edit}, ${scenario.name}${whileHidden}: ${outcome}`));
   }
   return checks.every(Boolean);
 }
 
+/** The options a tool run takes, from the command line. */
+function toolOptions(origin) {
+  const fixture = resolve(process.env.REAL_FIXTURES_DIR ?? join(root, "tests/fixtures"), args.fixture);
+  if (!existsSync(fixture)) throw new Error(`No such fixture: ${fixture}`);
+  const edit = args.tool === "ppt-background" ? (args.edit ?? "recipe") : null;
+  if (edit && edit !== "recipe" && edit !== "filter") throw new Error("--edit takes recipe or filter");
+  return { origin, tool: args.tool, fixture, edit };
+}
+
 async function main() {
-  const work = await mkdtemp(join(tmpdir(), "leaving-screen-"));
-  const comparerServer = await startCompareServer();
+  await mkdir(join(root, "tests"), { recursive: true });
+  // Outputs of real files stay under tests/ (gitignored), as the files themselves do.
+  const work = await mkdtemp(join(root, "tests/leaving-screen-"));
+  const server = await startCompareServer();
+  const page = `${server.origin}/`;
   let app = null;
   let browser = null;
   try {
-    browser = await Browser.open(`${comparerServer.origin}/`);
-    const comparer = { server: comparerServer, evaluate: browser.evaluate, origin: `${comparerServer.origin}/` };
+    browser = await openBrowser(page);
+    const reader = { server, evaluate: browser.evaluate, page };
 
     if (args.compare) {
       const [a, b] = positional;
       if (!a || !b) throw new Error("--compare needs two files");
       await waitFor(() => browser.evaluate("document.readyState === 'complete'"), "the blank page");
-      const c = await compareFiles(basename(a), resolve(a), resolve(b), comparer);
-      return verdict(c.same, `${basename(a)} against ${basename(b)} (${c.what})${c.diffs.length ? `: ${c.diffs.slice(0, 5).join("; ")}` : ""}`);
+      const c = await compareFiles(basename(a), resolve(a), resolve(b), reader);
+      return verdict(c.same, `${basename(a)} against ${basename(b)} (${c.what})${listDiffs(c.diffs)}`);
     }
 
     if (!args.tool || !args.fixture) throw new Error("Pass --tool=<slug> and --fixture=<file>");
-    const fixture = resolve(process.env.REAL_FIXTURES_DIR ?? join(root, "tests/fixtures"), args.fixture);
-    if (!existsSync(fixture)) throw new Error(`No such fixture: ${fixture}`);
-    const options = { tool: args.tool, fixture, edit: args.tool === "ppt-background" ? (args.edit ?? "recipe") : null };
-
-    app = args.origin ? { origin: args.origin, close() {} } : await startApp();
     const renderer = await browser.evaluate(`(() => {
       const gl = document.createElement("canvas").getContext("webgl2");
       const info = gl?.getExtension("WEBGL_debug_renderer_info");
@@ -430,14 +421,18 @@ async function main() {
       gl?.getExtension("WEBGL_lose_context")?.loseContext();
       return name;
     })()`);
-    console.log(`Tool: ${options.tool}${options.edit ? ` (${options.edit})` : ""} · Fixture: ${basename(fixture)} · GPU: ${renderer}\n`);
+    if (/swiftshader|llvmpipe|software|no WebGL2/i.test(renderer)) throw new Error(`Not the real GPU: ${renderer}`);
+
+    app = args.origin ? { origin: args.origin, close() {} } : await startApp();
+    const options = toolOptions(app.origin);
+    console.log(`Tool: ${options.tool}${options.edit ? ` (${options.edit})` : ""} · Fixture: ${basename(options.fixture)} · GPU: ${renderer}\n`);
 
     return args["context-loss"]
-      ? await checkContextLoss(browser, comparer, app.origin, options, work)
-      : await checkLeaving(browser, comparer, app.origin, options, work);
+      ? await checkContextLoss(browser, reader, options, work)
+      : await checkLeaving(browser, reader, options, work);
   } finally {
-    await browser?.chrome.close();
-    await comparerServer.close();
+    await browser?.close();
+    await server.close();
     app?.close();
     if (args.keep) console.log(`Outputs kept in ${work}`);
     else await rm(work, { recursive: true, force: true }).catch(() => {});

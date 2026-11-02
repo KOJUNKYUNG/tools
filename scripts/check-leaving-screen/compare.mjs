@@ -121,32 +121,32 @@ function pdfHashes(evaluate, path) {
  * One file's bytes against another's, by the content its kind has. Resolves to
  * { same, what, diffs }: `what` says what was compared, `diffs` names what differs.
  */
-async function compareContent(name, a, b, browser) {
+async function compareContent(name, a, b, reader) {
   if (Buffer.compare(a, b) === 0) return { same: true, what: "same bytes", diffs: [] };
-  if (ZIP.test(name)) return compareZips(a, b, browser);
+  if (ZIP.test(name)) return compareZips(a, b, reader);
   if (!/\.pdf$/i.test(name) && !PICTURE.test(name)) return { same: false, what: "bytes", diffs: ["bytes"] };
-  const pathA = browser.server.hold(a);
-  const pathB = browser.server.hold(b);
+  const pathA = reader.server.hold(a);
+  const pathB = reader.server.hold(b);
   try {
     if (PICTURE.test(name)) {
-      const hashA = await pictureHash(browser.evaluate, pathA);
-      const hashB = await pictureHash(browser.evaluate, pathB);
+      const hashA = await pictureHash(reader.evaluate, pathA);
+      const hashB = await pictureHash(reader.evaluate, pathB);
       return { same: hashA === hashB, what: "pixels", diffs: hashA === hashB ? [] : ["pixels"] };
     }
-    const pagesA = await pdfHashes(browser.evaluate, pathA);
-    const pagesB = await pdfHashes(browser.evaluate, pathB);
+    const pagesA = await pdfHashes(reader.evaluate, pathA);
+    const pagesB = await pdfHashes(reader.evaluate, pathB);
     if (pagesA.length !== pagesB.length) {
       return { same: false, what: "pages", diffs: [`${pagesA.length} pages against ${pagesB.length}`] };
     }
     const pages = pagesA.flatMap((hash, i) => (hash === pagesB[i] ? [] : [`page ${i + 1}`]));
     return { same: pages.length === 0, what: `${pagesA.length} pages' pixels`, diffs: pages };
   } finally {
-    browser.server.forget(pathA);
-    browser.server.forget(pathB);
+    reader.server.forget(pathA);
+    reader.server.forget(pathB);
   }
 }
 
-async function compareZips(a, b, browser) {
+async function compareZips(a, b, reader) {
   const zipA = await JSZip.loadAsync(a);
   const zipB = await JSZip.loadAsync(b);
   const fileNames = (zip) => Object.keys(zip.files).filter((n) => !zip.files[n].dir);
@@ -158,28 +158,28 @@ async function compareZips(a, b, browser) {
     if (IGNORED_ENTRY.test(name)) continue;
     const entryA = await zipA.files[name].async("nodebuffer");
     const entryB = await zipB.files[name].async("nodebuffer");
-    const entry = await compareContent(name, entryA, entryB, browser);
+    const entry = await compareContent(name, entryA, entryB, reader);
     if (!entry.same) diffs.push(`${name}: ${entry.diffs.join(", ")}`);
   }
   return { same: diffs.length === 0, what: `${names.length} entries`, diffs };
 }
 
-/** Two files, with the name that says their kind. */
-export async function compareFiles(name, pathA, pathB, browser) {
-  return compareContent(name, await readFile(pathA), await readFile(pathB), browser);
+/** Two files, with the name that says their kind. `reader` is the blank page ({ evaluate }) and its server. */
+export async function compareFiles(name, pathA, pathB, reader) {
+  return compareContent(name, await readFile(pathA), await readFile(pathB), reader);
 }
 
 /**
  * What two runs saved, paired by file name. Resolves to one comparison per
  * file: { name, same, what, diffs }.
  */
-export async function compareFolders(dirA, dirB, browser) {
+export async function compareFolders(dirA, dirB, reader) {
   const namesA = await readdir(dirA);
   const namesB = await readdir(dirB);
   const results = [];
   for (const name of new Set([...namesA, ...namesB])) {
     if (namesA.includes(name) && namesB.includes(name)) {
-      results.push({ name, ...(await compareFiles(name, join(dirA, name), join(dirB, name), browser)) });
+      results.push({ name, ...(await compareFiles(name, join(dirA, name), join(dirB, name), reader)) });
     } else {
       results.push({ name, same: false, what: "saved files", diffs: ["saved by only one run"] });
     }

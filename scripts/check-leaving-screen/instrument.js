@@ -14,9 +14,8 @@
     framesInRun: { visible: 0, hidden: 0 },
     progress: null,
     contexts: [],
-    lostEvents: 0,
     lossArmedFor: null,
-    marks: {},
+    uploadedAt: null,
   };
   window.__check = check;
 
@@ -69,21 +68,49 @@
   };
 
   /** The longest freeze on screen (in ms) overlapping `from`..`to`; 0 when none passed 50 ms. */
-  check.longestFreeze = (from, to) =>
+  const longestFreeze = (from, to) =>
     check.freezes
       .filter((f) => f.start + f.duration >= from && f.start <= to)
       .reduce((longest, f) => Math.max(longest, f.duration), 0);
 
+  /** A freeze is known at the frame after it, which a run's last commit may still be waiting for. */
+  const nextFrames = () =>
+    new Promise((done) => {
+      setTimeout(done, 1000); // No frames come with the screen off.
+      requestAnimationFrame(() => requestAnimationFrame(done));
+    });
+
+  /** What the run did, for the check to print and judge. */
+  check.report = async () => {
+    await nextFrames();
+    const end = check.endAt ?? performance.now();
+    const hiddenAt = check.visibility.find((v) => v.hidden);
+    const shownAt = hiddenAt && check.visibility.find((v) => !v.hidden && v.at > hiddenAt.at);
+    // The drawing's own contexts, not a live preview's from before the click.
+    const drawing = check.contexts.filter((c) => c.createdAt >= check.startAt);
+    return {
+      ms: end - check.startAt,
+      ending: check.ending,
+      error: check.error,
+      framesInRun: check.framesInRun,
+      visibilityChanges: check.visibility.length,
+      leftBeforeEnd: !!hiddenAt && hiddenAt.at < end,
+      finishedWhileHidden: !!hiddenAt && (!shownAt || shownAt.at > end),
+      hiddenMs: hiddenAt ? Math.max(0, Math.min(shownAt?.at ?? end, end) - hiddenAt.at) : 0,
+      progressAtHide: hiddenAt?.progress ?? null,
+      progressAtShow: shownAt?.progress ?? check.progress,
+      runFreeze: longestFreeze(check.startAt, end),
+      loadFreeze: longestFreeze(check.uploadedAt, check.startAt),
+      drawingContexts: drawing.length,
+      drawingContextsLost: drawing.filter((c) => c.lost).length,
+    };
+  };
+
   /** Every live WebGL context lost, as a GPU reset loses them all. */
   check.loseContexts = () => {
-    let lost = 0;
     for (const { gl, lose } of check.contexts) {
-      if (lose && !gl.isContextLost()) {
-        lose.loseContext();
-        lost++;
-      }
+      if (lose && !gl.isContextLost()) lose.loseContext();
     }
-    return lost;
   };
 
   // "create": just after the next new context. "sized": once its canvas has
@@ -105,8 +132,11 @@
     if (gl && /^webgl/.test(type) && !known.has(this)) {
       known.add(this);
       // Asked now: a lost context no longer hands out its extensions.
-      check.contexts.push({ gl, lose: gl.getExtension("WEBGL_lose_context") });
-      this.addEventListener("webglcontextlost", () => check.lostEvents++);
+      const context = { gl, lose: gl.getExtension("WEBGL_lose_context"), createdAt: performance.now(), lost: false };
+      check.contexts.push(context);
+      this.addEventListener("webglcontextlost", () => {
+        context.lost = true;
+      });
       armedLoss(this);
     }
     return gl;
