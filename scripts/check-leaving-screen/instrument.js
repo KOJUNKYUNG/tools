@@ -16,6 +16,11 @@
     contexts: [],
     lossArmedFor: null,
     uploadedAt: null,
+    titleAtStart: null,
+    /** Each title the tab had during the run, and the tab and the run as it came. */
+    titles: [],
+    /** Each line shown under the progress during the run. */
+    lines: [],
   };
   window.__check = check;
 
@@ -42,9 +47,17 @@
     const errorIcon = document.querySelector(".lucide-triangle-alert:not([data-sonner-toast] *)");
     if (errorIcon) return { state: "error", message: errorIcon.nextElementSibling?.lastElementChild?.textContent ?? "" };
     if (document.querySelector(".result-pop")) return { state: "done" };
-    const line = document.querySelector('[role="status"]');
+    // A spinner over the picture has this role too.
+    const line = document.querySelector('[role="status"]:has(> [aria-hidden])');
     const spinner = line?.parentElement?.querySelector(".animate-spin");
-    if (spinner) return { state: "processing", progress: Number(/(\d+)%/.exec(spinner.parentElement.textContent)?.[1] ?? NaN) };
+    if (spinner) {
+      return {
+        state: "processing",
+        progress: Number(/(\d+)%/.exec(spinner.parentElement.textContent)?.[1] ?? NaN),
+        // The hidden copies only hold the line's space.
+        line: line.querySelector(":scope > span:not([aria-hidden])")?.textContent ?? null,
+      };
+    }
     return { state: "idle" };
   };
   check.readRun = readRun;
@@ -52,7 +65,12 @@
   const watchRun = () => {
     if (check.startAt === null || check.endAt !== null) return;
     const run = readRun();
-    if (run.state === "processing") check.progress = run.progress;
+    const title = document.title;
+    if (check.titles.at(-1)?.title !== title) check.titles.push({ title, hidden: document.hidden, state: run.state });
+    if (run.state === "processing") {
+      check.progress = run.progress;
+      if (check.lines.at(-1) !== run.line) check.lines.push(run.line);
+    }
     if (run.state === "done" || run.state === "error") {
       check.endAt = performance.now();
       check.ending = run.state;
@@ -64,6 +82,7 @@
   /** The tool's primary button clicked, and the run's clock started. */
   check.start = () => {
     check.startAt = performance.now();
+    check.titleAtStart = document.title;
     document.querySelector("button.btn-primary").click();
   };
 
@@ -103,6 +122,10 @@
       loadFreeze: longestFreeze(check.uploadedAt, check.startAt),
       drawingContexts: drawing.length,
       drawingContextsLost: drawing.filter((c) => c.lost).length,
+      titleAtStart: check.titleAtStart,
+      titleAtEnd: document.title,
+      titles: check.titles,
+      lines: check.lines,
     };
   };
 

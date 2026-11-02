@@ -47,7 +47,9 @@
       "download": "Download",
       "error": "Error",
       "retry": "Retry",
-      "stayOnScreen": "Please stay on this screen until the job is finished. If you leave, it may pause for a while."
+      "stayOnScreen": "Please stay on this screen until the job is finished. If you leave, it may pause for a while.",
+      "wasPaused": "It paused while you were away from this screen and is now carrying on.",
+      "pausedTitle": "Paused · Ontab"
     },
     "themeToggle": "Toggle theme",
     "resizeHandles": {

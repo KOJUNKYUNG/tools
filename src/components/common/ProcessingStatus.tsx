@@ -81,8 +81,8 @@ export function ProcessingStatus({
               }}
             />
           </div>
-          {/* The hidden copy holds the line's space from the start of the run,
-              so that the fixed landing workspace does not shift when it shows. */}
+          {/* The hidden copies hold the longer line's space from the start of the
+              run, so that the fixed landing workspace does not shift when one shows. */}
           <div
             role="status"
             className="grid break-keep font-body text-[11px] leading-snug [overflow-wrap:anywhere]"
@@ -91,9 +91,10 @@ export function ProcessingStatus({
             <span aria-hidden className="invisible [grid-area:1/1]">
               {copy.stayOnScreen}
             </span>
-            {runLine === "stayOnScreen" && (
-              <span className="[grid-area:1/1]">{copy.stayOnScreen}</span>
-            )}
+            <span aria-hidden className="invisible [grid-area:1/1]">
+              {copy.wasPaused}
+            </span>
+            {runLine && <span className="[grid-area:1/1]">{copy[runLine]}</span>}
           </div>
         </div>
       )}

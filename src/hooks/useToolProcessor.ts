@@ -4,13 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { getErrorMessage, type GetErrorMessageOptions } from "@/lib/errors";
 import type { ProcessingState } from "@/types";
-import type { RunLine } from "@/lib/runPresence";
+import type { NeedsScreen, RunLine } from "@/lib/runPresence";
 import { useRunPresence } from "./useRunPresence";
 
 export interface UseToolProcessorConfig<TResult> {
   processor: (
     files: File[],
     onProgress: (value: number) => void,
+    needsScreen: NeedsScreen,
   ) => Promise<TResult>;
   onDownload: (result: TResult) => void | Promise<void>;
   /** Required: the page's error copy keeps every message in its language. */
@@ -41,7 +42,7 @@ export function useToolProcessor<TResult>({
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const [result, setResult] = useState<TResult | null>(null);
-  const { runLine, beginRun, endRun } = useRunPresence();
+  const { runLine, beginRun, endRun, startStretch, endStretch } = useRunPresence();
 
   const processorRef = useRef(processor);
   const onDownloadRef = useRef(onDownload);
@@ -68,11 +69,25 @@ export function useToolProcessor<TResult>({
     setResult(null);
     beginRun();
 
+    // A superseded run's stretch says nothing of the run now in progress.
+    const needsScreen: NeedsScreen = async (work) => {
+      if (gen === generationRef.current) startStretch();
+      try {
+        return await work();
+      } finally {
+        if (gen === generationRef.current) endStretch();
+      }
+    };
+
     try {
-      const res = await processorRef.current(files, (value) => {
-        // Ignore progress from a superseded run.
-        if (gen === generationRef.current) setProgress(value);
-      });
+      const res = await processorRef.current(
+        files,
+        (value) => {
+          // Ignore progress from a superseded run.
+          if (gen === generationRef.current) setProgress(value);
+        },
+        needsScreen,
+      );
       // A newer run (or a reset via retry) started while we awaited — discard.
       if (gen !== generationRef.current) return;
       endRun();
@@ -84,7 +99,7 @@ export function useToolProcessor<TResult>({
       setErrorMessage(getErrorMessage(err, errorOptionsRef.current).message);
       setStatus("error");
     }
-  }, [files, beginRun, endRun]);
+  }, [files, beginRun, endRun, startStretch, endStretch]);
 
   const retry = useCallback(() => {
     // Invalidate any in-flight run so its late result can't overwrite this reset.

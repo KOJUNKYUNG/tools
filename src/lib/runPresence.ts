@@ -9,6 +9,13 @@ export const NOTICE_AFTER_MS = 3_000;
 
 export type RunLine = "stayOnScreen" | "wasPaused" | null;
 
+/**
+ * Runs `work` as a stretch of the run that truly stops while the user is away
+ * (CONTEXT "Paused run"). Anything outside such a stretch is never called
+ * paused. A run's stretches do not overlap.
+ */
+export type NeedsScreen = <T>(work: () => Promise<T>) => Promise<T>;
+
 export interface RunPresence {
   /** The line under the progress. */
   line: RunLine;

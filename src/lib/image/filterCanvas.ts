@@ -10,6 +10,7 @@
 import { bakesPicture, filterPlan, type BackgroundKind, type FilterPlanStep, type FilterSet } from "./filterSet";
 import { drawPaperFilter, type PaperStep } from "./paperFilterDrawing";
 import { blur, contrast, grain, overlay, saturate, veil } from "./pixelFilters";
+import type { NeedsScreen } from "@/lib/runPresence";
 import type { PrepareStep } from "./slideImage";
 
 type AnyCanvas = OffscreenCanvas | HTMLCanvasElement;
@@ -102,13 +103,19 @@ export function composeFilters(canvas: AnyCanvas, plan: FilterPlanStep[], paperD
 
 /**
  * Bake `filters` for a `kind` background into `canvas`, planned for its own
- * size. Rejects when the Paper filter fails to draw.
+ * size. Rejects when the Paper filter fails to draw. Its drawing waits on the
+ * screen; the pixel filters do not, so only the drawing runs in `needsScreen`.
  */
-export async function bakeFilters(canvas: AnyCanvas, filters: FilterSet, kind: BackgroundKind): Promise<void> {
+export async function bakeFilters(
+  canvas: AnyCanvas,
+  filters: FilterSet,
+  kind: BackgroundKind,
+  needsScreen: NeedsScreen = (work) => work(),
+): Promise<void> {
   const plan = filterPlan(filters, kind, { width: canvas.width, height: canvas.height });
   const paperStep = paperStepOf(plan);
   adjustFilters(canvas, plan);
-  composeFilters(canvas, plan, paperStep && (await drawPaperFilter(canvas, paperStep)));
+  composeFilters(canvas, plan, paperStep && (await needsScreen(() => drawPaperFilter(canvas, paperStep))));
 }
 
 /**
@@ -117,10 +124,10 @@ export async function bakeFilters(canvas: AnyCanvas, filters: FilterSet, kind: B
  * as without the filter set (a whole JPEG is not re-encoded), and a solid
  * colour whose effects only change its colour stays a fill.
  */
-export function filterStep(filters: FilterSet, kind: BackgroundKind): PrepareStep | undefined {
+export function filterStep(filters: FilterSet, kind: BackgroundKind, needsScreen?: NeedsScreen): PrepareStep | undefined {
   if (!bakesPicture(filters, kind)) return undefined;
   return async (fitted) => {
-    await bakeFilters(fitted, filters, kind);
+    await bakeFilters(fitted, filters, kind, needsScreen);
     return fitted;
   };
 }

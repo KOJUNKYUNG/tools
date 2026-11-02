@@ -8,6 +8,7 @@ import { EMBEDDED_ASSET_LIMIT, uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
+import type { NeedsScreen } from "@/lib/runPresence";
 import { changeBackground, type BgMode, type FillBackground } from "@/lib/ppt/changeBackground";
 import {
   extractCurrentBackgrounds,
@@ -319,7 +320,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     retry,
     download,
   } = useToolProcessor<Uint8Array>({
-    processor: async (files, onProgress) => {
+    processor: async (files, onProgress, needsScreen) => {
       // A solid colour with grain or a Paper filter goes in as a picture of
       // the colour, whole, its filters baked in as a picture's are; otherwise
       // it stays a fill, of the colour its colour effects make.
@@ -330,9 +331,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       // share, so the gauge moves from the click on.
       const drawing = !fill && editedProps;
       // Baked in between the fit and the format; an unfiltered pick is prepared as before.
-      const step = solid ? filteredStep(filters, "solid") : fill ? undefined : filteredStep(filters, "picture");
+      const step = solid ? filteredStep(filters, "solid", needsScreen) : fill ? undefined : filteredStep(filters, "picture", needsScreen);
       if (drawing) onProgress(DRAWING_SHARE / 3);
-      const file = drawing ? await drawEdited(editedProps) : bgFile!;
+      const file = drawing ? await needsScreen(() => drawEdited(editedProps)) : bgFile!;
       const shown = drawing ? (pct: number) => DRAWING_SHARE + (pct * (100 - DRAWING_SHARE)) / 100 : (pct: number) => pct;
       if (drawing) onProgress(DRAWING_SHARE);
       return changeBackground({
@@ -379,8 +380,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
    * picture. A failed drawing stops the run with its own message: the
    * unfiltered picture never stands in for the filters.
    */
-  function filteredStep(set: FilterSet, kind: BackgroundKind): PrepareStep | undefined {
-    const step = filterStep(set, kind);
+  function filteredStep(set: FilterSet, kind: BackgroundKind, needsScreen: NeedsScreen): PrepareStep | undefined {
+    const step = filterStep(set, kind, needsScreen);
     if (!step) return undefined;
     return async (fitted) => {
       try {

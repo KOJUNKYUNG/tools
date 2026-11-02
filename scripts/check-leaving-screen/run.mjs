@@ -2,13 +2,15 @@
 // real Chrome on the real GPU, through the tool's real page. It runs a tool
 // twice on the same file, once visible and once with the window minimized
 // mid-run and restored later, and compares what each saved by content. It
-// reports the visible run's longest main-thread freeze. With --context-loss it
-// forces a WebGL context loss during a ppt-background apply and reports how
-// the run ends.
+// checks that only a run that truly stops is called paused (the tab's title and
+// the was-paused line), and reports the visible run's longest main-thread
+// freeze. With --context-loss it forces a WebGL context loss during a
+// ppt-background apply and reports how the run ends.
 //
 // Run: pnpm build, then
 //   pnpm check:leaving-screen --tool=pdf-arrange --fixture=<file>
 //   pnpm check:leaving-screen --tool=ppt-background --fixture=<deck> --edit=recipe|filter [--context-loss]
+//   pnpm check:leaving-screen --tool=ppt-background --fixture=<deck> --edit=photo|effect
 //   pnpm check:leaving-screen --compare <fileA> <fileB>
 // Options: --hide-after=<ms> how long after the click to minimize (0);
 // --hide-for=<s> how long to stay minimized at most (15; past 300 it reaches
@@ -56,6 +58,14 @@ const SETTLE_MS = 1500;
 
 /** Gallery item the ppt-background runs pick: a Paper recipe with the edit area. */
 const PAPER_ITEM = "/gallery/gradient/mesh-3c-thumb.jpg";
+/** Gallery photo: applying it draws nothing with Paper. */
+const PHOTO_ITEM = "/gallery/nature/balkhash-lake-thumb.jpg";
+
+/** ppt-background's setups (--edit), and whether a run of each draws with Paper, so truly stops while hidden. */
+const DRAWS_WITH_PAPER = { recipe: true, filter: true, photo: false, effect: false };
+
+/** The copy of a run on the page openTool opens: the checks follow it while it is [임시]. */
+const RUN_COPY = JSON.parse(await readFile(join(root, "src/i18n/dictionaries/en.json"), "utf8")).common.processingStatus;
 
 const seconds = (ms) => `${(ms / 1000).toFixed(1)} s`;
 
@@ -139,6 +149,9 @@ async function openBrowser(blankPage) {
   };
 }
 
+/** A third of the way along the slider `el`. */
+const SLIDER_MOVED = "Number(el.min) + (Number(el.max) - Number(el.min)) / 3";
+
 /** A control's value set as typing does, so that React hears it. */
 function setInput(browser, selector, valueExpression) {
   return waitFor(
@@ -157,28 +170,36 @@ function setInput(browser, selector, valueExpression) {
 /**
  * ppt-background set up as the spec's stretch that needs the screen: a Paper
  * item, edited ("recipe": the hue moved) or filtered ("filter": the first Paper
- * filter), with its preview drawn. Selectors go by structure, not copy, which
- * is still [임시].
+ * filter), with its preview drawn. Or as a run with no such stretch: a photo
+ * ("photo"), or the Paper item's file with a 2D effect ("effect": blur).
+ * Selectors go by structure, not copy, which is still [임시].
  */
-async function setUpPaperBackground(browser, { edit }) {
+async function setUpBackground(browser, { edit }) {
   const click = (selector) =>
     waitFor(() => browser.evaluate(`(() => { const el = ${selector}; el?.click(); return !!el; })()`), selector);
-  await click(`document.querySelector('img[src=${JSON.stringify(PAPER_ITEM)}]')?.closest("button")`);
+  const item = edit === "photo" ? PHOTO_ITEM : PAPER_ITEM;
+  await click(`document.querySelector('img[src=${JSON.stringify(item)}]')?.closest("button")`);
+  if (edit === "photo") return sleep(SETTLE_MS);
   await click(`document.querySelector('button[aria-expanded="false"]')`);
   if (edit === "recipe") {
-    await setInput(browser, `document.querySelector('[role="tabpanel"] input[type="range"]')`, "Number(el.min) + (Number(el.max) - Number(el.min)) / 3");
+    await setInput(browser, `document.querySelector('[role="tabpanel"] input[type="range"]')`, SLIDER_MOVED);
   } else {
     const tab = (list, n) => `document.querySelectorAll('[role="tablist"]')[${list}]?.querySelectorAll('[role="tab"]')[${n}]`;
     await click(tab(0, 1)); // The edit area's "effects".
-    await click(tab(1, 1)); // The filter set's "style".
-    await click(`document.querySelectorAll('[role="group"] button[aria-pressed]')[1]`); // After "none".
+    if (edit === "effect") {
+      // The filter set's "adjust" tab opens first; its first slider is blur.
+      await setInput(browser, `document.querySelector('[role="tabpanel"] [role="tabpanel"] input[type="range"]')`, SLIDER_MOVED);
+    } else {
+      await click(tab(1, 1)); // The filter set's "style".
+      await click(`document.querySelectorAll('[role="group"] button[aria-pressed]')[1]`); // After "none".
+    }
   }
   await sleep(SETTLE_MS);
 }
 
 /** What a tool needs beyond its file before a run can start. */
 const TOOL_SET_UP = {
-  "ppt-background": setUpPaperBackground,
+  "ppt-background": setUpBackground,
   // Its text watermark, the default, needs a text.
   "pdf-watermark": (browser) => setInput(browser, `document.querySelector('input[type="text"]')`, `"Ontab"`),
 };
@@ -272,6 +293,36 @@ async function compareRuns(browser, reader, dirA, dirB) {
   return compareFolders(dirA, dirB, reader);
 }
 
+/** What the two runs said of a pause: only a run that truly stops is called paused, and only while it applies. */
+function checkPausedSigns(visible, hidden, stops) {
+  const paused = (r) => r.titles.filter((t) => t.title === RUN_COPY.pausedTitle);
+  const said = (r) => r.lines.includes(RUN_COPY.wasPaused);
+  const calledPaused = (r) => paused(r).length > 0 || said(r);
+  const seen = (r) => `titles ${JSON.stringify(r.titles.map((t) => t.title))}, last line ${JSON.stringify(r.lines.at(-1) ?? null)}`;
+  const checks = [
+    verdict(!calledPaused(visible), `the visible run was not called paused`),
+    verdict(
+      visible.titleAtEnd === visible.titleAtStart && hidden.titleAtEnd === hidden.titleAtStart,
+      `the tab's title is back after each run (${JSON.stringify(hidden.titleAtEnd)})`,
+    ),
+  ];
+  if (stops) {
+    const afterPaused = hidden.titles[hidden.titles.findLastIndex((t) => t.title === RUN_COPY.pausedTitle) + 1];
+    checks.push(
+      verdict(paused(hidden).length > 0 && paused(hidden).every((t) => t.hidden), `the title said paused while hidden (${seen(hidden)})`),
+      verdict(
+        afterPaused?.title === hidden.titleAtStart && !afterPaused.hidden && afterPaused.state === "processing",
+        `the title came back on return, with the run still going (${JSON.stringify(afterPaused ?? null)})`,
+      ),
+      // Nothing follows it: once shown, it stayed.
+      verdict(hidden.lines.indexOf(RUN_COPY.wasPaused) === hidden.lines.length - 1 && said(hidden), `the was-paused line stayed until the run ended (${seen(hidden)})`),
+    );
+  } else {
+    checks.push(verdict(!calledPaused(hidden), `the minimized run was not called paused (${seen(hidden)})`));
+  }
+  return checks;
+}
+
 /** The runs and their outputs compared. True when all pass. */
 async function checkLeaving(browser, reader, options, work) {
   const dirs = { visible: join(work, "visible"), hidden: join(work, "hidden") };
@@ -298,7 +349,7 @@ async function checkLeaving(browser, reader, options, work) {
     ),
   ];
   // An edit that did not register would apply the gallery's file, with no drawing to wait for.
-  if (options.edit) {
+  if (DRAWS_WITH_PAPER[options.edit]) {
     checks.push(
       verdict(
         visible.drawingContexts > 0 && hidden.drawingContexts > 0,
@@ -306,6 +357,7 @@ async function checkLeaving(browser, reader, options, work) {
       ),
     );
   }
+  checks.push(...checkPausedSigns(visible, hidden, DRAWS_WITH_PAPER[options.edit] ?? false));
   if (visible.ending === "done" && hidden.ending === "done") {
     const comparisons = await compareRuns(browser, reader, dirs.visible, dirs.hidden);
     for (const c of comparisons) checks.push(verdict(c.same, `${c.name} (${c.what})${listDiffs(c.diffs)}`));
@@ -389,7 +441,8 @@ function toolOptions(origin) {
   const fixture = resolve(process.env.REAL_FIXTURES_DIR ?? join(root, "tests/fixtures"), args.fixture);
   if (!existsSync(fixture)) throw new Error(`No such fixture: ${fixture}`);
   const edit = args.tool === "ppt-background" ? (args.edit ?? "recipe") : null;
-  if (edit && edit !== "recipe" && edit !== "filter") throw new Error("--edit takes recipe or filter");
+  if (edit && !(edit in DRAWS_WITH_PAPER)) throw new Error(`--edit takes ${Object.keys(DRAWS_WITH_PAPER).join(", ")}`);
+  if (args["context-loss"] && !DRAWS_WITH_PAPER[edit]) throw new Error("--context-loss needs a drawing: --edit=recipe or filter");
   return { origin, tool: args.tool, fixture, edit };
 }
 

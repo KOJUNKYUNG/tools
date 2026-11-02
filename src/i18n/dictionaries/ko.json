@@ -47,7 +47,9 @@
       "download": "다운로드",
       "error": "오류 발생",
       "retry": "재시도",
-      "stayOnScreen": "작업이 끝날 때까지 이 화면을 벗어나지 말아 주세요. 벗어나면 잠시 멈출 수 있어요."
+      "stayOnScreen": "작업이 끝날 때까지 이 화면을 벗어나지 말아 주세요. 벗어나면 잠시 멈출 수 있어요.",
+      "wasPaused": "화면을 벗어난 동안 일시정지되었고, 지금 이어서 진행 중입니다.",
+      "pausedTitle": "일시정지됨 · Ontab"
     },
     "themeToggle": "테마 바꾸기",
     "resizeHandles": {
