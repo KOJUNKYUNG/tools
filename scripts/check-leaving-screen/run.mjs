@@ -14,7 +14,10 @@
 //   pnpm check:leaving-screen --tool=ppt-background --fixture=<deck> --edit=recipe|filter [--context-loss]
 //   pnpm check:leaving-screen --tool=ppt-background --fixture=<deck> --edit=photo|effect
 //   pnpm check:leaving-screen --compare <fileA> <fileB>
-// Options: --hide-after=<ms> how long after the click to minimize (0);
+//   pnpm check:leaving-screen --print-intent [--dpi=150] [--gpu]: pdf-to-image's gate (#139)
+// Options: --paused says this file's run truly stops while hidden, where the tool
+// alone does not settle it (pdf-to-image: a page print would draw differently);
+// --hide-after=<ms> how long after the click to minimize (0);
 // --hide-for=<s> how long to stay minimized at most (15; past 300 it reaches
 // the browser's slowest timers); --timeout=<s> how long a run may take (600);
 // --origin=<url> an app already running, instead of `next start` on the last
@@ -36,9 +39,11 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { openChrome, REAL_GPU_ARGS, waitFor } from "../lib/headlessChrome.mjs";
 import { compareFiles, compareFolders, startCompareServer } from "./compare.mjs";
+import { checkPrintIntent } from "./print-intent.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const root = resolve(here, "../..");
+const FIXTURES = process.env.REAL_FIXTURES_DIR ?? join(root, "tests/fixtures");
 
 const positional = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const args = Object.fromEntries(
@@ -359,7 +364,7 @@ async function checkLeaving(browser, reader, options, work) {
       ),
     );
   }
-  checks.push(...checkPausedSigns(visible, hidden, DRAWS_WITH_PAPER[options.edit] ?? false));
+  checks.push(...checkPausedSigns(visible, hidden, DRAWS_WITH_PAPER[options.edit] ?? options.paused));
   if (visible.ending === "done" && hidden.ending === "done") {
     const comparisons = await compareRuns(browser, reader, dirs.visible, dirs.hidden);
     for (const c of comparisons) checks.push(verdict(c.same, `${c.name} (${c.what})${listDiffs(c.diffs)}`));
@@ -557,12 +562,12 @@ async function checkContextLoss(browser, reader, options, work) {
 
 /** The options a tool run takes, from the command line. */
 function toolOptions(origin) {
-  const fixture = resolve(process.env.REAL_FIXTURES_DIR ?? join(root, "tests/fixtures"), args.fixture);
+  const fixture = resolve(FIXTURES, args.fixture);
   if (!existsSync(fixture)) throw new Error(`No such fixture: ${fixture}`);
   const edit = args.tool === "ppt-background" ? (args.edit ?? "recipe") : null;
   if (edit && !(edit in DRAWS_WITH_PAPER)) throw new Error(`--edit takes ${Object.keys(DRAWS_WITH_PAPER).join(", ")}`);
   if (args["context-loss"] && !DRAWS_WITH_PAPER[edit]) throw new Error("--context-loss needs a drawing: --edit=recipe or filter");
-  return { origin, tool: args.tool, fixture, edit };
+  return { origin, tool: args.tool, fixture, edit, paused: Boolean(args.paused) };
 }
 
 async function main() {
@@ -583,6 +588,11 @@ async function main() {
       await waitFor(() => browser.evaluate("document.readyState === 'complete'"), "the blank page");
       const c = await compareFiles(basename(a), resolve(a), resolve(b), reader);
       return verdict(c.same, `${basename(a)} against ${basename(b)} (${c.what})${listDiffs(c.diffs)}`);
+    }
+
+    if (args["print-intent"]) {
+      await waitFor(() => browser.evaluate("document.readyState === 'complete'"), "the blank page");
+      return await checkPrintIntent(reader, [FIXTURES, join(root, "tests/print-intent-samples")], { dpi: Number(args.dpi ?? 150), gpu: args.gpu });
     }
 
     if (!args.tool || !args.fixture) throw new Error("Pass --tool=<slug> and --fixture=<file>");

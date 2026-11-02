@@ -81,7 +81,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
     retry,
     download,
   } = useToolProcessor<PdfToImageOutcome>({
-    processor: async (_files, onProgress) => {
+    processor: async (_files, onProgress, needsScreen) => {
       const jobs = buildConversionJobs(items);
       if (jobs.length === 0) throw new Error("no pages to convert"); // Convert is disabled then
       const base = deriveBaseName(items[0]?.sourceFileName);
@@ -106,6 +106,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
           await new Promise((resolve) => setTimeout(resolve, 300));
         },
         onProgress,
+        needsScreen,
       }).catch((err: unknown) => {
         // Name the page the run stopped at, and the parts already saved
         // (a delivered download cannot be withdrawn).

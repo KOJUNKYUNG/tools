@@ -1,8 +1,10 @@
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
+import type { NeedsScreen } from "@/lib/runPresence";
 import { shouldFlush } from "./batchPlan";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 import { assignImageNames } from "./pdfToImageNaming";
 import type { RenderedPage } from "./pdfToImageCheck";
+import { pageIntent, type PageIntent } from "./pdfToImageIntent";
 import { renderCheckedPage, type Resolution } from "./pdfToImagePage";
 import type { ConversionJob } from "./buildConversionJobs";
 
@@ -33,6 +35,8 @@ export interface PdfToImageOptions {
     isLast: boolean,
   ) => Promise<void> | void;
   onProgress?: (pct: number) => void;
+  /** Marks a page's drawing that stops while the user is off the screen. */
+  needsScreen: NeedsScreen;
 }
 
 const PDF_BASE_DPI = 72;
@@ -61,12 +65,16 @@ async function renderPage(
     rotation: userRotation,
     format,
     quality,
+    intent,
+    needsScreen,
   }: {
     scale: number;
     resolution: Resolution;
     rotation: number;
     format: OutputFormat;
     quality: number | undefined;
+    intent: PageIntent;
+    needsScreen: NeedsScreen;
   },
 ): Promise<RenderedPage> {
   // Match the thumbnail (rendered at page.rotate) + the card's CSS rotate.
@@ -95,7 +103,9 @@ async function renderPage(
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas 2D 컨텍스트를 만들 수 없습니다.");
 
-    await page.render({ canvas, viewport }).promise;
+    const draw = () => page.render({ canvas, viewport, intent }).promise;
+    // Only the display intent waits on frames, which a hidden tab does not send.
+    await (intent === "display" ? needsScreen(draw) : draw());
 
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
@@ -125,6 +135,7 @@ export async function pdfToImages({
   batchByteTarget,
   onBatch,
   onProgress,
+  needsScreen,
 }: PdfToImageOptions): Promise<PdfToImageOutcome> {
   if (jobs.length === 0) throw new Error("변환할 페이지가 없습니다.");
 
@@ -180,6 +191,8 @@ export async function pdfToImages({
           rotation: job.rotation,
           format,
           quality,
+          intent: await pageIntent(doc, page),
+          needsScreen,
         });
       });
       current.push({ name: names[i], blob });
