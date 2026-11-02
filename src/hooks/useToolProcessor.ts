@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { toast } from "sonner";
+import { createDownloadGuard, type DownloadGuard } from "@/lib/downloadGuard";
 import { getErrorMessage, type GetErrorMessageOptions } from "@/lib/errors";
 import type { ProcessingState } from "@/types";
 import type { NeedsScreen, RunLine } from "@/lib/runPresence";
@@ -30,6 +32,8 @@ export interface UseToolProcessorReturn<TResult> {
   run: () => Promise<void>;
   retry: () => void;
   download: () => void;
+  /** A click on `download` is still being built; further clicks do nothing. */
+  downloading: boolean;
 }
 
 export function useToolProcessor<TResult>({
@@ -42,12 +46,14 @@ export function useToolProcessor<TResult>({
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const [result, setResult] = useState<TResult | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const { runLine, beginRun, endRun, startStretch, endStretch } = useRunPresence();
 
   const processorRef = useRef(processor);
   const onDownloadRef = useRef(onDownload);
   const errorOptionsRef = useRef(errorOptions);
   const generationRef = useRef(0);
+  const downloadGuardRef = useRef<DownloadGuard | null>(null);
 
   useEffect(() => {
     processorRef.current = processor;
@@ -113,7 +119,13 @@ export function useToolProcessor<TResult>({
 
   const download = useCallback(() => {
     if (!result) return;
-    onDownloadRef.current(result);
+    downloadGuardRef.current ??= createDownloadGuard({
+      onBusyChange: setDownloading,
+      onFailure: (err) => {
+        toast.error(getErrorMessage(err, errorOptionsRef.current).message);
+      },
+    });
+    downloadGuardRef.current.click(() => onDownloadRef.current(result));
   }, [result]);
 
   return {
@@ -127,5 +139,6 @@ export function useToolProcessor<TResult>({
     run,
     retry,
     download,
+    downloading,
   };
 }

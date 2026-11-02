@@ -67,6 +67,7 @@ interface PdfArrangeResultProps {
   sourceBytesById: Map<string, Uint8Array>;
   labels: PdfArrangeLabels;
   onDownloadAll: () => void;
+  downloading: boolean;
   onDownloadOne: (entry: OutputEntry) => void;
 }
 
@@ -75,6 +76,7 @@ export function PdfArrangeResult({
   sourceBytesById,
   labels,
   onDownloadAll,
+  downloading,
   onDownloadOne,
 }: PdfArrangeResultProps) {
   const { outputs, isZip } = result;
@@ -140,7 +142,7 @@ export function PdfArrangeResult({
           title={labels.resultTitle}
           actions={
             <ResultActions
-              download={{ label: primaryLabel, onClick: onDownloadAll }}
+              download={{ label: primaryLabel, onClick: onDownloadAll, busy: downloading }}
             />
           }
         >

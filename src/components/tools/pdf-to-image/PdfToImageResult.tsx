@@ -75,6 +75,7 @@ interface PdfToImageResultProps {
   labels: PdfToImageLabels;
   format: OutputFormat;
   onDownloadAll: () => void;
+  downloading: boolean;
   onDownloadOne: (image: ConvertedImage) => void;
   onCompress: () => void;
 }
@@ -84,6 +85,7 @@ export function PdfToImageResult({
   labels,
   format,
   onDownloadAll,
+  downloading,
   onDownloadOne,
   onCompress,
 }: PdfToImageResultProps) {
@@ -139,7 +141,7 @@ export function PdfToImageResult({
           title={labels.resultTitle}
           actions={
             <ResultActions
-              download={{ label: primaryDownloadLabel, onClick: onDownloadAll }}
+              download={{ label: primaryDownloadLabel, onClick: onDownloadAll, busy: downloading }}
               extra={
                 <HandoffAction label={labels.compressHandoff} onClick={onCompress} />
               }

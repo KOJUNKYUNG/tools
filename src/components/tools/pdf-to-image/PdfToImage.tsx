@@ -80,6 +80,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
     run,
     retry,
     download,
+    downloading,
   } = useToolProcessor<PdfToImageOutcome>({
     processor: async (_files, onProgress, needsScreen) => {
       const jobs = buildConversionJobs(items);
@@ -377,6 +378,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
             labels={labels}
             format={format}
             onDownloadAll={download}
+            downloading={downloading}
             onDownloadOne={handleDownloadOne}
             onCompress={handleCompress}
           />

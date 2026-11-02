@@ -161,6 +161,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
     run,
     retry,
     download,
+    downloading,
   } = useToolProcessor<ArrangeResult>({
     processor: async (_files, onProgress) => {
       const sections = splitIntoSections(items);
@@ -533,6 +534,7 @@ export function PdfArrange({ labels, inline = false }: PdfArrangeProps) {
           sourceBytesById={sourceBytesById}
           labels={labels}
           onDownloadAll={download}
+          downloading={downloading}
           onDownloadOne={handleDownloadOne}
         />
       ) : (
