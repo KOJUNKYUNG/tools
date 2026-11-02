@@ -230,9 +230,11 @@ async function startRun(browser) {
   await waitFor(() => browser.evaluate(`__check.readRun().state !== "idle"`), "the run to start", 5000);
 }
 
-/** Clicks the result's save button if it has one, and waits for what the run saved. */
+/** Clicks each of the result's save buttons, a click each, and waits for what the run saved. */
 async function collectSaves(browser, downloads) {
-  await browser.gesture(`document.querySelector(".result-pop .btn-download")?.click()`);
+  const buttons = `document.querySelectorAll(".result-pop .btn-download")`;
+  const count = await browser.evaluate(`${buttons}.length`);
+  for (let i = 0; i < count; i++) await browser.gesture(`${buttons}[${i}].click()`);
   let last = "";
   let stableSince = Date.now();
   await waitFor(
@@ -240,7 +242,7 @@ async function collectSaves(browser, downloads) {
       const names = (await readdir(downloads)).sort().join("\n");
       if (names !== last) stableSince = Date.now();
       last = names;
-      const finished = names && !/\.(crdownload|tmp)$/m.test(names);
+      const finished = names && names.split("\n").length >= count && !/\.(crdownload|tmp)$/m.test(names);
       return finished && Date.now() - stableSince > 1500;
     },
     "the save",

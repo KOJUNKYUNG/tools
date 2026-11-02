@@ -24,8 +24,8 @@ const MB = 1024 * 1024;
  * not a transfer limit. There is no auth, so there are no guest/user tiers.
  *
  * Values are recalibrated per processing-path class:
- *  - Streaming / sequential (bounded per item): pdf-to-image streams its output
- *    in batches, so the ceiling is the held source bytes, not the whole output;
+ *  - Sequential (bounded per item): pdf-to-image holds the output as encoded
+ *    images, which the browser may keep on disk, and draws one page at a time;
  *    image-compress decodes one image at a time; image-resize is single-file.
  *  - Single-artifact reassembly (whole input + whole output in memory, ~3-4×
  *    peak for WASM/pdf-lib): pdf/ppt tools that load and rebuild one document.
@@ -43,7 +43,8 @@ const MB = 1024 * 1024;
 export const DEFAULT_UPLOAD_LIMIT = 10 * MB;
 
 export const UPLOAD_LIMIT: Record<string, number> = {
-  // Streaming / sequential — generous (not bound by whole-output memory).
+  // Sequential — generous (not bound by whole-output memory: held output moves
+  // to the browser's disk, measured on #142).
   "pdf-to-image": 80 * MB,
   "image-resize": 30 * MB,
   "image-compress": 25 * MB,
@@ -71,7 +72,7 @@ export function uploadLimitFor(slug: string): number {
  *
  * Group B multi-file (pdf-arrange / image-to-pdf / image-to-pptx) hold all
  * inputs + the output at once, so the sum IS the peak → lower threshold.
- * pdf-to-image streams its output and image-compress decodes sequentially, so
+ * pdf-to-image draws one page at a time and image-compress decodes sequentially, so
  * the sum is less of a peak driver → higher threshold.
  */
 const DEFAULT_TOTAL_SIZE_WARN = 100 * MB;
@@ -97,10 +98,10 @@ export function totalSizeWarnFor(slug: string): number {
 export const EMBEDDED_ASSET_LIMIT = 15 * MB;
 
 /**
- * Target accumulated output bytes per batch for pdf-to-image streaming. When a
- * conversion's running output reaches this (with pages still remaining), the
- * current batch is zipped and downloaded, then memory is released before the
- * next batch. Bounds peak memory to ~one batch instead of the whole job.
+ * Target accumulated output bytes per part for pdf-to-image. When a conversion's
+ * running output reaches this (with pages still remaining), the part closes and
+ * the next begins. The result holds all parts, each zipped when its button is
+ * clicked, so a zip is never much larger than this.
  */
 export const PDF_TO_IMAGE_BATCH_BYTES = 50 * MB;
 

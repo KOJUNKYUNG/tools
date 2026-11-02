@@ -32,14 +32,12 @@ export interface PdfToImageLabels {
   downloadOneAria: string;
   compressHandoff: string;
   again: string;
-  streamedTitle: string;
-  streamedSummary: string;
-  batchSavedToast: string;
-  /** `{page}`: the page the run stopped at. */
+  partsSummary: string;
+  savePart: string;
+  partSaved: string;
   errorMemory: string;
+  /** `{page}`: the page the run stopped at. */
   errorCorrupt: string;
-  /** `{page}`, and `{n}`: the parts already saved before the stop. */
-  errorCorruptAfterBatches: string;
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
@@ -77,12 +75,11 @@ export function getPdfToImageLabels(dict: Dictionary): PdfToImageLabels {
     downloadOneAria: p.downloadOneAria,
     compressHandoff: p.compressHandoff,
     again: p.again,
-    streamedTitle: p.streamedTitle,
-    streamedSummary: p.streamedSummary,
-    batchSavedToast: p.batchSavedToast,
+    partsSummary: p.partsSummary,
+    savePart: p.savePart,
+    partSaved: p.partSaved,
     errorMemory: p.errorMemory,
     errorCorrupt: p.errorCorrupt,
-    errorCorruptAfterBatches: p.errorCorruptAfterBatches,
     fileUpload: dict.common.fileUpload,
   };
 }

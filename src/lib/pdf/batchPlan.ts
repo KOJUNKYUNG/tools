@@ -1,4 +1,4 @@
-// Pure batch-boundary logic for pdf-to-image streaming. No DOM/pdfjs — this is
+// Pure part-boundary logic for pdf-to-image. No DOM/pdfjs — this is
 // the testable model the render loop mirrors via shouldFlush(), so the loop and
 // these tests can never disagree about where batch boundaries fall.
 
@@ -19,7 +19,7 @@ export function shouldFlush(
 /**
  * Pure simulation of the render loop's batching over a known list of per-page
  * output byte sizes. Returns the page indices grouped per batch. A result with
- * one batch means "preview" (single zip / grid); more than one means "streamed".
+ * one batch means "preview" (single zip / grid); more than one means "parts".
  */
 export function planBatches(pageBytes: number[], batchByteTarget: number): number[][] {
   const batches: number[][] = [];

@@ -9,7 +9,7 @@ export type Resolution = "requested" | "reduced";
 /**
  * A page that could not be turned into a usable image, even at a reduced
  * resolution. The run stops here: a page is never skipped. pdf-to-image
- * catches it to name the page (and the parts already saved) in its message;
+ * catches it to name the page in its message;
  * the corrupt-output prefix covers any other caller.
  */
 export class PageConversionError extends Error {

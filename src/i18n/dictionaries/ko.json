@@ -710,12 +710,11 @@
         "downloadOneAria": "{name} 다운로드",
         "compressHandoff": "이미지 압축하기",
         "again": "다시 하기",
-        "streamedTitle": "저장 완료",
-        "streamedSummary": "이미지 {n}장을 zip 파일 {m}개로 나눠 저장했습니다.",
-        "batchSavedToast": "파트 {n} 저장됨",
+        "partsSummary": "이미지 {n}장 · 용량이 커서 zip 파일 {m}개로 나눴습니다. 파일마다 저장해 주세요.",
+        "savePart": "파트 {n} 저장",
+        "partSaved": "저장함",
         "errorMemory": "브라우저 메모리가 부족합니다. DPI를 낮추거나 페이지가 적은 PDF를 사용해 주세요.",
-        "errorCorrupt": "{page}번째 페이지를 이미지로 바꾸지 못해 변환을 멈췄습니다. 그 페이지를 빼거나 DPI를 낮춰 다시 시도해 주세요.",
-        "errorCorruptAfterBatches": "{page}번째 페이지를 이미지로 바꾸지 못해 변환을 멈췄습니다. 이미 저장된 파트 {n}개에는 그 앞 페이지까지만 들어 있습니다. 그 페이지를 빼거나 DPI를 낮춰 다시 시도해 주세요."
+        "errorCorrupt": "{page}번째 페이지를 이미지로 바꾸지 못해 변환을 멈췄습니다. 그 페이지를 빼거나 DPI를 낮춰 다시 시도해 주세요."
       }
     },
     "image-compress": {

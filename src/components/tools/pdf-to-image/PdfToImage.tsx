@@ -35,13 +35,23 @@ import {
 import { PageConversionError } from "@/lib/pdf/pdfToImagePage";
 import { type PageItem, type Rotation } from "@/lib/pdf/pageItem";
 import { PdfToImageControls } from "./PdfToImageControls";
+import { PdfToImagePartsResult } from "./PdfToImagePartsResult";
 import { PdfToImageResult } from "./PdfToImageResult";
-import { PdfToImageStreamedResult } from "./PdfToImageStreamedResult";
 import type { PdfToImageLabels } from "./labels";
 
 const PDF_ACCEPT = { "application/pdf": [".pdf"] };
 const ACCEPT_ATTR = "application/pdf";
 const NEUTRAL_TINT: SectionTint = { ring: "transparent" };
+
+/**
+ * Images are already compressed: STORE skips a pointless deflate pass and lets
+ * JSZip stream to a Blob instead of building one giant Uint8Array.
+ */
+function zipImages(images: ConvertedImage[]): Promise<Blob> {
+  const zip = new JSZip();
+  for (const img of images) zip.file(img.name, img.blob);
+  return zip.generateAsync({ type: "blob", compression: "STORE" });
+}
 
 function isPdf(file: File): boolean {
   return (
@@ -85,38 +95,18 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
     processor: async (_files, onProgress, needsScreen) => {
       const jobs = buildConversionJobs(items);
       if (jobs.length === 0) throw new Error("no pages to convert"); // Convert is disabled then
-      const base = deriveBaseName(items[0]?.sourceFileName);
-      let batchesSaved = 0;
       return pdfToImages({
         jobs,
         sourceBytesById,
         format,
         dpi,
         batchByteTarget: PDF_TO_IMAGE_BATCH_BYTES,
-        onBatch: async (batchImages, batchIndex) => {
-          const zip = new JSZip();
-          for (const img of batchImages) zip.file(img.name, img.blob);
-          const zipBlob = await zip.generateAsync({
-            type: "blob",
-            compression: "STORE",
-          });
-          downloadBlobObject(zipBlob, deriveBatchZipName(base, batchIndex));
-          batchesSaved = batchIndex;
-          toast.success(template(labels.batchSavedToast, { n: batchIndex }));
-          // Space sequential downloads so the browser does not block them.
-          await new Promise((resolve) => setTimeout(resolve, 300));
-        },
         onProgress,
         needsScreen,
       }).catch((err: unknown) => {
-        // Name the page the run stopped at, and the parts already saved
-        // (a delivered download cannot be withdrawn).
+        // Name the page the run stopped at.
         if (!(err instanceof PageConversionError)) throw err;
-        throw new UserFacingError(
-          batchesSaved > 0
-            ? template(labels.errorCorruptAfterBatches, { page: err.pageNumber, n: batchesSaved })
-            : template(labels.errorCorrupt, { page: err.pageNumber }),
-        );
+        throw new UserFacingError(template(labels.errorCorrupt, { page: err.pageNumber }));
       });
     },
     onDownload: async (outcome) => {
@@ -128,12 +118,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
         return;
       }
       const base = deriveBaseName(items[0]?.sourceFileName);
-      const zip = new JSZip();
-      for (const img of images) zip.file(img.name, img.blob);
-      // Images are already compressed — STORE skips a pointless deflate pass and
-      // lets JSZip stream to a Blob instead of building one giant Uint8Array.
-      const zipBlob = await zip.generateAsync({ type: "blob", compression: "STORE" });
-      downloadBlobObject(zipBlob, deriveZipName(base));
+      downloadBlobObject(await zipImages(images), deriveZipName(base));
     },
     errorOptions: {
       copy: labels.errors,
@@ -233,6 +218,21 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
   const handleDownloadOne = useCallback((image: ConvertedImage) => {
     downloadBlobObject(image.blob, image.name);
   }, []);
+
+  const handleSavePart = useCallback(
+    async (images: ConvertedImage[], partNumber: number) => {
+      const base = deriveBaseName(items[0]?.sourceFileName);
+      downloadBlobObject(await zipImages(images), deriveBatchZipName(base, partNumber));
+    },
+    [items],
+  );
+
+  const handleSavePartFailed = useCallback(
+    (err: unknown) => {
+      toast.error(getErrorMessage(err, { copy: labels.errors, memoryHint: labels.errorMemory }).message);
+    },
+    [labels.errors, labels.errorMemory],
+  );
 
   const handleCompress = useCallback(() => {
     if (!result || result.mode !== "preview") return;
@@ -383,10 +383,11 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
             onCompress={handleCompress}
           />
         ) : (
-          <PdfToImageStreamedResult
-            imageCount={result.imageCount}
-            batchCount={result.batchCount}
+          <PdfToImagePartsResult
+            parts={result.parts}
             labels={labels}
+            onSavePart={handleSavePart}
+            onSaveFailed={handleSavePartFailed}
           />
         )
       ) : (

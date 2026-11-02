@@ -18,7 +18,7 @@ export interface ConvertedImage {
 
 export type PdfToImageOutcome =
   | { mode: "preview"; images: ConvertedImage[] }
-  | { mode: "streamed"; imageCount: number; batchCount: number };
+  | { mode: "parts"; parts: ConvertedImage[][] };
 
 export interface PdfToImageOptions {
   jobs: ConversionJob[];
@@ -26,14 +26,8 @@ export interface PdfToImageOptions {
   sourceBytesById: Map<string, Uint8Array>;
   format: OutputFormat;
   dpi: DpiOption;
-  /** Flush a batch once accumulated output reaches this many bytes. */
+  /** Close a part once accumulated output reaches this many bytes. */
   batchByteTarget: number;
-  /** Called with each filled batch when streaming (more than one batch). */
-  onBatch?: (
-    images: ConvertedImage[],
-    batchIndex: number,
-    isLast: boolean,
-  ) => Promise<void> | void;
   onProgress?: (pct: number) => void;
   /** Marks a page's drawing that stops while the user is off the screen. */
   needsScreen: NeedsScreen;
@@ -133,7 +127,6 @@ export async function pdfToImages({
   format,
   dpi,
   batchByteTarget,
-  onBatch,
   onProgress,
   needsScreen,
 }: PdfToImageOptions): Promise<PdfToImageOutcome> {
@@ -163,19 +156,11 @@ export async function pdfToImages({
   // Name every output after its own source PDF, numbered within that source.
   const names = assignImageNames(jobs, ext);
 
-  // `current` holds only the in-flight batch (released after each flush), so peak
-  // memory is bounded by batchByteTarget rather than the whole job's output.
-  const current: ConvertedImage[] = [];
+  // Every part is held to the end of the run: the run saves nothing itself, so a
+  // page that fails leaves no incomplete set in the user's downloads.
+  const parts: ConvertedImage[][] = [];
+  let current: ConvertedImage[] = [];
   let currentBytes = 0;
-  let streaming = false;
-  let batchIndex = 0;
-
-  const flush = async (isLast: boolean) => {
-    batchIndex++;
-    await onBatch?.(current.slice(), batchIndex, isLast);
-    current.length = 0;
-    currentBytes = 0;
-  };
 
   try {
     for (let i = 0; i < jobs.length; i++) {
@@ -199,22 +184,20 @@ export async function pdfToImages({
       currentBytes += blob.size;
       onProgress?.(Math.round(((i + 1) / total) * 100));
 
-      // Mirror planBatches(): flush once the running output reaches the target
-      // and pages still remain (so the final partial batch is never split early).
+      // Mirror planBatches(): close a part once the running output reaches the
+      // target and pages still remain (so the last part is never empty).
       const pagesRemaining = jobs.length - 1 - i;
       if (shouldFlush(currentBytes, batchByteTarget, pagesRemaining)) {
-        streaming = true;
-        await flush(false);
+        parts.push(current);
+        current = [];
+        currentBytes = 0;
       }
     }
   } finally {
     for (const doc of docCache.values()) doc.destroy();
   }
 
-  if (streaming) {
-    if (current.length > 0) await flush(true);
-    return { mode: "streamed", imageCount: jobs.length, batchCount: batchIndex };
-  }
-
-  return { mode: "preview", images: current };
+  return parts.length > 0
+    ? { mode: "parts", parts: [...parts, current] }
+    : { mode: "preview", images: current };
 }

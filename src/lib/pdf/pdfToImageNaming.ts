@@ -35,7 +35,7 @@ export function deriveZipName(base: string): string {
   return `${base}-images.zip`;
 }
 
-/** Zip name for batch N when output is streamed in multiple archives. */
+/** Zip name for part N when the output is cut into several archives. */
 export function deriveBatchZipName(base: string, index: number): string {
   return `${base}-images-${index}.zip`;
 }

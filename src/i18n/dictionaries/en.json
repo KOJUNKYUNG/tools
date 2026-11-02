@@ -710,12 +710,11 @@
         "downloadOneAria": "Download {name}",
         "compressHandoff": "Compress images",
         "again": "Start over",
-        "streamedTitle": "Saved",
-        "streamedSummary": "Saved {n} images across {m} zip files.",
-        "batchSavedToast": "Part {n} saved",
+        "partsSummary": "{n} images · too large for one zip, so split into {m} files. Save each one.",
+        "savePart": "Save part {n}",
+        "partSaved": "Saved",
         "errorMemory": "Your browser ran out of memory. Lower the DPI or use a PDF with fewer pages.",
-        "errorCorrupt": "Page {page} could not be turned into an image, so conversion stopped. Remove that page or lower the DPI and try again.",
-        "errorCorruptAfterBatches": "Page {page} could not be turned into an image, so conversion stopped. The {n} part(s) already saved hold only the pages before it. Remove that page or lower the DPI and try again."
+        "errorCorrupt": "Page {page} could not be turned into an image, so conversion stopped. Remove that page or lower the DPI and try again."
       }
     },
     "image-compress": {

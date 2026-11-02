@@ -10,8 +10,7 @@ interface ActionSpec {
 
 interface ResultActionsProps {
   /**
-   * Primary download (`.btn-download`). Omit when there is nothing to download
-   * (e.g. pdf-to-image streamed already saved its zips during processing).
+   * Primary download (`.btn-download`). Omit when there is nothing to download.
    */
   download?: ActionSpec & {
     /** From `useToolProcessor`'s `downloading`, for a tool that builds its file on click. */
