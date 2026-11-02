@@ -37,7 +37,7 @@ describe("a run on screen", () => {
 });
 
 describe("a run that ended", () => {
-  it("shows nothing and lets the screen go after a run that finished", () => {
+  it("shows nothing and lets the screen go, whether it finished or failed", () => {
     expect(describeRunPresence(after(started, { type: "ended" }), START + 9_000)).toEqual({
       line: null,
       titlePaused: false,
@@ -56,15 +56,6 @@ describe("a run that ended", () => {
   });
 });
 
-describe("a run that failed", () => {
-  it("ends like any other: no line, and the screen let go", () => {
-    expect(describeRunPresence(after(started, { type: "ended" }), START + 5_000)).toEqual({
-      line: null,
-      titlePaused: false,
-      keepScreenOn: false,
-    });
-  });
-});
 
 describe("leaving the screen", () => {
   const left: RunPresenceEvent = { type: "left" };

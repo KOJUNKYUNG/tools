@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { getErrorMessage, type GetErrorMessageOptions } from "@/lib/errors";
 import type { ProcessingState } from "@/types";
-import type { RunLine } from "./runPresence";
+import type { RunLine } from "@/lib/runPresence";
 import { useRunPresence } from "./useRunPresence";
 
 export interface UseToolProcessorConfig<TResult> {

@@ -12,7 +12,8 @@ export default async function LangLayout({
   params: Promise<{ lang: string }>;
 }) {
   const { lang } = await params;
-  // A path with a dot skips the proxy's redirect, so `lang` may be no locale.
+  // A path with a dot skips the proxy's redirect, so `lang` may be no locale;
+  // the casts are safe because `includes` has just checked it.
   const locale = (locales as readonly string[]).includes(lang) ? (lang as Locale) : defaultLocale;
   const dict = await getDictionary(locale);
   return (

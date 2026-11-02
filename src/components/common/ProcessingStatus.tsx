@@ -1,7 +1,7 @@
 "use client";
 
 import type { ProcessingState } from "@/types";
-import type { RunLine } from "@/hooks/runPresence";
+import type { RunLine } from "@/lib/runPresence";
 import { useRunLines } from "./RunLinesProvider";
 import {
   DownloadIcon,
@@ -58,7 +58,7 @@ export function ProcessingStatus({
   onTryAnother,
   labels,
 }: ProcessingStatusProps) {
-  const runLines = useRunLines();
+  const runLineCopy = useRunLines();
   if (status === "idle") return null;
   const L = { ...DEFAULTS, ...labels };
 
@@ -98,10 +98,10 @@ export function ProcessingStatus({
             style={{ color: "var(--ink)" }}
           >
             <span aria-hidden className="invisible [grid-area:1/1]">
-              {runLines?.stayOnScreen}
+              {runLineCopy.stayOnScreen}
             </span>
             {runLine === "stayOnScreen" && (
-              <span className="[grid-area:1/1]">{runLines?.stayOnScreen}</span>
+              <span className="[grid-area:1/1]">{runLineCopy.stayOnScreen}</span>
             )}
           </div>
         </div>

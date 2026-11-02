@@ -8,8 +8,8 @@ import {
   NOTICE_AFTER_MS,
   type RunLine,
   type RunPresenceEvent,
-} from "./runPresence";
-import { createScreenWakeLock, type ScreenWakeLock } from "./screenWakeLock";
+} from "@/lib/runPresence";
+import { createScreenWakeLock, type ScreenWakeLock } from "@/lib/screenWakeLock";
 
 export interface UseRunPresenceReturn {
   runLine: RunLine;

@@ -21,6 +21,8 @@ export function RunLinesProvider({
   return <RunLinesContext.Provider value={runLines}>{children}</RunLinesContext.Provider>;
 }
 
-export function useRunLines(): RunLines | null {
-  return useContext(RunLinesContext);
+export function useRunLines(): RunLines {
+  const runLines = useContext(RunLinesContext);
+  if (!runLines) throw new Error("useRunLines needs a RunLinesProvider above it");
+  return runLines;
 }
