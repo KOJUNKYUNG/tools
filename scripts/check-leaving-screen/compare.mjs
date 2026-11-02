@@ -1,7 +1,8 @@
 // Compares two runs' outputs by content, not by bytes (a PDF's save stamps a
-// time): a PDF by its pages' pixels, a picture by its pixels, a zip or .pptx
-// entry by entry. It serves the files to a blank page of its own and reads them
-// there, so that pdf.js and the browser's decoders do the reading.
+// time): a PDF by its pages' pixels, within what two draws of one file differ by,
+// a picture by its pixels, a zip or .pptx entry by entry. It serves the files to
+// a blank page of its own and reads them there, so that pdf.js and the browser's
+// decoders do the reading.
 
 import { createServer } from "node:http";
 import { readFile, readdir } from "node:fs/promises";
@@ -60,9 +61,14 @@ export async function startCompareServer() {
   };
 }
 
-// Evaluated in the blank page. Pixels come back as a hash, so that pictures of
-// any size stay small. `willReadFrequently` keeps the canvas in software, so
-// that a difference is the file's and not the GPU's.
+/** How far a value may differ, of 255, between two draws of one PDF page. */
+const PIXEL_TOLERANCE = 8;
+/** The share of a page's values that may differ at all between two draws. */
+const NOISE_SHARE = 0.0001;
+
+// Evaluated in the blank page. A picture's pixels come back as a hash, so that
+// pictures of any size stay small. `willReadFrequently` keeps the canvas in
+// software, so that a difference is the file's and not the GPU's.
 const PAGE_HELPERS = `
   async function pixelHash(canvas, ctx) {
     const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -89,31 +95,56 @@ function pictureHash(evaluate, path) {
   })()`);
 }
 
-/** Each page's size and pixels; pages render one after another to bound memory. */
-function pdfHashes(evaluate, path) {
+/**
+ * Two PDFs' page counts and the pages that differ; pages render one pair after
+ * another to bound memory. Two draws of one file differ by a few levels on a few
+ * pixels (up to 7 of 255 on 0.004% of values measured, #139), so that is not a
+ * difference. A faint watermark moves as few levels but far more values (#140).
+ */
+function pdfDifferences(evaluate, pathA, pathB) {
   return evaluate(`(async () => {
     ${PAGE_HELPERS}
     const pdfjs = await import("/lib/pdf.min.mjs");
     pdfjs.GlobalWorkerOptions.workerSrc = "/pdfjs/build/pdf.worker.min.mjs";
-    const doc = await pdfjs.getDocument({
-      url: ${JSON.stringify(path)},
+    const open = (url) => pdfjs.getDocument({
+      url,
       cMapUrl: "/pdfjs/cmaps/",
       cMapPacked: true,
       standardFontDataUrl: "/pdfjs/standard_fonts/",
       wasmUrl: "/pdfjs/wasm/",
       iccUrl: "/pdfjs/iccs/",
     }).promise;
-    const pages = [];
-    for (let n = 1; n <= doc.numPages; n++) {
+    const pixels = async (doc, n) => {
       const page = await doc.getPage(n);
       const viewport = page.getViewport({ scale: 1.5 });
       const { canvas, ctx } = newCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
       await page.render({ canvas, viewport }).promise;
-      pages.push(await pixelHash(canvas, ctx));
       page.cleanup();
+      return ctx.getImageData(0, 0, canvas.width, canvas.height);
+    };
+    const docA = await open(${JSON.stringify(pathA)});
+    const docB = await open(${JSON.stringify(pathB)});
+    const differing = [];
+    if (docA.numPages === docB.numPages) {
+      for (let n = 1; n <= docA.numPages; n++) {
+        const a = await pixels(docA, n);
+        const b = await pixels(docB, n);
+        const sameSize = a.width === b.width && a.height === b.height;
+        let changed = 0;
+        let beyondNoise = false;
+        for (let i = 0; sameSize && i < a.data.length; i++) {
+          const distance = Math.abs(a.data[i] - b.data[i]);
+          if (distance > 0) changed++;
+          if (distance > ${PIXEL_TOLERANCE}) beyondNoise = true;
+        }
+        if (!sameSize || beyondNoise || changed > a.data.length * ${NOISE_SHARE}) differing.push(n);
+      }
     }
-    await doc.destroy();
-    return pages;
+    const pagesA = docA.numPages;
+    const pagesB = docB.numPages;
+    await docA.destroy();
+    await docB.destroy();
+    return { pagesA, pagesB, differing };
   })()`);
 }
 
@@ -133,13 +164,11 @@ async function compareContent(name, a, b, reader) {
       const hashB = await pictureHash(reader.evaluate, pathB);
       return { same: hashA === hashB, what: "pixels", diffs: hashA === hashB ? [] : ["pixels"] };
     }
-    const pagesA = await pdfHashes(reader.evaluate, pathA);
-    const pagesB = await pdfHashes(reader.evaluate, pathB);
-    if (pagesA.length !== pagesB.length) {
-      return { same: false, what: "pages", diffs: [`${pagesA.length} pages against ${pagesB.length}`] };
+    const { pagesA, pagesB, differing } = await pdfDifferences(reader.evaluate, pathA, pathB);
+    if (pagesA !== pagesB) {
+      return { same: false, what: "pages", diffs: [`${pagesA} pages against ${pagesB}`] };
     }
-    const pages = pagesA.flatMap((hash, i) => (hash === pagesB[i] ? [] : [`page ${i + 1}`]));
-    return { same: pages.length === 0, what: `${pagesA.length} pages' pixels`, diffs: pages };
+    return { same: differing.length === 0, what: `${pagesA} pages' pixels`, diffs: differing.map((n) => `page ${n}`) };
   } finally {
     reader.server.forget(pathA);
     reader.server.forget(pathB);
@@ -169,13 +198,17 @@ export async function compareFiles(name, pathA, pathB, reader) {
   return compareContent(name, await readFile(pathA), await readFile(pathB), reader);
 }
 
+// A fresh Chrome profile updates its components, and the check's download folder
+// catches that too: `downloads.htm` holding a Chrome extension (a Cr24 header).
+const isRunOutput = (name) => !name.startsWith("downloads.htm");
+
 /**
  * What two runs saved, paired by file name. Resolves to one comparison per
  * file: { name, same, what, diffs }.
  */
 export async function compareFolders(dirA, dirB, reader) {
-  const namesA = await readdir(dirA);
-  const namesB = await readdir(dirB);
+  const namesA = (await readdir(dirA)).filter(isRunOutput);
+  const namesB = (await readdir(dirB)).filter(isRunOutput);
   const results = [];
   for (const name of new Set([...namesA, ...namesB])) {
     if (namesA.includes(name) && namesB.includes(name)) {

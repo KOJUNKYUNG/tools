@@ -15,12 +15,15 @@ vi.mock("./pdfWatermarkCheck", async (importOriginal) => {
 });
 const { checkPdfWatermark } = await vi.importActual<typeof check>("./pdfWatermarkCheck");
 const mockedCheck = vi.mocked(check.checkPdfWatermark);
-afterEach(() => mockedCheck.mockReset().mockImplementation(checkPdfWatermark));
+afterEach(() => {
+  mockedCheck.mockReset().mockImplementation(checkPdfWatermark);
+  vi.restoreAllMocks();
+});
 
-async function input(): Promise<Uint8Array> {
+async function input(pageCount = 4): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < pageCount; i++) {
     const page = doc.addPage([300, 400]);
     page.drawText(`page ${i + 1}`, { x: 10, y: 10, font });
     if (i === 1) page.setRotation(degrees(90));
@@ -80,6 +83,18 @@ describe("applyOverlay", () => {
       expect(output).not.toBe(bytes);
       expect(await checkPdfWatermark(bytes, options, output, "full")).toEqual([]);
     }
+  });
+
+  // A hidden tab runs timers once a second, later once a minute (#140). The
+  // check runs in pdf.js's worker, whose own waits are not the page's.
+  it("waits on no timer for a file of ordinary size", async () => {
+    const bytes = await input(200);
+    mockedCheck.mockResolvedValue([]);
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    await run(bytes, numbers([1, 200]));
+
+    expect(setTimeoutSpy).not.toHaveBeenCalled();
   });
 
   it("returns the input untouched when no page is selected", async () => {
