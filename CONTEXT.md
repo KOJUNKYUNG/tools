@@ -222,7 +222,9 @@ on screen and says so during a run. Leaving is still normal, so it must never
 break a run: the run may slow down or pause, and when the user returns it goes
 on and ends with the same file as if they had never left. Keeping a run going
 while the user is away is welcome where it costs little, but it is not a
-promise.
+promise. Where a tool reduces a PNG's colours, any two runs differ a little in
+their pixels even on screen, so for those pictures the same file means the same
+quality.
 _Avoid_: promising that a run finishes while the tab is hidden; "background
 processing" (nothing is built to run away from the tab).
 
