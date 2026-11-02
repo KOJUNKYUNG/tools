@@ -25,7 +25,7 @@ const MB = 1024 * 1024;
  *
  * Values are recalibrated per processing-path class:
  *  - Sequential (bounded per item): pdf-to-image holds the output as encoded
- *    images, which the browser may keep on disk, and draws one page at a time;
+ *    images and draws one page at a time;
  *    image-compress decodes one image at a time; image-resize is single-file.
  *  - Single-artifact reassembly (whole input + whole output in memory, ~3-4×
  *    peak for WASM/pdf-lib): pdf/ppt tools that load and rebuild one document.
@@ -43,8 +43,8 @@ const MB = 1024 * 1024;
 export const DEFAULT_UPLOAD_LIMIT = 10 * MB;
 
 export const UPLOAD_LIMIT: Record<string, number> = {
-  // Sequential — generous (not bound by whole-output memory: held output moves
-  // to the browser's disk, measured on #142).
+  // Sequential — generous: on desktop Chrome, held output moves to the browser's
+  // disk past about 2 GB (measured on #142; phones not measured).
   "pdf-to-image": 80 * MB,
   "image-resize": 30 * MB,
   "image-compress": 25 * MB,
@@ -103,7 +103,7 @@ export const EMBEDDED_ASSET_LIMIT = 15 * MB;
  * the next begins. The result holds all parts, each zipped when its button is
  * clicked, so a zip is never much larger than this.
  */
-export const PDF_TO_IMAGE_BATCH_BYTES = 50 * MB;
+export const PDF_TO_IMAGE_PART_BYTES = 50 * MB;
 
 export interface ToolInfo {
   slug: string;

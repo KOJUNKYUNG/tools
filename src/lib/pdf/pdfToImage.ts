@@ -1,6 +1,6 @@
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import type { NeedsScreen } from "@/lib/runPresence";
-import { shouldFlush } from "./batchPlan";
+import { shouldClosePart } from "./partPlan";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 import { assignImageNames } from "./pdfToImageNaming";
 import type { RenderedPage } from "./pdfToImageCheck";
@@ -27,7 +27,7 @@ export interface PdfToImageOptions {
   format: OutputFormat;
   dpi: DpiOption;
   /** Close a part once accumulated output reaches this many bytes. */
-  batchByteTarget: number;
+  partByteTarget: number;
   onProgress?: (pct: number) => void;
   /** Marks a page's drawing that stops while the user is off the screen. */
   needsScreen: NeedsScreen;
@@ -126,7 +126,7 @@ export async function pdfToImages({
   sourceBytesById,
   format,
   dpi,
-  batchByteTarget,
+  partByteTarget,
   onProgress,
   needsScreen,
 }: PdfToImageOptions): Promise<PdfToImageOutcome> {
@@ -184,10 +184,10 @@ export async function pdfToImages({
       currentBytes += blob.size;
       onProgress?.(Math.round(((i + 1) / total) * 100));
 
-      // Mirror planBatches(): close a part once the running output reaches the
+      // Mirror planParts(): close a part once the running output reaches the
       // target and pages still remain (so the last part is never empty).
       const pagesRemaining = jobs.length - 1 - i;
-      if (shouldFlush(currentBytes, batchByteTarget, pagesRemaining)) {
+      if (shouldClosePart(currentBytes, partByteTarget, pagesRemaining)) {
         parts.push(current);
         current = [];
         currentBytes = 0;

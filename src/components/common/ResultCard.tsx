@@ -10,8 +10,8 @@ interface ResultCardProps {
   children?: ReactNode;
   /** The action row — typically `<ResultActions … />`. */
   actions?: ReactNode;
-  /** For a card whose height the caller bounds. */
-  className?: string;
+  /** Stays within its parent's height: a body taller than that scrolls by itself. */
+  bounded?: boolean;
 }
 
 /**
@@ -22,10 +22,10 @@ interface ResultCardProps {
  * `actions` vary per tool. The 2-column tools (pdf-arrange, ppt-extract, …) keep
  * their own grid + left list and render this as the right-hand summary card.
  */
-export function ResultCard({ title, icon: Icon, children, actions, className = "" }: ResultCardProps) {
+export function ResultCard({ title, icon: Icon, children, actions, bounded = false }: ResultCardProps) {
   return (
     <div
-      className={`result-pop flex flex-col gap-2.5 rounded-[8px] border p-4 ${className}`}
+      className={`result-pop flex flex-col gap-2.5 rounded-[8px] border p-4${bounded ? " max-h-full" : ""}`}
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",

@@ -234,7 +234,11 @@ async function startRun(browser) {
 async function collectSaves(browser, downloads) {
   const buttons = `document.querySelectorAll(".result-pop .btn-download")`;
   const count = await browser.evaluate(`${buttons}.length`);
-  for (let i = 0; i < count; i++) await browser.gesture(`${buttons}[${i}].click()`);
+  for (let i = 0; i < count; i++) {
+    await browser.gesture(`${buttons}[${i}].click()`);
+    // A tool builds one zip at a time; a click during a build does nothing.
+    await waitFor(() => browser.evaluate(`!document.querySelector('.result-pop [aria-busy="true"]')`), "the zip", TIMEOUT_MS);
+  }
   let last = "";
   let stableSince = Date.now();
   await waitFor(

@@ -49,13 +49,13 @@ function jobs(count: number): ConversionJob[] {
   }));
 }
 
-function convert(pageCount: number, batchByteTarget: number) {
+function convert(pageCount: number, partByteTarget: number) {
   const options: PdfToImageOptions = {
     jobs: jobs(pageCount),
     sourceBytesById: new Map([["a", new Uint8Array(1)]]),
     format: "image/png",
     dpi: 72,
-    batchByteTarget,
+    partByteTarget,
     needsScreen: (work) => work(),
   };
   return pdfToImages(options);

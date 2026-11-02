@@ -17,14 +17,14 @@ import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { stageFiles } from "@/lib/common/toolHandoff";
 import {
-  PDF_TO_IMAGE_BATCH_BYTES,
+  PDF_TO_IMAGE_PART_BYTES,
   totalSizeWarnFor,
   uploadLimitFor,
 } from "@/lib/constants";
 import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { buildConversionJobs } from "@/lib/pdf/buildConversionJobs";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
-import { deriveBatchZipName, deriveZipName } from "@/lib/pdf/pdfToImageNaming";
+import { derivePartZipName, deriveZipName } from "@/lib/pdf/pdfToImageNaming";
 import {
   pdfToImages,
   type ConvertedImage,
@@ -76,6 +76,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
   const [loadingPages, setLoadingPages] = useState(false);
   const [format, setFormat] = useState<OutputFormat>("image/jpeg");
   const [dpi, setDpi] = useState<DpiOption>(150);
+  const errorOptions = { copy: labels.errors, memoryHint: labels.errorMemory };
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
 
@@ -100,7 +101,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
         sourceBytesById,
         format,
         dpi,
-        batchByteTarget: PDF_TO_IMAGE_BATCH_BYTES,
+        partByteTarget: PDF_TO_IMAGE_PART_BYTES,
         onProgress,
         needsScreen,
       }).catch((err: unknown) => {
@@ -120,10 +121,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
       const base = deriveBaseName(items[0]?.sourceFileName);
       downloadBlobObject(await zipImages(images), deriveZipName(base));
     },
-    errorOptions: {
-      copy: labels.errors,
-      memoryHint: labels.errorMemory,
-    },
+    errorOptions,
   });
 
   useEffect(() => () => clearThumbnailCache(), []);
@@ -222,17 +220,14 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
   const handleSavePart = useCallback(
     async (images: ConvertedImage[], partNumber: number) => {
       const base = deriveBaseName(items[0]?.sourceFileName);
-      downloadBlobObject(await zipImages(images), deriveBatchZipName(base, partNumber));
+      downloadBlobObject(await zipImages(images), derivePartZipName(base, partNumber));
     },
     [items],
   );
 
-  const handleSavePartFailed = useCallback(
-    (err: unknown) => {
-      toast.error(getErrorMessage(err, { copy: labels.errors, memoryHint: labels.errorMemory }).message);
-    },
-    [labels.errors, labels.errorMemory],
-  );
+  const handleSavePartFailed = (err: unknown) => {
+    toast.error(getErrorMessage(err, errorOptions).message);
+  };
 
   const handleCompress = useCallback(() => {
     if (!result || result.mode !== "preview") return;

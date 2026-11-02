@@ -15,6 +15,8 @@ interface ResultActionsProps {
   download?: ActionSpec & {
     /** From `useToolProcessor`'s `downloading`, for a tool that builds its file on click. */
     busy?: boolean;
+    /** Not this button's build, so no spinner: another save holds it back. */
+    disabled?: boolean;
   };
   /**
    * "다시 / Again" reset (`.nameplate`, RotateCcw — the one canonical retry icon).
@@ -38,7 +40,7 @@ export function ResultActions({ download, again, extra }: ResultActionsProps) {
         <button
           type="button"
           onClick={download.onClick}
-          disabled={download.busy}
+          disabled={download.busy || download.disabled}
           aria-busy={download.busy}
           className="btn-download inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[12px] font-medium"
         >

@@ -710,9 +710,9 @@
         "downloadOneAria": "Download {name}",
         "compressHandoff": "Compress images",
         "again": "Start over",
-        "partsSummary": "{n} images · too large for one zip, so split into {m} files. Save each one.",
-        "savePart": "Save part {n}",
-        "partSaved": "Saved",
+        "partsSummary": "{n} images · too large for one zip, so split into {m} files. Download each one.",
+        "downloadPart": "Download part {n}",
+        "partDownloaded": "Downloaded",
         "errorMemory": "Your browser ran out of memory. Lower the DPI or use a PDF with fewer pages.",
         "errorCorrupt": "Page {page} could not be turned into an image, so conversion stopped. Remove that page or lower the DPI and try again."
       }

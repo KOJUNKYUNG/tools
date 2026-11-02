@@ -33,8 +33,8 @@ export interface PdfToImageLabels {
   compressHandoff: string;
   again: string;
   partsSummary: string;
-  savePart: string;
-  partSaved: string;
+  downloadPart: string;
+  partDownloaded: string;
   errorMemory: string;
   /** `{page}`: the page the run stopped at. */
   errorCorrupt: string;
@@ -76,8 +76,8 @@ export function getPdfToImageLabels(dict: Dictionary): PdfToImageLabels {
     compressHandoff: p.compressHandoff,
     again: p.again,
     partsSummary: p.partsSummary,
-    savePart: p.savePart,
-    partSaved: p.partSaved,
+    downloadPart: p.downloadPart,
+    partDownloaded: p.partDownloaded,
     errorMemory: p.errorMemory,
     errorCorrupt: p.errorCorrupt,
     fileUpload: dict.common.fileUpload,
