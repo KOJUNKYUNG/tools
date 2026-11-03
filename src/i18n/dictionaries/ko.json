@@ -39,7 +39,7 @@
       "heicConvertFailed": "HEIC 파일을 변환할 수 없습니다.",
       "filterDrawFailed": "이 브라우저에서 효과를 그리지 못했습니다(그래픽 메모리 부족 등). 다시 시도하거나, 스타일을 없음으로 바꿔 주세요.",
       "recipeDrawFailed": "이 브라우저에서 편집한 배경을 그리지 못했습니다(그래픽 메모리 부족 등). 다시 시도하거나, 원래대로를 눌러 갤러리 그림을 그대로 써 주세요.",
-      "drawingInterrupted": "화면이 꺼지거나 창을 벗어나 그리기가 중단되었습니다. 다시 시도해 주세요.",
+      "drawingInterrupted": "화면이 꺼지거나 창을 벗어나 작업이 중단되었습니다. 다시 시도해 주세요.",
       "readFailed": "파일을 읽을 수 없습니다.",
       "pdfOpenFailedTemplate": "{name}: 손상되었거나 암호화된 PDF입니다."
     },
@@ -48,7 +48,7 @@
       "download": "다운로드",
       "error": "오류 발생",
       "retry": "재시도",
-      "stayOnScreen": "작업이 끝날 때까지 이 화면을 벗어나지 말아 주세요. 벗어나면 잠시 멈출 수 있어요.",
+      "stayOnScreen": "작업이 끝날 때까지 이 화면을 벗어나지 말아 주세요. 벗어나면 잠시 멈출 수 있습니다.",
       "wasPaused": "화면을 벗어난 동안 일시정지되었고, 지금 이어서 진행 중입니다.",
       "pausedTitle": "일시정지됨 · Ontab"
     },
@@ -711,8 +711,8 @@
         "compressHandoff": "이미지 압축하기",
         "again": "다시 하기",
         "partsSummary": "이미지 {n}장 · 용량이 커서 zip 파일 {m}개로 나눴습니다. 파일마다 다운로드해 주세요.",
-        "downloadPart": "파트 {n} 다운로드",
-        "partDownloaded": "다운로드함",
+        "downloadPart": "zip {n} 다운로드",
+        "partDownloaded": "다운로드됨",
         "errorMemory": "브라우저 메모리가 부족합니다. DPI를 낮추거나 페이지가 적은 PDF를 사용해 주세요.",
         "errorCorrupt": "{page}번째 페이지를 이미지로 바꾸지 못해 변환을 멈췄습니다. 그 페이지를 빼거나 DPI를 낮춰 다시 시도해 주세요."
       }

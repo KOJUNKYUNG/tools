@@ -14,8 +14,8 @@ import type { LivePicture } from "@/components/image/LiveCanvas";
  * `drawn` is what to show, null while the pick is unedited (the gallery file
  * shows then, and `live` is null). `onError` hears of a preview that failed
  * to open or draw, which would otherwise go on showing the gallery file under
- * the edit, and passes the failure on; a context lost under an unedited pick
- * shows nothing wrong, so it is not told of that. `pending` holds while the
+ * the edit, and passes the failure on; a lost context opens the preview again
+ * by itself, so it is told only if that fails. `pending` holds while the
  * preview is still opening.
  */
 export function useRecipePreview(
@@ -41,12 +41,10 @@ export function useRecipePreview(
 
   const onErrorRef = useRef(onError);
   const recipeRef = useRef(recipe);
-  const drawnRef = useRef(drawn);
   // The latest of each, for the effects below (synced first, as effects run in order).
   useEffect(() => {
     onErrorRef.current = onError;
     recipeRef.current = recipe;
-    drawnRef.current = drawn;
   });
   const fail = (what: string, err: unknown) => {
     console.error(`Recipe preview failed to ${what}`, err);
@@ -60,13 +58,13 @@ export function useRecipePreview(
     let open = true;
     let opened: RecipePreview | null = null;
     // A context lost after a drawing (a GPU reset, sleep) blanks the canvas
-    // its copies read: drop the preview and say so, rather than show the
-    // gallery file. An unedited pick shows the file anyway: nothing to say.
+    // its copies read: drop the preview. Under an edit the drawing effect opens
+    // it again at once, so the user has nothing to do and is told nothing.
     const lost = (err: unknown) => {
+      console.error("Recipe preview lost its context", err);
       setPreview(null);
       setLive(null);
       failed(start.name);
-      if (drawnRef.current) fail("draw", err);
     };
     openRecipePreview(start, lost)
       .then((p) => {

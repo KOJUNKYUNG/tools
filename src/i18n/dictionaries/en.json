@@ -39,7 +39,7 @@
       "heicConvertFailed": "Couldn't convert the HEIC file.",
       "filterDrawFailed": "Your browser couldn't draw the effect (it may have run short of graphics memory). Try again, or set Style to None.",
       "recipeDrawFailed": "Your browser couldn't draw the edited background (it may have run short of graphics memory). Try again, or press Reset to use the gallery picture as it is.",
-      "drawingInterrupted": "Drawing stopped because the screen turned off or you left the window. Please try again.",
+      "drawingInterrupted": "The job stopped because the screen turned off or you left the window. Please try again.",
       "readFailed": "Could not read the file.",
       "pdfOpenFailedTemplate": "{name}: This PDF is damaged or encrypted."
     },
@@ -711,7 +711,7 @@
         "compressHandoff": "Compress images",
         "again": "Start over",
         "partsSummary": "{n} images · too large for one zip, so split into {m} files. Download each one.",
-        "downloadPart": "Download part {n}",
+        "downloadPart": "Download zip {n}",
         "partDownloaded": "Downloaded",
         "errorMemory": "Your browser ran out of memory. Lower the DPI or use a PDF with fewer pages.",
         "errorCorrupt": "Page {page} could not be turned into an image, so conversion stopped. Remove that page or lower the DPI and try again."

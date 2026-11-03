@@ -71,7 +71,7 @@ const PHOTO_ITEM = "/gallery/nature/balkhash-lake-thumb.jpg";
 /** ppt-background's setups (--edit), and whether a run of each draws with Paper, so truly stops while hidden. */
 const DRAWS_WITH_PAPER = { recipe: true, filter: true, photo: false, effect: false };
 
-/** The copy of the page openTool opens: the checks follow it while it is [임시]. */
+/** The copy of the page openTool opens: the checks follow it, so a wording change does not break them. */
 const { processingStatus: RUN_COPY, errors: ERROR_COPY } = JSON.parse(await readFile(join(root, "src/i18n/dictionaries/en.json"), "utf8")).common;
 
 const seconds = (ms) => `${(ms / 1000).toFixed(1)} s`;
@@ -179,7 +179,7 @@ function setInput(browser, selector, valueExpression) {
  * item, edited ("recipe": the hue moved) or filtered ("filter": the first Paper
  * filter), with its preview drawn. Or as a run with no such stretch: a photo
  * ("photo"), or the Paper item's file with a 2D effect ("effect": blur).
- * Selectors go by structure, not copy, which is still [임시].
+ * Selectors go by structure, not copy, so a wording change does not break them.
  */
 async function setUpBackground(browser, { edit }) {
   const click = (selector) =>
@@ -470,20 +470,17 @@ const toastSaid = (browser, message) =>
   waitFor(() => browser.evaluate(`__check.toasts().some((t) => t.includes(${JSON.stringify(message)}))`), "the toast", 10_000).catch(() => false);
 
 /**
- * A recipe edit's preview losing its live context: it says so and draws again
- * on the next edit. The edit ends where it started, so the apply should give
- * the reference's picture.
+ * A recipe edit's preview losing its live context: it draws again by itself,
+ * so nothing is said. The edit is untouched, so the apply should give the
+ * reference's picture.
  */
 async function loseRecipePreview(browser, hidden) {
   if (hidden) await browser.setWindow("minimized");
   await browser.evaluate("__check.loseContexts()");
   await sleep(2000);
   if (hidden) await browser.setWindow("normal");
-  const slider = `document.querySelector('[role="tabpanel"] input[type="range"]')`;
-  const rightWords = await toastSaid(browser, hidden ? ERROR_COPY.drawingInterrupted : ERROR_COPY.recipeDrawFailed);
-  await setInput(browser, slider, "Number(el.min) + ((Number(el.max) - Number(el.min)) * 2) / 3");
   const drew = await waitFor(() => browser.evaluate("__check.liveDrawings() > 0"), "the preview to draw again", 10_000).catch(() => false);
-  await setInput(browser, slider, SLIDER_MOVED);
+  const rightWords = (await browser.evaluate("__check.toasts().length")) === 0;
   return { rightWords, drew };
 }
 
