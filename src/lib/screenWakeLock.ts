@@ -7,6 +7,8 @@ export function createScreenWakeLock(): ScreenWakeLock {
   let wanted = false;
   let held: WakeLockSentinel | null = null;
   let requesting = false;
+  /** The user came back during a request made before they left, which that may refuse. */
+  let askAgain = false;
 
   const letGo = (sentinel: WakeLockSentinel) => {
     sentinel.release().catch(() => {});
@@ -31,11 +33,15 @@ export function createScreenWakeLock(): ScreenWakeLock {
       // The tool works as usual without it.
     } finally {
       requesting = false;
+      const again = askAgain && wanted && !held;
+      askAgain = false;
+      if (again) void take();
     }
   };
 
   return {
     sync(next) {
+      if (next && !wanted && requesting) askAgain = true;
       wanted = next;
       if (wanted) {
         if (!held && !requesting) void take();

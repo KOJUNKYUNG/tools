@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { openRecipePreview, type RecipePreview } from "@/lib/gallery/drawRecipe";
+import { LostContextError } from "@/lib/gallery/paperRuntime";
 import type { PaperRecipe } from "@/lib/gallery/recipes";
 import type { LivePicture } from "@/components/image/LiveCanvas";
 
@@ -94,7 +95,11 @@ export function useRecipePreview(
       setLive(null);
       // A change after a failure tries the preview again, rather than go on
       // showing the gallery file under the edit.
-      if (drawn && failedRef.current === name) setAttempt((n) => n + 1);
+      if (drawn && failedRef.current === name) {
+        // `pending` holds until it has opened or failed again.
+        setFailedName(null);
+        setAttempt((n) => n + 1);
+      }
       return;
     }
     try {
@@ -102,9 +107,10 @@ export function useRecipePreview(
       // A new version tells each copy to take the canvas again.
       setLive((prev) => ({ canvas: preview.canvas, version: (prev?.version ?? 0) + 1 }));
     } catch (err) {
-      // The gallery file shows again under the error.
+      // The gallery file shows again under the error. A lost context's own
+      // event is on its way, and opens the preview again.
       setLive(null);
-      fail("draw", err);
+      if (!(err instanceof LostContextError)) fail("draw", err);
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [drawn, preview, name]);
