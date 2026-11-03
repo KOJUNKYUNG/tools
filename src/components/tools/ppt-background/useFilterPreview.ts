@@ -49,8 +49,8 @@ export interface FilterPreviewInput {
   sourceSize?: ImageDims;
   /** The slide's width / height. */
   ratio: number;
-  /** The Paper filter failed to draw; the preview stays on its last drawing. */
-  onPaperFail: () => void;
+  /** The Paper filter failed to draw, with the failure; the preview stays on its last drawing. */
+  onPaperFail: (err: unknown) => void;
 }
 
 /** A Paper drawing of the preview, and what it was drawn for. */
@@ -234,7 +234,7 @@ export function useFilterPreview({
         if (current) setPaperDrawn({ canvas, adjusted, version: base.version, key: paperKey, draft: drafting });
       } catch (err) {
         console.error("Paper filter preview failed to draw", err);
-        if (current) onPaperFailRef.current();
+        if (current) onPaperFailRef.current(err);
       }
     });
     return () => {

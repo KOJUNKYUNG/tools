@@ -1,7 +1,7 @@
-// Headless Chrome over the DevTools protocol with Node's own WebSocket, so a
-// script needs no browser package. Shared by scripts that render or measure
-// in a real browser (scripts/gallery/render-shaders.mjs and the
-// measurement runners in scripts/measure-*).
+// Chrome over the DevTools protocol with Node's own WebSocket, so a script
+// needs no browser package. Shared by scripts that render or measure in a
+// real browser (scripts/gallery/render-shaders.mjs, the measurement runners
+// in scripts/measure-*, and scripts/check-leaving-screen).
 
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -17,6 +17,9 @@ const CHROME_CANDIDATES = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "/usr/bin/google-chrome",
 ];
+
+/** The machine's real GPU: Chrome would otherwise fall back to software (SwiftShader), which says nothing of a laptop. */
+export const REAL_GPU_ARGS = ["--enable-gpu", "--ignore-gpu-blocklist", ...(process.platform === "win32" ? ["--use-angle=d3d11"] : [])];
 
 export async function waitFor(check, what, timeoutMs = 30_000) {
   for (const start = Date.now(); Date.now() - start < timeoutMs; await sleep(250)) {
@@ -66,17 +69,32 @@ function connect(url) {
   }));
 }
 
+/** Launch headless Chrome on `url`: see openChrome. */
+export function openHeadless(url, extraArgs = []) {
+  return openChrome(url, { args: extraArgs });
+}
+
 /**
- * Launch Chrome on `url` and return { evaluate, close }. `evaluate` runs an
- * expression in the page, awaits a returned promise, and returns its value.
+ * Launch Chrome on `url` and return { evaluate, send, close }. `evaluate` runs
+ * an expression in the page, awaits a returned promise, and returns its value;
+ * `send` is a raw DevTools call. `beforeNavigate(send)` runs before the page
+ * loads, for what must be there from its first line.
  */
-export async function openHeadless(url, extraArgs = []) {
+export async function openChrome(url, { headless = true, args = [], beforeNavigate } = {}) {
   const chromePath = CHROME_CANDIDATES.find((p) => p && existsSync(p));
   if (!chromePath) throw new Error("Chrome not found; set CHROME_PATH");
   const profile = await mkdtemp(join(tmpdir(), "headless-chrome-"));
   const chrome = spawn(
     chromePath,
-    ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", ...extraArgs, "about:blank"],
+    [
+      ...(headless ? ["--headless=new"] : []),
+      "--remote-debugging-port=0",
+      `--user-data-dir=${profile}`,
+      "--no-first-run",
+      "--no-default-browser-check",
+      ...args,
+      "about:blank",
+    ],
     { stdio: "ignore" },
   );
   const close = async () => {
@@ -98,6 +116,8 @@ export async function openHeadless(url, extraArgs = []) {
       return targets.find((t) => t.type === "page");
     }, "Chrome's page target");
     let cdp = await connect(page.webSocketDebuggerUrl);
+    const send = (method, params) => cdp.send(method, params);
+    await beforeNavigate?.(send);
     await cdp.send("Page.navigate", { url });
     const evaluateParams = (expression) => ({ expression, returnByValue: true, awaitPromise: true });
     const evaluate = async (expression) => {
@@ -118,6 +138,7 @@ export async function openHeadless(url, extraArgs = []) {
     };
     return {
       evaluate,
+      send,
       close: async () => {
         cdp.close();
         await close();

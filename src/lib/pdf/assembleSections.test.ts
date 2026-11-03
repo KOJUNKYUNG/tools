@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { PDFDocument } from "pdf-lib";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assembleSections,
   detectImageFormat,
@@ -63,6 +63,31 @@ function imageItem(
 }
 
 describe("assembleSections", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  // A hidden tab runs timers once a second, later once a minute (#140).
+  it("waits on no timer for a file of ordinary size", async () => {
+    const sources = new Map([["f1", await makePdfBytes(400)]]);
+    const sections = [[pdfItem("f1", 0), pdfItem("f1", 399)]];
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    const outputs = await assembleSections({ sections, sourceBytesById: sources });
+
+    expect(setTimeoutSpy).not.toHaveBeenCalled();
+    expect((await PDFDocument.load(outputs[0])).getPageCount()).toBe(2);
+  });
+
+  // With no yields at all, such a file froze the page for up to 10 s.
+  it("still lets the page draw on a file of very many objects", async () => {
+    const sources = new Map([["f1", await makePdfBytes(6000)]]);
+    const sections = [[pdfItem("f1", 0)]];
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    await assembleSections({ sections, sourceBytesById: sources });
+
+    expect(setTimeoutSpy).toHaveBeenCalled();
+  });
+
   it("merges a single source with no dividers into one pdf", async () => {
     const bytes = await makePdfBytes(3);
     const sources = new Map([["f1", bytes]]);

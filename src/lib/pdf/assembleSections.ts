@@ -23,6 +23,7 @@ import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { type PageItem, buildOutputNames } from "./pageItem";
 import { computeImageFit } from "./imageFit";
+import { LOAD_WITH_RARE_YIELDS, SAVE_WITH_RARE_YIELDS } from "./pdfLibYields";
 import {
   type ExifOrientation,
   orientationMatrix,
@@ -108,7 +109,7 @@ export async function assembleSections(
     if (cached) return cached;
     const bytes = sourceBytesById.get(id);
     if (!bytes) throw new Error(`원본 파일을 찾을 수 없습니다: ${id}`);
-    const doc = await PDFDocument.load(bytes);
+    const doc = await PDFDocument.load(bytes, LOAD_WITH_RARE_YIELDS);
     sourceDocCache.set(id, doc);
     return doc;
   }
@@ -185,7 +186,7 @@ export async function assembleSections(
       if (totalPages > 0) onProgress?.(Math.round((done / totalPages) * 100));
     }
 
-    outputs.push(await out.save());
+    outputs.push(await out.save(SAVE_WITH_RARE_YIELDS));
   }
 
   return outputs;

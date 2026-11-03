@@ -18,6 +18,7 @@ interface PptExtractResultProps {
   images: ExtractedImage[];
   labels: PptExtractLabels;
   onDownloadAll: () => void;
+  downloading: boolean;
   onDownloadOne: (image: ExtractedImage) => void;
   onToPptx: () => void;
 }
@@ -26,6 +27,7 @@ export function PptExtractResult({
   images,
   labels,
   onDownloadAll,
+  downloading,
   onDownloadOne,
   onToPptx,
 }: PptExtractResultProps) {
@@ -95,7 +97,7 @@ export function PptExtractResult({
           title={labels.resultTitle}
           actions={
             <ResultActions
-              download={{ label: labels.downloadZip, onClick: onDownloadAll }}
+              download={{ label: labels.downloadZip, onClick: onDownloadAll, busy: downloading }}
               extra={
                 images.length > 0 ? (
                   <HandoffAction label={labels.toPptx} onClick={onToPptx} />

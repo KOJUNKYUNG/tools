@@ -1,6 +1,8 @@
 "use client";
 
 import type { ProcessingState } from "@/types";
+import type { RunLine } from "@/lib/runPresence";
+import { useProcessingStatusCopy } from "./ProcessingStatusCopyProvider";
 import {
   DownloadIcon,
   RotateCcwIcon,
@@ -12,6 +14,8 @@ import {
 interface ProcessingStatusProps {
   status: ProcessingState;
   progress?: number;
+  /** From `useToolProcessor`: the line under the progress. */
+  runLine: RunLine;
   errorMessage?: string;
   onRetry?: () => void;
   onDownload?: () => void;
@@ -34,18 +38,10 @@ interface ProcessingStatusProps {
   };
 }
 
-const DEFAULTS = {
-  processing: "처리 중…",
-  done: "완료",
-  doneBody: "파일이 준비되었습니다.",
-  download: "다운로드",
-  error: "오류 발생",
-  retry: "재시도",
-} as const;
-
 export function ProcessingStatus({
   status,
   progress = 0,
+  runLine,
   errorMessage,
   onRetry,
   onDownload,
@@ -53,8 +49,9 @@ export function ProcessingStatus({
   onTryAnother,
   labels,
 }: ProcessingStatusProps) {
+  const copy = useProcessingStatusCopy();
   if (status === "idle") return null;
-  const L = { ...DEFAULTS, ...labels };
+  const L = { ...copy, ...labels };
 
   return (
     <div className="h-full">
@@ -83,6 +80,21 @@ export function ProcessingStatus({
                 background: "var(--ink-strong)",
               }}
             />
+          </div>
+          {/* The hidden copies hold the longer line's space from the start of the
+              run, so that the fixed landing workspace does not shift when one shows. */}
+          <div
+            role="status"
+            className="grid break-keep font-body text-[11px] leading-snug [overflow-wrap:anywhere]"
+            style={{ color: "var(--ink)" }}
+          >
+            <span aria-hidden className="invisible [grid-area:1/1]">
+              {copy.stayOnScreen}
+            </span>
+            <span aria-hidden className="invisible [grid-area:1/1]">
+              {copy.wasPaused}
+            </span>
+            {runLine && <span className="[grid-area:1/1]">{copy[runLine]}</span>}
           </div>
         </div>
       )}
@@ -129,7 +141,7 @@ export function ProcessingStatus({
 
       {status === "error" && (
         <div
-          className="flex h-full w-full items-center gap-3 rounded-[8px] border px-3 py-2"
+          className="flex h-full w-full flex-wrap content-center items-center gap-3 rounded-[8px] border px-3 py-2"
           style={{
             background: "var(--surface)",
             borderColor: "var(--border)",
@@ -140,7 +152,9 @@ export function ProcessingStatus({
             className="size-5 shrink-0"
             style={{ color: "var(--ink-strong)" }}
           />
-          <div className="min-w-0 flex-1">
+          {/* In a narrow column the message takes its own row, rather than
+              shrinking between the icon and the button to a letter per line. */}
+          <div className="min-w-0 grow basis-40">
             <div
               className="font-ko text-[12px] font-medium"
               style={{ color: "var(--headline)" }}

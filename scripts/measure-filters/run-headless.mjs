@@ -13,7 +13,7 @@ import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { openHeadless, waitFor } from "../lib/headlessChrome.mjs";
+import { openHeadless, REAL_GPU_ARGS, waitFor } from "../lib/headlessChrome.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const args = Object.fromEntries(
@@ -22,9 +22,6 @@ const args = Object.fromEntries(
 const ORIGIN = `http://localhost:${process.env.MEASURE_FILTERS_PORT ?? 4330}`;
 const query = new URLSearchParams(Object.entries({ sets: args.sets, limit: args.limit }).filter(([, v]) => v));
 const PAGE = `${ORIGIN}/${query.size ? `?${query}` : ""}`;
-// The real GPU: Paper's filters draw with WebGL2, and headless Chrome would
-// otherwise fall back to software (SwiftShader), which says nothing of a laptop.
-const GPU = ["--enable-gpu", "--ignore-gpu-blocklist", ...(process.platform === "win32" ? ["--use-angle=d3d11"] : [])];
 
 async function serverUp() {
   try {
@@ -48,7 +45,7 @@ try {
     server = spawn(process.execPath, [join(here, "serve.mjs")], { stdio: "ignore" });
     await waitFor(serverUp, "serve.mjs");
   }
-  chrome = await openHeadless(PAGE, GPU);
+  chrome = await openHeadless(PAGE, REAL_GPU_ARGS);
   let last = "";
   const results = await waitFor(async () => {
     const status = await chrome.evaluate("document.getElementById('status')?.textContent ?? ''");

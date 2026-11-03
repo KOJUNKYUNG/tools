@@ -52,15 +52,23 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
     setFiles,
     status,
     progress,
+    runLine,
     errorMessage,
     result,
     run,
     retry,
+    download,
+    downloading,
   } = useToolProcessor<ExtractedImage[]>({
     processor: (processorFiles, onProgress) =>
       extractPptImages({ file: processorFiles[0], onProgress }),
-    onDownload: () => {
-      // Result component drives downloads; this is unused.
+    onDownload: async (images) => {
+      const zip = await buildExtractZip(images);
+      // new Uint8Array(...) is required for TS strict (BlobPart needs
+      // Uint8Array<ArrayBuffer>, not <ArrayBufferLike>). Cost is one extra copy
+      // at download time only.
+      const blob = new Blob([new Uint8Array(zip)], { type: "application/zip" });
+      downloadBlobObject(blob, `${baseName(filesRef.current[0]?.name ?? "ppt")}-images.zip`);
     },
     errorOptions: {
       copy: labels.errors,
@@ -141,16 +149,6 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
   // the same file, but ppt-extract's reset is a full reset.)
   const handleAgain = onReset;
 
-  const handleDownloadAll = useCallback(async () => {
-    if (!result) return;
-    const zip = await buildExtractZip(result);
-    // new Uint8Array(...) is required for TS strict (BlobPart needs
-    // Uint8Array<ArrayBuffer>, not <ArrayBufferLike>). Cost is one extra copy
-    // at download time only.
-    const blob = new Blob([new Uint8Array(zip)], { type: "application/zip" });
-    downloadBlobObject(blob, `${baseName(filesRef.current[0]?.name ?? "ppt")}-images.zip`);
-  }, [result]);
-
   const handleDownloadOne = useCallback((image: ExtractedImage) => {
     const blob = new Blob([new Uint8Array(image.data)], { type: image.mime });
     downloadBlobObject(blob, image.name);
@@ -215,7 +213,8 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
         <PptExtractResult
           images={result}
           labels={labels}
-          onDownloadAll={handleDownloadAll}
+          onDownloadAll={download}
+          downloading={downloading}
           onDownloadOne={handleDownloadOne}
           onToPptx={handleToPptx}
         />
@@ -233,6 +232,7 @@ export function PptExtract({ labels, lang = "ko", inline = false }: PptExtractPr
               <ProcessingStatus
                 status={status}
                 progress={progress}
+                runLine={runLine}
                 errorMessage={errorMessage}
                 onRetry={handleAgain}
                 labels={{ processing: labels.processing }}

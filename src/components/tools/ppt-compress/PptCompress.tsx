@@ -55,6 +55,7 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
     setFiles,
     status,
     progress,
+    runLine,
     errorMessage,
     result,
     run,
@@ -290,6 +291,7 @@ export function PptCompress({ labels, inline = false }: PptCompressProps) {
               <ProcessingStatus
                 status={status}
                 progress={progress}
+                runLine={runLine}
                 errorMessage={errorMessage}
                 onRetry={retry}
                 labels={{ processing: labels.processing }}

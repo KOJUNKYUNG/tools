@@ -214,6 +214,30 @@ reordering slides.
 _Avoid_: justifying a gap or a design by an adjustment the user would make
 afterwards in PowerPoint.
 
+### Leaving the screen
+The tab stops being shown while a run is in progress: another tab in front,
+the window minimized or fully covered by another window, the screen turned
+off, or another app in front on a phone. Ontab assumes the user keeps the tab
+on screen and says so during a run. Leaving is still normal, so it must never
+break a run: the run may slow down or pause, and when the user returns it goes
+on and ends with the same file as if they had never left. Keeping a run going
+while the user is away is welcome where it costs little, but it is not a
+promise. Where a tool reduces a PNG's colours, any two runs differ a little in
+their pixels even on screen, so for those pictures the same file means the same
+quality.
+_Avoid_: promising that a run finishes while the tab is hidden; "background
+processing" (nothing is built to run away from the tab).
+
+### Paused run
+A run that stops making progress because the user left the screen, and goes on
+by itself when they return. Only a run that truly stops is called paused; one
+that only slows down is not. While it is paused the tab's title says so, and
+after the user returns a line says it was paused and is going on, until the run
+ends. Neither asks the user to do anything: the request to stay on the screen
+was made during the run. A run that cannot go on is not paused: it ends in an
+error that names the cause and keeps the input for another try.
+_Avoid_: "stalled" or "stuck" in UI text; asking the user to reopen the tab.
+
 ### Target users
 Who Ontab is for, and the work each brings. A tool's **feature-scope check**
 (`docs/agents/workflow.md`) and backlog ranking test ideas against this table,

@@ -8,6 +8,7 @@ import { EMBEDDED_ASSET_LIMIT, uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
+import type { NeedsScreen } from "@/lib/runPresence";
 import { changeBackground, type BgMode, type FillBackground } from "@/lib/ppt/changeBackground";
 import {
   extractCurrentBackgrounds,
@@ -52,7 +53,7 @@ import {
   type RecipeEdit,
 } from "@/lib/gallery/recipeEdit";
 import { drawRecipeFile } from "@/lib/gallery/drawRecipe";
-import { webgl2Available } from "@/lib/gallery/paperRuntime";
+import { LostContextError, webgl2Available } from "@/lib/gallery/paperRuntime";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
 import { BackgroundPicker } from "./BackgroundPicker";
@@ -313,12 +314,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     setFiles: setPptxFilesRaw,
     status,
     progress,
+    runLine,
     errorMessage,
     run,
     retry,
     download,
   } = useToolProcessor<Uint8Array>({
-    processor: async (files, onProgress) => {
+    processor: async (files, onProgress, needsScreen) => {
       // A solid colour with grain or a Paper filter goes in as a picture of
       // the colour, whole, its filters baked in as a picture's are; otherwise
       // it stays a fill, of the colour its colour effects make.
@@ -329,9 +331,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       // share, so the gauge moves from the click on.
       const drawing = !fill && editedProps;
       // Baked in between the fit and the format; an unfiltered pick is prepared as before.
-      const step = solid ? filteredStep(filters, "solid") : fill ? undefined : filteredStep(filters, "picture");
+      const step = solid ? filteredStep(filters, "solid", needsScreen) : fill ? undefined : filteredStep(filters, "picture", needsScreen);
       if (drawing) onProgress(DRAWING_SHARE / 3);
-      const file = drawing ? await drawEdited(editedProps) : bgFile!;
+      const file = drawing ? await needsScreen(() => drawEdited(editedProps)) : bgFile!;
       const shown = drawing ? (pct: number) => DRAWING_SHARE + (pct * (100 - DRAWING_SHARE)) / 100 : (pct: number) => pct;
       if (drawing) onProgress(DRAWING_SHARE);
       return changeBackground({
@@ -360,6 +362,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     errorOptions: { copy: labels.errors, corruptOutputHint: labels.processing.errorCorrupt },
   });
 
+  /** What a failed drawing tells the user: that leaving the screen stopped it, or `otherwise`. */
+  function drawFailureCopy(err: unknown, otherwise: string): string {
+    return err instanceof LostContextError && err.afterLeaving ? labels.errors.drawingInterrupted : otherwise;
+  }
+
   /**
    * The edited pick as a file. A failed drawing stops the run with its own
    * message: the unedited gallery file never stands in for the edit.
@@ -369,7 +376,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       return await drawRecipeFile(props);
     } catch (err) {
       console.error("Edited background failed to draw", err);
-      throw new UserFacingError(labels.errors.recipeDrawFailed);
+      throw new UserFacingError(drawFailureCopy(err, labels.errors.recipeDrawFailed));
     }
   }
 
@@ -378,15 +385,15 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
    * picture. A failed drawing stops the run with its own message: the
    * unfiltered picture never stands in for the filters.
    */
-  function filteredStep(set: FilterSet, kind: BackgroundKind): PrepareStep | undefined {
-    const step = filterStep(set, kind);
+  function filteredStep(set: FilterSet, kind: BackgroundKind, needsScreen: NeedsScreen): PrepareStep | undefined {
+    const step = filterStep(set, kind, needsScreen);
     if (!step) return undefined;
     return async (fitted) => {
       try {
         return await step(fitted);
       } catch (err) {
         console.error("Filters failed to draw", err);
-        throw new UserFacingError(labels.errors.filterDrawFailed);
+        throw new UserFacingError(drawFailureCopy(err, labels.errors.filterDrawFailed));
       }
     };
   }
@@ -631,7 +638,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     editAvailable && bgFile && (editOpen || editedProps) ? recipe : null,
     editedProps,
     // The frame would go on showing the unedited file: say so, as a run does.
-    () => toast.error(labels.errors.recipeDrawFailed, { id: "recipe-preview" }),
+    (err) => toast.error(drawFailureCopy(err, labels.errors.recipeDrawFailed), { id: "recipe-preview" }),
   );
   /** The gallery pick's size, which the frame is held in and the live preview stands in for. */
   const pickSize = useMemo(
@@ -652,7 +659,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     sourceSize: pickSize,
     ratio: slideAspect.ratio,
     // The preview would go on showing the picture without the filter: say so, as a run does.
-    onPaperFail: () => toast.error(labels.errors.filterDrawFailed, { id: "filter-preview" }),
+    onPaperFail: (err) => toast.error(drawFailureCopy(err, labels.errors.filterDrawFailed), { id: "filter-preview" }),
   });
   /**
    * The picture the run would put in the deck, made by the same steps (the
@@ -1127,6 +1134,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 <ProcessingStatus
                   status={status}
                   progress={progress}
+                  runLine={runLine}
                   errorMessage={errorMessage}
                   onRetry={retry}
                   labels={labels.processing}

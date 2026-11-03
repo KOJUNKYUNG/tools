@@ -4,7 +4,7 @@
 // and the table load on first use only: the tool's first load does not carry
 // them.
 
-import { loadPaperDrawing, paperHost, type PaperDrawing } from "./paperRuntime";
+import { contextLost, LostContextError, loadPaperDrawing, paperHost, watchingContext, watchLeaving } from "./paperRuntime";
 import type { PaperRecipe } from "./recipes";
 
 /**
@@ -16,15 +16,9 @@ const APPLY_RATIO = 3;
 /** Pixel ratio of the live preview: 1280 × 720, the same composition. */
 const PREVIEW_RATIO = 1;
 
-/** Paper's ShaderMount, as paper-draw.js mounts it. */
-type Mount = Awaited<ReturnType<PaperDrawing["mountStill"]>>;
-
 /** The drawing as a PNG; a lost WebGL context is refused, since its canvas reads blank. */
 function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
-  // The canvas's own context: getContext hands back the WebGL2 one Paper made
-  // (Paper Shaders draw with WebGL2 only).
-  const gl = canvas.getContext("webgl2");
-  if (!gl || gl.isContextLost()) return Promise.reject(new Error("The drawing lost its WebGL context"));
+  if (contextLost(canvas)) return Promise.reject(new LostContextError());
   return new Promise((resolve, reject) =>
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("The drawing could not be read"))), "image/png"),
   );
@@ -33,15 +27,15 @@ function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
 /**
  * `props` (a recipe with an edit applied) drawn at the gallery file's size
  * and composition, as a PNG file for the picture path. Rejects when the
- * drawing fails (a lost context, a canvas held below that size, no memory):
- * there is no unedited file to fall back to.
+ * drawing fails (a lost context, as a LostContextError; a canvas held below
+ * that size, no memory): there is no unedited file to fall back to.
  */
 export async function drawRecipeFile(props: PaperRecipe): Promise<File> {
   const drawing = await loadPaperDrawing();
   const el = paperHost();
   try {
     const start = performance.now();
-    const blob = await drawing.drawStill(el, props, APPLY_RATIO, canvasPng);
+    const blob = await watchingContext(el, () => drawing.drawStill(el, props, APPLY_RATIO, canvasPng));
     // User timing for the 4K budget (a fraction of a second to a couple of seconds).
     performance.measure("ontab:recipe-draw", { start, end: performance.now() });
     return new File([blob], `gallery-${props.name}-edited.png`, { type: "image/png" });
@@ -54,35 +48,45 @@ export async function drawRecipeFile(props: PaperRecipe): Promise<File> {
 export interface RecipePreview {
   /** The canvas the preview is drawn on, at the preview size, to be copied where the pick shows. */
   canvas: HTMLCanvasElement;
-  /** Draw `props` on the canvas now; throws when its WebGL context is lost (it would copy blank). */
+  /** Draw `props` on the canvas now; throws a LostContextError when its context is lost (it would copy blank). */
   draw(props: PaperRecipe): void;
   dispose(): void;
 }
 
-/** Open a preview for `props`'s shader. */
-export async function openRecipePreview(props: PaperRecipe): Promise<RecipePreview> {
+/** Open a preview for `props`'s shader. `onLost` hears of its context lost later, not of the loss `dispose` causes. */
+export async function openRecipePreview(props: PaperRecipe, onLost: (err: LostContextError) => void): Promise<RecipePreview> {
   const drawing = await loadPaperDrawing();
   const el = paperHost();
-  let mount: Mount | undefined;
-  try {
-    mount = await drawing.mountStill(el, props, { preserveDrawingBuffer: true, pixelRatio: PREVIEW_RATIO });
-    await drawing.settled(mount, PREVIEW_RATIO);
-  } catch (err) {
+  const opened = await watchingContext(el, async () => {
+    const mounted = await drawing.mountStill(el, props, { preserveDrawingBuffer: true, pixelRatio: PREVIEW_RATIO });
     // A mount whose canvas never settled still holds a WebGL context.
-    mount?.dispose();
+    try {
+      await drawing.settled(mounted, PREVIEW_RATIO);
+      if (contextLost(mounted.canvasElement)) throw new LostContextError();
+    } catch (err) {
+      mounted.dispose();
+      throw err;
+    }
+    return mounted;
+  }).catch((err: unknown) => {
     el.remove();
     throw err;
-  }
-  const opened = mount;
+  });
+  // A loss since the last drawing that held: an old absence says nothing of a later one.
+  const leaving = watchLeaving();
+  const lost = () => onLost(new LostContextError(leaving.left()));
+  opened.canvasElement.addEventListener("webglcontextlost", lost);
   return {
     canvas: opened.canvasElement,
     draw(next) {
       // Paper draws a still at once when its props change.
       drawing.updateStill(opened, next);
-      const gl = opened.canvasElement.getContext("webgl2");
-      if (!gl || gl.isContextLost()) throw new Error("The preview lost its WebGL context");
+      if (contextLost(opened.canvasElement)) throw new LostContextError(leaving.left());
+      leaving.reset();
     },
     dispose() {
+      opened.canvasElement.removeEventListener("webglcontextlost", lost);
+      leaving.stop();
       opened.dispose();
       el.remove();
     },

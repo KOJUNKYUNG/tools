@@ -7,7 +7,7 @@
  *
  * Browser-only: WebGL2 and 2D canvases.
  */
-import { loadPaperDrawing, paperHost } from "@/lib/gallery/paperRuntime";
+import { contextLost, LostContextError, loadPaperDrawing, paperHost, watchingContext } from "@/lib/gallery/paperRuntime";
 import { drawScaledDown } from "./downscale";
 import type { FilterPlanStep } from "./filterSet";
 import { fillingProps, PAPER_FILTERS } from "./paperFilters";
@@ -43,9 +43,7 @@ async function asImage(canvas: AnyCanvas): Promise<{ image: HTMLImageElement; re
 
 /** Paper's canvas copied at `width` × `height`; a lost WebGL context is refused, since its canvas reads blank. */
 function copyOut(canvas: HTMLCanvasElement, width: number, height: number): HTMLCanvasElement {
-  // The canvas's own context: Paper draws with WebGL2 only.
-  const gl = canvas.getContext("webgl2");
-  if (!gl || gl.isContextLost()) throw new Error("The filter lost its WebGL context");
+  if (contextLost(canvas)) throw new LostContextError();
   const copy = document.createElement("canvas");
   copy.width = width;
   copy.height = height;
@@ -59,8 +57,9 @@ function copyOut(canvas: HTMLCanvasElement, width: number, height: number): HTML
 
 /**
  * `step`'s Paper filter drawn over `picture`, at the picture's size, to be
- * laid over it. Rejects when the drawing fails (a lost context, a canvas
- * held below the size, no memory): the picture never stands in for it.
+ * laid over it. Rejects when the drawing fails (a lost context, as a
+ * LostContextError; a canvas held below the size, no memory): the picture never
+ * stands in for it.
  */
 export async function drawPaperFilter(picture: AnyCanvas, step: PaperStep): Promise<HTMLCanvasElement> {
   const { width, height } = picture;
@@ -80,12 +79,8 @@ export async function drawPaperFilter(picture: AnyCanvas, step: PaperStep): Prom
   const el = paperHost();
   try {
     const start = performance.now();
-    const drawn = await drawing.drawStill(
-      el,
-      spec,
-      step.pixelRatio,
-      (canvas: HTMLCanvasElement) => copyOut(canvas, width, height),
-      step.box,
+    const drawn = await watchingContext(el, () =>
+      drawing.drawStill(el, spec, step.pixelRatio, (canvas: HTMLCanvasElement) => copyOut(canvas, width, height), step.box),
     );
     // User timing for the 4K budget, as the recipe drawing's.
     performance.measure("ontab:paper-filter", { start, end: performance.now() });

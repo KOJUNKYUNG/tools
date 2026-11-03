@@ -16,6 +16,7 @@ import {
   type GridPosition,
   type Point,
 } from "./overlayLayout";
+import { LOAD_WITH_RARE_YIELDS, SAVE_WITH_RARE_YIELDS } from "./pdfLibYields";
 import { checkPdfWatermark } from "./pdfWatermarkCheck";
 import { renderTextToPng } from "./renderTextToPng";
 
@@ -212,7 +213,7 @@ export async function applyOverlay({
 
   let pdf: PDFDocument;
   try {
-    pdf = await PDFDocument.load(bytes);
+    pdf = await PDFDocument.load(bytes, LOAD_WITH_RARE_YIELDS);
   } catch {
     throw new Error(
       "INVALID_INPUT: PDF를 열 수 없습니다. 암호화되었거나 손상된 파일일 수 있습니다.",
@@ -345,7 +346,7 @@ export async function applyOverlay({
   // No safer mode exists: a failing output is blocked.
   const out = await runOutputCheck({
     tool: "pdf-watermark",
-    output: await pdf.save(),
+    output: await pdf.save(SAVE_WITH_RARE_YIELDS),
     check: (output) => checkPdfWatermark(bytes, options, output, "quick"),
   });
 

@@ -25,6 +25,64 @@ export function loadPaperDrawing(): Promise<PaperDrawing> {
   return loading;
 }
 
+/**
+ * A drawing failed because its WebGL context was lost. `afterLeaving`: the user
+ * left the screen while it was drawing (CONTEXT "Leaving the screen"), so that,
+ * not the browser's memory, is the likely cause.
+ */
+export class LostContextError extends Error {
+  override name = "LostContextError";
+  constructor(readonly afterLeaving = false) {
+    super("The drawing lost its WebGL context");
+  }
+}
+
+/** Whether `canvas`, a Paper canvas, has lost its context: it then reads blank. */
+export function contextLost(canvas: HTMLCanvasElement): boolean {
+  // The canvas's own context: getContext hands back the WebGL2 one Paper made
+  // (Paper Shaders draw with WebGL2 only). None at all was refused, not lost.
+  return canvas.getContext("webgl2")?.isContextLost() ?? false;
+}
+
+/**
+ * Watches for the user leaving the screen: `left` says whether they have since
+ * this began, or since `reset`. `stop` ends the watch.
+ */
+export function watchLeaving(): { left: () => boolean; reset: () => void; stop: () => void } {
+  let left = document.hidden;
+  const change = () => {
+    left ||= document.hidden;
+  };
+  document.addEventListener("visibilitychange", change);
+  return {
+    left: () => left,
+    reset: () => {
+      left = document.hidden;
+    },
+    stop: () => document.removeEventListener("visibilitychange", change),
+  };
+}
+
+/**
+ * `draw`, a drawing in `host`, with a lost context told apart from its other
+ * failures: refused where the drawing is read, or found on a canvas Paper could
+ * not mount (it stays in `host` then).
+ */
+export async function watchingContext<T>(host: HTMLElement, draw: () => Promise<T>): Promise<T> {
+  const leaving = watchLeaving();
+  try {
+    return await draw();
+  } catch (err) {
+    const unmounted = host.querySelector("canvas");
+    if (err instanceof LostContextError || (unmounted && contextLost(unmounted))) {
+      throw new LostContextError(leaving.left());
+    }
+    throw err;
+  } finally {
+    leaving.stop();
+  }
+}
+
 let webgl2: boolean | null = null;
 
 /** Whether this browser can draw Paper Shaders, which need WebGL2. */

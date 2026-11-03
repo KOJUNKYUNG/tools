@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { openRecipePreview, type RecipePreview } from "@/lib/gallery/drawRecipe";
+import { LostContextError } from "@/lib/gallery/paperRuntime";
 import type { PaperRecipe } from "@/lib/gallery/recipes";
 import type { LivePicture } from "@/components/image/LiveCanvas";
 
@@ -14,16 +15,21 @@ import type { LivePicture } from "@/components/image/LiveCanvas";
  * `drawn` is what to show, null while the pick is unedited (the gallery file
  * shows then, and `live` is null). `onError` hears of a preview that failed
  * to open or draw, which would otherwise go on showing the gallery file under
- * the edit. `pending` holds while the preview is still opening.
+ * the edit, and passes the failure on; a lost context opens the preview again
+ * by itself, so it is told only if that fails. `pending` holds while the
+ * preview is still opening.
  */
 export function useRecipePreview(
   recipe: PaperRecipe | null,
   drawn: PaperRecipe | null,
-  onError: () => void,
+  onError: (err: unknown) => void,
 ): { live: LivePicture | null; pending: boolean } {
   const [preview, setPreview] = useState<RecipePreview | null>(null);
   const [live, setLive] = useState<LivePicture | null>(null);
-  /** The recipe whose preview failed (to open, or its context): the next change opens it again. */
+  /**
+   * The recipe whose preview failed (to open, or its context): it opens again
+   * on the next change, or at once when a context is lost under an edit.
+   */
   const [failedName, setFailedName] = useState<string | null>(null);
   // The same, for the drawing effect, which must not run again on the failure itself.
   const failedRef = useRef<string | null>(null);
@@ -43,7 +49,7 @@ export function useRecipePreview(
   });
   const fail = (what: string, err: unknown) => {
     console.error(`Recipe preview failed to ${what}`, err);
-    onErrorRef.current();
+    onErrorRef.current(err);
   };
 
   const name = recipe?.name ?? null;
@@ -53,19 +59,18 @@ export function useRecipePreview(
     let open = true;
     let opened: RecipePreview | null = null;
     // A context lost after a drawing (a GPU reset, sleep) blanks the canvas
-    // its copies read: drop the preview and say so, rather than show the
-    // gallery file. Not the loss dispose causes, so it is let go first.
-    const lost = (event: Event) => {
+    // its copies read: drop the preview. Under an edit the drawing effect opens
+    // it again at once, so the user has nothing to do and is told nothing.
+    const lost = (err: unknown) => {
+      console.error("Recipe preview lost its context", err);
       setPreview(null);
       setLive(null);
       failed(start.name);
-      fail("draw", event);
     };
-    openRecipePreview(start)
+    openRecipePreview(start, lost)
       .then((p) => {
         if (open) {
           opened = p;
-          p.canvas.addEventListener("webglcontextlost", lost);
           setPreview(p);
           failed(null);
         } else p.dispose();
@@ -77,7 +82,6 @@ export function useRecipePreview(
       });
     return () => {
       open = false;
-      opened?.canvas.removeEventListener("webglcontextlost", lost);
       opened?.dispose();
       setPreview(null);
     };
@@ -91,7 +95,11 @@ export function useRecipePreview(
       setLive(null);
       // A change after a failure tries the preview again, rather than go on
       // showing the gallery file under the edit.
-      if (drawn && failedRef.current === name) setAttempt((n) => n + 1);
+      if (drawn && failedRef.current === name) {
+        // `pending` holds until it has opened or failed again.
+        setFailedName(null);
+        setAttempt((n) => n + 1);
+      }
       return;
     }
     try {
@@ -99,9 +107,10 @@ export function useRecipePreview(
       // A new version tells each copy to take the canvas again.
       setLive((prev) => ({ canvas: preview.canvas, version: (prev?.version ?? 0) + 1 }));
     } catch (err) {
-      // The gallery file shows again under the error.
+      // The gallery file shows again under the error. A lost context's own
+      // event is on its way, and opens the preview again.
       setLive(null);
-      fail("draw", err);
+      if (!(err instanceof LostContextError)) fail("draw", err);
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [drawn, preview, name]);

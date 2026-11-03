@@ -17,6 +17,9 @@ export const STILL = { cssWidth: 1280, cssHeight: 720, pixelRatio: 2 };
 /** The still's CSS box, the box a drawing is laid out at unless given another (a filter's). */
 const STILL_BOX = { cssWidth: STILL.cssWidth, cssHeight: STILL.cssHeight };
 
+/** How far a page may be zoomed out with its drawings still at their full size. */
+const ZOOM_MARGIN = 8;
+
 const nextFrames = (n) =>
   new Promise((resolve) => {
     const step = () => (n-- <= 0 ? resolve() : requestAnimationFrame(step));
@@ -91,7 +94,12 @@ export function paperDrawing(paper, catalog) {
     el.style.height = `${box.cssHeight}px`;
     const max = box.cssWidth * box.cssHeight * pixelRatio ** 2;
     const mipmaps = def.mipmaps ?? [];
-    return new paper.ShaderMount(el, paper[def.fragment], uniforms, { preserveDrawingBuffer }, speed, frame, pixelRatio, max, mipmaps);
+    // Paper scales its canvas by the page's zoom, so a zoomed-out page would hold
+    // it below the size (a phone's pinch, Safari's page zoom). Asking for far more
+    // leaves `max` to set the size, whatever the zoom; the composition follows the
+    // canvas's own size, so it does not change.
+    const ratioAtAnyZoom = pixelRatio * ZOOM_MARGIN;
+    return new paper.ShaderMount(el, paper[def.fragment], uniforms, { preserveDrawingBuffer }, speed, frame, ratioAtAnyZoom, max, mipmaps);
   }
 
   /**

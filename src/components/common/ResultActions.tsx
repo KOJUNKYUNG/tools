@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { DownloadIcon, RotateCcwIcon, ArrowRightIcon } from "lucide-react";
+import { DownloadIcon, Loader2Icon, RotateCcwIcon, ArrowRightIcon } from "lucide-react";
 
 interface ActionSpec {
   label: string;
@@ -10,10 +10,14 @@ interface ActionSpec {
 
 interface ResultActionsProps {
   /**
-   * Primary download (`.btn-download`). Omit when there is nothing to download
-   * (e.g. pdf-to-image streamed already saved its zips during processing).
+   * Primary download (`.btn-download`). Omit when there is nothing to download.
    */
-  download?: ActionSpec;
+  download?: ActionSpec & {
+    /** From `useToolProcessor`'s `downloading`, for a tool that builds its file on click. */
+    busy?: boolean;
+    /** Not this button's build, so no spinner: another save holds it back. */
+    disabled?: boolean;
+  };
   /**
    * "다시 / Again" reset (`.nameplate`, RotateCcw — the one canonical retry icon).
    * Optional and being retired: the retry action is moving into `ToolHeader`'s
@@ -36,9 +40,15 @@ export function ResultActions({ download, again, extra }: ResultActionsProps) {
         <button
           type="button"
           onClick={download.onClick}
+          disabled={download.busy || download.disabled}
+          aria-busy={download.busy}
           className="btn-download inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-4 font-body text-[12px] font-medium"
         >
-          <DownloadIcon className="size-3.5" />
+          {download.busy ? (
+            <Loader2Icon className="size-3.5 animate-spin" />
+          ) : (
+            <DownloadIcon className="size-3.5" />
+          )}
           {download.label}
         </button>
       )}

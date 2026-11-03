@@ -39,8 +39,18 @@
       "heicConvertFailed": "Couldn't convert the HEIC file.",
       "filterDrawFailed": "Your browser couldn't draw the effect (it may have run short of graphics memory). Try again, or set Style to None.",
       "recipeDrawFailed": "Your browser couldn't draw the edited background (it may have run short of graphics memory). Try again, or press Reset to use the gallery picture as it is.",
+      "drawingInterrupted": "The job stopped because the screen turned off or you left the window. Please try again.",
       "readFailed": "Could not read the file.",
       "pdfOpenFailedTemplate": "{name}: This PDF is damaged or encrypted."
+    },
+    "processingStatus": {
+      "processing": "Processing…",
+      "download": "Download",
+      "error": "Error",
+      "retry": "Retry",
+      "stayOnScreen": "Please stay on this screen until the job is finished. If you leave, it may pause for a while.",
+      "wasPaused": "It paused while you were away from this screen and is now carrying on.",
+      "pausedTitle": "Paused · Ontab"
     },
     "themeToggle": "Toggle theme",
     "resizeHandles": {
@@ -700,12 +710,11 @@
         "downloadOneAria": "Download {name}",
         "compressHandoff": "Compress images",
         "again": "Start over",
-        "streamedTitle": "Saved",
-        "streamedSummary": "Saved {n} images across {m} zip files.",
-        "batchSavedToast": "Part {n} saved",
+        "partsSummary": "{n} images · too large for one zip, so split into {m} files. Download each one.",
+        "downloadPart": "Download zip {n}",
+        "partDownloaded": "Downloaded",
         "errorMemory": "Your browser ran out of memory. Lower the DPI or use a PDF with fewer pages.",
-        "errorCorrupt": "Page {page} could not be turned into an image, so conversion stopped. Remove that page or lower the DPI and try again.",
-        "errorCorruptAfterBatches": "Page {page} could not be turned into an image, so conversion stopped. The {n} part(s) already saved hold only the pages before it. Remove that page or lower the DPI and try again."
+        "errorCorrupt": "Page {page} could not be turned into an image, so conversion stopped. Remove that page or lower the DPI and try again."
       }
     },
     "image-compress": {

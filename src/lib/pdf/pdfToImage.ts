@@ -1,8 +1,10 @@
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
-import { shouldFlush } from "./batchPlan";
+import type { NeedsScreen } from "@/lib/runPresence";
+import { shouldClosePart } from "./partPlan";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 import { assignImageNames } from "./pdfToImageNaming";
 import type { RenderedPage } from "./pdfToImageCheck";
+import { pageIntent, type PageIntent } from "./pdfToImageIntent";
 import { renderCheckedPage, type Resolution } from "./pdfToImagePage";
 import type { ConversionJob } from "./buildConversionJobs";
 
@@ -16,7 +18,7 @@ export interface ConvertedImage {
 
 export type PdfToImageOutcome =
   | { mode: "preview"; images: ConvertedImage[] }
-  | { mode: "streamed"; imageCount: number; batchCount: number };
+  | { mode: "parts"; parts: ConvertedImage[][] };
 
 export interface PdfToImageOptions {
   jobs: ConversionJob[];
@@ -24,15 +26,11 @@ export interface PdfToImageOptions {
   sourceBytesById: Map<string, Uint8Array>;
   format: OutputFormat;
   dpi: DpiOption;
-  /** Flush a batch once accumulated output reaches this many bytes. */
-  batchByteTarget: number;
-  /** Called with each filled batch when streaming (more than one batch). */
-  onBatch?: (
-    images: ConvertedImage[],
-    batchIndex: number,
-    isLast: boolean,
-  ) => Promise<void> | void;
+  /** Close a part once accumulated output reaches this many bytes. */
+  partByteTarget: number;
   onProgress?: (pct: number) => void;
+  /** Marks a page's drawing that stops while the user is off the screen. */
+  needsScreen: NeedsScreen;
 }
 
 const PDF_BASE_DPI = 72;
@@ -61,12 +59,16 @@ async function renderPage(
     rotation: userRotation,
     format,
     quality,
+    intent,
+    needsScreen,
   }: {
     scale: number;
     resolution: Resolution;
     rotation: number;
     format: OutputFormat;
     quality: number | undefined;
+    intent: PageIntent;
+    needsScreen: NeedsScreen;
   },
 ): Promise<RenderedPage> {
   // Match the thumbnail (rendered at page.rotate) + the card's CSS rotate.
@@ -95,7 +97,9 @@ async function renderPage(
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas 2D 컨텍스트를 만들 수 없습니다.");
 
-    await page.render({ canvas, viewport }).promise;
+    const draw = () => page.render({ canvas, viewport, intent }).promise;
+    // Only the display intent waits on frames, which a hidden tab does not send.
+    await (intent === "display" ? needsScreen(draw) : draw());
 
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
@@ -122,9 +126,9 @@ export async function pdfToImages({
   sourceBytesById,
   format,
   dpi,
-  batchByteTarget,
-  onBatch,
+  partByteTarget,
   onProgress,
+  needsScreen,
 }: PdfToImageOptions): Promise<PdfToImageOutcome> {
   if (jobs.length === 0) throw new Error("변환할 페이지가 없습니다.");
 
@@ -152,19 +156,11 @@ export async function pdfToImages({
   // Name every output after its own source PDF, numbered within that source.
   const names = assignImageNames(jobs, ext);
 
-  // `current` holds only the in-flight batch (released after each flush), so peak
-  // memory is bounded by batchByteTarget rather than the whole job's output.
-  const current: ConvertedImage[] = [];
+  // Every part is held to the end of the run: the run saves nothing itself, so a
+  // page that fails leaves no incomplete set in the user's downloads.
+  const parts: ConvertedImage[][] = [];
+  let current: ConvertedImage[] = [];
   let currentBytes = 0;
-  let streaming = false;
-  let batchIndex = 0;
-
-  const flush = async (isLast: boolean) => {
-    batchIndex++;
-    await onBatch?.(current.slice(), batchIndex, isLast);
-    current.length = 0;
-    currentBytes = 0;
-  };
 
   try {
     for (let i = 0; i < jobs.length; i++) {
@@ -180,28 +176,28 @@ export async function pdfToImages({
           rotation: job.rotation,
           format,
           quality,
+          intent: await pageIntent(doc, page),
+          needsScreen,
         });
       });
       current.push({ name: names[i], blob });
       currentBytes += blob.size;
       onProgress?.(Math.round(((i + 1) / total) * 100));
 
-      // Mirror planBatches(): flush once the running output reaches the target
-      // and pages still remain (so the final partial batch is never split early).
+      // Mirror planParts(): close a part once the running output reaches the
+      // target and pages still remain (so the last part is never empty).
       const pagesRemaining = jobs.length - 1 - i;
-      if (shouldFlush(currentBytes, batchByteTarget, pagesRemaining)) {
-        streaming = true;
-        await flush(false);
+      if (shouldClosePart(currentBytes, partByteTarget, pagesRemaining)) {
+        parts.push(current);
+        current = [];
+        currentBytes = 0;
       }
     }
   } finally {
     for (const doc of docCache.values()) doc.destroy();
   }
 
-  if (streaming) {
-    if (current.length > 0) await flush(true);
-    return { mode: "streamed", imageCount: jobs.length, batchCount: batchIndex };
-  }
-
-  return { mode: "preview", images: current };
+  return parts.length > 0
+    ? { mode: "parts", parts: [...parts, current] }
+    : { mode: "preview", images: current };
 }

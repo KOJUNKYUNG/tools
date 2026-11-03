@@ -412,7 +412,9 @@ replace the file; multi-file tools keep their in-body add / remove controls).
   The **again ("다시 하기") no longer lives in the card** — it is the header's
   primary button in the done state (see Tool header). The 2-column tools
   (pdf-arrange, ppt-extract, image-to-pdf, pdf-to-image) keep their own grid +
-  left list and render `<ResultCard>` as the right-hand summary card. Never
+  left list and render `<ResultCard>` as the right-hand summary card. A
+  pdf-to-image result over its part target is one column instead: the card lists
+  one `<ResultActions>` download per part and scrolls inside the tray. Never
   re-declare the card shell or button markup inline.
 - **File-info row** — the same flat row on every tool, now the **left column of
   the `ToolHeader`** once a file is loaded (it replaces the description): the file
