@@ -141,7 +141,7 @@ export function ProcessingStatus({
 
       {status === "error" && (
         <div
-          className="flex h-full w-full items-center gap-3 rounded-[8px] border px-3 py-2"
+          className="flex h-full w-full flex-wrap content-center items-center gap-3 rounded-[8px] border px-3 py-2"
           style={{
             background: "var(--surface)",
             borderColor: "var(--border)",
@@ -152,7 +152,9 @@ export function ProcessingStatus({
             className="size-5 shrink-0"
             style={{ color: "var(--ink-strong)" }}
           />
-          <div className="min-w-0 flex-1">
+          {/* In a narrow column the message takes its own row, rather than
+              shrinking between the icon and the button to a letter per line. */}
+          <div className="min-w-0 grow basis-40">
             <div
               className="font-ko text-[12px] font-medium"
               style={{ color: "var(--headline)" }}
