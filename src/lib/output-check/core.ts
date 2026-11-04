@@ -43,8 +43,11 @@ export interface RunOutputCheckOptions<T> {
   output: T;
   /** The tool's checker, bound to its input and request at `quick` depth. */
   check: (output: T) => Promise<Violation[]>;
-  /** A safer result to fall back to (re-run in a safe mode, the original). */
-  recover?: () => Promise<T>;
+  /**
+   * A safer result to fall back to (re-run in a safe mode, the original), given
+   * what the check found. Throwing means there is none for this damage.
+   */
+  recover?: (violations: Violation[]) => Promise<T>;
 }
 
 function devLog(message: string, violations: Violation[] | unknown): void {
@@ -83,7 +86,7 @@ export async function runOutputCheck<T>({
 
   if (recover) {
     // A recovery that throws simply failed: fall through to blocking.
-    const recovered = await recover().catch(() => null);
+    const recovered = await recover(violations).catch(() => null);
     if (recovered !== null) {
       const after = await check(recovered).catch((): Violation[] => []);
       if (after.length === 0) {

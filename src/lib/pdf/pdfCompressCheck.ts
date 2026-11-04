@@ -2,7 +2,11 @@ import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import { inspectPdf, pdfPageCount } from "@/lib/output-check/pdfInspector";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
+import { lostReferences } from "./brokenReferences";
 import { hasInvalidSoftMask } from "./softMaskCheck";
+
+/** The violated property when a soft mask is invalid (see softMaskCheck.ts). */
+export const SOFT_MASK = "soft-mask";
 
 export interface PdfCompressRequest {
   preset: CompressionPreset;
@@ -21,8 +25,8 @@ const inputFirstPageFails = (input: Uint8Array) =>
 
 /**
  * pdf-compress output properties (spec #51, confirmed in #60), all ⚡ (`quick`
- * and `full` check the same). justpdf wrote the output; pdfjs reads it, so the
- * opens, page-count and render checks are cross-engine.
+ * and `full` check the same). justpdf wrote the output; pdfjs and pdf-lib read
+ * it, so the opens, page-count, render and reference checks are cross-engine.
  *
  * - `size-bound`: the output is strictly smaller than the input. This one is
  *   an outcome, not damage: the engine turns it into a "could not shrink"
@@ -34,11 +38,14 @@ const inputFirstPageFails = (input: Uint8Array) =>
  * - `page-count`: the output has the input's page count
  * - `first-page-renders`: the output's page 1 renders in pdfjs (the preview
  *   used to swallow this failure)
+ * - `references-resolve`: every reference the output's objects reach points at
+ *   an object (see brokenReferences.ts): objects a compressor drops leave a
+ *   file that opens and renders with its fonts and form fields gone
  *
  * Defects the input already had are not the tool's doing: an invalid soft
- * mask, a file pdfjs cannot open, or a page 1 that does not render, when the
- * input has it too, is not reported. The input is only read when the output
- * shows the defect, except for its page count.
+ * mask, a file pdfjs cannot open, a page 1 that does not render, or a broken
+ * reference, when the input has it too, is not reported. The input is only
+ * read when the output shows the defect, except for its page count.
  */
 export const checkPdfCompress: OutputChecker<Uint8Array, PdfCompressRequest, Uint8Array> =
   async (input, _request, output) => {
@@ -50,7 +57,7 @@ export const checkPdfCompress: OutputChecker<Uint8Array, PdfCompressRequest, Uin
       });
     }
     if (hasInvalidSoftMask(output) && !hasInvalidSoftMask(input)) {
-      violations.push({ property: "soft-mask", detail: "a soft mask is not DeviceGray" });
+      violations.push({ property: SOFT_MASK, detail: "a soft mask is not DeviceGray" });
     }
 
     if (!hasPdfHeader(output)) {
@@ -76,6 +83,15 @@ export const checkPdfCompress: OutputChecker<Uint8Array, PdfCompressRequest, Uin
         const renderError = await pdf.renderError(1);
         if (renderError !== null && !(await inputFirstPageFails(input))) {
           vs.push({ property: "first-page-renders", detail: renderError });
+        }
+      }
+      if (vs.length === 0) {
+        const lost = await lostReferences(input, output);
+        if (lost.length > 0) {
+          vs.push({
+            property: "references-resolve",
+            detail: `${lost.length} lost, e.g. ${lost.slice(0, 5).join(", ")}`,
+          });
         }
       }
       return vs;

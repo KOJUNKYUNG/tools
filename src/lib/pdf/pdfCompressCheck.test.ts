@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
-import { PDFDocument, StandardFonts } from "pdf-lib";
+import { PDFDocument, PDFName, PDFRef, StandardFonts } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import type { Violation } from "@/lib/output-check/core";
+import { lostReferences } from "./brokenReferences";
 import { checkPdfCompress } from "./pdfCompressCheck";
 
 async function pdfOf(pages: number): Promise<PDFDocument> {
@@ -29,6 +30,16 @@ async function compressed(pages = 3): Promise<Uint8Array> {
 async function brokenFirstPage(bytes: Uint8Array): Promise<Uint8Array> {
   const doc = await PDFDocument.load(bytes);
   doc.catalog.Pages().Kids().set(0, doc.context.nextRef());
+  return doc.save();
+}
+
+/**
+ * The catalog gains a reference to an object the file does not hold, as the
+ * compressor writes when it could not read an object it should have kept.
+ */
+async function withLostObject(bytes: Uint8Array): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(bytes);
+  doc.catalog.set(PDFName.of("AcroForm"), PDFRef.of(9999));
   return doc.save();
 }
 
@@ -97,6 +108,36 @@ describe("checkPdfCompress", () => {
     const vs = await checkPdfCompress(await input(), request, await doc.save(), "quick");
     expect(props(vs)).toEqual(["soft-mask"]);
   });
+
+  it("flags an output whose references point at objects it lost", async () => {
+    const out = await withLostObject(await compressed());
+    expect(props(await checkPdfCompress(await input(), request, out, "quick"))).toEqual([
+      "references-resolve",
+    ]);
+  });
+
+  it("flags a lost object only reachable through another object", async () => {
+    const doc = await pdfOf(3);
+    doc.getPage(0).node.set(
+      PDFName.of("Annots"),
+      doc.context.obj([doc.context.obj({ Parent: doc.context.nextRef() })]),
+    );
+    const out = await doc.save();
+    expect(props(await checkPdfCompress(await input(), request, out, "quick"))).toEqual([
+      "references-resolve",
+    ]);
+  });
+
+  it("reports no lost references for a file pdf-lib cannot read", async () => {
+    expect(await lostReferences(await input(), new Uint8Array(0))).toEqual([]);
+  });
+
+  it("ignores a broken reference no page or catalog entry reaches", async () => {
+    const doc = await pdfOf(3);
+    doc.context.register(doc.context.obj({ Stale: doc.context.nextRef() }));
+    const out = await doc.save();
+    expect(await checkPdfCompress(await input(), request, out, "quick")).toEqual([]);
+  });
 });
 
 describe("checkPdfCompress: inherited defects", () => {
@@ -109,6 +150,12 @@ describe("checkPdfCompress: inherited defects", () => {
     };
     const vs = await checkPdfCompress(await withMask(50_000), request, await withMask(10), "quick");
     expect(vs).toEqual([]);
+  });
+
+  it("does not blame the tool for a broken reference the input already had", async () => {
+    const src = await withLostObject(await input());
+    const out = await withLostObject(await compressed());
+    expect(await checkPdfCompress(src, request, out, "quick")).toEqual([]);
   });
 
   it("does not blame the tool for a first page the input cannot render either", async () => {

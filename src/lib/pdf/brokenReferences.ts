@@ -1,0 +1,80 @@
+// Finds references that point at no object, for the compressed output check.
+//
+// A compressor that cannot read an object can drop it and keep the references
+// to it: viewers read those as null, so the file still opens and page 1 still
+// renders while form fields, embedded fonts and bookmarks are gone. justpdf does
+// this to legal structures (see plainPdf.ts).
+//
+// pdf-lib reads the file, not justpdf: an engine tends to accept its own
+// mistakes. It reads each object where the file defines it, so it finds every
+// object in an object stream, hybrid-reference files' hidden ones included. It
+// ignores the cross-reference table, so an object the input freed still counts
+// as defined: a live reference to one reads as lost. That costs a recovery, not
+// a block, since the recovered file no longer has the reference.
+
+import type { PDFDocument, PDFObject } from "pdf-lib";
+import { LOAD_WITH_RARE_YIELDS } from "./pdfLibYields";
+
+/**
+ * The file's objects, in pdf-lib's reading. Null when it cannot read the file:
+ * that proves nothing about the file, and pdfjs decides whether a file opens.
+ */
+function openForReferences(
+  pdfLib: typeof import("pdf-lib"),
+  bytes: Uint8Array,
+): Promise<PDFDocument | null> {
+  return pdfLib.PDFDocument.load(bytes, {
+    ...LOAD_WITH_RARE_YIELDS,
+    ignoreEncryption: true,
+    updateMetadata: false,
+  }).catch(() => null);
+}
+
+/**
+ * The references reachable from the trailer that point at no object, as
+ * `12 0 R` strings. Objects nothing reaches do not count: no viewer reads them.
+ */
+function brokenReferences(pdfLib: typeof import("pdf-lib"), doc: PDFDocument): Set<string> {
+  const { PDFArray, PDFDict, PDFRef, PDFStream } = pdfLib;
+  const { context } = doc;
+  const broken = new Set<string>();
+  const seen = new Set<PDFObject>();
+  const { Root, Info } = context.trailerInfo;
+  const stack: (PDFObject | undefined)[] = [Root, Info];
+
+  while (stack.length > 0) {
+    const object = stack.pop();
+    if (object instanceof PDFRef) {
+      if (seen.has(object)) continue;
+      seen.add(object);
+      const target = context.lookup(object);
+      if (target === undefined) broken.add(object.toString());
+      else stack.push(target);
+    } else if (object instanceof PDFStream) {
+      stack.push(object.dict);
+    } else if (object instanceof PDFDict) {
+      for (const [, value] of object.entries()) stack.push(value);
+    } else if (object instanceof PDFArray) {
+      for (const value of object.asArray()) stack.push(value);
+    }
+  }
+  return broken;
+}
+
+/**
+ * The output's broken references that the input does not also have, since a
+ * defect the input already had is not the tool's doing. The input is only read
+ * when the output has some. Compares by object number: justpdf keeps them, and
+ * a qpdf rewrite (see plainPdf.ts) leaves no broken references at all.
+ */
+export async function lostReferences(input: Uint8Array, output: Uint8Array): Promise<string[]> {
+  const pdfLib = await import("pdf-lib");
+  const outputDoc = await openForReferences(pdfLib, output);
+  if (outputDoc === null) return [];
+  const broken = brokenReferences(pdfLib, outputDoc);
+  if (broken.size === 0) return [];
+  const inputDoc = await openForReferences(pdfLib, input);
+  if (inputDoc === null) return [];
+  const inherited = brokenReferences(pdfLib, inputDoc);
+  return [...broken].filter((ref) => !inherited.has(ref));
+}
