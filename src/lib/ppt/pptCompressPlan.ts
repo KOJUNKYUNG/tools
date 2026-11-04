@@ -19,19 +19,19 @@ export const PRESET_QUALITY: Record<CompressionPreset, number> = {
 export const PRESET_SLIDE_WIDTH_PX: Record<CompressionPreset, number | null> = {
   low: null,
   medium: 2560,
-  high: 1920,
+  high: 1280,
 };
 
 /**
  * A picture is resized only when it would keep less than this share of its
  * width and height: closer to its display size, the saving is not worth a
  * resample. Measured with scripts/measure-ppt-ratios (?parts=analysis,
- * "Picture bytes by resize scale", 2026-10-20) on the eight real decks: the
- * band this leaves alone (0.9–1) holds 0–10% of a deck's picture bytes at
- * medium and 0–24% at high, and resizing it would keep at least 0.81 of
- * their pixels, so it forgoes at most about 2–3% of the picture bytes. A
- * threshold of 0.8 would also forgo the 0.8–0.9 band: up to 69% of a deck's
- * picture bytes at high, on the deck where most of the saving lies.
+ * "Picture bytes by resize scale", 2026-11-04) on the 21 real decks: the
+ * band this leaves alone (0.9–1) holds 0–11% of a deck's picture bytes at
+ * medium and 0–27% at high, and resizing it would keep at least 0.81 of
+ * their pixels, so it forgoes at most about 3–5% of the picture bytes. A
+ * threshold of 0.8 would also forgo the 0.8–0.9 band: up to all of a deck's
+ * picture bytes at high.
  */
 const MIN_RESIZE_SCALE = 0.9;
 
@@ -63,6 +63,41 @@ export function downsampleTarget(
     width: Math.max(1, Math.round(upright.width * scale)),
     height: Math.max(1, Math.round(upright.height * scale)),
   };
+}
+
+/**
+ * A resized PNG this far under the original needs no comparing. Measured with
+ * a one-off run of the engine's encoder (Chrome, 2026-11-04) on the 730 PNGs
+ * in the 21 real decks that resize at 1280 px but did not at 1920 px, repeated
+ * decks counted each time: 98 land under this share, holding 130 of their
+ * 160 MB, and every one of them saves over a tenth on its same-size encode.
+ * The same-size encode is the slow one, so skipping it there saves most of the
+ * time this comparison would cost. The same rule runs at medium, whose 31
+ * resizing PNGs were too few to measure apart.
+ */
+const RESIZE_CLEAR_WIN_SHARE = 0.5;
+
+/**
+ * Resizing softens a picture, so it has to save this share over keeping its
+ * pixels. A PNG with few colours can come out larger when resized, since the
+ * resample makes new colours: on those same PNGs 280 of 730 grew, and 143 more
+ * saved under a tenth, 0.25 MB between them. No JPEG grew in that run, so a
+ * JPEG is not compared.
+ */
+const MIN_RESIZE_SAVING = 0.1;
+
+/** Whether a resized PNG is close enough to the original that its same-size encode decides. */
+export function resizeNeedsComparing(original: number, resized: number): boolean {
+  return resized > original * RESIZE_CLEAR_WIN_SHARE;
+}
+
+/**
+ * Whether a resized PNG saves enough to be worth its softness. `unresized` is
+ * what keeping its pixels would leave: the smaller of the original and its
+ * same-size encode.
+ */
+export function resizeSavesEnough(resized: number, unresized: number): boolean {
+  return resized <= unresized * (1 - MIN_RESIZE_SAVING);
 }
 
 /** Extensions we attempt to recompress. Everything else passes through. */
@@ -247,29 +282,30 @@ const FLAT_PNG_RATIO: Record<CompressionPreset, number> = {
  * 2.0.2, Chrome, 2026-10-20), byte-weighted, on pictures larger than any
  * target placed across the full and half slide width, every step fresh and
  * re-run: the high-resolution set (14 photos) as q95 and q86 JPEGs and as
- * lossless PNGs, and the six loose real-file photos. In-sample on these; the
- * page's "Resized pictures, measured ÷ model" table re-checks both powers
- * (1 means the model fits).
+ * lossless PNGs, and the six loose real-file photos. The JPEG power is
+ * in-sample on these, the PNG power below is not; the page's "Resized pictures,
+ * measured ÷ model" table re-checks both (1 means the model fits).
  *
  * - JPEG, power of `kept`: 1.02 (n=303), so 1 is used; per source quality and
  *   preset 0.89–1.15 on the set, 0.77–1.35 on the loose photos.
- * - PNG, this power: 0.34 (n=123, the set's PNGs); per step (fresh or re-run)
- *   and preset 0.18–0.60, where 0.34 misses by −2% to +4%; per picture −25%
- *   to +136%. The flat ratio decides about 9% of their bytes, and on those it
- *   promises 25% less than they save.
+ * - PNG, this power: 0.7, fit when high moved to 1280 px (2026-11-04) on the
+ *   21 real decks' resized PNGs at high, byte-weighted, where 0.34 (the fit
+ *   before, on the set's PNGs) left whole decks up to 52% above the measured
+ *   size and 0.8 over-promised on one more deck. The set's PNGs (n=129, not
+ *   used for 0.7) measure 1.02 at high and 1.07 at medium against the model.
  *
  * Not measured resized: a JPEG already as compressed as the preset (no step
  * resizes one at its own quality; the model gives it `kept`), and an
  * indexed PNG (kept at its size, which can only under-promise).
  *
- * Hold-out: the real decks' resized pictures (18 pictures, JPEG n=12 steps,
- * PNG n=57) were not used, and every real deck at medium and high, fresh and
- * re-run, comes out within −8% to +5% (n=40, over two runs; before resizing
- * was modelled, up to +17%). One picture there shrinks about three times past
- * its pixels, so resized JPEGs alone come out +17–23%: the model
- * under-promises.
+ * Whole decks against their measured size (21 real decks, fresh, 2026-11-04):
+ * low −14% to +21%, medium −19% to +23%, high −28% to +14%, in-sample at high
+ * through the power above. The worst over-promises are grainy PNGs the engine
+ * barely shrinks at any budget (canva_template_1 and _2). The estimate takes
+ * every target as resized: only encoding shows which PNGs keep their pixels
+ * (`resizeSavesEnough`), so a deck of mostly such PNGs is over-promised.
  */
-const RESIZED_FLAT_PNG_EXPONENT = 0.34;
+const RESIZED_FLAT_PNG_EXPONENT = 0.7;
 
 /**
  * A fresh PNG's remaining ratio, keeping `kept` of its pixels. Without a
@@ -285,11 +321,16 @@ function freshPngRatio(
   return Math.min(flat, (media.visiblePixels * kept * PNG_BYTES_PER_VISIBLE_PIXEL[preset]) / media.bytes);
 }
 
-/** Whole-file [min,max] remaining range used as a static fallback estimate. */
+/**
+ * Whole-file [min,max] remaining range used as a static fallback estimate
+ * until the analysis is ready: about the middle half of the 21 real decks
+ * (2026-11-04). Whole decks spread far wider: low 39–99%, medium 8–99%, high
+ * 3–82%.
+ */
 export const PRESET_RANGE: Record<CompressionPreset, [number, number]> = {
-  low: [0.7, 0.98],
-  medium: [0.55, 0.9],
-  high: [0.45, 0.8],
+  low: [0.5, 0.75],
+  medium: [0.45, 0.75],
+  high: [0.25, 0.5],
 };
 
 /**

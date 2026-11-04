@@ -52,7 +52,7 @@ export function PptCompressEstimate({
       className="flex items-center justify-between gap-3 font-body text-[12px]"
       style={{ color: "var(--ink-soft)" }}
     >
-      <span className="truncate">{descMap[preset]}</span>
+      <span className="min-w-0 break-keep max-sm:min-h-[2lh]">{descMap[preset]}</span>
       <span className="shrink-0 tabular-nums" style={{ color: "var(--ink)" }}>
         {rangeText}
       </span>
