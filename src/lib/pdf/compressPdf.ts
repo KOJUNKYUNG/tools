@@ -1,7 +1,9 @@
 import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
-import { checkPdfCompress } from "./pdfCompressCheck";
+import { checkPdfCompress, REFERENCES_RESOLVE } from "./pdfCompressCheck";
+import { plainPdf } from "./plainPdf";
+import { hasInvalidSoftMask } from "./softMaskCheck";
 
 export interface CompressPdfOptions {
   file: File;
@@ -23,6 +25,7 @@ export type CompressPdfResult =
       /**
        * True when the chosen preset's output was damaged and the file was
        * re-compressed without image re-encoding instead (see pdfCompressCheck.ts).
+       * Not when only the file's structure was rewritten: the preset still applied.
        */
       imageReencodeSkipped: boolean;
     }
@@ -81,12 +84,16 @@ export async function compressPdfFromBytes({
   onProgress?.(30);
   onProgress?.(50);
 
+  // What the compressor reads: the file, or its plain rewrite once recovering.
+  let source = bytes;
+  let imageReencodeSkipped = false;
+
   const run = (params: PresetParams): Uint8Array => {
     // font_subsetting=false: the upstream WASM's subsetter corrupts glyph maps on
     // several Korean fonts (full doc AND pdf-lib-extracted subsets). Skipping it
     // gives reliable output across all PDFs at a modest compression-ratio cost.
     const result = compress_advanced(
-      bytes,
+      source,
       params.jpegQuality,
       params.maxDpi,
       /* font_subsetting */ false,
@@ -112,24 +119,32 @@ export async function compressPdfFromBytes({
     tool: "pdf-compress",
     output: first,
     check: async (out) =>
-      (await checkPdfCompress(bytes, { preset }, out, "quick")).filter(
+      (await checkPdfCompress(source, { preset }, out, "quick")).filter(
         (v) => v.property !== SIZE_BOUND,
       ),
-    // Image re-encoding is where the compressor goes wrong (it rewrote soft
-    // masks as RGB JPEGs, which some viewers drop): redo the file with Light's
-    // image settings, keeping the preset's metadata choice. Light never
-    // re-encodes, so it has no safer setting to fall back to.
-    recover:
-      params.jpegQuality === 0
-        ? undefined
-        : async () => run({ ...ADVANCED_PARAMS.low, stripMetadata: params.stripMetadata }),
+    recover: async (violations) => {
+      // Objects it could not read: it reads the same document without the
+      // structure it misreads (see plainPdf.ts), at the preset's own settings.
+      if (violations.some((v) => v.property === REFERENCES_RESOLVE)) {
+        source = await plainPdf(bytes);
+        const out = run(params);
+        if (params.jpegQuality === 0 || !hasInvalidSoftMask(out)) return out;
+      } else if (params.jpegQuality === 0) {
+        throw new Error("Light never re-encodes: it has no safer setting to fall back to");
+      }
+      // Image re-encoding is where the compressor goes wrong (it rewrote soft
+      // masks as RGB JPEGs, which some viewers drop): redo the file with Light's
+      // image settings, keeping the preset's metadata choice.
+      imageReencodeSkipped = true;
+      return run({ ...ADVANCED_PARAMS.low, stripMetadata: params.stripMetadata });
+    },
   });
   onProgress?.(100);
 
   const sizes = {
     originalSize: bytes.byteLength,
     compressedSize: output.byteLength,
-    imageReencodeSkipped: output !== first,
+    imageReencodeSkipped,
   };
   return notSmaller(bytes, output)
     ? { kind: "not-smaller", ...sizes }

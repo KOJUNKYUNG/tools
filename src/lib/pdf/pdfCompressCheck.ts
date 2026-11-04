@@ -2,7 +2,11 @@ import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import { inspectPdf, pdfPageCount } from "@/lib/output-check/pdfInspector";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
+import { lostReferences } from "./brokenReferences";
 import { hasInvalidSoftMask } from "./softMaskCheck";
+
+/** The violated property when the output lost objects (see brokenReferences.ts). */
+export const REFERENCES_RESOLVE = "references-resolve";
 
 export interface PdfCompressRequest {
   preset: CompressionPreset;
@@ -34,11 +38,14 @@ const inputFirstPageFails = (input: Uint8Array) =>
  * - `page-count`: the output has the input's page count
  * - `first-page-renders`: the output's page 1 renders in pdfjs (the preview
  *   used to swallow this failure)
+ * - `references-resolve`: every reference the output's objects reach points at
+ *   an object (see brokenReferences.ts): objects a compressor drops leave a
+ *   file that opens and renders with its fonts and form fields gone
  *
  * Defects the input already had are not the tool's doing: an invalid soft
- * mask, a file pdfjs cannot open, or a page 1 that does not render, when the
- * input has it too, is not reported. The input is only read when the output
- * shows the defect, except for its page count.
+ * mask, a file pdfjs cannot open, a page 1 that does not render, or a broken
+ * reference, when the input has it too, is not reported. The input is only
+ * read when the output shows the defect, except for its page count.
  */
 export const checkPdfCompress: OutputChecker<Uint8Array, PdfCompressRequest, Uint8Array> =
   async (input, _request, output) => {
@@ -76,6 +83,15 @@ export const checkPdfCompress: OutputChecker<Uint8Array, PdfCompressRequest, Uin
         const renderError = await pdf.renderError(1);
         if (renderError !== null && !(await inputFirstPageFails(input))) {
           vs.push({ property: "first-page-renders", detail: renderError });
+        }
+      }
+      if (vs.length === 0) {
+        const lost = await lostReferences(input, output);
+        if (lost.length > 0) {
+          vs.push({
+            property: REFERENCES_RESOLVE,
+            detail: `${lost.length} lost, e.g. ${lost.slice(0, 5).join(", ")}`,
+          });
         }
       }
       return vs;

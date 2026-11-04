@@ -6,8 +6,12 @@ import { SIZE_BOUND } from "@/lib/output-check/sizeBound";
 import { compressPdfFromBytes, type CompressPdfResult } from "./compressPdf";
 import { initJustpdfForNode } from "./justpdfNode";
 import { checkPdfCompress, type PdfCompressRequest } from "./pdfCompressCheck";
+import { initQpdfForNode } from "./qpdfNode";
 
-beforeAll(initJustpdfForNode);
+beforeAll(async () => {
+  await initJustpdfForNode();
+  initQpdfForNode();
+});
 
 async function requests(input: Uint8Array): Promise<RealFileRequest<PdfCompressRequest>[]> {
   // The tool refuses encrypted PDFs before compressing: nothing to run.

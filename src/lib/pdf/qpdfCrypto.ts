@@ -11,13 +11,11 @@
 // Pure logic (argv build, naming, validation) lives in sibling modules; the
 // output check and this file run in Node tests via qpdfNode.ts.
 import { runOutputCheck } from "@/lib/output-check/core";
-import { withQpdf } from "./qpdf";
+import { runQpdf } from "./qpdf";
 import {
   buildEncryptArgs,
   buildDecryptArgs,
   type LockPermissions,
-  DEFAULT_INPUT_PATH,
-  DEFAULT_OUTPUT_PATH,
 } from "./qpdfArgs";
 import {
   checkPdfLock,
@@ -48,49 +46,6 @@ export interface DecryptPdfOptions {
 
 export interface QpdfCryptoResult {
   data: Uint8Array;
-}
-
-/**
- * Run an argv against a fresh qpdf instance with `input` pre-written to MEMFS.
- * Returns the exit code, captured stderr, and output bytes (or null). Always
- * unlinks both MEMFS paths in a finally block so nothing persists in RAM.
- */
-async function runQpdf(
-  input: Uint8Array,
-  args: string[],
-): Promise<{ exit: number; stderr: string; out: Uint8Array | null }> {
-  // withQpdf installs the stderr capture BEFORE the module is created (required
-  // by this build — see qpdf.ts) and runs everything below inside that window.
-  const { result, stderr } = await withQpdf((qpdf) => {
-    qpdf.FS.writeFile(DEFAULT_INPUT_PATH, input);
-    let exit = 0;
-    try {
-      // Emscripten may throw an ExitStatus / number for non-zero exits.
-      exit = qpdf.callMain(args);
-    } catch (e) {
-      exit = typeof e === "number" ? e : ((e as { status?: number })?.status ?? 1);
-    }
-
-    let out: Uint8Array | null = null;
-    try {
-      const view = qpdf.FS.readFile(DEFAULT_OUTPUT_PATH);
-      // Copy off the MEMFS-backed view before unlink so it stays valid after.
-      out = view ? new Uint8Array(view) : null;
-    } catch {
-      out = null;
-    } finally {
-      for (const p of [DEFAULT_INPUT_PATH, DEFAULT_OUTPUT_PATH]) {
-        try {
-          qpdf.FS.unlink(p);
-        } catch {
-          // already gone / never created — fine.
-        }
-      }
-    }
-    return { exit, out };
-  });
-
-  return { exit: result.exit, stderr, out: result.out };
 }
 
 /** Hand back `out` once pdfjs confirms it; otherwise block (no safer mode). */

@@ -10,6 +10,8 @@
 // risking state bleed between operations. A throwaway instance guarantees zero
 // bleed; the ~hundreds-of-ms re-init is hidden behind ProcessingStatus.
 
+import { DEFAULT_INPUT_PATH, DEFAULT_OUTPUT_PATH } from "./qpdfArgs";
+
 /** Self-hosted qpdf wasm URL (same-origin, served from public/qpdf/). */
 export const QPDF_WASM_URL = "/qpdf/qpdf.wasm";
 
@@ -108,4 +110,47 @@ export async function withQpdf<T>(
       if (console.error === patched) console.error = originalError;
     }
   });
+}
+
+/**
+ * Run an argv against a fresh qpdf instance with `input` pre-written to MEMFS.
+ * Returns the exit code, captured stderr, and output bytes (or null). Always
+ * unlinks both MEMFS paths in a finally block so nothing persists in RAM.
+ */
+export async function runQpdf(
+  input: Uint8Array,
+  args: string[],
+): Promise<{ exit: number; stderr: string; out: Uint8Array | null }> {
+  // withQpdf installs the stderr capture BEFORE the module is created (required
+  // by this build — see qpdf.ts) and runs everything below inside that window.
+  const { result, stderr } = await withQpdf((qpdf) => {
+    qpdf.FS.writeFile(DEFAULT_INPUT_PATH, input);
+    let exit = 0;
+    try {
+      // Emscripten may throw an ExitStatus / number for non-zero exits.
+      exit = qpdf.callMain(args);
+    } catch (e) {
+      exit = typeof e === "number" ? e : ((e as { status?: number })?.status ?? 1);
+    }
+
+    let out: Uint8Array | null = null;
+    try {
+      const view = qpdf.FS.readFile(DEFAULT_OUTPUT_PATH);
+      // Copy off the MEMFS-backed view before unlink so it stays valid after.
+      out = view ? new Uint8Array(view) : null;
+    } catch {
+      out = null;
+    } finally {
+      for (const p of [DEFAULT_INPUT_PATH, DEFAULT_OUTPUT_PATH]) {
+        try {
+          qpdf.FS.unlink(p);
+        } catch {
+          // already gone / never created — fine.
+        }
+      }
+    }
+    return { exit, out };
+  });
+
+  return { exit: result.exit, stderr, out: result.out };
 }

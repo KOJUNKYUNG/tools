@@ -1,0 +1,35 @@
+// Rewrites a PDF with qpdf into the plainest structure: one cross-reference
+// table, no object streams, every object at generation 0. The content does not
+// change, and the streams are copied as they are.
+//
+// justpdf silently drops the objects of three legal structures, which leaves a
+// file that opens with its fonts, form fields or tags gone:
+// - object streams with nothing between the objects, and a space after the
+//   index (Adobe's writers), up to 0.1.2: it reads each object one byte early
+// - hybrid-reference files (/XRefStm, as Word writes them): it never reads the
+//   stream, so it loses the objects hidden there. Upstream #53, open
+// - objects at a generation other than 0: it writes them at 0 and leaves the
+//   references at their generation, which read as null. Fixed upstream after
+//   0.1.3, not released
+// It reads none of these in a plain file.
+//
+// Only a recovery, not the first pass: qpdf fails on a few files justpdf reads
+// (annotation-polyline-polygon.pdf in pdf.js's samples), and it costs a second
+// wasm start.
+
+import { runQpdf } from "./qpdf";
+import { DEFAULT_INPUT_PATH, DEFAULT_OUTPUT_PATH } from "./qpdfArgs";
+import { classifyQpdfResult } from "./qpdfResultClass";
+
+export async function plainPdf(bytes: Uint8Array): Promise<Uint8Array> {
+  const { exit, stderr, out } = await runQpdf(bytes, [
+    DEFAULT_INPUT_PATH,
+    DEFAULT_OUTPUT_PATH,
+    "--object-streams=disable",
+    "--stream-data=preserve",
+  ]);
+  if (out === null || classifyQpdfResult(exit, stderr, true) !== "ok") {
+    throw new Error(`qpdf could not rewrite the file (exit ${exit})`);
+  }
+  return out;
+}

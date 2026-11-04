@@ -1,9 +1,11 @@
-import { PDFDocument, StandardFonts } from "pdf-lib";
+import { deflateSync } from "node:zlib";
+import { PDFDict, PDFDocument, PDFName, StandardFonts } from "pdf-lib";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
 import { compressPdfFromBytes } from "./compressPdf";
 import { initJustpdfForNode } from "./justpdfNode";
 import * as check from "./pdfCompressCheck";
+import { initQpdfForNode } from "./qpdfNode";
 
 // The real checker by default; some tests make it report damage.
 vi.mock("./pdfCompressCheck", async (importOriginal) => {
@@ -13,7 +15,10 @@ vi.mock("./pdfCompressCheck", async (importOriginal) => {
 const { checkPdfCompress } = await vi.importActual<typeof check>("./pdfCompressCheck");
 const mockedCheck = vi.mocked(check.checkPdfCompress);
 
-beforeAll(initJustpdfForNode);
+beforeAll(async () => {
+  await initJustpdfForNode();
+  initQpdfForNode();
+});
 afterEach(() => mockedCheck.mockReset().mockImplementation(checkPdfCompress));
 
 async function textPdf(rawContent?: string): Promise<Uint8Array> {
@@ -34,6 +39,84 @@ const compressible = () => textPdf("q Q\n".repeat(20_000));
 const incompressible = () => textPdf();
 
 const damaged = [{ property: "soft-mask", detail: "test" }];
+
+/**
+ * Three fonts in one object stream, laid out as Adobe's writers lay them out
+ * (irs-fw9.pdf, Designer 6.5): a space after the index, then the objects with
+ * nothing between them. Both are legal. justpdf 0.1.2 starts reading each
+ * object one byte early, so it reads the previous object's last `>`: every
+ * object but the first fails, and it drops them silently.
+ */
+function adjacentObjectStreamPdf(): Uint8Array {
+  const latin1 = (s: string) => Buffer.from(s, "latin1");
+  const fonts = ["Helvetica", "Courier", "Times-Roman"].map(
+    (name) => `<</Type/Font/Subtype/Type1/BaseFont/${name}>>`,
+  );
+  let at = 0;
+  const index = fonts.map((font, i) => {
+    const pair = `${i + 4} ${at}`;
+    at += font.length;
+    return pair;
+  });
+  const head = `${index.join(" ")} `;
+  const packed = deflateSync(latin1(head + fonts.join("")));
+  // Draws with each font, or the compressor removes them as unused. Unfiltered,
+  // so the output shrinks and is offered if it is sound.
+  const content = `BT /A 9 Tf (a) Tj /B 9 Tf (b) Tj /C 9 Tf (c) Tj ET\n${"q Q\n".repeat(20_000)}`;
+
+  const parts: Buffer[] = [latin1("%PDF-1.7\n")];
+  let size = parts[0].length;
+  const offsets = new Map<number, number>();
+  const write = (n: number, body: Buffer) => {
+    offsets.set(n, size);
+    const part = Buffer.concat([latin1(`${n} 0 obj\n`), body, latin1("\nendobj\n")]);
+    parts.push(part);
+    size += part.length;
+  };
+  write(1, latin1("<</Type/Catalog/Pages 2 0 R>>"));
+  write(2, latin1("<</Type/Pages/Kids[3 0 R]/Count 1>>"));
+  write(
+    3,
+    latin1(
+      "<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 100]/Contents 7 0 R" +
+        "/Resources<</Font<</A 4 0 R/B 5 0 R/C 6 0 R>>>>>>",
+    ),
+  );
+  write(7, latin1(`<</Length ${content.length}>>stream\n${content}\nendstream`));
+  write(
+    8,
+    Buffer.concat([
+      latin1(
+        `<</Type/ObjStm/N 3/First ${head.length}/Filter/FlateDecode/Length ${packed.length}>>stream\n`,
+      ),
+      packed,
+      latin1("\nendstream"),
+    ]),
+  );
+  const xrefAt = size;
+  offsets.set(9, xrefAt);
+  // /W [1 4 2]: type, offset or object stream, generation or index.
+  const row = (type: number, a: number, b: number) => {
+    const r = Buffer.alloc(7);
+    r.writeUInt8(type, 0);
+    r.writeUInt32BE(a, 1);
+    r.writeUInt16BE(b, 5);
+    return r;
+  };
+  const rows = [row(0, 0, 65535)];
+  for (let n = 1; n <= 9; n++) {
+    rows.push(n >= 4 && n <= 6 ? row(2, 8, n - 4) : row(1, offsets.get(n) ?? 0, 0));
+  }
+  const table = deflateSync(Buffer.concat(rows));
+  parts.push(
+    latin1(
+      `9 0 obj\n<</Type/XRef/Size 10/W[1 4 2]/Root 1 0 R/Filter/FlateDecode/Length ${table.length}>>stream\n`,
+    ),
+    table,
+    latin1(`\nendstream\nendobj\nstartxref\n${xrefAt}\n%%EOF\n`),
+  );
+  return new Uint8Array(Buffer.concat(parts));
+}
 
 describe("compressPdfFromBytes", () => {
   it("returns a smaller file that passes the full check", async () => {
@@ -75,6 +158,47 @@ describe("compressPdfFromBytes", () => {
     await expect(
       compressPdfFromBytes({ bytes: await compressible(), preset: "medium" }),
     ).rejects.toThrow(CORRUPT_OUTPUT_PREFIX);
+  });
+
+  it("keeps every object of an object stream written without separators", async () => {
+    const bytes = adjacentObjectStreamPdf();
+    const result = await compressPdfFromBytes({ bytes, preset: "low" });
+    if (result.kind !== "compressed") throw new Error(result.kind);
+    expect(result.imageReencodeSkipped).toBe(false);
+    expect(await checkPdfCompress(bytes, { preset: "low" }, result.data, "full")).toEqual([]);
+    const fonts = (await PDFDocument.load(result.data))
+      .getPage(0)
+      .node.Resources()
+      ?.lookup(PDFName.of("Font"), PDFDict);
+    expect(fonts?.keys().map(String)).toEqual(["/A", "/B", "/C"]);
+    fonts?.keys().forEach((key) => expect(fonts.lookup(key)).toBeInstanceOf(PDFDict));
+  });
+
+  describe("an output that lost objects", () => {
+    const lost = [{ property: check.REFERENCES_RESOLVE, detail: "test" }];
+
+    it("re-compresses at the preset's settings, from a plain rewrite of the file", async () => {
+      mockedCheck.mockResolvedValueOnce(lost);
+      const bytes = await compressible();
+      const result = await compressPdfFromBytes({ bytes, preset: "medium" });
+      expect(result).toMatchObject({ kind: "compressed", imageReencodeSkipped: false });
+      expect(mockedCheck).toHaveBeenCalledTimes(2);
+      // The second check judges against the file the compressor read.
+      expect(mockedCheck.mock.calls[1][0]).not.toBe(bytes);
+    });
+
+    it("recovers on Light too", async () => {
+      mockedCheck.mockResolvedValueOnce(lost);
+      const result = await compressPdfFromBytes({ bytes: await compressible(), preset: "low" });
+      expect(result).toMatchObject({ kind: "compressed", imageReencodeSkipped: false });
+    });
+
+    it("blocks when the rewrite loses them too", async () => {
+      mockedCheck.mockResolvedValue(lost);
+      await expect(
+        compressPdfFromBytes({ bytes: await compressible(), preset: "medium" }),
+      ).rejects.toThrow(CORRUPT_OUTPUT_PREFIX);
+    });
   });
 
   it("blocks Light's damage without a retry: it has no safer setting", async () => {
