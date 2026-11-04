@@ -304,6 +304,26 @@ async function recompressMedia(
 }
 
 /**
+ * One encode of the media part `path`, or null when it fails (corrupt or odd
+ * image) or comes out in the wrong format or shape, which would distort its
+ * fixed slide frame (spec #51, #65). The caller then keeps the original bytes.
+ * A resized one that passes counts as re-encoded like any other.
+ */
+async function encodeChecked(
+  recompress: RecompressMedia,
+  path: string,
+  original: Uint8Array,
+  action: Extract<MediaAction, { kind: "jpeg" | "png" }>,
+): Promise<Uint8Array | null> {
+  try {
+    const out = await recompress(original, action);
+    return recompressedMediaViolations(path, original, out).length > 0 ? null : out;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Unpack -> re-encode each jpg/jpeg/png in ppt/media/* in place (same format,
  * same path) -> repackage. Entries are never added, removed, or renamed, so the
  * slide rels and [Content_Types].xml stay valid.
@@ -368,32 +388,14 @@ export async function compressPptxFromBytes({
       if (action.kind !== "passthrough") {
         const size = uprightSize(original);
         const target = size && downsampleTarget(size, displaySizes.get(path) ?? null, preset);
-        let candidate: Uint8Array | null = null;
-        try {
-          candidate = await recompress(original, target ? { ...action, target } : action);
-        } catch {
-          // Re-encode failure (corrupt/odd image) -> keep the original bytes.
-          candidate = null;
-        }
-        // A candidate in the wrong format or shape would distort its fixed
-        // slide frame: keep the original bytes instead (spec #51, #65). A
-        // resized one that passes counts as re-encoded like any other.
-        if (candidate && recompressedMediaViolations(path, original, candidate).length > 0) {
-          candidate = null;
-        }
-        // A PNG that resizes for little is kept at its own pixels.
+        const encode = (a: Extract<MediaAction, { kind: "jpeg" | "png" }>) =>
+          encodeChecked(recompress, path, original, a);
+        let candidate = await encode(target ? { ...action, target } : action);
+        // A PNG that resizes for little is kept at its own pixels. Without a
+        // same-size encode to compare with, the resize stands.
         if (candidate && target && action.kind === "png" && resizeNeedsComparing(original.length, candidate.length)) {
-          let sameSize: Uint8Array | null = null;
-          try {
-            sameSize = await recompress(original, action);
-          } catch {
-            // No comparison to make: the resize stands.
-          }
-          if (
-            sameSize &&
-            recompressedMediaViolations(path, original, sameSize).length === 0 &&
-            !resizeSavesEnough(candidate.length, sameSize.length)
-          ) {
+          const sameSize = await encode(action);
+          if (sameSize && !resizeSavesEnough(candidate.length, Math.min(original.length, sameSize.length))) {
             candidate = sameSize;
           }
         }

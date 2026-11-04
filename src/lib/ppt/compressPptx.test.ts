@@ -285,6 +285,16 @@ describe("compressPptxFromBytes downsampling", () => {
       expect(await shownPixels(out, 1)).toEqual([1200, 600]);
     });
 
+    it("keeps the original when the resize saves under a tenth and the same-size encode grows", async () => {
+      const out = await run([photo, { image: noisePng(40, 20), mime: "image/png", w: 10, h: 5 }], "high", async (bytes, action) => {
+        if (bytes.length !== original.length) return solidPng(40, 20);
+        return action.target
+          ? resizedOf(0.95)
+          : padded(solidPng(1200, 600), Math.floor(original.length * 1.3));
+      });
+      expect(sameBytes(await media(out, slidePicture(1)), original)).toBe(true);
+    });
+
     it("resizes it when the resize saves a tenth or more", async () => {
       const sameSize = padded(solidPng(1200, 600), Math.floor(original.length * 0.7));
       const out = await run([photo], "high", async (_, action) =>
@@ -294,13 +304,13 @@ describe("compressPptxFromBytes downsampling", () => {
     });
 
     it("skips the same-size encode when the resize already halves the picture", async () => {
-      const actions: boolean[] = [];
+      const hadTarget: boolean[] = [];
       const out = await run([photo], "high", async (_, action) => {
-        actions.push(action.target !== undefined);
+        hadTarget.push(action.target !== undefined);
         return action.target ? resizedOf(0.4) : solidPng(1200, 600);
       });
       expect(await shownPixels(out, 1)).toEqual([512, 256]);
-      expect(actions).toEqual([true]);
+      expect(hadTarget).toEqual([true]);
     });
 
     it("keeps the resize when the same-size encode fails", async () => {
@@ -327,17 +337,17 @@ describe("compressPptxFromBytes downsampling", () => {
     });
 
     it("encodes a JPEG once: fewer pixels always save", async () => {
-      const actions: boolean[] = [];
+      const hadTarget: boolean[] = [];
       const jpeg: Shown = { image: withJpegSize(JPEG_3x2, 3000, 2000), mime: "image/jpeg", w: 3, h: 2 };
       await compressPptxFromBytes({
         bytes: await deck([jpeg]),
         preset: "high",
         recompress: async (bytes, action) => {
-          actions.push(action.target !== undefined);
+          hadTarget.push(action.target !== undefined);
           return toTarget(bytes, action);
         },
       });
-      expect(actions).toEqual([true]);
+      expect(hadTarget).toEqual([true]);
     });
   });
 

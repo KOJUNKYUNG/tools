@@ -72,16 +72,17 @@ export function downsampleTarget(
  * decks counted each time: 98 land under this share, holding 130 of their
  * 160 MB, and every one of them saves over a tenth on its same-size encode.
  * The same-size encode is the slow one, so skipping it there saves most of the
- * time this comparison would cost.
+ * time this comparison would cost. The same rule runs at medium, whose 31
+ * resizing PNGs were too few to measure apart.
  */
 const RESIZE_CLEAR_WIN_SHARE = 0.5;
 
 /**
- * Resizing softens a picture, so it has to save this share over the same-size
- * encode. A PNG with few colours can come out larger when resized, since the
+ * Resizing softens a picture, so it has to save this share over keeping its
+ * pixels. A PNG with few colours can come out larger when resized, since the
  * resample makes new colours: on those same PNGs 280 of 730 grew, and 143 more
- * saved under a tenth, 0.25 MB between them. A JPEG always saves, so it is not
- * compared.
+ * saved under a tenth, 0.25 MB between them. No JPEG grew in that run, so a
+ * JPEG is not compared.
  */
 const MIN_RESIZE_SAVING = 0.1;
 
@@ -90,9 +91,13 @@ export function resizeNeedsComparing(original: number, resized: number): boolean
   return resized > original * RESIZE_CLEAR_WIN_SHARE;
 }
 
-/** Whether a resized PNG saves enough over its same-size encode to be worth its softness. */
-export function resizeSavesEnough(resized: number, sameSize: number): boolean {
-  return resized <= sameSize * (1 - MIN_RESIZE_SAVING);
+/**
+ * Whether a resized PNG saves enough to be worth its softness. `unresized` is
+ * what keeping its pixels would leave: the smaller of the original and its
+ * same-size encode.
+ */
+export function resizeSavesEnough(resized: number, unresized: number): boolean {
+  return resized <= unresized * (1 - MIN_RESIZE_SAVING);
 }
 
 /** Extensions we attempt to recompress. Everything else passes through. */
@@ -277,9 +282,9 @@ const FLAT_PNG_RATIO: Record<CompressionPreset, number> = {
  * 2.0.2, Chrome, 2026-10-20), byte-weighted, on pictures larger than any
  * target placed across the full and half slide width, every step fresh and
  * re-run: the high-resolution set (14 photos) as q95 and q86 JPEGs and as
- * lossless PNGs, and the six loose real-file photos. In-sample on these; the
- * page's "Resized pictures, measured ÷ model" table re-checks both powers
- * (1 means the model fits).
+ * lossless PNGs, and the six loose real-file photos. The JPEG power is
+ * in-sample on these, the PNG power below is not; the page's "Resized pictures,
+ * measured ÷ model" table re-checks both (1 means the model fits).
  *
  * - JPEG, power of `kept`: 1.02 (n=303), so 1 is used; per source quality and
  *   preset 0.89–1.15 on the set, 0.77–1.35 on the loose photos.

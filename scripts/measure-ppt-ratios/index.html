@@ -142,7 +142,7 @@ async function compressAt(kind, bytes, preset, display) {
   // A PNG that resizes for little is kept at its own pixels, as the engine does.
   if (target && kind === "png" && resizeNeedsComparing(bytes.length, out.length)) {
     const sameSize = await encode(bytes, mime, QUALITY[preset]);
-    if (!resizeSavesEnough(out.length, sameSize.length)) out = sameSize;
+    if (!resizeSavesEnough(out.length, Math.min(bytes.length, sameSize.length))) out = sameSize;
   }
   return keepSmaller(bytes, out);
 }
