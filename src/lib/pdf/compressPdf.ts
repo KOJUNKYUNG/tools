@@ -2,7 +2,7 @@ import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
 import { checkPdfCompress, REFERENCES_RESOLVE } from "./pdfCompressCheck";
-import { plainPdf } from "./plainPdf";
+import { toPlainPdf } from "./plainPdf";
 import { hasInvalidSoftMask } from "./softMaskCheck";
 
 export interface CompressPdfOptions {
@@ -85,6 +85,7 @@ export async function compressPdfFromBytes({
   onProgress?.(50);
 
   // What the compressor reads: the file, or its plain rewrite once recovering.
+  // The check always judges against the file itself.
   let source = bytes;
   let imageReencodeSkipped = false;
 
@@ -119,17 +120,19 @@ export async function compressPdfFromBytes({
     tool: "pdf-compress",
     output: first,
     check: async (out) =>
-      (await checkPdfCompress(source, { preset }, out, "quick")).filter(
+      (await checkPdfCompress(bytes, { preset }, out, "quick")).filter(
         (v) => v.property !== SIZE_BOUND,
       ),
     recover: async (violations) => {
+      const reencodesImages = params.jpegQuality !== 0;
       // Objects it could not read: it reads the same document without the
       // structure it misreads (see plainPdf.ts), at the preset's own settings.
       if (violations.some((v) => v.property === REFERENCES_RESOLVE)) {
-        source = await plainPdf(bytes);
+        source = await toPlainPdf(bytes);
         const out = run(params);
-        if (params.jpegQuality === 0 || !hasInvalidSoftMask(out)) return out;
-      } else if (params.jpegQuality === 0) {
+        const newBadMask = reencodesImages && hasInvalidSoftMask(out) && !hasInvalidSoftMask(bytes);
+        if (!newBadMask) return out;
+      } else if (!reencodesImages) {
         throw new Error("Light never re-encodes: it has no safer setting to fall back to");
       }
       // Image re-encoding is where the compressor goes wrong (it rewrote soft

@@ -19,7 +19,7 @@ import { runQpdf } from "./qpdf";
 import { DEFAULT_INPUT_PATH, DEFAULT_OUTPUT_PATH } from "./qpdfArgs";
 import { classifyQpdfResult } from "./qpdfResultClass";
 
-export async function plainPdf(bytes: Uint8Array): Promise<Uint8Array> {
+export async function toPlainPdf(bytes: Uint8Array): Promise<Uint8Array> {
   const { exit, stderr, out } = await runQpdf(bytes, [
     DEFAULT_INPUT_PATH,
     DEFAULT_OUTPUT_PATH,

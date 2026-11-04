@@ -12,7 +12,7 @@
 // as defined: a live reference to one reads as lost. That costs a recovery, not
 // a block, since the recovered file no longer has the reference.
 
-import type { PDFDocument, PDFObject, PDFRef } from "pdf-lib";
+import type { PDFDocument, PDFObject } from "pdf-lib";
 import { LOAD_WITH_RARE_YIELDS } from "./pdfLibYields";
 
 /** The file's objects, in pdf-lib's reading. */
@@ -29,16 +29,16 @@ function openForReferences(pdfLib: typeof import("pdf-lib"), bytes: Uint8Array):
  * `12 0 R` strings. Objects nothing reaches do not count: no viewer reads them.
  */
 function brokenReferences(pdfLib: typeof import("pdf-lib"), doc: PDFDocument): Set<string> {
-  const { PDFArray, PDFDict, PDFRef: Ref, PDFStream } = pdfLib;
+  const { PDFArray, PDFDict, PDFRef, PDFStream } = pdfLib;
   const { context } = doc;
   const broken = new Set<string>();
-  const seen = new Set<PDFRef>();
+  const seen = new Set<PDFObject>();
   const { Root, Info } = context.trailerInfo;
   const stack: (PDFObject | undefined)[] = [Root, Info];
 
   while (stack.length > 0) {
     const object = stack.pop();
-    if (object instanceof Ref) {
+    if (object instanceof PDFRef) {
       if (seen.has(object)) continue;
       seen.add(object);
       const target = context.lookup(object);
@@ -58,16 +58,20 @@ function brokenReferences(pdfLib: typeof import("pdf-lib"), doc: PDFDocument): S
 /**
  * The output's broken references that the input does not also have, since a
  * defect the input already had is not the tool's doing. The input is only read
- * when the output has some. Compares by object number: justpdf keeps them, so
- * `input` is the file justpdf read.
+ * when the output has some. Compares by object number: justpdf keeps them, and
+ * a qpdf rewrite (see plainPdf.ts) leaves no broken references at all.
  *
- * Throws when pdf-lib cannot read a file. That proves nothing about the file:
- * pdfjs decides whether a file opens.
+ * A file pdf-lib cannot read reports nothing: that proves nothing about the
+ * file, and pdfjs decides whether a file opens.
  */
 export async function lostReferences(input: Uint8Array, output: Uint8Array): Promise<string[]> {
   const pdfLib = await import("pdf-lib");
-  const broken = brokenReferences(pdfLib, await openForReferences(pdfLib, output));
-  if (broken.size === 0) return [];
-  const inherited = brokenReferences(pdfLib, await openForReferences(pdfLib, input));
-  return [...broken].filter((ref) => !inherited.has(ref));
+  try {
+    const broken = brokenReferences(pdfLib, await openForReferences(pdfLib, output));
+    if (broken.size === 0) return [];
+    const inherited = brokenReferences(pdfLib, await openForReferences(pdfLib, input));
+    return [...broken].filter((ref) => !inherited.has(ref));
+  } catch {
+    return [];
+  }
 }

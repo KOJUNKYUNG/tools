@@ -25,8 +25,8 @@ const inputFirstPageFails = (input: Uint8Array) =>
 
 /**
  * pdf-compress output properties (spec #51, confirmed in #60), all ⚡ (`quick`
- * and `full` check the same). justpdf wrote the output; pdfjs reads it, so the
- * opens, page-count and render checks are cross-engine.
+ * and `full` check the same). justpdf wrote the output; pdfjs and pdf-lib read
+ * it, so the opens, page-count, render and reference checks are cross-engine.
  *
  * - `size-bound`: the output is strictly smaller than the input. This one is
  *   an outcome, not damage: the engine turns it into a "could not shrink"

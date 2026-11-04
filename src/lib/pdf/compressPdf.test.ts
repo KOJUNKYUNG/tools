@@ -40,6 +40,12 @@ const incompressible = () => textPdf();
 
 const damaged = [{ property: "soft-mask", detail: "test" }];
 
+/** Unfiltered, so a compressed output shrinks and is offered if it is sound. */
+const paddingContent = "q Q\n".repeat(20_000);
+
+const pageFonts = async (bytes: Uint8Array) =>
+  (await PDFDocument.load(bytes)).getPage(0).node.Resources()?.lookup(PDFName.of("Font"), PDFDict);
+
 /**
  * Three fonts in one object stream, laid out as Adobe's writers lay them out
  * (irs-fw9.pdf, Designer 6.5): a space after the index, then the objects with
@@ -60,9 +66,8 @@ function adjacentObjectStreamPdf(): Uint8Array {
   });
   const head = `${index.join(" ")} `;
   const packed = deflateSync(latin1(head + fonts.join("")));
-  // Draws with each font, or the compressor removes them as unused. Unfiltered,
-  // so the output shrinks and is offered if it is sound.
-  const content = `BT /A 9 Tf (a) Tj /B 9 Tf (b) Tj /C 9 Tf (c) Tj ET\n${"q Q\n".repeat(20_000)}`;
+  // Draws with each font, or the compressor removes them as unused.
+  const content = `BT /A 9 Tf (a) Tj /B 9 Tf (b) Tj /C 9 Tf (c) Tj ET\n${paddingContent}`;
 
   const parts: Buffer[] = [latin1("%PDF-1.7\n")];
   let size = parts[0].length;
@@ -123,9 +128,8 @@ function adjacentObjectStreamPdf(): Uint8Array {
  * writes it at generation 0 and leaves the reference at 2, so it reads as null.
  */
 function nonZeroGenerationPdf(): Uint8Array {
-  // Draws with the font, or the compressor removes it as unused. Unfiltered, so
-  // the output shrinks and is offered if it is sound.
-  const content = `BT /A 9 Tf (a) Tj ET\n${"q Q\n".repeat(20_000)}`;
+  // Draws with the font, or the compressor removes it as unused.
+  const content = `BT /A 9 Tf (a) Tj ET\n${paddingContent}`;
   const objects: [number, number, string][] = [
     [1, 0, "<</Type/Catalog/Pages 2 0 R>>"],
     [2, 0, "<</Type/Pages/Kids[3 0 R]/Count 1>>"],
@@ -196,12 +200,10 @@ describe("compressPdfFromBytes", () => {
     const bytes = adjacentObjectStreamPdf();
     const result = await compressPdfFromBytes({ bytes, preset: "low" });
     if (result.kind !== "compressed") throw new Error(result.kind);
-    expect(result.imageReencodeSkipped).toBe(false);
+    // Read right the first time: a recovery here would hide a bug coming back.
+    expect(mockedCheck).toHaveBeenCalledTimes(1);
     expect(await checkPdfCompress(bytes, { preset: "low" }, result.data, "full")).toEqual([]);
-    const fonts = (await PDFDocument.load(result.data))
-      .getPage(0)
-      .node.Resources()
-      ?.lookup(PDFName.of("Font"), PDFDict);
+    const fonts = await pageFonts(result.data);
     expect(fonts?.keys().map(String)).toEqual(["/A", "/B", "/C"]);
     fonts?.keys().forEach((key) => expect(fonts.lookup(key)).toBeInstanceOf(PDFDict));
   });
@@ -216,11 +218,7 @@ describe("compressPdfFromBytes", () => {
       // The first output failed the check, the recovered one passed it.
       expect(mockedCheck).toHaveBeenCalledTimes(2);
       expect(await checkPdfCompress(bytes, { preset: "low" }, result.data, "full")).toEqual([]);
-      const fonts = (await PDFDocument.load(result.data))
-        .getPage(0)
-        .node.Resources()
-        ?.lookup(PDFName.of("Font"), PDFDict);
-      expect(fonts?.lookup(PDFName.of("A"))).toBeInstanceOf(PDFDict);
+      expect((await pageFonts(result.data))?.lookup(PDFName.of("A"))).toBeInstanceOf(PDFDict);
     });
 
     it("re-compresses at the preset's settings, from a plain rewrite of the file", async () => {
@@ -229,8 +227,8 @@ describe("compressPdfFromBytes", () => {
       const result = await compressPdfFromBytes({ bytes, preset: "medium" });
       expect(result).toMatchObject({ kind: "compressed", imageReencodeSkipped: false });
       expect(mockedCheck).toHaveBeenCalledTimes(2);
-      // The second check judges against the file the compressor read.
-      expect(mockedCheck.mock.calls[1][0]).not.toBe(bytes);
+      // Judged against the user's file, not the rewrite.
+      expect(mockedCheck.mock.calls[1][0]).toBe(bytes);
     });
 
     it("recovers on Light too", async () => {

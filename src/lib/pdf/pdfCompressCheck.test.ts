@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { PDFDocument, PDFName, PDFRef, StandardFonts } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import type { Violation } from "@/lib/output-check/core";
+import { lostReferences } from "./brokenReferences";
 import { checkPdfCompress } from "./pdfCompressCheck";
 
 async function pdfOf(pages: number): Promise<PDFDocument> {
@@ -125,6 +126,10 @@ describe("checkPdfCompress", () => {
     expect(props(await checkPdfCompress(await input(), request, out, "quick"))).toEqual([
       "references-resolve",
     ]);
+  });
+
+  it("reports no lost references for a file pdf-lib cannot read", async () => {
+    expect(await lostReferences(await input(), new Uint8Array(0))).toEqual([]);
   });
 
   it("ignores a broken reference no page or catalog entry reaches", async () => {

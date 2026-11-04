@@ -122,7 +122,7 @@ export async function runQpdf(
   args: string[],
 ): Promise<{ exit: number; stderr: string; out: Uint8Array | null }> {
   // withQpdf installs the stderr capture BEFORE the module is created (required
-  // by this build — see qpdf.ts) and runs everything below inside that window.
+  // by this build — see above) and runs everything below inside that window.
   const { result, stderr } = await withQpdf((qpdf) => {
     qpdf.FS.writeFile(DEFAULT_INPUT_PATH, input);
     let exit = 0;
