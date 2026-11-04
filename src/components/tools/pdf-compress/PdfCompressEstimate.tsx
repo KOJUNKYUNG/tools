@@ -33,7 +33,7 @@ export function PdfCompressEstimate({ preset, display, labels, notes = [] }: Pdf
   return (
     <div className="space-y-1.5 font-body text-[12px]">
       <div className="flex items-center justify-between gap-3" style={{ color: "var(--ink-soft)" }}>
-        <span className="truncate">{descMap[preset]}</span>
+        <span className="min-w-0">{descMap[preset]}</span>
         <span className="shrink-0 tabular-nums" style={{ color: "var(--ink)" }}>
           {value}
         </span>
