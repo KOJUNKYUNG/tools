@@ -2,16 +2,14 @@
 // table, no object streams, every object at generation 0. The content does not
 // change, and the streams are copied as they are.
 //
-// justpdf silently drops the objects of three legal structures, which leaves a
-// file that opens with its fonts, form fields or tags gone:
-// - object streams with nothing between the objects, and a space after the
-//   index (Adobe's writers), up to 0.1.2: it reads each object one byte early
+// justpdf 0.1.3 silently drops the objects of two legal structures, which leaves
+// a file that opens with its form fields or tags gone:
 // - hybrid-reference files (/XRefStm, as Word writes them): it never reads the
 //   stream, so it loses the objects hidden there. Upstream #53, open
 // - objects at a generation other than 0: it writes them at 0 and leaves the
 //   references at their generation, which read as null. Fixed upstream after
 //   0.1.3, not released
-// It reads none of these in a plain file.
+// Neither exists in a plain file.
 //
 // Only a recovery, not the first pass: qpdf fails on a few files justpdf reads
 // (annotation-polyline-polygon.pdf in pdf.js's samples), and it costs a second

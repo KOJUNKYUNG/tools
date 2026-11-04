@@ -3,7 +3,7 @@
 // A compressor that cannot read an object can drop it and keep the references
 // to it: viewers read those as null, so the file still opens and page 1 still
 // renders while form fields, embedded fonts and bookmarks are gone. justpdf does
-// this to three legal structures (see plainPdf.ts).
+// this to legal structures (see plainPdf.ts).
 //
 // pdf-lib reads the file, not justpdf: an engine tends to accept its own
 // mistakes. It reads each object where the file defines it, so it finds every

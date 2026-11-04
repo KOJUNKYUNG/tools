@@ -43,9 +43,9 @@ const damaged = [{ property: "soft-mask", detail: "test" }];
 /**
  * Three fonts in one object stream, laid out as Adobe's writers lay them out
  * (irs-fw9.pdf, Designer 6.5): a space after the index, then the objects with
- * nothing between them. Both are legal. justpdf 0.1.2 starts reading each
- * object one byte early, so it reads the previous object's last `>`: every
- * object but the first fails, and it drops them silently.
+ * nothing between them. Both are legal. justpdf 0.1.2 started reading each
+ * object one byte early, so it read the previous object's last `>`: every
+ * object but the first failed, and it dropped them silently.
  */
 function adjacentObjectStreamPdf(): Uint8Array {
   const latin1 = (s: string) => Buffer.from(s, "latin1");
@@ -118,6 +118,38 @@ function adjacentObjectStreamPdf(): Uint8Array {
   return new Uint8Array(Buffer.concat(parts));
 }
 
+/**
+ * A page whose font is an object at generation 2, which is legal. justpdf 0.1.3
+ * writes it at generation 0 and leaves the reference at 2, so it reads as null.
+ */
+function nonZeroGenerationPdf(): Uint8Array {
+  // Draws with the font, or the compressor removes it as unused. Unfiltered, so
+  // the output shrinks and is offered if it is sound.
+  const content = `BT /A 9 Tf (a) Tj ET\n${"q Q\n".repeat(20_000)}`;
+  const objects: [number, number, string][] = [
+    [1, 0, "<</Type/Catalog/Pages 2 0 R>>"],
+    [2, 0, "<</Type/Pages/Kids[3 0 R]/Count 1>>"],
+    [
+      3,
+      0,
+      "<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 100]/Contents 5 0 R" +
+        "/Resources<</Font<</A 4 2 R>>>>>>",
+    ],
+    [4, 2, "<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>"],
+    [5, 0, `<</Length ${content.length}>>stream\n${content}\nendstream`],
+  ];
+  let text = "%PDF-1.7\n";
+  const rows = ["0000000000 65535 f \n"];
+  for (const [n, generation, body] of objects) {
+    const offset = String(text.length).padStart(10, "0");
+    rows.push(`${offset} ${String(generation).padStart(5, "0")} n \n`);
+    text += `${n} ${generation} obj\n${body}\nendobj\n`;
+  }
+  const xrefAt = text.length;
+  text += `xref\n0 6\n${rows.join("")}trailer\n<</Size 6/Root 1 0 R>>\nstartxref\n${xrefAt}\n%%EOF\n`;
+  return new TextEncoder().encode(text);
+}
+
 describe("compressPdfFromBytes", () => {
   it("returns a smaller file that passes the full check", async () => {
     const bytes = await compressible();
@@ -176,6 +208,20 @@ describe("compressPdfFromBytes", () => {
 
   describe("an output that lost objects", () => {
     const lost = [{ property: check.REFERENCES_RESOLVE, detail: "test" }];
+
+    it("recovers an object the compressor really lost", async () => {
+      const bytes = nonZeroGenerationPdf();
+      const result = await compressPdfFromBytes({ bytes, preset: "low" });
+      if (result.kind !== "compressed") throw new Error(result.kind);
+      // The first output failed the check, the recovered one passed it.
+      expect(mockedCheck).toHaveBeenCalledTimes(2);
+      expect(await checkPdfCompress(bytes, { preset: "low" }, result.data, "full")).toEqual([]);
+      const fonts = (await PDFDocument.load(result.data))
+        .getPage(0)
+        .node.Resources()
+        ?.lookup(PDFName.of("Font"), PDFDict);
+      expect(fonts?.lookup(PDFName.of("A"))).toBeInstanceOf(PDFDict);
+    });
 
     it("re-compresses at the preset's settings, from a plain rewrite of the file", async () => {
       mockedCheck.mockResolvedValueOnce(lost);
