@@ -209,12 +209,19 @@ describe("compressPptxFromBytes downsampling", () => {
     return result.data;
   }
 
+  /** `png` with zeros after its end, so its byte length is `length`. */
+  const padded = (png: Uint8Array, length: number) => {
+    const out = new Uint8Array(Math.max(length, png.length));
+    out.set(png);
+    return out;
+  };
+
   // A 4 × 2 in frame spans 0.4 × 0.2 slide widths.
   const OVERSIZED: Shown = { image: noisePng(1200, 600), mime: "image/png", w: 4, h: 2 };
 
   it.each([
     ["medium", [1024, 512]],
-    ["high", [768, 384]],
+    ["high", [512, 256]],
   ] as const)("shrinks an oversized picture to its display size at %s", async (preset, size) => {
     expect(await shownPixels(await run([OVERSIZED], preset), 1)).toEqual(size);
   });
@@ -230,7 +237,7 @@ describe("compressPptxFromBytes downsampling", () => {
 
   it.each([
     ["medium", [2048, 1024]],
-    ["high", [1536, 768]],
+    ["high", [1024, 512]],
   ] as const)("keeps enough pixels for a cropped and enlarged picture at %s", async (preset, size) => {
     // The frame shows the middle half of each side, so the whole picture spans 8 × 4 in:
     // 0.8 × 0.4 slide widths, twice the frame.
@@ -257,9 +264,78 @@ describe("compressPptxFromBytes downsampling", () => {
     expect(await shownPixels(out, 1)).toEqual([1200, 600]);
   });
 
+  describe("a PNG whose resize saves little", () => {
+    const original = noisePng(1200, 600);
+    const photo: Shown = { image: original, mime: "image/png", w: 4, h: 2 };
+    // A resize of the target size that keeps `share` of the original's bytes.
+    const resizedOf = (share: number) => padded(solidPng(512, 256), Math.floor(original.length * share));
+
+    it("keeps its pixels when the resize is larger than the same-size encode", async () => {
+      const out = await run([photo], "high", async (_, action) =>
+        action.target ? resizedOf(0.6) : solidPng(1200, 600),
+      );
+      expect(await shownPixels(out, 1)).toEqual([1200, 600]);
+    });
+
+    it("keeps its pixels when the resize saves under a tenth over the same-size encode", async () => {
+      const sameSize = padded(solidPng(1200, 600), Math.floor(original.length * 0.7));
+      const out = await run([photo], "high", async (_, action) =>
+        action.target ? resizedOf(0.7 * 0.95) : sameSize,
+      );
+      expect(await shownPixels(out, 1)).toEqual([1200, 600]);
+    });
+
+    it("resizes it when the resize saves a tenth or more", async () => {
+      const sameSize = padded(solidPng(1200, 600), Math.floor(original.length * 0.7));
+      const out = await run([photo], "high", async (_, action) =>
+        action.target ? resizedOf(0.7 * 0.85) : sameSize,
+      );
+      expect(await shownPixels(out, 1)).toEqual([512, 256]);
+    });
+
+    it("skips the same-size encode when the resize already halves the picture", async () => {
+      const actions: boolean[] = [];
+      const out = await run([photo], "high", async (_, action) => {
+        actions.push(action.target !== undefined);
+        return action.target ? resizedOf(0.4) : solidPng(1200, 600);
+      });
+      expect(await shownPixels(out, 1)).toEqual([512, 256]);
+      expect(actions).toEqual([true]);
+    });
+
+    it("keeps the resize when the same-size encode fails", async () => {
+      const out = await run([photo], "high", async (_, action) => {
+        if (action.target) return resizedOf(0.6);
+        throw new Error("encoder failed");
+      });
+      expect(await shownPixels(out, 1)).toEqual([512, 256]);
+    });
+
+    it("keeps the resize when the same-size encode is the wrong shape", async () => {
+      const out = await run([photo], "high", async (_, action) =>
+        action.target ? resizedOf(0.6) : solidPng(1200, 650),
+      );
+      expect(await shownPixels(out, 1)).toEqual([512, 256]);
+    });
+
+    it("encodes a JPEG once: fewer pixels always save", async () => {
+      const actions: boolean[] = [];
+      const jpeg: Shown = { image: withJpegSize(JPEG_3x2, 3000, 2000), mime: "image/jpeg", w: 3, h: 2 };
+      await compressPptxFromBytes({
+        bytes: await deck([jpeg]),
+        preset: "high",
+        recompress: async (bytes, action) => {
+          actions.push(action.target !== undefined);
+          return toTarget(bytes, action);
+        },
+      });
+      expect(actions).toEqual([true]);
+    });
+  });
+
   it.each([
     ["distorts it", (w: number, h: number) => solidPng(w, h + 50)],
-    ["enlarges it", (w: number, h: number) => solidPng(w * 2, h * 2)],
+    ["enlarges it", (w: number, h: number) => solidPng(w * 3, h * 3)],
   ])("keeps a picture's original bytes when resizing it %s", async (_, resized) => {
     // A second, small picture still shrinks, so a deck comes back.
     const small: Shown = { image: noisePng(40, 20), mime: "image/png", w: 10, h: 5 };

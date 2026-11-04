@@ -28,6 +28,8 @@ import {
   PRESET_SLIDE_WIDTH_PX,
   pngColorBudget,
   RECOMPRESSIBLE_EXTS,
+  resizeNeedsComparing,
+  resizeSavesEnough,
   type MediaAction,
   type MediaSample,
   type PixelSize,
@@ -378,6 +380,17 @@ export async function compressPptxFromBytes({
         // resized one that passes counts as re-encoded like any other.
         if (candidate && recompressedMediaViolations(path, original, candidate).length > 0) {
           candidate = null;
+        }
+        // A PNG that resizes for little is kept at its own pixels.
+        if (candidate && target && action.kind === "png" && resizeNeedsComparing(original.length, candidate.length)) {
+          const sameSize = await recompress(original, action).catch(() => null);
+          if (
+            sameSize &&
+            recompressedMediaViolations(path, original, sameSize).length === 0 &&
+            !resizeSavesEnough(candidate.length, sameSize.length)
+          ) {
+            candidate = sameSize;
+          }
         }
         if (candidate) anyImageReencoded = true;
         const chosen = pickSmaller(original, candidate);
