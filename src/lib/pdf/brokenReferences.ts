@@ -15,13 +15,19 @@
 import type { PDFDocument, PDFObject } from "pdf-lib";
 import { LOAD_WITH_RARE_YIELDS } from "./pdfLibYields";
 
-/** The file's objects, in pdf-lib's reading. */
-function openForReferences(pdfLib: typeof import("pdf-lib"), bytes: Uint8Array): Promise<PDFDocument> {
+/**
+ * The file's objects, in pdf-lib's reading. Null when it cannot read the file:
+ * that proves nothing about the file, and pdfjs decides whether a file opens.
+ */
+function openForReferences(
+  pdfLib: typeof import("pdf-lib"),
+  bytes: Uint8Array,
+): Promise<PDFDocument | null> {
   return pdfLib.PDFDocument.load(bytes, {
     ...LOAD_WITH_RARE_YIELDS,
     ignoreEncryption: true,
     updateMetadata: false,
-  });
+  }).catch(() => null);
 }
 
 /**
@@ -49,7 +55,7 @@ function brokenReferences(pdfLib: typeof import("pdf-lib"), doc: PDFDocument): S
     } else if (object instanceof PDFDict) {
       for (const [, value] of object.entries()) stack.push(value);
     } else if (object instanceof PDFArray) {
-      stack.push(...object.asArray());
+      for (const value of object.asArray()) stack.push(value);
     }
   }
   return broken;
@@ -60,18 +66,15 @@ function brokenReferences(pdfLib: typeof import("pdf-lib"), doc: PDFDocument): S
  * defect the input already had is not the tool's doing. The input is only read
  * when the output has some. Compares by object number: justpdf keeps them, and
  * a qpdf rewrite (see plainPdf.ts) leaves no broken references at all.
- *
- * A file pdf-lib cannot read reports nothing: that proves nothing about the
- * file, and pdfjs decides whether a file opens.
  */
 export async function lostReferences(input: Uint8Array, output: Uint8Array): Promise<string[]> {
   const pdfLib = await import("pdf-lib");
-  try {
-    const broken = brokenReferences(pdfLib, await openForReferences(pdfLib, output));
-    if (broken.size === 0) return [];
-    const inherited = brokenReferences(pdfLib, await openForReferences(pdfLib, input));
-    return [...broken].filter((ref) => !inherited.has(ref));
-  } catch {
-    return [];
-  }
+  const outputDoc = await openForReferences(pdfLib, output);
+  if (outputDoc === null) return [];
+  const broken = brokenReferences(pdfLib, outputDoc);
+  if (broken.size === 0) return [];
+  const inputDoc = await openForReferences(pdfLib, input);
+  if (inputDoc === null) return [];
+  const inherited = brokenReferences(pdfLib, inputDoc);
+  return [...broken].filter((ref) => !inherited.has(ref));
 }

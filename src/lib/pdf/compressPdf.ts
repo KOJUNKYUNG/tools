@@ -1,7 +1,7 @@
 import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
-import { checkPdfCompress, REFERENCES_RESOLVE } from "./pdfCompressCheck";
+import { checkPdfCompress, SOFT_MASK } from "./pdfCompressCheck";
 import { toPlainPdf } from "./plainPdf";
 import { hasInvalidSoftMask } from "./softMaskCheck";
 
@@ -125,9 +125,11 @@ export async function compressPdfFromBytes({
       ),
     recover: async (violations) => {
       const reencodesImages = params.jpegQuality !== 0;
-      // Objects it could not read: it reads the same document without the
-      // structure it misreads (see plainPdf.ts), at the preset's own settings.
-      if (violations.some((v) => v.property === REFERENCES_RESOLVE)) {
+      // Anything but a soft mask is objects it could not read, whether that shows
+      // as lost references, pages or a broken page: it reads the same document
+      // without the structure it misreads (see plainPdf.ts), at the preset's own
+      // settings.
+      if (violations.some((v) => v.property !== SOFT_MASK)) {
         source = await toPlainPdf(bytes);
         const out = run(params);
         const newBadMask = reencodesImages && hasInvalidSoftMask(out) && !hasInvalidSoftMask(bytes);

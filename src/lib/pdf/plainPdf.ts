@@ -11,6 +11,11 @@
 //   0.1.3, not released
 // Neither exists in a plain file.
 //
+// qpdf reads a hybrid file's hidden objects when /XRefStm sits in a newer section
+// than the table marking them free, as in Word's files. With both in one section
+// it reads them as free, and the references to them go too, so the check cannot
+// see it: the spec's own layout, not seen in a real file yet.
+//
 // Only a recovery, not the first pass: qpdf fails on a few files justpdf reads
 // (annotation-polyline-polygon.pdf in pdf.js's samples), and it costs a second
 // wasm start.

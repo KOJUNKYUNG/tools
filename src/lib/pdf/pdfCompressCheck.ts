@@ -5,8 +5,8 @@ import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
 import { lostReferences } from "./brokenReferences";
 import { hasInvalidSoftMask } from "./softMaskCheck";
 
-/** The violated property when the output lost objects (see brokenReferences.ts). */
-export const REFERENCES_RESOLVE = "references-resolve";
+/** The violated property when a soft mask is invalid (see softMaskCheck.ts). */
+export const SOFT_MASK = "soft-mask";
 
 export interface PdfCompressRequest {
   preset: CompressionPreset;
@@ -57,7 +57,7 @@ export const checkPdfCompress: OutputChecker<Uint8Array, PdfCompressRequest, Uin
       });
     }
     if (hasInvalidSoftMask(output) && !hasInvalidSoftMask(input)) {
-      violations.push({ property: "soft-mask", detail: "a soft mask is not DeviceGray" });
+      violations.push({ property: SOFT_MASK, detail: "a soft mask is not DeviceGray" });
     }
 
     if (!hasPdfHeader(output)) {
@@ -89,7 +89,7 @@ export const checkPdfCompress: OutputChecker<Uint8Array, PdfCompressRequest, Uin
         const lost = await lostReferences(input, output);
         if (lost.length > 0) {
           vs.push({
-            property: REFERENCES_RESOLVE,
+            property: "references-resolve",
             detail: `${lost.length} lost, e.g. ${lost.slice(0, 5).join(", ")}`,
           });
         }
