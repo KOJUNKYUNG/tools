@@ -66,11 +66,12 @@ export function downsampleTarget(
 }
 
 /**
- * A resized PNG this far under the original needs no comparing: of the 730
- * real-deck PNGs that would resize at high's width, 98 land under this share,
- * holding 130 of their 160 MB, and every one of them saves over a tenth on its
- * same-size encode (scripts/measure-ppt-ratios, Chrome, 2026-11-04). The
- * same-size encode is the slow one, so skipping it there saves most of the
+ * A resized PNG this far under the original needs no comparing. Measured with
+ * a one-off run of the engine's encoder (Chrome, 2026-11-04) on the 730 PNGs
+ * in the 21 real decks that resize at 1280 px but did not at 1920 px, repeated
+ * decks counted each time: 98 land under this share, holding 130 of their
+ * 160 MB, and every one of them saves over a tenth on its same-size encode.
+ * The same-size encode is the slow one, so skipping it there saves most of the
  * time this comparison would cost.
  */
 const RESIZE_CLEAR_WIN_SHARE = 0.5;
@@ -295,7 +296,9 @@ const FLAT_PNG_RATIO: Record<CompressionPreset, number> = {
  * Whole decks against their measured size (21 real decks, fresh, 2026-11-04):
  * low −14% to +21%, medium −19% to +23%, high −28% to +14%, in-sample at high
  * through the power above. The worst over-promises are grainy PNGs the engine
- * barely shrinks at any budget (canva_template_1 and _2).
+ * barely shrinks at any budget (canva_template_1 and _2). The estimate takes
+ * every target as resized: only encoding shows which PNGs keep their pixels
+ * (`resizeSavesEnough`), so a deck of mostly such PNGs is over-promised.
  */
 const RESIZED_FLAT_PNG_EXPONENT = 0.7;
 
@@ -313,11 +316,16 @@ function freshPngRatio(
   return Math.min(flat, (media.visiblePixels * kept * PNG_BYTES_PER_VISIBLE_PIXEL[preset]) / media.bytes);
 }
 
-/** Whole-file [min,max] remaining range used as a static fallback estimate. */
+/**
+ * Whole-file [min,max] remaining range used as a static fallback estimate
+ * until the analysis is ready: about the middle half of the 21 real decks
+ * (2026-11-04). Whole decks spread far wider: low 39–99%, medium 8–99%, high
+ * 3–82%.
+ */
 export const PRESET_RANGE: Record<CompressionPreset, [number, number]> = {
-  low: [0.7, 0.98],
-  medium: [0.55, 0.9],
-  high: [0.3, 0.7],
+  low: [0.5, 0.75],
+  medium: [0.45, 0.75],
+  high: [0.25, 0.5],
 };
 
 /**

@@ -383,7 +383,12 @@ export async function compressPptxFromBytes({
         }
         // A PNG that resizes for little is kept at its own pixels.
         if (candidate && target && action.kind === "png" && resizeNeedsComparing(original.length, candidate.length)) {
-          const sameSize = await recompress(original, action).catch(() => null);
+          let sameSize: Uint8Array | null = null;
+          try {
+            sameSize = await recompress(original, action);
+          } catch {
+            // No comparison to make: the resize stands.
+          }
           if (
             sameSize &&
             recompressedMediaViolations(path, original, sameSize).length === 0 &&

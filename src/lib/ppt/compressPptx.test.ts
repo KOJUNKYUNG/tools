@@ -311,6 +311,14 @@ describe("compressPptxFromBytes downsampling", () => {
       expect(await shownPixels(out, 1)).toEqual([512, 256]);
     });
 
+    it("keeps the resize when the same-size encode throws outright", async () => {
+      const out = await run([photo], "high", (_, action) => {
+        if (action.target) return Promise.resolve(resizedOf(0.6));
+        throw new Error("encoder failed");
+      });
+      expect(await shownPixels(out, 1)).toEqual([512, 256]);
+    });
+
     it("keeps the resize when the same-size encode is the wrong shape", async () => {
       const out = await run([photo], "high", async (_, action) =>
         action.target ? resizedOf(0.6) : solidPng(1200, 650),
