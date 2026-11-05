@@ -93,9 +93,20 @@ slide's aspect that the user places on the image (moved, or shrunk to zoom
 in; centred and as large as possible by default). ppt-background keeps only
 those pixels and discards the rest, so the background cannot be repositioned
 in PowerPoint afterwards; the user re-runs the tool with the original image.
-Gallery backgrounds are cropped the same way.
+Gallery backgrounds are cropped the same way. image-to-pptx always takes the
+centred rectangle, as its preview shows, with no frame to move.
 _Avoid_: "cover" or fill offsets: the earlier XML-only approach that kept the
 whole image in the deck.
+
+### Screen size
+The screen a tool sizes a deck's pictures for, Full HD or 4K: a picture holds
+no more pixels than it shows with the slide filling that screen, and is never
+enlarged. ppt-background always uses 4K (one picture per deck); image-to-pptx
+lets the user choose, Full HD by default (many pictures per deck). It sets the
+size pictures enter a deck at; **display size** is what ppt-compress works out
+for pictures already there.
+_Avoid_: a long-edge cap: 1920 px on the long edge of a portrait picture holds
+1920 rows where Full HD shows 1080.
 
 ### Covering background
 An element lying at the bottom of a slide's stack, under the slide's content,
