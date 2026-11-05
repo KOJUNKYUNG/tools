@@ -1,5 +1,13 @@
 import PptxGenJS from "pptxgenjs";
 import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
+import {
+  containedSize,
+  sizedImagePreparation,
+  type PixelSize,
+  type PreparedImage,
+  type ScreenSize,
+  type SizedImagePreparation,
+} from "@/lib/image/slideImage";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { SLIDE_SIZES, type SlideKind } from "./slideSize";
 import { computeSlidePlacement, type Box, type PlacementAlign } from "./slidePlacement";
@@ -10,7 +18,7 @@ export type Background =
   | { kind: "color"; color: string }
   | { kind: "image"; dataUrl: string };
 export interface PlacedImage { dataUrl: string; placement: Box; }
-export interface AssembleOptions { slideKind: SlideKind; background: Background; }
+export interface AssembleOptions { slideKind: SlideKind; background: Background; screen: ScreenSize; }
 
 const BG_MASTER = "ONTAB_BG";
 
@@ -35,7 +43,7 @@ function backgroundPath(dataUrl: string): string {
   return path;
 }
 
-/** Low-level: caller supplies already-downscaled data URLs + placements. */
+/** Low-level: caller supplies already-prepared data URLs + placements. */
 export async function assemblePptxFromPlaced(images: PlacedImage[], opts: AssembleOptions): Promise<Uint8Array> {
   const pptx = new PptxGenJS();
   const size = SLIDE_SIZES[opts.slideKind];
@@ -66,36 +74,70 @@ export interface BuildPptxInput {
   slideKind: SlideKind;
   background: { kind: "color"; color: string } | { kind: "image"; file: File };
   align: PlacementAlign;
+  /** The screen the deck's pictures are sized for (CONTEXT "Screen size"). */
+  screen: ScreenSize;
 }
 export type DownscaleForSlide = typeof downscaleForSlide;
 
+/** Bytes per `String.fromCharCode` call: bounds its argument count. */
+const BASE64_CHUNK = 0x8000;
+
+/** A prepared picture as the data URL pptxgenjs embeds, naming its real format. */
+function dataUrlOf({ bytes, format }: PreparedImage): string {
+  let binary = "";
+  for (let at = 0; at < bytes.length; at += BASE64_CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(at, at + BASE64_CHUNK));
+  }
+  return `data:image/${format};base64,${btoa(binary)}`;
+}
+
 /**
- * image-to-pptx's engine entry: downscale each file, compute placement,
+ * A slide picture as it enters the deck: whole, at its contained size for the
+ * slide on the screen. The size follows the slide, not the placement box, so
+ * a picture placed small stays sharp when enlarged in PowerPoint, and
+ * ppt-compress can remove the excess later. `upright` is the picture's own
+ * shape, which placement uses.
+ */
+export async function prepareSlidePicture(
+  file: File,
+  slideKind: SlideKind,
+  screen: ScreenSize,
+  preparation: SizedImagePreparation,
+): Promise<{ dataUrl: string; upright: PixelSize }> {
+  const upright = await preparation.measure(file);
+  const uncut = { x: 0, y: 0, ...upright };
+  const size = containedSize(upright, SLIDE_SIZES[slideKind], screen);
+  return { dataUrl: dataUrlOf(await preparation.prepare(file, uncut, size)), upright };
+}
+
+/**
+ * image-to-pptx's engine entry: prepare each file, compute placement,
  * assemble, then the tool's output check (see `imageToPptxCheck.ts`). A
  * failing check has no safer mode to fall back to, so it blocks with the
- * corrupt-output error. `downscale` is the browser's canvas; tests in Node
- * pass a stand-in.
+ * corrupt-output error. `preparation` and `downscaleBackground` are the
+ * browser's canvas; tests in Node pass stand-ins.
  */
 export async function buildPptx(
   input: BuildPptxInput,
   onProgress?: (pct: number) => void,
-  downscale: DownscaleForSlide = downscaleForSlide,
+  preparation: SizedImagePreparation = sizedImagePreparation,
+  downscaleBackground: DownscaleForSlide = downscaleForSlide,
 ): Promise<Uint8Array> {
   const boxInches: Box = input.box;
   let background: Background;
   if (input.background.kind === "color") background = { kind: "color", color: input.background.color };
   else {
-    const bg = await downscale(input.background.file, SLIDE_IMAGE_MAX_LONG_EDGE);
+    const bg = await downscaleBackground(input.background.file, SLIDE_IMAGE_MAX_LONG_EDGE);
     background = { kind: "image", dataUrl: bg.dataUrl };
   }
   const placed: PlacedImage[] = [];
   const total = input.files.length;
   for (let i = 0; i < total; i++) {
-    const d = await downscale(input.files[i], SLIDE_IMAGE_MAX_LONG_EDGE);
-    placed.push({ dataUrl: d.dataUrl, placement: computeSlidePlacement(boxInches, d.w, d.h, input.align) });
+    const { dataUrl, upright } = await prepareSlidePicture(input.files[i], input.slideKind, input.screen, preparation);
+    placed.push({ dataUrl, placement: computeSlidePlacement(boxInches, upright.width, upright.height, input.align) });
     onProgress?.(Math.round(((i + 1) / total) * 90));
   }
-  const options: AssembleOptions = { slideKind: input.slideKind, background };
+  const options: AssembleOptions = { slideKind: input.slideKind, background, screen: input.screen };
   const bytes = await assemblePptxFromPlaced(placed, options);
   const checked = await runOutputCheck({
     tool: "image-to-pptx",

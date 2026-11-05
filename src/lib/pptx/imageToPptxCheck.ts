@@ -1,8 +1,10 @@
+import { filledSize, type PixelSize } from "@/lib/image/slideImage";
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
-import { readImageHeader, type ImageHeader } from "@/lib/output-check/imageHeader";
+import { displayedSize, readImageHeader, type ImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage, type PptxPackage } from "@/lib/output-check/pptxPackage";
 import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { AssembleOptions, PlacedImage } from "./assemblePptx";
+import { SLIDE_SIZES } from "./slideSize";
 
 /** The bytes a base64 data URL carries (what pptxgenjs embeds as the media part). */
 function dataUrlBytes(url: string): Uint8Array {
@@ -38,7 +40,7 @@ async function inheritedBackgrounds(pkg: PptxPackage): Promise<Map<string, strin
   );
 }
 
-/** The header format each background extension pptxgenjs can write stands for. */
+/** The header format each picture extension pptxgenjs can write stands for. */
 const FORMAT_OF_EXTENSION: Readonly<Record<string, ImageHeader["format"]>> = {
   png: "png",
   jpeg: "jpeg",
@@ -51,6 +53,15 @@ function headerMismatch(part: string, bytes: Uint8Array | null): string | null {
   const found = bytes && readImageHeader(bytes)?.format;
   if (found && found === expected) return null;
   return `${part}: holds ${found ?? "unreadable bytes"}`;
+}
+
+/** Why `part`'s picture holds more pixels than `slideOnScreen` shows, or null when it does not. */
+function overScreen(part: string, bytes: Uint8Array | null, slideOnScreen: PixelSize): string | null {
+  const header = bytes && readImageHeader(bytes);
+  if (!header) return null; // Unreadable bytes are the header property's to report.
+  const [width, height] = displayedSize(header);
+  if (width <= slideOnScreen.width && height <= slideOnScreen.height) return null;
+  return `${part}: ${width} × ${height} on a ${slideOnScreen.width} × ${slideOnScreen.height} slide`;
 }
 
 /**
@@ -71,7 +82,11 @@ const SLIDE_OVERHEAD = 8 * 1024;
  *   parts, well-formed XML, `[Content_Types]` coverage, relationship targets
  * - ⚡ `slide-count`: one slide per image
  * - `slide-image`: slide N shows exactly one image, the N-th image as
- *   embedded (byte-identical to the downscaled data the engine placed)
+ *   embedded (byte-identical to the prepared data the engine placed)
+ * - `slide-image-header`: each slide picture's bytes are the format its
+ *   part's extension names, since formats mix within a deck
+ * - `screen-size`: no slide picture holds more pixels, on either side, than
+ *   the slide's rectangle on the deck's screen size
  * - `slide-background`: with an image background, every slide inherits that
  *   image (stored once, on the master pptxgenjs writes as a layout)
  * - `background-header`: the inherited background part's bytes are the
@@ -79,12 +94,12 @@ const SLIDE_OVERHEAD = 8 * 1024;
  * - `size-bound`: output ≤ the embedded images + background + package
  *   overhead, so a background stored once per slide does not slip through
  *
- * `input` is the downscaled images in slide order and `request` the
- * assembly options: what `assemblePptxFromPlaced` was given. No input deck
+ * `input` is the prepared images in slide order and `request` the assembly
+ * options: what `assemblePptxFromPlaced` was given. No input deck
  * exists, so every structural defect is the tool's doing.
  */
 export const checkImageToPptx: OutputChecker<PlacedImage[], AssembleOptions, Uint8Array> =
-  async (images, { background }, output, depth) => {
+  async (images, { background, slideKind, screen }, output, depth) => {
     const pkg = await openPptxPackage(output);
     if (!pkg) return [{ property: "zip", detail: "output is not a readable zip" }];
 
@@ -100,17 +115,27 @@ export const checkImageToPptx: OutputChecker<PlacedImage[], AssembleOptions, Uin
     const embedded = images.map((img) => dataUrlBytes(img.dataUrl));
     const backgroundImage = background.kind === "image" ? dataUrlBytes(background.dataUrl) : null;
     const count = Math.min(images.length, pkg.slideParts.length);
+    const slideOnScreen = filledSize(SLIDE_SIZES[slideKind], screen);
     for (let i = 0; i < count; i++) {
       const slide = pkg.slideParts[i];
       const shown = await pkg.shownImages(slide);
       if (shown.length !== 1) {
         violations.push({ property: "slide-image", detail: `${slide}: shows ${shown.length} images` });
-      } else if (shown[0] === null || !sameBytes(await pkg.read(shown[0]), embedded[i])) {
+        continue;
+      }
+      const part = shown[0];
+      const bytes = part === null ? null : await pkg.read(part);
+      if (part === null || !sameBytes(bytes, embedded[i])) {
         violations.push({
           property: "slide-image",
-          detail: `${slide}: shows ${shown[0] ?? "an external image"}, not image ${i + 1}`,
+          detail: `${slide}: shows ${part ?? "an external image"}, not image ${i + 1}`,
         });
       }
+      if (part === null) continue;
+      const mismatch = headerMismatch(part, bytes);
+      if (mismatch) violations.push({ property: "slide-image-header", detail: mismatch });
+      const over = overScreen(part, bytes, slideOnScreen);
+      if (over) violations.push({ property: "screen-size", detail: over });
     }
 
     if (backgroundImage !== null) {

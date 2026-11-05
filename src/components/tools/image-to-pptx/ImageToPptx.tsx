@@ -176,7 +176,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           ? { kind: "color", color: bg.color.replace("#", "") }
           : { kind: "image", file: bg.file };
       const bytes = await buildPptx(
-        { files: orderedFiles, box, slideKind, background, align },
+        { files: orderedFiles, box, slideKind, background, align, screen: "full-hd" },
         onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pptx`;
