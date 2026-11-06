@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Picture preparation measurement</title>
+<style>
+  body { font: 13px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #111; }
+  table { border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #ccc; padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  h2 { margin-top: 24px; font-size: 15px; }
+</style>
+<script src="/lib/jszip.js"></script>
+</head>
+<body>
+<h1>Picture preparation measurement</h1>
+<p>Each input set becomes one image-to-pptx deck per screen size, made by the tool's engine entry
+(<code>buildPptx</code> in <code>src/lib/pptx/assemblePptx.ts</code>, as checked out) with the browser's
+shared preparation (<code>sizedImagePreparation</code> in <code>src/lib/image/slideImage.ts</code>), on a
+16:9 slide with a white background, so its output check runs too. The preparation is only observed, not
+replaced: each prepared picture is recorded as it passes to the deck.</p>
+<ul>
+  <li><b>Inputs</b> (spec #147's set): the JPG and PNG files in <code>tests/fixtures</code> and its
+    subfolders; its HEIC files after the tool's own conversion (<code>normalizeImageFile</code>); and the
+    first pages of its PDFs, drawn by pdf-to-image's engine (<code>pdfToImages</code>) at its defaults,
+    150 DPI, as JPG (its default) and as PNG. <code>REAL_FIXTURES_DIR</code> overrides the folder.</li>
+  <li><b>bytes</b>: the prepared pictures' bytes, summed per set; the background is a colour, so it adds
+    none. <b>input</b> is what the tool was given (a HEIC's converted JPEG, a PDF page's picture).</li>
+  <li><b>ΔE</b>: CIEDE2000 between the picture drawn at its prepared size, before encoding (the same
+    <code>downscaleImage</code> the preparation draws with), and the JPEG the deck receives, decoded; mean and
+    95th percentile over every second pixel in each direction. Only for pictures turned from PNG into JPEG.</li>
+</ul>
+<p>Query <code>?sets=jpg,heic,png,pdf-jpg,pdf-png&amp;screens=full-hd,4k&amp;pdfs=&lt;names&gt;|all&amp;pages=6</code>
+picks what to run (default: all sets, both screens, 6 pages, and the PDFs listed in <code>measure-image-prep.json</code>
+in the fixture folder, <code>{ "pdfs": ["a.pdf", …] }</code>, local like the fixtures, else every PDF at its top level).</p>
+<p id="status">Starting…</p>
+<div id="out"></div>
+<script type="module">
+import { buildPptx } from "/src/lib/pptx/assemblePptx.ts";
+import { SLIDE_SIZES } from "/src/lib/pptx/slideSize.ts";
+import { sizedImagePreparation } from "/src/lib/image/slideImage.ts";
+import { normalizeImageFile } from "/src/lib/image/heic.ts";
+import { downscaleImage } from "/src/lib/image/downscale.ts";
+import { pdfToImages } from "/src/lib/pdf/pdfToImage.ts";
+import { getPdfjsLib, pdfjsDocParams } from "/src/lib/pdf/pdfjs.ts";
+import { readImageHeader } from "/src/lib/output-check/imageHeader.ts";
+import { sameBytes } from "/src/lib/output-check/sameBytes.ts";
+import { colourDifference } from "/colourDifference.js";
+
+// pdf-to-image's defaults (PdfToImage.tsx).
+const PDF_DPI = 150;
+const SLIDE_KIND = "16:9";
+const SLIDE = SLIDE_SIZES[SLIDE_KIND];
+
+const params = new URLSearchParams(location.search);
+const screens = (params.get("screens") ?? "full-hd,4k").split(",");
+const pdfParam = params.get("pdfs");
+const pages = Number(params.get("pages") ?? 6);
+// The fixture folder's own settings (measure-image-prep.json there, local like
+// the fixtures): `pdfs` lists the PDFs to measure by default, so the repo
+// names none. Without it, every PDF at the folder's top level.
+const config = await fetch("/fixtures-config").then((r) => r.json()).catch(() => null);
+const status = (text) => (document.getElementById("status").textContent = text);
+const MB = (bytes) => +(bytes / 1e6).toFixed(2);
+const round = (v, digits = 2) => (v == null ? null : +v.toFixed(digits));
+
+const fetchBytes = async (name) => {
+  const res = await fetch(`/fixtures/${encodeURIComponent(name).replace(/%2F/g, "/")}`);
+  if (!res.ok) throw new Error(`${name}: ${res.status}`);
+  return new Uint8Array(await res.arrayBuffer());
+};
+const typeOf = (name) => (/\.png$/i.test(name) ? "image/png" : /\.heic$/i.test(name) ? "image/heic" : "image/jpeg");
+const fileOf = async (name) => new File([await fetchBytes(name)], name.split("/").pop(), { type: typeOf(name) });
+
+/** The first `pages` pages of each PDF, drawn by pdf-to-image's engine as `format`. */
+async function pdfPages(names, format) {
+  const pdfjsLib = await getPdfjsLib();
+  const out = [];
+  for (const name of names) {
+    const bytes = await fetchBytes(name);
+    let count;
+    try {
+      const doc = await pdfjsLib.getDocument({ data: bytes.slice(), ...pdfjsDocParams }).promise;
+      count = doc.numPages;
+      await doc.destroy();
+    } catch (e) {
+      console.warn(`${name}: skipped (${e.message})`); // a locked PDF, for one
+      continue;
+    }
+    const jobs = Array.from({ length: Math.min(pages, count) }, (_, i) => ({
+      sourceFileId: name,
+      sourceFileName: name,
+      sourcePageIndex: i,
+      rotation: 0,
+    }));
+    const outcome = await pdfToImages({
+      jobs,
+      sourceBytesById: new Map([[name, bytes]]),
+      format,
+      dpi: PDF_DPI,
+      partByteTarget: Infinity,
+      needsScreen: (work) => work(),
+    });
+    const images = outcome.mode === "preview" ? outcome.images : outcome.parts.flat();
+    for (const [i, { name: imageName, blob }] of images.entries()) {
+      out.push({ label: `${name} p${i + 1}`, file: new File([blob], imageName, { type: format }) });
+    }
+  }
+  return out;
+}
+
+/** The PDFs measured: `?pdfs=`, else the folder's settings, else every top-level PDF (also `?pdfs=all`). */
+function pdfsOf(names) {
+  const all = names.filter((n) => /\.pdf$/i.test(n) && !n.includes("/"));
+  if (pdfParam === "all") return all;
+  if (pdfParam) return pdfParam.split(",");
+  return config?.pdfs ?? all;
+}
+
+const loose = (names, re) => Promise.all(names.filter((n) => re.test(n)).map(async (n) => ({ label: n, file: await fileOf(n) })));
+
+/**
+ * The input sets: each loads its inputs as the tool receives them ({ label,
+ * file, original? }), with spec #147's table in MB to compare against.
+ */
+const SETS = {
+  jpg: { load: (names) => loose(names, /\.jpe?g$/i), spec: { "full-hd": 2.01, "4k": 3.32 } },
+  heic: {
+    async load(names) {
+      const out = [];
+      for (const n of names.filter((n) => /\.heic$/i.test(n))) {
+        const original = await fileOf(n);
+        out.push({ label: n, file: await normalizeImageFile(original), original });
+      }
+      return out;
+    },
+    spec: { "full-hd": 1.06, "4k": 3.48 },
+  },
+  png: { load: (names) => loose(names, /\.png$/i), spec: { "full-hd": 0.98, "4k": 0.98 } },
+  "pdf-jpg": { load: (names) => pdfPages(pdfsOf(names), "image/jpeg"), spec: { "full-hd": 3.36, "4k": 7.84 } },
+  "pdf-png": { load: (names) => pdfPages(pdfsOf(names), "image/png"), spec: { "full-hd": 4.75, "4k": 7.26 } },
+};
+const setNames = params.get("sets")?.split(",") ?? Object.keys(SETS);
+
+/** The pixels of a canvas or a decoded picture, at `width` × `height`. */
+async function pixelsOf(source, width, height) {
+  const canvas = new OffscreenCanvas(width, height);
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  const bitmap = source instanceof Blob ? await createImageBitmap(source) : source;
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  if (source instanceof Blob) bitmap.close();
+  const data = ctx.getImageData(0, 0, width, height).data;
+  canvas.width = canvas.height = 0;
+  return data;
+}
+
+/** The deck for one set at one screen size, with each prepared picture recorded. */
+async function measureDeck(entries, screen) {
+  const recorded = [];
+  const observed = {
+    measure: sizedImagePreparation.measure,
+    async prepare(source, crop, size) {
+      const start = performance.now();
+      const prepared = await sizedImagePreparation.prepare(source, crop, size);
+      recorded.push({ source, prepared, ms: performance.now() - start });
+      return prepared;
+    },
+  };
+  const start = performance.now();
+  const deck = await buildPptx(
+    {
+      files: entries.map((e) => e.file),
+      box: { x: 0, y: 0, w: SLIDE.w, h: SLIDE.h },
+      slideKind: SLIDE_KIND,
+      background: { kind: "color", color: "#FFFFFF" },
+      align: "center",
+      screen,
+    },
+    undefined,
+    observed,
+  );
+  const ms = performance.now() - start;
+  if (recorded.length !== entries.length) throw new Error(`recorded ${recorded.length} of ${entries.length} pictures`);
+
+  const pictures = [];
+  for (const [i, { source, prepared, ms: prepareMs }] of recorded.entries()) {
+    const input = new Uint8Array(await source.arrayBuffer());
+    const header = readImageHeader(input);
+    let deltaE = null;
+    if (header?.format === "png" && prepared.format === "jpeg") {
+      const drawn = await downscaleImage(source, prepared.width, prepared.height);
+      const before = await pixelsOf(drawn, prepared.width, prepared.height);
+      drawn.width = drawn.height = 0;
+      const after = await pixelsOf(new Blob([prepared.bytes], { type: "image/jpeg" }), prepared.width, prepared.height);
+      deltaE = colourDifference(before, after, prepared.width, prepared.height);
+    }
+    pictures.push({
+      label: entries[i].label,
+      originalBytes: entries[i].original?.size ?? null,
+      inputFormat: header?.format ?? "?",
+      inputBytes: input.length,
+      inputSize: header ? `${header.width}×${header.height}` : "?",
+      format: prepared.format,
+      bytes: prepared.bytes.length,
+      size: `${prepared.width}×${prepared.height}`,
+      asUploaded: sameBytes(prepared.bytes, input),
+      deltaEMean: round(deltaE?.mean),
+      deltaEP95: round(deltaE?.p95),
+      ms: Math.round(prepareMs),
+    });
+  }
+  return { deckBytes: deck.length, ms: Math.round(ms), pictures };
+}
+
+function table(rows) {
+  if (rows.length === 0) return "<p>(none)</p>";
+  const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))];
+  const cell = (v) => (v === null || v === undefined ? "–" : String(v));
+  return `<table><tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr>${rows
+    .map((r) => `<tr>${cols.map((c) => `<td>${cell(r[c])}</td>`).join("")}</tr>`)
+    .join("")}</table>`;
+}
+
+try {
+  const names = await (await fetch("/fixtures")).json();
+  const runs = [];
+  const summary = [];
+  for (const set of setNames) {
+    status(`Reading ${set}…`);
+    if (!SETS[set]) throw new Error(`unknown set ${set}`);
+    const entries = await SETS[set].load(names);
+    const row = { set, count: entries.length, "input MB": MB(entries.reduce((s, e) => s + e.file.size, 0)) };
+    if (set === "heic") row["HEIC MB"] = MB(entries.reduce((s, e) => s + e.original.size, 0));
+    for (const screen of screens) {
+      status(`${set} at ${screen} (${entries.length} pictures)…`);
+      const run = await measureDeck(entries, screen);
+      runs.push({ set, screen, ...run });
+      const p = run.pictures;
+      const deltas = p.filter((x) => x.deltaEMean !== null);
+      row[`${screen} MB`] = MB(p.reduce((s, x) => s + x.bytes, 0));
+      row[`${screen} spec`] = SETS[set].spec[screen] ?? null;
+      row[`${screen} jpeg/png/as uploaded`] =
+        `${p.filter((x) => x.format === "jpeg").length}/${p.filter((x) => x.format === "png").length}/${p.filter((x) => x.asUploaded).length}`;
+      row[`${screen} PNG→JPEG ΔE max mean / p95`] = deltas.length
+        ? `${Math.max(...deltas.map((x) => x.deltaEMean)).toFixed(2)} / ${Math.max(...deltas.map((x) => x.deltaEP95)).toFixed(2)}`
+        : null;
+      row[`${screen} s`] = round(run.ms / 1000, 1);
+    }
+    summary.push(row);
+  }
+  document.getElementById("out").innerHTML =
+    `<h2>Per set</h2>${table(summary)}` +
+    runs.map((r) => `<h2>${r.set} at ${r.screen}: deck ${MB(r.deckBytes)} MB, ${r.ms} ms</h2>${table(r.pictures)}`).join("");
+  window.__results = { summary, runs, pdfs: pdfsOf(names).join(", "), pages, dpi: PDF_DPI };
+  status("Done.");
+} catch (error) {
+  console.error(error);
+  status(`Failed: ${error.message}`);
+  window.__results = { error: `${error.message}\n${error.stack}` };
+}
+</script>
+</body>
+</html>

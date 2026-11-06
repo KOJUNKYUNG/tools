@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { maxFitCrop } from "./maxFitCrop";
-import { belowFullHd, filledSize, fittedSize, preparedFormat } from "./slideImage";
+import { belowFullHd, containedSize, filledSize, fittedSize, preparedFormat } from "./slideImage";
 
 /** Slide sizes in EMU, as `<p:sldSz>` stores them. */
 const WIDE = { w: 12192000, h: 6858000 }; // 16:9
@@ -9,6 +9,55 @@ const A4_PORTRAIT = { w: 7560310, h: 10692130 };
 const WIDE_16_10 = { w: 12192000, h: 7620000 };
 
 const crop = (width: number, height: number) => ({ x: 0, y: 0, width, height });
+
+describe("containedSize", () => {
+  const size = (width: number, height: number) => ({ width, height });
+
+  it("fits a portrait phone photo inside the slide on Full HD by its height", () => {
+    expect(containedSize(size(3024, 4032), WIDE, "full-hd")).toEqual(size(810, 1080));
+    expect(containedSize(size(1241, 1755), WIDE, "full-hd")).toEqual(size(764, 1080));
+  });
+
+  it("fits a landscape photo inside the slide on Full HD by the side that binds first", () => {
+    expect(containedSize(size(4032, 3024), WIDE, "full-hd")).toEqual(size(1440, 1080));
+    expect(containedSize(size(4000, 1000), WIDE, "full-hd")).toEqual(size(1920, 480));
+  });
+
+  it("holds a 4:3 slide to its own rectangle on the screen, not the whole screen", () => {
+    expect(containedSize(size(4000, 3000), STANDARD, "full-hd")).toEqual(size(1440, 1080));
+    expect(containedSize(size(4000, 1000), STANDARD, "full-hd")).toEqual(size(1440, 360));
+    expect(containedSize(size(4000, 3000), STANDARD, "4k")).toEqual(size(2880, 2160));
+  });
+
+  it("sizes for 4K when asked, and when the screen is omitted", () => {
+    expect(containedSize(size(3024, 4032), WIDE, "4k")).toEqual(size(1620, 2160));
+    expect(containedSize(size(3024, 4032), WIDE)).toEqual(size(1620, 2160));
+  });
+
+  it("uses the screen in the slide's orientation", () => {
+    // The portrait slide's rectangle is 1080 × 1920: its width binds here.
+    expect(containedSize(size(3024, 4032), { w: 9, h: 16 }, "full-hd")).toEqual(size(1080, 1440));
+    expect(containedSize(size(4032, 3024), { w: 9, h: 16 }, "full-hd")).toEqual(size(1080, 810));
+  });
+
+  it("never enlarges a picture smaller than the slide's rectangle", () => {
+    expect(containedSize(size(800, 600), WIDE, "full-hd")).toEqual(size(800, 600));
+    expect(containedSize(size(1920, 1080), WIDE, "full-hd")).toEqual(size(1920, 1080));
+    expect(containedSize(size(2, 1), WIDE, "4k")).toEqual(size(2, 1));
+  });
+
+  it("keeps a very thin picture at least a pixel on its short side", () => {
+    expect(containedSize(size(10000, 2), WIDE, "full-hd")).toEqual(size(1920, 1));
+  });
+});
+
+describe("filledSize on a chosen screen", () => {
+  it("is the largest rectangle of the slide's aspect that screen holds", () => {
+    expect(filledSize(WIDE, "full-hd")).toEqual({ width: 1920, height: 1080 });
+    expect(filledSize(STANDARD, "full-hd")).toEqual({ width: 1440, height: 1080 });
+    expect(filledSize(WIDE, "4k")).toEqual(filledSize(WIDE));
+  });
+});
 
 describe("fittedSize", () => {
   it("fits a 16:9 crop inside 3840 × 2160", () => {
@@ -33,6 +82,17 @@ describe("fittedSize", () => {
 
   it("uses the landscape box for a square slide", () => {
     expect(fittedSize(crop(3000, 3000), { w: 1, h: 1 })).toEqual({ width: 2160, height: 2160 });
+  });
+
+  it("fits a crop inside the slide's rectangle on Full HD when asked", () => {
+    expect(fittedSize(crop(4032, 2268), WIDE, "full-hd")).toEqual({ width: 1920, height: 1080 });
+    expect(fittedSize(crop(4032, 3024), STANDARD, "full-hd")).toEqual({ width: 1440, height: 1080 });
+    expect(fittedSize(crop(1600, 900), WIDE, "full-hd")).toEqual({ width: 1600, height: 900 });
+  });
+
+  it("means 4K when no screen size is given", () => {
+    expect(fittedSize(crop(4032, 2268), WIDE, "4k")).toEqual({ width: 3840, height: 2160 });
+    expect(fittedSize(crop(4032, 3024), STANDARD)).toEqual(fittedSize(crop(4032, 3024), STANDARD, "4k"));
   });
 
   it("keeps a crop smaller than the box at its own pixel size", () => {

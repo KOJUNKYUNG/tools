@@ -2,11 +2,16 @@
 import { createHash } from "node:crypto";
 import { crc32 } from "node:zlib";
 import { pngAlphaUsed } from "@/lib/output-check/pngAlpha";
+import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
+import type { CropRect } from "./maxFitCrop";
 import {
   fittedSize,
   preparedFormat,
+  takenWhole,
   type PixelSize,
+  type PreparedImage,
   type PrepareSlideImage,
+  type SizedImagePreparation,
 } from "./slideImage";
 
 function pngChunk(type: string, data: Uint8Array): Buffer {
@@ -71,9 +76,45 @@ const PHOTO_ENCODED = { jpegBytes: 1, pngBytes: 10 };
  */
 export const standInPrepare: PrepareSlideImage = async (source, crop, slide) => {
   const bytes = new Uint8Array(await source.arrayBuffer());
+  return encodedStandIn(bytes, crop, fittedSize(crop, slide), await photoFormat(bytes));
+};
+
+/** The format the stand-in's sizes give a picture: PNG only when its alpha is used. */
+async function photoFormat(bytes: Uint8Array): Promise<PreparedImage["format"]> {
   const alphaUsed = (await pngAlphaUsed(bytes)) === true;
-  const format = preparedFormat({ alphaUsed, ...PHOTO_ENCODED });
-  const size = fittedSize(crop, slide);
+  return preparedFormat({ alphaUsed, ...PHOTO_ENCODED });
+}
+
+/** The picture a canvas would encode: tagged with its source and cut. */
+function encodedStandIn(
+  bytes: Uint8Array,
+  crop: CropRect,
+  size: PixelSize,
+  format: PreparedImage["format"],
+): PreparedImage {
   const tag = createHash("sha256").update(bytes).update(JSON.stringify(crop)).digest();
   return { bytes: headerOnlyImage(format, size, tag), format, ...size };
+}
+
+/**
+ * Stands in for `sizedImagePreparation` in Node: the size from the header, the
+ * real rule for what goes in as uploaded, and otherwise a header-only image,
+ * sized as a photo as `standInPrepare` is. So an opaque PNG taken whole comes
+ * out JPEG here; the preparer's own tests cover one JPEG would not halve.
+ */
+export const standInSizedPreparation: SizedImagePreparation = {
+  async measure(source) {
+    const header = readImageHeader(new Uint8Array(await source.arrayBuffer()));
+    if (!header) throw new Error("cannot read the image header");
+    const [width, height] = displayedSize(header);
+    return { width, height };
+  },
+  async prepare(source, crop, size) {
+    const bytes = new Uint8Array(await source.arrayBuffer());
+    const format = await photoFormat(bytes);
+    if (takenWhole(bytes, crop, size) && readImageHeader(bytes)?.format === format) {
+      return { bytes, format, ...size };
+    }
+    return encodedStandIn(bytes, crop, size, format);
+  },
 };

@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
-import { JPEG_3x2, noisePng, solidPng } from "@/lib/pdf/testImages";
+import { headerOnlyImage } from "@/lib/image/slideImageStandIn";
+import { JPEG_3x2, noisePng, solidPng, withExifOrientation, withJpegSize } from "@/lib/pdf/testImages";
 import { assemblePptxFromPlaced, type AssembleOptions, type PlacedImage } from "./assemblePptx";
 import { checkImageToPptx } from "./imageToPptxCheck";
 
@@ -13,11 +14,30 @@ const IMAGES: PlacedImage[] = [solidPng(1, 1), solidPng(2, 1), solidPng(3, 1)].m
   dataUrl: dataUrl(png),
   placement: { x: 1, y: 1, w: 4, h: 3 },
 }));
-const COLOR: AssembleOptions = { slideKind: "16:9", background: { kind: "color", color: "FFFFFF" } };
+const COLOR: AssembleOptions = { slideKind: "16:9", screen: "full-hd", background: { kind: "color", color: "FFFFFF" } };
 const IMAGE_BG: AssembleOptions = {
   slideKind: "4:3",
+  screen: "full-hd",
   background: { kind: "image", dataUrl: dataUrl(solidPng(4, 3)) },
 };
+
+/** One slide showing `bytes`, as the engine would have placed them. */
+const onePicture = (bytes: Uint8Array, format: "png" | "jpeg" = "png"): PlacedImage[] => [
+  {
+    dataUrl: `data:image/${format};base64,${Buffer.from(bytes).toString("base64")}`,
+    placement: { x: 1, y: 1, w: 4, h: 3 },
+  },
+];
+
+const sized = (format: "png" | "jpeg", width: number, height: number) =>
+  headerOnlyImage(format, { width, height }, new Uint8Array([1]));
+
+/** Replaces a part's bytes, as a tool writing the wrong picture would. */
+async function withPart(deck: Uint8Array, part: string, bytes: Uint8Array): Promise<Uint8Array> {
+  const zip = await JSZip.loadAsync(deck);
+  zip.file(part, bytes);
+  return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+}
 
 /** Rewrites parts of a deck; a null edit removes the part. */
 async function edit(
@@ -100,10 +120,75 @@ describe("checkImageToPptx", () => {
     ]);
   });
 
+  it("flags a slide picture whose bytes do not match its part's extension, at full depth only", async () => {
+    const jpeg = sized("jpeg", 40, 30);
+    const images = onePicture(sized("png", 40, 30));
+    const deck = await assemblePptxFromPlaced(images, COLOR);
+    expect(await checkImageToPptx(images, COLOR, deck, "full")).toEqual([]);
+
+    // A JPEG under a .png name, with the engine's input saying the same bytes.
+    const edited = await withPart(deck, "ppt/media/image-1-1.png", jpeg);
+    const placed = onePicture(jpeg);
+
+    expect(await checkImageToPptx(placed, COLOR, edited, "quick")).toEqual([]);
+    expect(await checkImageToPptx(placed, COLOR, edited, "full")).toEqual([
+      { property: "slide-image-header", detail: "ppt/media/image-1-1.png: holds jpeg" },
+    ]);
+  });
+
+  it("flags a slide picture part holding unreadable bytes", async () => {
+    const images = onePicture(sized("png", 40, 30));
+    const garbage = new Uint8Array([1, 2, 3, 4]);
+    const edited = await withPart(await assemblePptxFromPlaced(images, COLOR), "ppt/media/image-1-1.png", garbage);
+
+    expect(await checkImageToPptx(onePicture(garbage), COLOR, edited, "full")).toEqual([
+      { property: "slide-image-header", detail: "ppt/media/image-1-1.png: holds unreadable bytes" },
+    ]);
+  });
+
+  it.each([
+    ["16:9", "full-hd", 1920, 1080],
+    ["4:3", "full-hd", 1440, 1080],
+    ["16:9", "4k", 3840, 2160],
+    ["4:3", "4k", 2880, 2160],
+  ] as const)("accepts a picture filling a %s slide on %s, and flags a pixel more, at full depth only", async (slideKind, screen, width, height) => {
+    const opts: AssembleOptions = { slideKind, screen, background: { kind: "color", color: "FFFFFF" } };
+    const fits = onePicture(sized("png", width, height));
+    expect(await checkImageToPptx(fits, opts, await assemblePptxFromPlaced(fits, opts), "full")).toEqual([]);
+
+    // A deck edited to carry more pixels than the screen shows, side by side.
+    for (const [w, h] of [[width + 1, height], [width, height + 1]]) {
+      const big = sized("png", w, h);
+      const edited = await withPart(
+        await assemblePptxFromPlaced(fits, opts),
+        "ppt/media/image-1-1.png",
+        big,
+      );
+      expect(await checkImageToPptx(onePicture(big), opts, edited, "quick")).toEqual([]);
+      expect(await checkImageToPptx(onePicture(big), opts, edited, "full")).toEqual([
+        {
+          property: "screen-size",
+          detail: `ppt/media/image-1-1.png: ${w} × ${h} on a ${width} × ${height} slide`,
+        },
+      ]);
+    }
+  });
+
+  it("flags a picture over the screen size by the size it shows, not as stored", async () => {
+    // Stored within Full HD's 1080 height only because the turn is not applied.
+    const turned = withExifOrientation(withJpegSize(JPEG_3x2, 1200, 1000), 6);
+    const placed = onePicture(turned, "jpeg");
+    const deck = await assemblePptxFromPlaced(placed, COLOR);
+
+    expect(await checkImageToPptx(placed, COLOR, deck, "full")).toEqual([
+      { property: "screen-size", detail: "ppt/media/image-1-1.jpeg: 1000 × 1200 on a 1920 × 1080 slide" },
+    ]);
+  });
+
   it("flags a background part whose bytes do not match its extension, at full depth only", async () => {
     // What pptxgenjs writes given only `data` (#74): a JPEG under a .png name.
     const jpeg = `data:image/jpeg;base64,${Buffer.from(JPEG_3x2).toString("base64")}`;
-    const opts: AssembleOptions = { slideKind: "16:9", background: { kind: "image", dataUrl: jpeg } };
+    const opts: AssembleOptions = { slideKind: "16:9", screen: "full-hd", background: { kind: "image", dataUrl: jpeg } };
     const pptx = new PptxGenJS();
     pptx.defineSlideMaster({ title: "BG", background: { data: jpeg } });
     for (const img of IMAGES) pptx.addSlide({ masterName: "BG" }).addImage({ data: img.dataUrl, ...img.placement });
@@ -115,11 +200,65 @@ describe("checkImageToPptx", () => {
     ]);
   });
 
+  /**
+   * A deck assembled on `assembled` whose background part is then replaced by
+   * `edited`, with options saying the engine prepared `edited`: so only the
+   * picture itself can be wrong.
+   */
+  async function withBackground(opts: AssembleOptions, assembled: Uint8Array, edited: Uint8Array) {
+    const asUrl = (bytes: Uint8Array) => `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`;
+    const deck = await assemblePptxFromPlaced(IMAGES, { ...opts, background: { kind: "image", dataUrl: asUrl(assembled) } });
+    const out = await withPart(deck, "ppt/media/ONTAB_BG-image-1.png", edited);
+    return { deck: out, opts: { ...opts, background: { kind: "image" as const, dataUrl: asUrl(edited) } } };
+  }
+
+  it.each([
+    // Stretched within the screen size, so only the aspect is wrong.
+    ["16:9", 1920, 1080, [[1440, 1080], [1920, 1078], [1080, 1080]]],
+    ["4:3", 1440, 1080, [[1440, 1078], [1080, 1080]]],
+  ] as const)("accepts a background of the %s slide's aspect, and flags one stretched to it, at full depth only", async (slideKind, width, height, stretched) => {
+    const opts: AssembleOptions = { slideKind, screen: "full-hd", background: COLOR.background };
+    const fits = sized("png", width, height);
+    const ok = await withBackground(opts, fits, fits);
+    expect(await checkImageToPptx(IMAGES, ok.opts, ok.deck, "full")).toEqual([]);
+
+    for (const [w, h] of stretched) {
+      const { deck, opts: edited } = await withBackground(opts, fits, sized("png", w, h));
+      expect(await checkImageToPptx(IMAGES, edited, deck, "quick")).toEqual([]);
+      expect(await checkImageToPptx(IMAGES, edited, deck, "full")).toEqual([
+        {
+          property: "background-aspect",
+          detail: `ppt/media/ONTAB_BG-image-1.png: ${w} × ${h} on a ${slideKind} slide`,
+        },
+      ]);
+    }
+  });
+
+  it.each([
+    ["16:9", "full-hd", 1920, 1080],
+    ["4:3", "4k", 2880, 2160],
+  ] as const)("flags a %s background over the %s screen size, at full depth only", async (slideKind, screen, width, height) => {
+    const opts: AssembleOptions = { slideKind, screen, background: COLOR.background };
+    const fits = sized("png", width, height);
+    const ok = await withBackground(opts, fits, fits);
+    expect(await checkImageToPptx(IMAGES, ok.opts, ok.deck, "full")).toEqual([]);
+
+    // Twice the size, so its aspect still holds and only the size is wrong.
+    const { deck, opts: edited } = await withBackground(opts, fits, sized("png", width * 2, height * 2));
+    expect(await checkImageToPptx(IMAGES, edited, deck, "quick")).toEqual([]);
+    expect(await checkImageToPptx(IMAGES, edited, deck, "full")).toEqual([
+      {
+        property: "screen-size",
+        detail: `ppt/media/ONTAB_BG-image-1.png: ${width * 2} × ${height * 2} on a ${width} × ${height} slide`,
+      },
+    ]);
+  });
+
   it("flags a background stored once per slide (size bound)", async () => {
     // The bloat assemblePptx's slide master exists to avoid: every slide
     // declares, and so embeds, its own copy of the background.
     const background = dataUrl(noisePng(200, 150));
-    const opts: AssembleOptions = { slideKind: "16:9", background: { kind: "image", dataUrl: background } };
+    const opts: AssembleOptions = { slideKind: "16:9", screen: "full-hd", background: { kind: "image", dataUrl: background } };
     const pptx = new PptxGenJS();
     for (const img of IMAGES) {
       const slide = pptx.addSlide();

@@ -37,11 +37,13 @@ import { type Box, computeSlidePlacement, type PlacementAlign } from "@/lib/pptx
 import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
-import { normalizeImageFiles } from "@/lib/image/heic";
+import { normalizeImageFile, normalizeImageFiles } from "@/lib/image/heic";
+import type { ScreenSize } from "@/lib/image/slideImage";
 import { AlignSelector } from "./AlignSelector";
 import { BackgroundPicker, type BgChoice } from "./BackgroundPicker";
 import { PlacementControls } from "./PlacementControls";
 import { PlacementEditor } from "./PlacementEditor";
+import { ScreenSizeSelector } from "./ScreenSizeSelector";
 import { SlideAspectSelector } from "./SlideAspectSelector";
 import { ImageToPptxResult } from "./ImageToPptxResult";
 import type { ImageToPptxLabels } from "./labels";
@@ -139,7 +141,13 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   // Box in INCHES on the slide
   const [box, setBox] = useState<Box>({ x: 1.33, y: 0.75, w: 10.67, h: 6 });
   const [slideKind, setSlideKind] = useState<SlideKind>("16:9");
+  // Deck-wide; Full HD unless the user asks for 4K (CONTEXT "Screen size").
+  const [screen, setScreen] = useState<ScreenSize>("full-hd");
   const [bg, setBg] = useState<BgChoice>({ kind: "color", color: "#FFFFFF" });
+  // A picked background is being converted (HEIC); bgPickRef numbers the picks
+  // so a slow conversion never replaces a later pick.
+  const [bgBusy, setBgBusy] = useState(false);
+  const bgPickRef = useRef(0);
   const [align, setAlign] = useState<PlacementAlign>("top-left");
 
   // Natural pixel dimensions of the first (reference) image, tagged with the
@@ -176,7 +184,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           ? { kind: "color", color: bg.color.replace("#", "") }
           : { kind: "image", file: bg.file };
       const bytes = await buildPptx(
-        { files: orderedFiles, box, slideKind, background, align },
+        { files: orderedFiles, box, slideKind, background, align, screen },
         onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pptx`;
@@ -229,6 +237,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   }, [bg]);
   // revoke background URL on unmount
   useEffect(() => () => {
+    bgPickRef.current++; // a conversion still running sets nothing after unmount
     if (prevBgUrlRef.current) { URL.revokeObjectURL(prevBgUrlRef.current); prevBgUrlRef.current = null; }
   }, []);
 
@@ -362,6 +371,43 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     },
     [labels, setFiles],
   );
+
+  // The background takes the slide pictures' conversion and errors. On any
+  // error the previous background stays.
+  const pickBackground = useCallback(
+    async (picked: File) => {
+      const pick = ++bgPickRef.current;
+      setBgBusy(true);
+      try {
+        // HEIC/HEIF (iPhone photos) → JPEG; PNG and JPEG pass through.
+        const file = await normalizeImageFile(picked);
+        if (pick !== bgPickRef.current) return;
+        if (file.type !== "image/png" && file.type !== "image/jpeg") {
+          toast.error(template(labels.errNotImage, { name: file.name }));
+          return;
+        }
+        if (file.size > uploadLimitFor("image-to-pptx")) {
+          toast.error(template(labels.errTooLarge, { name: file.name, size: formatBytes(uploadLimitFor("image-to-pptx")) }));
+          return;
+        }
+        setBg({ kind: "image", file, url: URL.createObjectURL(file) });
+      } catch (err) {
+        if (pick !== bgPickRef.current) return;
+        toast.error(
+          getErrorMessage(err, { copy: labels.errors, fallbackMessage: labels.errors.heicConvertFailed }).message,
+        );
+      } finally {
+        if (pick === bgPickRef.current) setBgBusy(false);
+      }
+    },
+    [labels],
+  );
+  // A colour chosen while a picture converts wins over that picture.
+  const chooseBackground = useCallback((choice: BgChoice) => {
+    bgPickRef.current++;
+    setBgBusy(false);
+    setBg(choice);
+  }, []);
 
   // Consume staged files on mount (StrictMode-safe via consumedRef)
   const consumedRef = useRef(false);
@@ -524,8 +570,15 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           }}
         >
           <SlideAspectSelector value={slideKind} onChange={setSlideKind} labels={labels} />
+          <ScreenSizeSelector value={screen} onChange={setScreen} labels={labels} />
           <AlignSelector value={align} onChange={setAlign} labels={labels} />
-          <BackgroundPicker value={bg} onChange={setBg} labels={labels} />
+          <BackgroundPicker
+            value={bg}
+            onChange={chooseBackground}
+            onPickImage={pickBackground}
+            busy={bgBusy}
+            labels={labels}
+          />
           <PlacementEditor
             box={box}
             onBoxChange={setBox}

@@ -2,7 +2,8 @@
 // src/ is served from /src/<path>.ts with its types stripped (transform mode,
 // so parameter properties work), its "@/" and extensionless relative imports
 // pointed back at this route, and each named package at the URL the server
-// gives it. Shared by scripts/measure-ppt-ratios and scripts/measure-filters.
+// gives it. Shared by scripts/measure-ppt-ratios, scripts/measure-filters and
+// scripts/measure-image-prep.
 
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";

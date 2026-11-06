@@ -1,17 +1,17 @@
 /**
- * Shared slide image preparation (spec #98): a picture that fills a slide is
- * cut to the slide's aspect (a Background crop, in ppt-background), made no
- * larger than a 4K screen needs in the slide's orientation, never enlarged,
- * and saved as JPEG when that is much smaller. ppt-background is the first
- * adopter; image-to-pptx and ppt-compress can adopt the same policy
- * (backlog S4).
+ * Shared slide image preparation (spec #98): a picture going into a slide
+ * holds no more pixels than it shows with the slide filling a screen (CONTEXT
+ * "Screen size"), is never enlarged, and is saved as JPEG when that is much
+ * smaller. ppt-background cuts its picture to the slide's aspect (a Background
+ * crop) on a 4K screen; image-to-pptx (spec #147) keeps its pictures whole, on
+ * the screen size the deck asks for. ppt-compress can adopt the same policy.
  *
  * The sizing and format decisions are pure, so they run in Node;
  * `prepareSlideImage` does the pixels in the browser and is injectable, so
  * engines stand it in.
  */
 import { INVALID_INPUT_PREFIX } from "@/lib/errors";
-import { hasUnreadOrientation, readImageHeader } from "@/lib/output-check/imageHeader";
+import { displayedSize, hasUnreadOrientation, readImageHeader } from "@/lib/output-check/imageHeader";
 import { downscaleImage } from "./downscale";
 import type { CropRect } from "./maxFitCrop";
 
@@ -26,19 +26,28 @@ export interface PixelSize {
   height: number;
 }
 
-/** A 4K screen in the slide's orientation: landscape (and square) or portrait. */
-export function screenBox(slide: SlideSize): PixelSize {
-  return slide.w >= slide.h ? { width: 3840, height: 2160 } : { width: 2160, height: 3840 };
+/** The screen a deck's pictures are sized for (CONTEXT "Screen size"). */
+export type ScreenSize = "full-hd" | "4k";
+
+const SCREEN_SIDES: Readonly<Record<ScreenSize, { long: number; short: number }>> = {
+  "full-hd": { long: 1920, short: 1080 },
+  "4k": { long: 3840, short: 2160 },
+};
+
+/** The screen in the slide's orientation: landscape (and square) or portrait. */
+export function screenBox(slide: SlideSize, screen: ScreenSize = "4k"): PixelSize {
+  const { long, short } = SCREEN_SIDES[screen];
+  return slide.w >= slide.h ? { width: long, height: short } : { width: short, height: long };
 }
 
 /**
  * The pixel size a crop of the slide's aspect is stored at: the crop's own
- * size when it fits the 4K box, otherwise scaled down until the side that
- * binds first meets the box, the other side following the slide's aspect.
- * Never larger than the crop on either side.
+ * size when it fits the screen's box, otherwise scaled down until the side
+ * that binds first meets the box, the other side following the slide's
+ * aspect. Never larger than the crop on either side.
  */
-export function fittedSize(crop: CropRect, slide: SlideSize): PixelSize {
-  const box = screenBox(slide);
+export function fittedSize(crop: CropRect, slide: SlideSize, screen: ScreenSize = "4k"): PixelSize {
+  const box = screenBox(slide, screen);
   const widthScale = box.width / crop.width;
   const heightScale = box.height / crop.height;
   if (widthScale >= 1 && heightScale >= 1) return { width: crop.width, height: crop.height };
@@ -53,15 +62,30 @@ export function fittedSize(crop: CropRect, slide: SlideSize): PixelSize {
 }
 
 /**
- * The largest picture of the slide's aspect the 4K box holds: what a crop of
- * any larger picture is stored at, so the size a picture made for the slide
- * (a filtered solid colour) is drawn at.
+ * The largest picture of the slide's aspect the screen holds, the slide's
+ * rectangle on it: what a crop of any larger picture is stored at, so the size
+ * a picture made for the slide (a filtered solid colour) is drawn at.
  */
-export function filledSize(slide: SlideSize): PixelSize {
-  const box = screenBox(slide);
+export function filledSize(slide: SlideSize, screen: ScreenSize = "4k"): PixelSize {
+  const box = screenBox(slide, screen);
   const ratio = slide.w / slide.h;
   if (ratio >= box.width / box.height) return { width: box.width, height: Math.round(box.width / ratio) };
   return { width: Math.round(box.height * ratio), height: box.height };
+}
+
+/**
+ * The size a whole picture of any shape is stored at: scaled down until it
+ * fits inside the slide's rectangle on the screen, keeping its shape, and
+ * never enlarged.
+ */
+export function containedSize(picture: PixelSize, slide: SlideSize, screen: ScreenSize = "4k"): PixelSize {
+  const rectangle = filledSize(slide, screen);
+  const scale = Math.min(rectangle.width / picture.width, rectangle.height / picture.height);
+  if (scale >= 1) return picture;
+  return {
+    width: Math.max(1, Math.round(picture.width * scale)),
+    height: Math.max(1, Math.round(picture.height * scale)),
+  };
 }
 
 /**
@@ -89,6 +113,23 @@ export type PrepareSlideImage = (
   crop: CropRect,
   slide: SlideSize,
 ) => Promise<PreparedImage>;
+
+/** Prepares `source`: cut to `crop` (in its upright pixels), then drawn at `size`. */
+export type PrepareSizedImage = (
+  source: Blob,
+  crop: CropRect,
+  size: PixelSize,
+) => Promise<PreparedImage>;
+
+/**
+ * What an engine sizing pictures itself needs: a picture's upright size, to
+ * work out the crop and the size, then the preparation. Tests and Node stand
+ * it in for the canvas.
+ */
+export interface SizedImagePreparation {
+  measure(source: Blob): Promise<PixelSize>;
+  prepare: PrepareSizedImage;
+}
 
 /**
  * The format a prepared picture is saved in (spec #98): a picture whose alpha
@@ -154,41 +195,72 @@ async function encode(canvas: OffscreenCanvas, format: PreparedImage["format"]):
 export type PrepareStep = (fitted: OffscreenCanvas) => OffscreenCanvas | Promise<OffscreenCanvas>;
 
 /**
- * The browser preparer: cut, fit, run `step` when given, then save as
- * `preparedFormat` decides, scanning a PNG's pixels for transparency (a JPEG
- * has none). Without a step, a picture taken whole at its own size that
- * stays in its format goes in as uploaded: re-encoding it could only lose
- * quality or grow it. So a whole JPEG is never re-encoded, and a whole PNG
- * is re-encoded only to measure the rule. A step changes the pixels, so its
- * picture is always encoded, and scanned for transparency as it comes out.
+ * Whether `crop` at `size` is the upload itself: all of it, upright as
+ * stored, at its own size, in a format a deck takes as is. Such a picture
+ * can go in as uploaded when it stays in its format.
  */
-export function slideImagePreparer(step?: PrepareStep): PrepareSlideImage {
-  return async (source, crop, slide) => {
+export function takenWhole(bytes: Uint8Array, crop: CropRect, size: PixelSize): boolean {
+  const header = readImageHeader(bytes);
+  return (
+    header !== null &&
+    header.format !== "webp" &&
+    header.orientation === 1 &&
+    !hasUnreadOrientation(bytes) &&
+    crop.x === 0 &&
+    crop.y === 0 &&
+    crop.width === header.width &&
+    crop.height === header.height &&
+    size.width === crop.width &&
+    size.height === crop.height
+  );
+}
+
+/** `source` decoded upright. A failure means the file is the problem, not the tool. */
+function decodeUpright(source: Blob): Promise<ImageBitmap> {
+  return createImageBitmap(source, { imageOrientation: "from-image" }).catch(() => {
+    throw new Error(`${INVALID_INPUT_PREFIX}: the picture could not be decoded`);
+  });
+}
+
+/**
+ * `source`'s size as it shows, upright: from its header, without decoding it,
+ * unless it carries orientation metadata the header reader does not read.
+ */
+export async function uprightSize(source: Blob): Promise<PixelSize> {
+  const bytes = new Uint8Array(await source.arrayBuffer());
+  const header = readImageHeader(bytes);
+  if (header && !hasUnreadOrientation(bytes)) {
+    const [width, height] = displayedSize(header);
+    return { width, height };
+  }
+  const bitmap = await decodeUpright(source);
+  const size = { width: bitmap.width, height: bitmap.height };
+  bitmap.close();
+  return size;
+}
+
+/**
+ * The browser preparer, its size from the caller: cut, draw at `size`, run
+ * `step` when given, then save as `preparedFormat` decides, scanning a PNG's
+ * pixels for transparency (a JPEG has none). Without a step, a picture taken
+ * whole at its own size that stays in its format goes in as uploaded:
+ * re-encoding it could only lose quality or grow it. So a whole JPEG is never
+ * re-encoded, and a whole PNG is re-encoded only to measure the rule. A step
+ * changes the pixels, so its picture is always encoded, and scanned for
+ * transparency as it comes out.
+ */
+export function sizedImagePreparer(step?: PrepareStep): PrepareSizedImage {
+  return async (source, crop, size) => {
     const bytes = new Uint8Array(await source.arrayBuffer());
     const header = readImageHeader(bytes);
-    const size = fittedSize(crop, slide);
+    const whole = !step && takenWhole(bytes, crop, size);
 
-    const whole =
-      !step &&
-      header !== null &&
-      header.format !== "webp" &&
-      header.orientation === 1 &&
-      !hasUnreadOrientation(bytes) &&
-      crop.x === 0 &&
-      crop.y === 0 &&
-      crop.width === header.width &&
-      crop.height === header.height &&
-      size.width === crop.width &&
-      size.height === crop.height;
-    if (whole && header.format === "jpeg") return { bytes, format: "jpeg", ...size };
-
-    // The <img> that measured the picture may decode what createImageBitmap
-    // cannot; either way the file is the problem, not the tool.
-    const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" }).catch(() => {
-      throw new Error(`${INVALID_INPUT_PREFIX}: the background image could not be decoded`);
-    });
+    // Decoded even when it goes in as uploaded: nothing else proves the
+    // picture opens, and a slide holding one that does not is a silent fault.
+    const bitmap = await decodeUpright(source);
     let canvas: OffscreenCanvas | null = null;
     try {
+      if (whole && header?.format === "jpeg") return { bytes, format: "jpeg", ...size };
       const sourceAlpha = !step && header?.format !== "jpeg" && alphaUsed(bitmap);
       if (whole && sourceAlpha) return { bytes, format: "png", ...size };
       canvas = await downscaleImage(bitmap, size.width, size.height, crop);
@@ -214,5 +286,17 @@ export function slideImagePreparer(step?: PrepareStep): PrepareSlideImage {
   };
 }
 
+/** The sized preparer for a crop of the slide's aspect, fitted inside 4K. */
+export function slideImagePreparer(step?: PrepareStep): PrepareSlideImage {
+  const prepare = sizedImagePreparer(step);
+  return (source, crop, slide) => prepare(source, crop, fittedSize(crop, slide));
+}
+
 /** The shared preparation with no step. */
 export const prepareSlideImage: PrepareSlideImage = slideImagePreparer();
+
+/** The shared preparation for an engine that sizes pictures itself. */
+export const sizedImagePreparation: SizedImagePreparation = {
+  measure: uprightSize,
+  prepare: sizedImagePreparer(),
+};

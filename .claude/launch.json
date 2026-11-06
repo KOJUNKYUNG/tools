@@ -20,6 +20,12 @@
       "port": 4330
     },
     {
+      "name": "measure-image-prep",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/measure-image-prep/serve.mjs"],
+      "port": 4340
+    },
+    {
       "name": "gallery-lab",
       "runtimeExecutable": "node",
       "runtimeArgs": ["scripts/gallery/lab.mjs"],
