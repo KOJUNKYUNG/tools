@@ -8,12 +8,13 @@ import { realFileSuite, type RealFileRequest } from "@/lib/output-check/realFile
 import { solidPng } from "@/lib/pdf/testImages";
 import {
   buildPptx,
+  prepareBackgroundPicture,
   prepareSlidePicture,
   type AssembleOptions,
   type BuildPptxInput,
 } from "./assemblePptx";
 import { checkImageToPptx } from "./imageToPptxCheck";
-import { embedAsIs, placedAs } from "./testDownscale";
+import { placedAs } from "./testPlaced";
 
 /** What the user asked for, and what the stand-in preparation embeds for it. */
 interface Request {
@@ -61,7 +62,10 @@ async function requests(input: Uint8Array): Promise<RealFileRequest<Request>[]> 
     slidesEmbedded: await Promise.all(
       slides.map(async (file) => (await prepareSlidePicture(file, slideKind, screen, standInSizedPreparation)).dataUrl),
     ),
-    background: background && { file: background, embedded: (await embedAsIs(background, 0)).dataUrl },
+    background: background && {
+      file: background,
+      embedded: await prepareBackgroundPicture(background, slideKind, screen, standInSizedPreparation),
+    },
     slideKind,
     align,
     screen,
@@ -85,6 +89,11 @@ async function requests(input: Uint8Array): Promise<RealFileRequest<Request>[]> 
       label: "16:9, the photo as background",
       request: await requested([other], photo, "16:9", "center", "full-hd"),
     },
+    {
+      // Most real photos are not 4:3, so this takes the centred crop.
+      label: "4:3, the photo as background, 4K",
+      request: await requested([other], photo, "4:3", "center", "4k"),
+    },
   ];
 }
 
@@ -106,7 +115,6 @@ realFileSuite({
       },
       undefined,
       standInSizedPreparation,
-      embedAsIs,
     ),
   check: (_input, request, output, depth) =>
     checkImageToPptx(placedAs(request.slidesEmbedded), optionsOf(request), output, depth),

@@ -4,7 +4,7 @@ import { displayedSize, readImageHeader, type ImageHeader } from "@/lib/output-c
 import { openPptxPackage, type PptxPackage } from "@/lib/output-check/pptxPackage";
 import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { AssembleOptions, PlacedImage } from "./assemblePptx";
-import { SLIDE_SIZES } from "./slideSize";
+import { SLIDE_SIZES, type SlideKind } from "./slideSize";
 
 /** The bytes a base64 data URL carries (what pptxgenjs embeds as the media part). */
 function dataUrlBytes(url: string): Uint8Array {
@@ -55,13 +55,33 @@ function headerMismatch(part: string, bytes: Uint8Array | null): string | null {
   return `${part}: holds ${found ?? "unreadable bytes"}`;
 }
 
+/** A picture's size as it shows, or null for unreadable bytes, which the header properties report. */
+function shownSize(bytes: Uint8Array | null): [number, number] | null {
+  const header = bytes && readImageHeader(bytes);
+  return header ? displayedSize(header) : null;
+}
+
 /** Why `part`'s picture holds more pixels than `slideOnScreen` shows, or null when it does not. */
 function overScreen(part: string, bytes: Uint8Array | null, slideOnScreen: PixelSize): string | null {
-  const header = bytes && readImageHeader(bytes);
-  if (!header) return null; // Unreadable bytes are the header property's to report.
-  const [width, height] = displayedSize(header);
+  const shown = shownSize(bytes);
+  if (!shown) return null;
+  const [width, height] = shown;
   if (width <= slideOnScreen.width && height <= slideOnScreen.height) return null;
   return `${part}: ${width} × ${height} on a ${slideOnScreen.width} × ${slideOnScreen.height} slide`;
+}
+
+/**
+ * Why `part`'s picture is not of the slide's aspect, or null when it is: the
+ * Background crop's tolerance, 1 px on each side for rounding, so a picture
+ * stretched to the slide is caught.
+ */
+function offAspect(part: string, bytes: Uint8Array | null, slideKind: SlideKind): string | null {
+  const shown = shownSize(bytes);
+  if (!shown) return null;
+  const [width, height] = shown;
+  const { w, h } = SLIDE_SIZES[slideKind];
+  if (Math.abs(width - (height * w) / h) <= 1 && Math.abs(height - (width * h) / w) <= 1) return null;
+  return `${part}: ${width} × ${height} on a ${slideKind} slide`;
 }
 
 /**
@@ -85,12 +105,15 @@ const SLIDE_OVERHEAD = 8 * 1024;
  *   embedded (byte-identical to the prepared data the engine placed)
  * - `slide-image-header`: each slide picture's bytes are the format its
  *   part's extension names, since formats mix within a deck
- * - `screen-size`: no slide picture holds more pixels, on either side, than
- *   the slide's rectangle on the deck's screen size
+ * - `screen-size`: no embedded picture, background included, holds more
+ *   pixels, on either side, than the slide's rectangle on the deck's screen
+ *   size
  * - `slide-background`: with an image background, every slide inherits that
  *   image (stored once, on the master pptxgenjs writes as a layout)
  * - `background-header`: the inherited background part's bytes are the
  *   format its extension names, so a JPEG is not stored as `.png` (#74)
+ * - `background-aspect`: the inherited background picture has the slide's
+ *   aspect within a pixel's rounding, so it is cropped, not stretched
  * - `size-bound`: output ≤ the embedded images + background + package
  *   overhead, so a background stored once per slide does not slip through
  *
@@ -148,6 +171,10 @@ export const checkImageToPptx: OutputChecker<PlacedImage[], AssembleOptions, Uin
           matches.set(media, sameBytes(bytes, backgroundImage));
           const mismatch = headerMismatch(media, bytes);
           if (mismatch) violations.push({ property: "background-header", detail: mismatch });
+          const stretched = offAspect(media, bytes, slideKind);
+          if (stretched) violations.push({ property: "background-aspect", detail: stretched });
+          const over = overScreen(media, bytes, slideOnScreen);
+          if (over) violations.push({ property: "screen-size", detail: over });
         }
         if (media === null || !matches.get(media)) {
           violations.push({

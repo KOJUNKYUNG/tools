@@ -5,6 +5,8 @@ import type { Dictionary } from "@/i18n/config";
 import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
 import { CORRUPT_OUTPUT_PREFIX, getErrorMessage } from "@/lib/errors";
+import type { CropRect } from "@/lib/image/maxFitCrop";
+import type { SizedImagePreparation } from "@/lib/image/slideImage";
 import { headerOnlyImage, standInSizedPreparation } from "@/lib/image/slideImageStandIn";
 import { testPng } from "@/lib/image/testPng";
 import { readImageHeader } from "@/lib/output-check/imageHeader";
@@ -13,12 +15,13 @@ import { JPEG_3x2, solidPng, withExifOrientation, withJpegSize } from "@/lib/pdf
 import {
   assemblePptxFromPlaced,
   buildPptx,
+  prepareBackgroundPicture,
   prepareSlidePicture,
   type BuildPptxInput,
   type PlacedImage,
 } from "./assemblePptx";
 import * as check from "./imageToPptxCheck";
-import { embedAsIs, placedAs } from "./testDownscale";
+import { placedAs } from "./testPlaced";
 
 // The real checker by default; one test makes it report a violation.
 vi.mock("./imageToPptxCheck", async (importOriginal) => {
@@ -36,6 +39,10 @@ function placed(n: number): PlacedImage[] {
 }
 function mediaEntries(zip: JSZip): string[] {
   return Object.keys(zip.files).filter((p) => /^ppt\/media\/.+/.test(p));
+}
+/** The background parts: pptxgenjs names them after the slide master. */
+function backgroundParts(zip: JSZip): string[] {
+  return mediaEntries(zip).filter((p) => p.startsWith("ppt/media/ONTAB_BG-"));
 }
 describe("assemblePptxFromPlaced", () => {
   it("produces one slide per image", async () => {
@@ -71,7 +78,7 @@ describe("assemblePptxFromPlaced", () => {
   ])("names and types a %s background part after its bytes", async (_label, dataUrl, extension, contentType) => {
     const bytes = await assemblePptxFromPlaced(placed(2), { slideKind: "16:9", screen: "full-hd", background: { kind: "image", dataUrl } });
     const zip = await JSZip.loadAsync(bytes);
-    const backgrounds = mediaEntries(zip).filter((p) => p.startsWith("ppt/media/ONTAB_BG-"));
+    const backgrounds = backgroundParts(zip);
     expect(backgrounds).toEqual([`ppt/media/ONTAB_BG-image-1.${extension}`]);
     const types = await zip.file("[Content_Types].xml")!.async("text");
     expect(types).toContain(`<Default Extension="${extension}" ContentType="${contentType}"/>`);
@@ -103,8 +110,6 @@ function request(background: BuildPptxInput["background"]): BuildPptxInput {
   };
 }
 
-const embedded = async (file: File) => (await embedAsIs(file, 0)).dataUrl;
-
 const WHITE = { kind: "color", color: "FFFFFF" } as const;
 
 const headerFile = (format: "png" | "jpeg", width: number, height: number, tag = 1) =>
@@ -122,7 +127,7 @@ async function deckOf(file: File, overrides: Partial<BuildPptxInput> = {}) {
     box: { x: 0, y: 0, w: 13.333, h: 7.5 },
     ...overrides,
   };
-  const deck = await buildPptx(input, undefined, standInSizedPreparation, embedAsIs);
+  const deck = await buildPptx(input, undefined, standInSizedPreparation);
   const pkg = (await openPptxPackage(deck))!;
   const [part] = await pkg.shownImages(pkg.slideParts[0]);
   const bytes = (await pkg.read(part!))!;
@@ -214,12 +219,86 @@ describe("buildPptx's slide pictures", () => {
   it("passes the full check, with the deck's screen size", async () => {
     const files = [headerFile("jpeg", 3024, 4032, 1), headerFile("jpeg", 800, 600, 2), headerFile("png", 3000, 2000, 3)];
     const input = { ...request(WHITE), files };
-    const deck = await buildPptx(input, undefined, standInSizedPreparation, embedAsIs);
+    const deck = await buildPptx(input, undefined, standInSizedPreparation);
     const pictures = await Promise.all(
       files.map((f) => prepareSlidePicture(f, input.slideKind, input.screen, standInSizedPreparation)),
     );
     const opts = { slideKind: input.slideKind, background: WHITE, screen: input.screen };
     expect(await checkImageToPptx(placedAs(pictures.map((p) => p.dataUrl)), opts, deck, "full")).toEqual([]);
+  });
+});
+
+/** A deck on `background`, on the stand-in preparation, with its stored background picture. */
+async function backgroundOf(background: File, overrides: Partial<BuildPptxInput> = {}) {
+  const crops: { name: string; crop: CropRect }[] = [];
+  const recording: SizedImagePreparation = {
+    measure: standInSizedPreparation.measure,
+    prepare(source, crop, size) {
+      crops.push({ name: source instanceof File ? source.name : "", crop });
+      return standInSizedPreparation.prepare(source, crop, size);
+    },
+  };
+  const input: BuildPptxInput = { ...request({ kind: "image", file: background }), ...overrides };
+  const deck = await buildPptx(input, undefined, recording);
+  const zip = await JSZip.loadAsync(deck);
+  const parts = backgroundParts(zip);
+  const bytes = await zip.file(parts[0])!.async("uint8array");
+  return {
+    deck,
+    parts,
+    bytes,
+    header: readImageHeader(bytes)!,
+    media: mediaEntries(zip),
+    crop: crops.find((c) => c.name === background.name)?.crop,
+  };
+}
+
+describe("buildPptx's background picture", () => {
+  const named = (file: File, name: string) => new File([file], name, { type: file.type });
+
+  it.each([
+    ["a 4:3 photo on a 16:9 slide", 4032, 3024, "16:9", { x: 0, y: 378, width: 4032, height: 2268 }, 1920, 1080],
+    ["a portrait photo on a 4:3 slide", 3024, 4032, "4:3", { x: 0, y: 882, width: 3024, height: 2268 }, 1440, 1080],
+    ["a 16:9 picture on a 4:3 slide", 3840, 2160, "4:3", { x: 480, y: 0, width: 2880, height: 2160 }, 1440, 1080],
+  ] as const)("takes the centred crop of %s, fitted to Full HD", async (_label, w, h, slideKind, crop, width, height) => {
+    const result = await backgroundOf(named(headerFile("jpeg", w, h, 9), "bg.jpeg"), { slideKind });
+    expect(result.crop).toEqual(crop);
+    expect(result.header).toMatchObject({ width, height });
+  });
+
+  it("fits the same crop to 4K when asked", async () => {
+    const { header } = await backgroundOf(named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg"), { screen: "4k" });
+    expect(header).toMatchObject({ width: 3840, height: 2160 });
+  });
+
+  it("puts a background of the slide's aspect that fits in as uploaded, byte for byte", async () => {
+    const file = named(headerFile("jpeg", 1600, 900, 9), "bg.jpeg");
+    const { bytes, parts } = await backgroundOf(file);
+    expect(bytes).toEqual(new Uint8Array(await file.arrayBuffer()));
+    expect(parts).toEqual(["ppt/media/ONTAB_BG-image-1.jpeg"]);
+  });
+
+  it("crops a phone photo that needs turning by its upright shape, not as uploaded", async () => {
+    // Stored 1600 × 900, shown 900 × 1600: the crop is a band across the portrait photo.
+    const sideways = withExifOrientation(withJpegSize(JPEG_3x2, 1600, 900), 6);
+    const { bytes, header, crop } = await backgroundOf(new File([Buffer.from(sideways)], "bg.jpg", { type: "image/jpeg" }));
+    expect(crop).toEqual({ x: 0, y: 547, width: 900, height: 506 });
+    expect(bytes).not.toEqual(sideways);
+    expect(header).toMatchObject({ width: 900, height: 506, orientation: 1 });
+  });
+
+  it("keeps a background whose transparency is used as PNG", async () => {
+    const cutout = testPng({ width: 400, height: 300, colorType: 6, pixel: (x) => [0, 0, 0, x < 20 ? 0 : 255] });
+    const { header, parts } = await backgroundOf(new File([Buffer.from(cutout)], "bg.png", { type: "image/png" }));
+    expect(header).toMatchObject({ format: "png", width: 400, height: 225 });
+    expect(parts).toEqual(["ppt/media/ONTAB_BG-image-1.png"]);
+  });
+
+  it("stores the prepared background once, however many slides the engine makes", async () => {
+    const files = [1, 2, 3, 4].map((tag) => headerFile("jpeg", 800, 600, tag));
+    const { media, parts } = await backgroundOf(named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg"), { files });
+    expect(parts).toHaveLength(1);
+    expect(media).toHaveLength(files.length + 1);
   });
 });
 
@@ -229,7 +308,7 @@ describe("buildPptx", () => {
     ["an image background", { kind: "image", file: pngFile("bg.png", 16, 9) } as const],
   ])("builds a deck on %s that passes the full check", async (_label, background) => {
     const progress: number[] = [];
-    const deck = await buildPptx(request(background), (pct) => progress.push(pct), standInSizedPreparation, embedAsIs);
+    const deck = await buildPptx(request(background), (pct) => progress.push(pct), standInSizedPreparation);
 
     expect(progress.at(-1)).toBe(100);
     expect(vi.mocked(check.checkImageToPptx)).toHaveBeenLastCalledWith(
@@ -244,7 +323,10 @@ describe("buildPptx", () => {
       background:
         background.kind === "color"
           ? background
-          : { kind: "image" as const, dataUrl: await embedded(background.file) },
+          : {
+              kind: "image" as const,
+              dataUrl: await prepareBackgroundPicture(background.file, "16:9", "full-hd", standInSizedPreparation),
+            },
     };
     const pictures = await Promise.all(
       FILES.map((f) => prepareSlidePicture(f, "16:9", "full-hd", standInSizedPreparation)),
@@ -260,7 +342,6 @@ describe("buildPptx", () => {
       request({ kind: "color", color: "FFFFFF" }),
       undefined,
       standInSizedPreparation,
-      embedAsIs,
     ).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(Error);

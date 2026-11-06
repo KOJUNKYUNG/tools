@@ -1,7 +1,9 @@
 import PptxGenJS from "pptxgenjs";
 import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
+import { maxFitCrop } from "@/lib/image/maxFitCrop";
 import {
   containedSize,
+  fittedSize,
   sizedImagePreparation,
   type PixelSize,
   type PreparedImage,
@@ -11,7 +13,6 @@ import {
 import { runOutputCheck } from "@/lib/output-check/core";
 import { SLIDE_SIZES, type SlideKind } from "./slideSize";
 import { computeSlidePlacement, type Box, type PlacementAlign } from "./slidePlacement";
-import { downscaleForSlide, SLIDE_IMAGE_MAX_LONG_EDGE } from "./downscaleForSlide";
 import { checkImageToPptx } from "./imageToPptxCheck";
 
 export type Background =
@@ -25,9 +26,8 @@ const BG_MASTER = "ONTAB_BG";
 /**
  * pptxgenjs names a background part, and picks its content type, by the
  * extension of `path`; given only `data` it assumes PNG, so a JPEG would be
- * stored as `.png` (#74). The downscaler encodes only these two; anything
- * else (e.g. `data:,` from a canvas that could not allocate) is the tool's
- * failure, reported as corrupt output.
+ * stored as `.png` (#74). The preparation encodes only these two; anything
+ * else is the tool's failure, reported as corrupt output.
  */
 const BACKGROUND_PATH_OF_MIME: Readonly<Record<string, string>> = {
   "image/png": "background.png",
@@ -77,7 +77,6 @@ export interface BuildPptxInput {
   /** The screen the deck's pictures are sized for (CONTEXT "Screen size"). */
   screen: ScreenSize;
 }
-export type DownscaleForSlide = typeof downscaleForSlide;
 
 /** Bytes per `String.fromCharCode` call: bounds its argument count. */
 const BASE64_CHUNK = 0x8000;
@@ -111,24 +110,41 @@ export async function prepareSlidePicture(
 }
 
 /**
+ * The background picture as it enters the deck: cut to the centred Background
+ * crop of the slide's aspect, which is what the tool's preview shows, then
+ * fitted to the screen. The engine takes it as a plain picture file, whatever
+ * its source.
+ */
+export async function prepareBackgroundPicture(
+  file: File,
+  slideKind: SlideKind,
+  screen: ScreenSize,
+  preparation: SizedImagePreparation,
+): Promise<string> {
+  const slide = SLIDE_SIZES[slideKind];
+  const upright = await preparation.measure(file);
+  const crop = maxFitCrop({ w: upright.width, h: upright.height }, slide.w, slide.h);
+  return dataUrlOf(await preparation.prepare(file, crop, fittedSize(crop, slide, screen)));
+}
+
+/**
  * image-to-pptx's engine entry: prepare each file, compute placement,
  * assemble, then the tool's output check (see `imageToPptxCheck.ts`). A
  * failing check has no safer mode to fall back to, so it blocks with the
- * corrupt-output error. `preparation` and `downscaleBackground` are the
- * browser's canvas; tests in Node pass stand-ins.
+ * corrupt-output error. `preparation` is the browser's canvas; tests in Node
+ * pass a stand-in.
  */
 export async function buildPptx(
   input: BuildPptxInput,
   onProgress?: (pct: number) => void,
   preparation: SizedImagePreparation = sizedImagePreparation,
-  downscaleBackground: DownscaleForSlide = downscaleForSlide,
 ): Promise<Uint8Array> {
   const boxInches: Box = input.box;
   let background: Background;
   if (input.background.kind === "color") background = { kind: "color", color: input.background.color };
   else {
-    const bg = await downscaleBackground(input.background.file, SLIDE_IMAGE_MAX_LONG_EDGE);
-    background = { kind: "image", dataUrl: bg.dataUrl };
+    const dataUrl = await prepareBackgroundPicture(input.background.file, input.slideKind, input.screen, preparation);
+    background = { kind: "image", dataUrl };
   }
   const placed: PlacedImage[] = [];
   const total = input.files.length;

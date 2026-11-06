@@ -200,6 +200,60 @@ describe("checkImageToPptx", () => {
     ]);
   });
 
+  /**
+   * A deck assembled on `assembled` whose background part is then replaced by
+   * `edited`, with options saying the engine prepared `edited`: so only the
+   * picture itself can be wrong.
+   */
+  async function withBackground(opts: AssembleOptions, assembled: Uint8Array, edited: Uint8Array) {
+    const asUrl = (bytes: Uint8Array) => `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`;
+    const deck = await assemblePptxFromPlaced(IMAGES, { ...opts, background: { kind: "image", dataUrl: asUrl(assembled) } });
+    const out = await withPart(deck, "ppt/media/ONTAB_BG-image-1.png", edited);
+    return { deck: out, opts: { ...opts, background: { kind: "image" as const, dataUrl: asUrl(edited) } } };
+  }
+
+  it.each([
+    // Stretched within the screen size, so only the aspect is wrong.
+    ["16:9", 1920, 1080, [[1440, 1080], [1920, 1078], [1080, 1080]]],
+    ["4:3", 1440, 1080, [[1440, 1078], [1080, 1080]]],
+  ] as const)("accepts a background of the %s slide's aspect, and flags one stretched to it, at full depth only", async (slideKind, width, height, stretched) => {
+    const opts: AssembleOptions = { slideKind, screen: "full-hd", background: COLOR.background };
+    const fits = sized("png", width, height);
+    const ok = await withBackground(opts, fits, fits);
+    expect(await checkImageToPptx(IMAGES, ok.opts, ok.deck, "full")).toEqual([]);
+
+    for (const [w, h] of stretched) {
+      const { deck, opts: edited } = await withBackground(opts, fits, sized("png", w, h));
+      expect(await checkImageToPptx(IMAGES, edited, deck, "quick")).toEqual([]);
+      expect(await checkImageToPptx(IMAGES, edited, deck, "full")).toEqual([
+        {
+          property: "background-aspect",
+          detail: `ppt/media/ONTAB_BG-image-1.png: ${w} × ${h} on a ${slideKind} slide`,
+        },
+      ]);
+    }
+  });
+
+  it.each([
+    ["16:9", "full-hd", 1920, 1080],
+    ["4:3", "4k", 2880, 2160],
+  ] as const)("flags a %s background over the %s screen size, at full depth only", async (slideKind, screen, width, height) => {
+    const opts: AssembleOptions = { slideKind, screen, background: COLOR.background };
+    const fits = sized("png", width, height);
+    const ok = await withBackground(opts, fits, fits);
+    expect(await checkImageToPptx(IMAGES, ok.opts, ok.deck, "full")).toEqual([]);
+
+    // Twice the size, so its aspect still holds and only the size is wrong.
+    const { deck, opts: edited } = await withBackground(opts, fits, sized("png", width * 2, height * 2));
+    expect(await checkImageToPptx(IMAGES, edited, deck, "quick")).toEqual([]);
+    expect(await checkImageToPptx(IMAGES, edited, deck, "full")).toEqual([
+      {
+        property: "screen-size",
+        detail: `ppt/media/ONTAB_BG-image-1.png: ${width * 2} × ${height * 2} on a ${width} × ${height} slide`,
+      },
+    ]);
+  });
+
   it("flags a background stored once per slide (size bound)", async () => {
     // The bloat assemblePptx's slide master exists to avoid: every slide
     // declares, and so embeds, its own copy of the background.

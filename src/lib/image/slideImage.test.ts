@@ -84,6 +84,17 @@ describe("fittedSize", () => {
     expect(fittedSize(crop(3000, 3000), { w: 1, h: 1 })).toEqual({ width: 2160, height: 2160 });
   });
 
+  it("fits a crop inside the slide's rectangle on Full HD when asked", () => {
+    expect(fittedSize(crop(4032, 2268), WIDE, "full-hd")).toEqual({ width: 1920, height: 1080 });
+    expect(fittedSize(crop(4032, 3024), STANDARD, "full-hd")).toEqual({ width: 1440, height: 1080 });
+    expect(fittedSize(crop(1600, 900), WIDE, "full-hd")).toEqual({ width: 1600, height: 900 });
+  });
+
+  it("means 4K when no screen size is given", () => {
+    expect(fittedSize(crop(4032, 2268), WIDE, "4k")).toEqual({ width: 3840, height: 2160 });
+    expect(fittedSize(crop(4032, 3024), STANDARD)).toEqual(fittedSize(crop(4032, 3024), STANDARD, "4k"));
+  });
+
   it("keeps a crop smaller than the box at its own pixel size", () => {
     expect(fittedSize(crop(1920, 1080), WIDE)).toEqual({ width: 1920, height: 1080 });
     expect(fittedSize(crop(2, 1), WIDE)).toEqual({ width: 2, height: 1 });

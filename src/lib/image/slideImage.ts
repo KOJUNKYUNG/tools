@@ -42,12 +42,12 @@ export function screenBox(slide: SlideSize, screen: ScreenSize = "4k"): PixelSiz
 
 /**
  * The pixel size a crop of the slide's aspect is stored at: the crop's own
- * size when it fits the 4K box, otherwise scaled down until the side that
- * binds first meets the box, the other side following the slide's aspect.
- * Never larger than the crop on either side.
+ * size when it fits the screen's box, otherwise scaled down until the side
+ * that binds first meets the box, the other side following the slide's
+ * aspect. Never larger than the crop on either side.
  */
-export function fittedSize(crop: CropRect, slide: SlideSize): PixelSize {
-  const box = screenBox(slide);
+export function fittedSize(crop: CropRect, slide: SlideSize, screen: ScreenSize = "4k"): PixelSize {
+  const box = screenBox(slide, screen);
   const widthScale = box.width / crop.width;
   const heightScale = box.height / crop.height;
   if (widthScale >= 1 && heightScale >= 1) return { width: crop.width, height: crop.height };
