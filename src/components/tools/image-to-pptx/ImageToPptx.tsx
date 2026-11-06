@@ -237,6 +237,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   }, [bg]);
   // revoke background URL on unmount
   useEffect(() => () => {
+    bgPickRef.current++; // a conversion still running sets nothing after unmount
     if (prevBgUrlRef.current) { URL.revokeObjectURL(prevBgUrlRef.current); prevBgUrlRef.current = null; }
   }, []);
 
@@ -401,6 +402,12 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     },
     [labels],
   );
+  // A colour chosen while a picture converts wins over that picture.
+  const chooseBackground = useCallback((choice: BgChoice) => {
+    bgPickRef.current++;
+    setBgBusy(false);
+    setBg(choice);
+  }, []);
 
   // Consume staged files on mount (StrictMode-safe via consumedRef)
   const consumedRef = useRef(false);
@@ -567,7 +574,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           <AlignSelector value={align} onChange={setAlign} labels={labels} />
           <BackgroundPicker
             value={bg}
-            onChange={setBg}
+            onChange={chooseBackground}
             onPickImage={pickBackground}
             busy={bgBusy}
             labels={labels}
