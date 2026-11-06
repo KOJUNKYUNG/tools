@@ -3,6 +3,7 @@
 // --out writes every picture's row as JSON too.
 //
 // Run: node scripts/measure-image-prep/run-headless.mjs [--sets=jpg,heic,png,pdf-jpg,pdf-png] [--screens=full-hd,4k] [--pdfs=<names>|all] [--pages=6] [--out=results.json]
+// The default PDFs: see serve.mjs.
 // Starts serve.mjs unless it already runs on :4340 (MEASURE_IMAGE_PREP_PORT
 // overrides the port). CHROME_PATH overrides the Chrome binary. Local only:
 // not part of pnpm verify. Drives Chrome with scripts/lib/headlessChrome.mjs,
@@ -16,7 +17,10 @@ import { openHeadless, waitFor } from "../lib/headlessChrome.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const args = Object.fromEntries(
-  process.argv.slice(2).map((a) => a.replace(/^--/, "").split("=")),
+  process.argv.slice(2).map((a) => {
+    const [key, ...value] = a.replace(/^--/, "").split("=");
+    return [key, value.join("=")];
+  }),
 );
 const ORIGIN = `http://localhost:${process.env.MEASURE_IMAGE_PREP_PORT ?? 4340}`;
 const query = new URLSearchParams(

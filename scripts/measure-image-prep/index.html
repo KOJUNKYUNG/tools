@@ -31,7 +31,8 @@ replaced: each prepared picture is recorded as it passes to the deck.</p>
     95th percentile over every second pixel in each direction. Only for pictures turned from PNG into JPEG.</li>
 </ul>
 <p>Query <code>?sets=jpg,heic,png,pdf-jpg,pdf-png&amp;screens=full-hd,4k&amp;pdfs=&lt;names&gt;|all&amp;pages=6</code>
-picks what to run (default: all sets, both screens, spec #147's five PDFs, 6 pages).</p>
+picks what to run (default: all sets, both screens, 6 pages, and the PDFs listed in <code>measure-image-prep.json</code>
+in the fixture folder, <code>{ "pdfs": ["a.pdf", …] }</code>, local like the fixtures, else every PDF at its top level).</p>
 <p id="status">Starting…</p>
 <div id="out"></div>
 <script type="module">
@@ -46,32 +47,19 @@ import { readImageHeader } from "/src/lib/output-check/imageHeader.ts";
 import { sameBytes } from "/src/lib/output-check/sameBytes.ts";
 import { colourDifference } from "/colourDifference.js";
 
-// The sheet-music and lyrics PDFs spec #147 measured (first 6 pages: 2 + 5 + 6 + 6 + 6 = 25).
-const SPEC_PDFS = [
-  "20260419_청소년부예배찬양.pdf",
-  "20261021_수요기도회찬양.pdf",
-  "26동계 찬양기도회.pdf",
-  "찬양맞추기.pdf",
-  "찬양피피티 모아놓기2_google_slides.pdf",
-];
-// Spec #147's table, MB: Full HD / 4K per set, to compare against.
-const SPEC_MB = {
-  jpg: [2.01, 3.32],
-  heic: [1.06, 3.48],
-  png: [0.98, 0.98],
-  "pdf-jpg": [3.36, 7.84],
-  "pdf-png": [4.75, 7.26],
-};
 // pdf-to-image's defaults (PdfToImage.tsx).
 const PDF_DPI = 150;
 const SLIDE_KIND = "16:9";
 const SLIDE = SLIDE_SIZES[SLIDE_KIND];
 
 const params = new URLSearchParams(location.search);
-const setNames = (params.get("sets") ?? "jpg,heic,png,pdf-jpg,pdf-png").split(",");
 const screens = (params.get("screens") ?? "full-hd,4k").split(",");
 const pdfParam = params.get("pdfs");
 const pages = Number(params.get("pages") ?? 6);
+// The fixture folder's own settings (measure-image-prep.json there, local like
+// the fixtures): `pdfs` lists the PDFs to measure by default, so the repo
+// names none. Without it, every PDF at the folder's top level.
+const config = await fetch("/fixtures-config").then((r) => r.json()).catch(() => null);
 const status = (text) => (document.getElementById("status").textContent = text);
 const MB = (bytes) => +(bytes / 1e6).toFixed(2);
 const round = (v, digits = 2) => (v == null ? null : +v.toFixed(digits));
@@ -121,29 +109,38 @@ async function pdfPages(names, format) {
   return out;
 }
 
-/** Each set's inputs as the tool receives them: { label, file, original? }. */
-async function inputs(set, names) {
-  const loose = (re) => names.filter((n) => re.test(n));
-  if (set === "jpg") return Promise.all(loose(/\.jpe?g$/i).map(async (n) => ({ label: n, file: await fileOf(n) })));
-  if (set === "png") return Promise.all(loose(/\.png$/i).map(async (n) => ({ label: n, file: await fileOf(n) })));
-  if (set === "heic") {
-    const out = [];
-    for (const n of loose(/\.heic$/i)) {
-      const original = await fileOf(n);
-      out.push({ label: n, file: await normalizeImageFile(original), original });
-    }
-    return out;
-  }
-  const pdfs =
-    pdfParam === "all"
-      ? names.filter((n) => /\.pdf$/i.test(n) && !n.includes("/"))
-      : pdfParam
-        ? pdfParam.split(",")
-        : SPEC_PDFS;
-  if (set === "pdf-jpg") return pdfPages(pdfs, "image/jpeg");
-  if (set === "pdf-png") return pdfPages(pdfs, "image/png");
-  throw new Error(`unknown set ${set}`);
+/** The PDFs measured: `?pdfs=`, else the folder's settings, else every top-level PDF (also `?pdfs=all`). */
+function pdfsOf(names) {
+  const all = names.filter((n) => /\.pdf$/i.test(n) && !n.includes("/"));
+  if (pdfParam === "all") return all;
+  if (pdfParam) return pdfParam.split(",");
+  return config?.pdfs ?? all;
 }
+
+const loose = (names, re) => Promise.all(names.filter((n) => re.test(n)).map(async (n) => ({ label: n, file: await fileOf(n) })));
+
+/**
+ * The input sets: each loads its inputs as the tool receives them ({ label,
+ * file, original? }), with spec #147's table in MB to compare against.
+ */
+const SETS = {
+  jpg: { load: (names) => loose(names, /\.jpe?g$/i), spec: { "full-hd": 2.01, "4k": 3.32 } },
+  heic: {
+    async load(names) {
+      const out = [];
+      for (const n of names.filter((n) => /\.heic$/i.test(n))) {
+        const original = await fileOf(n);
+        out.push({ label: n, file: await normalizeImageFile(original), original });
+      }
+      return out;
+    },
+    spec: { "full-hd": 1.06, "4k": 3.48 },
+  },
+  png: { load: (names) => loose(names, /\.png$/i), spec: { "full-hd": 0.98, "4k": 0.98 } },
+  "pdf-jpg": { load: (names) => pdfPages(pdfsOf(names), "image/jpeg"), spec: { "full-hd": 3.36, "4k": 7.84 } },
+  "pdf-png": { load: (names) => pdfPages(pdfsOf(names), "image/png"), spec: { "full-hd": 4.75, "4k": 7.26 } },
+};
+const setNames = params.get("sets")?.split(",") ?? Object.keys(SETS);
 
 /** The pixels of a canvas or a decoded picture, at `width` × `height`. */
 async function pixelsOf(source, width, height) {
@@ -230,7 +227,8 @@ try {
   const summary = [];
   for (const set of setNames) {
     status(`Reading ${set}…`);
-    const entries = await inputs(set, names);
+    if (!SETS[set]) throw new Error(`unknown set ${set}`);
+    const entries = await SETS[set].load(names);
     const row = { set, count: entries.length, "input MB": MB(entries.reduce((s, e) => s + e.file.size, 0)) };
     if (set === "heic") row["HEIC MB"] = MB(entries.reduce((s, e) => s + e.original.size, 0));
     for (const screen of screens) {
@@ -240,7 +238,7 @@ try {
       const p = run.pictures;
       const deltas = p.filter((x) => x.deltaEMean !== null);
       row[`${screen} MB`] = MB(p.reduce((s, x) => s + x.bytes, 0));
-      row[`${screen} spec`] = SPEC_MB[set]?.[screen === "full-hd" ? 0 : 1] ?? null;
+      row[`${screen} spec`] = SETS[set].spec[screen] ?? null;
       row[`${screen} jpeg/png/as uploaded`] =
         `${p.filter((x) => x.format === "jpeg").length}/${p.filter((x) => x.format === "png").length}/${p.filter((x) => x.asUploaded).length}`;
       row[`${screen} PNG→JPEG ΔE max mean / p95`] = deltas.length
@@ -253,7 +251,7 @@ try {
   document.getElementById("out").innerHTML =
     `<h2>Per set</h2>${table(summary)}` +
     runs.map((r) => `<h2>${r.set} at ${r.screen}: deck ${MB(r.deckBytes)} MB, ${r.ms} ms</h2>${table(r.pictures)}`).join("");
-  window.__results = { summary, runs, pdfs: pdfParam ?? SPEC_PDFS.join(","), pages, dpi: PDF_DPI };
+  window.__results = { summary, runs, pdfs: pdfsOf(names).join(", "), pages, dpi: PDF_DPI };
   status("Done.");
 } catch (error) {
   console.error(error);

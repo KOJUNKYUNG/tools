@@ -3,9 +3,13 @@
 // image-to-pptx's engine entry (buildPptx, as checked out) over real pictures
 // at each screen size and reports, per input set, the bytes the deck's
 // pictures take, their formats, and the colour difference of each picture
-// turned from PNG into JPEG (spec #147, ticket #152). Another tool adopting
-// the shared preparation (image-resize, later) can measure the same inputs
-// here.
+// turned from PNG into JPEG (spec #147, ticket #152). Its inputs, server and
+// ΔE serve another tool adopting the shared preparation (image-resize, on its
+// turn), which adds its own engine call to the page.
+//
+// The PDFs measured by default are listed in measure-image-prep.json in the
+// fixture folder ({ "pdfs": [...] }, local like the fixtures, so the repo
+// names none); without it, every PDF at the folder's top level.
 //
 // Run: node scripts/measure-image-prep/run-headless.mjs (headless), or
 //      preview_start "measure-image-prep" (.claude/launch.json) and open /.
@@ -22,6 +26,7 @@ const root = resolve(here, "../..");
 const fixtures = resolve(process.env.REAL_FIXTURES_DIR ?? join(root, "tests/fixtures"));
 const PORT = Number(process.env.MEASURE_IMAGE_PREP_PORT ?? 4340);
 const PUBLIC_PDFJS = join(root, "public/pdfjs");
+const CONFIG = join(fixtures, "measure-image-prep.json");
 
 const files = {
   "/": [join(here, "index.html"), "text/html; charset=utf-8"],
@@ -36,25 +41,34 @@ const PACKAGE_FILES = {
   "/pkg/heic-to.js": join(root, "node_modules/heic-to/dist/next/heic-to.js"),
   "/pkg/pdfjs.js": join(root, "node_modules/pdfjs-dist/build/pdf.min.mjs"),
 };
+// Each package at the global its script tag on the page defines (served as
+// /lib/global/<package>.js), as in scripts/measure-ppt-ratios.
+const PAGE_GLOBALS = { jszip: "JSZip" };
+const GLOBAL_ROUTE = /^\/lib\/global\/(.+)\.js$/;
 const PACKAGES = {
   pptxgenjs: "/pkg/pptxgenjs.js",
   "heic-to/next": "/pkg/heic-to.js",
   "pdfjs-dist": "/pkg/pdfjs.js",
-  // JSZip's browser build defines a global (its script tag is on the page).
-  jszip: "/lib/global/jszip.js",
+  ...Object.fromEntries(Object.keys(PAGE_GLOBALS).map((name) => [name, `/lib/global/${name}.js`])),
 };
+// pptxgenjs imports JSZip by name.
 const rewrite = (code) => code.replace(/from\s*(["'])jszip\1/g, `from "${PACKAGES.jszip}"`);
 
 createServer(async (req, res) => {
   try {
     const path = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname);
+    const pageGlobal = PAGE_GLOBALS[GLOBAL_ROUTE.exec(path)?.[1]];
     if (files[path]) {
       const [file, type] = files[path];
       res.writeHead(200, { "content-type": type });
       res.end(await readFile(file));
-    } else if (path === PACKAGES.jszip) {
+    } else if (pageGlobal) {
       res.writeHead(200, { "content-type": "text/javascript" });
-      res.end("export default globalThis.JSZip;");
+      res.end(`export default globalThis.${pageGlobal};`);
+    } else if (path === "/fixtures-config") {
+      const saved = await readFile(CONFIG, "utf8").catch(() => "null");
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(saved);
     } else if (PACKAGE_FILES[path]) {
       res.writeHead(200, { "content-type": "text/javascript" });
       res.end(rewrite(await readFile(PACKAGE_FILES[path], "utf8")));
