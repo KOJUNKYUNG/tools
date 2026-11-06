@@ -5,8 +5,8 @@ import { ChoiceTabs } from "@/components/common/ChoiceTabs";
 /**
  * The deck-wide screen size (CONTEXT "Screen size"): every picture, the
  * background included, is sized for it. It changes nothing in the placement
- * preview. [임시] copy (screenSizeLabel, screenFullHd, screen4k): the user
- * settles it at the spec-end visual QA (#147).
+ * preview. Its copy (screenSizeLabel, screenFullHd, screen4k) was settled
+ * at the spec-end visual QA (#152, 2026-11-07).
  */
 export function ScreenSizeSelector(props: {
   value: ScreenSize;
