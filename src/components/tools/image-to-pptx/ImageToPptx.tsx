@@ -38,10 +38,12 @@ import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import { normalizeImageFiles } from "@/lib/image/heic";
+import type { ScreenSize } from "@/lib/image/slideImage";
 import { AlignSelector } from "./AlignSelector";
 import { BackgroundPicker, type BgChoice } from "./BackgroundPicker";
 import { PlacementControls } from "./PlacementControls";
 import { PlacementEditor } from "./PlacementEditor";
+import { ScreenSizeSelector } from "./ScreenSizeSelector";
 import { SlideAspectSelector } from "./SlideAspectSelector";
 import { ImageToPptxResult } from "./ImageToPptxResult";
 import type { ImageToPptxLabels } from "./labels";
@@ -139,6 +141,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   // Box in INCHES on the slide
   const [box, setBox] = useState<Box>({ x: 1.33, y: 0.75, w: 10.67, h: 6 });
   const [slideKind, setSlideKind] = useState<SlideKind>("16:9");
+  // Deck-wide; Full HD unless the user asks for 4K (CONTEXT "Screen size").
+  const [screen, setScreen] = useState<ScreenSize>("full-hd");
   const [bg, setBg] = useState<BgChoice>({ kind: "color", color: "#FFFFFF" });
   const [align, setAlign] = useState<PlacementAlign>("top-left");
 
@@ -176,7 +180,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           ? { kind: "color", color: bg.color.replace("#", "") }
           : { kind: "image", file: bg.file };
       const bytes = await buildPptx(
-        { files: orderedFiles, box, slideKind, background, align, screen: "full-hd" },
+        { files: orderedFiles, box, slideKind, background, align, screen },
         onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pptx`;
@@ -524,6 +528,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           }}
         >
           <SlideAspectSelector value={slideKind} onChange={setSlideKind} labels={labels} />
+          <ScreenSizeSelector value={screen} onChange={setScreen} labels={labels} />
           <AlignSelector value={align} onChange={setAlign} labels={labels} />
           <BackgroundPicker value={bg} onChange={setBg} labels={labels} />
           <PlacementEditor
