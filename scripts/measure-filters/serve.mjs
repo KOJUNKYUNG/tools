@@ -48,7 +48,7 @@ const TUNING = join(here, "tuning.json");
 const files = {
   "/": [join(here, "index.html"), "text/html; charset=utf-8"],
   "/lab": [join(here, "lab.html"), "text/html; charset=utf-8"],
-  "/colourDifference.js": [join(here, "colourDifference.js"), "text/javascript"],
+  "/colourDifference.js": [join(root, "scripts/lib/colourDifference.js"), "text/javascript"],
   // The tool's copy, which the lab edits.
   "/i18n/ko.json": [join(root, "src/i18n/dictionaries/ko.json"), "application/json"],
   "/i18n/en.json": [join(root, "src/i18n/dictionaries/en.json"), "application/json"],

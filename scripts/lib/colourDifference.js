@@ -1,5 +1,6 @@
 // CIEDE2000 colour difference between two RGBA pixel buffers (sRGB, D65),
-// shared by the filter measurement (index.html) and the tuning lab (lab.html).
+// shared by the measurement pages (scripts/measure-filters, its tuning lab,
+// and scripts/measure-image-prep).
 
 // sRGB (8-bit) to CIELAB (D65).
 const LINEAR = Float64Array.from({ length: 256 }, (_, i) => {
