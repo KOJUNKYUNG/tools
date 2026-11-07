@@ -25,6 +25,12 @@ interface BackgroundEditorProps {
   locked: boolean;
   /** The colour the "no background" tile shows (`#rrggbb`); null leaves the tile out. */
   noneColour: string | null;
+  /**
+   * Whether the edit area offers the recipe edit and the filter set (default).
+   * Interim (#157 → #158): image-to-pptx's run does not apply them yet, so it
+   * leaves them out rather than show edits its deck would not hold.
+   */
+  offerEdits?: boolean;
   labels: BackgroundEditorLabels;
 }
 
@@ -35,7 +41,7 @@ interface BackgroundEditorProps {
  * for the filter set). Its state lives in `useBackgroundEditor`, which the
  * tool holds, so the tool's run and preview read the same pick.
  */
-export function BackgroundEditor({ editor, locked, noneColour, labels }: BackgroundEditorProps) {
+export function BackgroundEditor({ editor, locked, noneColour, offerEdits = true, labels }: BackgroundEditorProps) {
   const {
     slideRatio,
     bgFile,
@@ -60,13 +66,15 @@ export function BackgroundEditor({ editor, locked, noneColour, labels }: Backgro
     pickSize,
     crop,
     setCrop,
+    setFrameSize,
+    restores,
     framing,
     setFraming,
   } = editor;
   const editOpen = editState.open;
 
   /** The filter set's group, in a picture's edit area or a solid colour's. */
-  const effectsGroup: EditGroup | null = offeredFilters
+  const effectsGroup: EditGroup | null = offerEdits && offeredFilters
     ? {
         name: labels.filters.effects,
         resetLabel: labels.filters.reset,
@@ -86,7 +94,7 @@ export function BackgroundEditor({ editor, locked, noneColour, labels }: Backgro
     : null;
 
   const shapeGroup: EditGroup | null =
-    editArea === "edit" && recipe && recipeEdit && editView
+    offerEdits && editArea === "edit" && recipe && recipeEdit && editView
       ? {
           name: labels.recipeEdit.shape,
           resetLabel: labels.recipeEdit.reset,
@@ -125,11 +133,13 @@ export function BackgroundEditor({ editor, locked, noneColour, labels }: Backgro
               sourceSize: pickSize,
               ratio: slideRatio,
               crop,
+              version: restores,
               onCropChange: setCrop,
+              onSourceSize: setFrameSize,
               onBack: () => setFraming(false),
               locked,
               busyLabel: editPending ? labels.recipeEdit.drawing : null,
-              edit: bgFile
+              edit: bgFile && offerEdits
                 ? {
                     heading: labels.recipeEdit.heading,
                     open: editOpen,

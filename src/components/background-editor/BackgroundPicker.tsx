@@ -32,7 +32,11 @@ export interface BackgroundFrame {
   ratio: number;
   /** The frame set before, kept when the user comes back to this picture. */
   crop: CropRect | null;
+  /** Changes when `crop` is set from outside the frame (a restored background): the frame starts again from it. */
+  version?: number;
   onCropChange: (crop: CropRect) => void;
+  /** Reports the size the frame holds the crop in, once the frame knows it. */
+  onSourceSize?: (size: ImageDims) => void;
   onBack: () => void;
   /** A run is using the frame: it is shown as is and nothing here responds. */
   locked: boolean;
@@ -99,11 +103,13 @@ export function BackgroundPicker({
   // known only once it loads), tagged with its picture.
   const [measured, setMeasured] = useState<{ url: string; size: ImageDims } | null>(null);
   const frameUrl = frame?.imageUrl;
+  const reportSize = frame?.onSourceSize;
   const onSourceSize = useCallback(
     (size: ImageDims) => {
       if (frameUrl) setMeasured({ url: frameUrl, size });
+      reportSize?.(size);
     },
-    [frameUrl],
+    [frameUrl, reportSize],
   );
   // A new picture remounts the frame, which reports again once it knows the
   // size; until then the last picture's size is not shown.
@@ -183,9 +189,10 @@ export function BackgroundPicker({
             {/* The picture takes the room the edit area leaves (a size
                 container, read as cqh), so the frame never runs under it. */}
             <div className="relative min-h-0 flex-1 [container-type:size]">
-              {/* Keyed by picture: a new picture starts from the centred frame. */}
+              {/* Keyed by picture: a new picture starts from the centred frame,
+                  and a restored one from its restored frame. */}
               <CropSelector
-                key={frame.imageUrl}
+                key={`${frame.imageUrl}#${frame.version ?? 0}`}
                 imageUrl={frame.imageUrl}
                 overlay={
                   frame.live && frame.sourceSize ? (

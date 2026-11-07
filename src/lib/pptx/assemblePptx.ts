@@ -1,6 +1,6 @@
 import PptxGenJS from "pptxgenjs";
 import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
-import { maxFitCrop } from "@/lib/image/maxFitCrop";
+import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
   containedSize,
   fittedSize,
@@ -72,7 +72,14 @@ export interface BuildPptxInput {
   files: File[];
   box: Box; // inches on the slide
   slideKind: SlideKind;
-  background: { kind: "color"; color: string } | { kind: "image"; file: File };
+  background:
+    | { kind: "color"; color: string }
+    | {
+        kind: "image";
+        file: File;
+        /** The Background crop, in the picture's upright pixels; centred and as large as possible when absent. */
+        crop?: CropRect;
+      };
   align: PlacementAlign;
   /** The screen the deck's pictures are sized for (CONTEXT "Screen size"). */
   screen: ScreenSize;
@@ -110,21 +117,26 @@ export async function prepareSlidePicture(
 }
 
 /**
- * The background picture as it enters the deck: cut to the centred Background
- * crop of the slide's aspect, which is what the tool's preview shows, then
- * fitted to the screen. The engine takes it as a plain picture file, whatever
- * its source.
+ * The background picture as it enters the deck: cut to its Background crop of
+ * the slide's aspect (the one the user placed, or else the centred one), which
+ * is what the tool's preview shows, then fitted to the deck's screen. The
+ * engine takes it as a plain picture file, whatever its source.
  */
 export async function prepareBackgroundPicture(
   file: File,
   slideKind: SlideKind,
   screen: ScreenSize,
   preparation: SizedImagePreparation,
+  placed?: CropRect,
 ): Promise<string> {
   const slide = SLIDE_SIZES[slideKind];
-  const upright = await preparation.measure(file);
-  const crop = maxFitCrop({ w: upright.width, h: upright.height }, slide.w, slide.h);
+  const crop = placed ?? (await centredCrop(file, slide, preparation));
   return dataUrlOf(await preparation.prepare(file, crop, fittedSize(crop, slide, screen)));
+}
+
+async function centredCrop(file: File, slide: { w: number; h: number }, preparation: SizedImagePreparation) {
+  const upright = await preparation.measure(file);
+  return maxFitCrop({ w: upright.width, h: upright.height }, slide.w, slide.h);
 }
 
 /**
@@ -143,7 +155,8 @@ export async function buildPptx(
   let background: Background;
   if (input.background.kind === "color") background = { kind: "color", color: input.background.color };
   else {
-    const dataUrl = await prepareBackgroundPicture(input.background.file, input.slideKind, input.screen, preparation);
+    const { file, crop } = input.background;
+    const dataUrl = await prepareBackgroundPicture(file, input.slideKind, input.screen, preparation, crop);
     background = { kind: "image", dataUrl };
   }
   const placed: PlacedImage[] = [];

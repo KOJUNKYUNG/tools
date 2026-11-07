@@ -61,8 +61,9 @@ interface CropSelectorProps {
   onCropChange: (crop: CropRect) => void;
   /**
    * The frame to start from, e.g. one the user set before the selector was
-   * last shown; used while it fits the image and the target ratio, otherwise
-   * the centred, largest frame.
+   * last shown, and to go on from when the target ratio changes (the parent
+   * may carry its frame over to the new ratio); used while it fits the image
+   * and the target ratio, otherwise the centred, largest frame.
    */
   initialCrop?: CropRect | null;
   /** Shows the frame without handles and ignores drags, e.g. while a run uses it. */
@@ -112,9 +113,14 @@ export function CropSelector({
     rect: { x: 0, y: 0, width: 0, height: 0 },
   });
 
-  // Read once per mount, not tracked: the selector owns the frame after
-  // that, and echoing each change back must not restart it.
+  // Read when the frame is placed, never a reason to place it: the selector
+  // owns the frame between placements, and echoing each change back must not
+  // restart it. Kept current (before the placing effect below runs) so a new
+  // target ratio starts from the frame the parent holds for it.
   const initialCropRef = useRef(initialCrop);
+  useEffect(() => {
+    initialCropRef.current = initialCrop;
+  });
 
   const sourceW = sourceSize?.w ?? imgNatural.w;
   const sourceH = sourceSize?.h ?? imgNatural.h;

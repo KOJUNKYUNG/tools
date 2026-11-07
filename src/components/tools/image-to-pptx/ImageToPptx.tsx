@@ -37,10 +37,14 @@ import { type Box, computeSlidePlacement, type PlacementAlign } from "@/lib/pptx
 import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
-import { normalizeImageFile, normalizeImageFiles } from "@/lib/image/heic";
+import { normalizeImageFiles } from "@/lib/image/heic";
 import type { ScreenSize } from "@/lib/image/slideImage";
+import { useBackgroundEditor } from "@/components/background-editor/useBackgroundEditor";
+import { BackgroundEditor } from "@/components/background-editor/BackgroundEditor";
+import type { FillBackground } from "@/lib/ppt/changeBackground";
 import { AlignSelector } from "./AlignSelector";
-import { BackgroundPicker, type BgChoice } from "./BackgroundPicker";
+import { BackgroundRow } from "./BackgroundRow";
+import type { ShownBackground } from "./BackgroundFill";
 import { PlacementControls } from "./PlacementControls";
 import { PlacementEditor } from "./PlacementEditor";
 import { ScreenSizeSelector } from "./ScreenSizeSelector";
@@ -57,6 +61,9 @@ const ACCEPT = {
 const ACCEPT_ATTR = "image/png,image/jpeg,image/heic,image/heif,.heic,.heif";
 
 const NEUTRAL_TINT = { ring: "transparent" } as const;
+
+/** A new deck's background until the user picks one. */
+const WHITE: FillBackground = { kind: "colour", rgb: "FFFFFF" };
 
 export interface ImageToPptxResultData {
   bytes: Uint8Array;
@@ -134,7 +141,6 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   const [fileById, setFileById] = useState<Map<string, File>>(new Map());
   // Map from sourceFileId → object URL (for refImageUrl preview in PlacementEditor)
   const [sourceUrlById, setSourceUrlById] = useState<Map<string, string>>(new Map());
-  const prevBgUrlRef = useRef<string | null>(null);
 
   const [loadingPages, setLoadingPages] = useState(false);
   // Box in INCHES on the slide
@@ -142,12 +148,38 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   const [slideKind, setSlideKind] = useState<SlideKind>("16:9");
   // Deck-wide; Full HD unless the user asks for 4K (CONTEXT "Screen size").
   const [screen, setScreen] = useState<ScreenSize>("full-hd");
-  const [bg, setBg] = useState<BgChoice>({ kind: "color", color: "#FFFFFF" });
-  // A picked background is being converted (HEIC); bgPickRef numbers the picks
-  // so a slow conversion never replaces a later pick.
-  const [bgBusy, setBgBusy] = useState(false);
-  const bgPickRef = useRef(0);
   const [align, setAlign] = useState<PlacementAlign>("top-left");
+  const slide = SLIDE_SIZES[slideKind];
+  /**
+   * The deck's background, picked and cropped in the shared background editor
+   * (gallery, solid colours, upload); its crop follows the slide's shape.
+   * 다시 하기 and new slide pictures keep it.
+   */
+  const editor = useBackgroundEditor({
+    slideRatio: slide.w / slide.h,
+    copy: labels.editorCopy,
+    initialFill: WHITE,
+  });
+  const { bgFile, fill, crop, previewUrl: bgUrl, cropSource, normalizing: bgNormalizing } = editor;
+  /**
+   * The background as the run puts it in the deck (null while a pick is still
+   * on its way), and as the row's thumbnail and the preview show it, cut to
+   * its crop as it changes.
+   */
+  const [background, shownBg]: [BuildPptxInput["background"] | null, ShownBackground] =
+    fill?.kind === "colour"
+      ? [{ kind: "color", color: fill.rgb }, { kind: "color", color: `#${fill.rgb}` }]
+      : [
+          bgFile && !bgNormalizing ? { kind: "image", file: bgFile, crop: crop ?? undefined } : null,
+          bgUrl ? { kind: "image", url: bgUrl, crop, sourceSize: cropSource ?? undefined } : { kind: "empty" },
+        ];
+  /** The left half shows the background editor ("바꾸기") in place of the slide pictures. */
+  const [editingBg, setEditingBg] = useState(false);
+  /**
+   * The editor stays mounted once opened, hidden behind the slide pictures, so
+   * its tab, scroll and colour picker are where the user left them.
+   */
+  const [editorMounted, setEditorMounted] = useState(false);
 
   // Natural pixel dimensions of the first (reference) image, tagged with the
   // sourceFileId it was measured for so async loads can't be applied to the
@@ -178,10 +210,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         .map((p) => fileById.get(p.sourceFileId))
         .filter((f): f is File => !!f);
       if (orderedFiles.length === 0) throw new UserFacingError(labels.errNoImages);
-      const background: BuildPptxInput["background"] =
-        bg.kind === "color"
-          ? { kind: "color", color: bg.color.replace("#", "") }
-          : { kind: "image", file: bg.file };
+      // The run is offered only once the background is in hand.
+      if (!background) throw new Error("image-to-pptx: run started before the background was ready");
       const bytes = await buildPptx(
         { files: orderedFiles, box, slideKind, background, align, screen },
         onProgress,
@@ -225,21 +255,6 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     urlsRef.current.clear();
   }, []);
 
-  // Track and revoke previous background image URL when bg changes
-  useEffect(() => {
-    if (bg.kind === "image") {
-      if (prevBgUrlRef.current && prevBgUrlRef.current !== bg.url) URL.revokeObjectURL(prevBgUrlRef.current);
-      prevBgUrlRef.current = bg.url;
-    } else {
-      if (prevBgUrlRef.current) { URL.revokeObjectURL(prevBgUrlRef.current); prevBgUrlRef.current = null; }
-    }
-  }, [bg]);
-  // revoke background URL on unmount
-  useEffect(() => () => {
-    bgPickRef.current++; // a conversion still running sets nothing after unmount
-    if (prevBgUrlRef.current) { URL.revokeObjectURL(prevBgUrlRef.current); prevBgUrlRef.current = null; }
-  }, []);
-
   const liveItems = items.filter((p) => !p.deleted);
   const firstId = liveItems[0]?.sourceFileId ?? null;
 
@@ -264,9 +279,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     return () => { cancelled = true; };
   }, [refImageUrl, firstId]);
 
-  // Derive slide dims and reference placement in inches. Only trust refNatural
-  // when it matches the current first image (else it's a stale async load).
-  const slide = SLIDE_SIZES[slideKind];
+  // Derive the reference placement in inches. Only trust refNatural when it
+  // matches the current first image (else it's a stale async load).
   const ref =
     refNatural && firstId && refNatural.id === firstId
       ? computeSlidePlacement({ x: 0, y: 0, w: slide.w, h: slide.h }, refNatural.w, refNatural.h)
@@ -371,42 +385,23 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     [labels, setFiles],
   );
 
-  // The background takes the slide pictures' conversion and errors. On any
-  // error the previous background stays.
-  const pickBackground = useCallback(
-    async (picked: File) => {
-      const pick = ++bgPickRef.current;
-      setBgBusy(true);
-      try {
-        // HEIC/HEIF (iPhone photos) → JPEG; PNG and JPEG pass through.
-        const file = await normalizeImageFile(picked);
-        if (pick !== bgPickRef.current) return;
-        if (file.type !== "image/png" && file.type !== "image/jpeg") {
-          toast.error(template(labels.errNotImage, { name: file.name }));
-          return;
-        }
-        if (file.size > uploadLimitFor("image-to-pptx")) {
-          toast.error(template(labels.errTooLarge, { name: file.name, size: formatBytes(uploadLimitFor("image-to-pptx")) }));
-          return;
-        }
-        setBg({ kind: "image", file, url: URL.createObjectURL(file) });
-      } catch (err) {
-        if (pick !== bgPickRef.current) return;
-        toast.error(
-          getErrorMessage(err, { copy: labels.errors, fallbackMessage: labels.errors.heicConvertFailed }).message,
-        );
-      } finally {
-        if (pick === bgPickRef.current) setBgBusy(false);
-      }
-    },
-    [labels],
-  );
-  // A colour chosen while a picture converts wins over that picture.
-  const chooseBackground = useCallback((choice: BgChoice) => {
-    bgPickRef.current++;
-    setBgBusy(false);
-    setBg(choice);
-  }, []);
+  /** "바꾸기": the left half becomes the background editor, the background as it stands held for "취소". */
+  const { hold: holdBg, release: releaseBg, restore: restoreBg } = editor;
+  const openBgEditor = useCallback(() => {
+    holdBg();
+    setEditorMounted(true);
+    setEditingBg(true);
+  }, [holdBg]);
+  /** "완료": back to the slide pictures with the background as picked. */
+  const finishBgEditor = useCallback(() => {
+    releaseBg();
+    setEditingBg(false);
+  }, [releaseBg]);
+  /** "취소": back to the slide pictures with the background from before "바꾸기". */
+  const cancelBgEditor = useCallback(() => {
+    restoreBg();
+    setEditingBg(false);
+  }, [restoreBg]);
 
   // Consume staged files on mount (StrictMode-safe via consumedRef)
   const consumedRef = useRef(false);
@@ -513,6 +508,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   // done or failed) they are shown read-only in the same cells, so the
   // workspace keeps its shape across states (UI stability contract).
   const editable = status === "idle";
+  const showEditor = editingBg && editable;
   const pictures = editable ? (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
@@ -570,24 +566,14 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         <SlideAspectSelector value={slideKind} onChange={setSlideKind} labels={labels} />
         <ScreenSizeSelector value={screen} onChange={setScreen} labels={labels} />
         <AlignSelector value={align} onChange={setAlign} labels={labels} />
-        <BackgroundPicker
-          value={bg}
-          onChange={chooseBackground}
-          onPickImage={pickBackground}
-          busy={bgBusy}
-          labels={labels}
-        />
+        <BackgroundRow background={shownBg} ratio={slideAspect} onChange={openBgEditor} labels={labels} />
       </div>
       <PlacementEditor
         box={box}
         onBoxChange={setBox}
         slideW={slide.w}
         slideH={slide.h}
-        background={
-          bg.kind === "color"
-            ? { kind: "color", color: bg.color }
-            : { kind: "image", url: bg.url }
-        }
+        background={shownBg}
         refImageUrl={refImageUrl}
         handleLabels={labels.resizeHandles}
         align={align}
@@ -614,7 +600,48 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         gridTemplateColumns: "minmax(0, 1fr) 1px minmax(0, 1fr)",
       }}
     >
-      <div className="ob-scroll min-h-0 overflow-y-auto pr-5">{pictures}</div>
+      <div className="relative min-h-0">
+        {/* The slide pictures, or the background editor after "바꾸기". */}
+        <div className={`ob-scroll h-full overflow-y-auto pr-5 ${showEditor ? "hidden" : ""}`}>{pictures}</div>
+        {editorMounted && (
+          <div className={`h-full min-h-0 flex-col gap-2 pr-5 ${showEditor ? "flex" : "hidden"}`}>
+            {/* image-to-pptx's own bar over the shared editor. */}
+            <div className="flex shrink-0 items-center justify-between gap-2">
+              <p className="font-mono text-[11px]" style={{ color: "var(--ink-soft)" }}>
+                {labels.bgLabel}
+              </p>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={cancelBgEditor}
+                  className="subtle-action rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
+                >
+                  {labels.bgCancel}
+                </button>
+                <button
+                  type="button"
+                  onClick={finishBgEditor}
+                  // A pick still on its way (a download, a HEIC conversion) is not a background yet.
+                  disabled={!background}
+                  className="subtle-action rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
+                >
+                  {labels.bgDone}
+                </button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1">
+              <BackgroundEditor
+                editor={editor}
+                locked={status !== "idle"}
+                // A new deck has no theme background for "no background" to mean.
+                noneColour={null}
+                offerEdits={false}
+                labels={labels.editor}
+              />
+            </div>
+          </div>
+        )}
+      </div>
       <div style={{ background: "var(--border)" }} />
       <div className="flex min-h-0 flex-col gap-2.5 pl-5">
         {status === "idle" ? (
@@ -649,9 +676,13 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
       executeLabel={template(labels.convertTemplate, { n: liveItems.length })}
       processingLabel={labels.processing}
       againLabel={labels.again}
-      onExecute={run}
+      // The deck is made with the background as picked: the editor closes on it.
+      onExecute={() => {
+        if (editingBg) finishBgEditor();
+        run();
+      }}
       onAgain={retry}
-      executeDisabled={liveItems.length === 0}
+      executeDisabled={liveItems.length === 0 || !background}
     />
   );
 

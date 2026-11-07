@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cropFits, maxFitCrop } from "./maxFitCrop";
+import { cropFits, cropForRatio, maxFitCrop } from "./maxFitCrop";
 
 describe("maxFitCrop", () => {
   it("returns a centred crop when target ratio matches the image ratio", () => {
@@ -110,6 +110,66 @@ describe("maxFitCrop holds odd slide ratios to 1 px", () => {
       for (const [w, h] of [[4032, 3024], [3024, 4032], [5001, 2813], [1999, 1001], [801, 3001]]) {
         const crop = maxFitCrop({ w, h }, ratio, 1);
         expect(cropFits(crop, { w, h }, ratio)).toBe(true);
+      }
+    }
+  });
+});
+
+describe("cropForRatio: a Background crop across a 16:9 ↔ 4:3 switch", () => {
+  const photo = { w: 4032, h: 3024 };
+
+  it("turns the largest frame into the largest frame of the new shape", () => {
+    expect(cropForRatio({ x: 0, y: 378, width: 4032, height: 2268 }, photo, 4 / 3)).toEqual({
+      x: 0,
+      y: 0,
+      width: 4032,
+      height: 3024,
+    });
+  });
+
+  it("keeps the frame's centre and its zoom", () => {
+    // Half the largest 16:9 frame, centred on (3000, 1500) → half the largest 4:3 frame there.
+    expect(cropForRatio({ x: 1992, y: 933, width: 2016, height: 1134 }, photo, 4 / 3)).toEqual({
+      x: 1992,
+      y: 744,
+      width: 2016,
+      height: 1512,
+    });
+  });
+
+  it("pushes a frame that no longer fits back inside the picture", () => {
+    // Against the top edge, centred on (3024, 567): the taller 4:3 frame would overhang the top.
+    expect(cropForRatio({ x: 2016, y: 0, width: 2016, height: 1134 }, photo, 4 / 3)).toEqual({
+      x: 2016,
+      y: 0,
+      width: 2016,
+      height: 1512,
+    });
+  });
+
+  it("comes back to the same frame when switched back", () => {
+    const wide = { x: 1992, y: 933, width: 2016, height: 1134 };
+    expect(cropForRatio(cropForRatio(wide, photo, 4 / 3), photo, 16 / 9)).toEqual(wide);
+  });
+
+  it("stays inside the picture on the new shape for any frame", () => {
+    for (const picture of [photo, { w: 3024, h: 4032 }, { w: 1920, h: 1080 }, { w: 5000, h: 1000 }]) {
+      for (const [from, to] of [[16 / 9, 4 / 3], [4 / 3, 16 / 9]]) {
+        const largest = maxFitCrop(picture, from, 1);
+        for (const zoom of [1, 0.73, 0.4, 0.1]) {
+          for (const [fx, fy] of [[0, 0], [0.5, 0.5], [1, 1], [0, 1]]) {
+            const width = Math.max(1, Math.round(largest.width * zoom));
+            const height = Math.max(1, Math.round(width / from));
+            const crop = {
+              x: Math.round((picture.w - width) * fx),
+              y: Math.round((picture.h - height) * fy),
+              width,
+              height,
+            };
+            const next = cropForRatio(crop, picture, to);
+            expect(cropFits(next, picture, to), JSON.stringify({ picture, crop, next })).toBe(true);
+          }
+        }
       }
     }
   });

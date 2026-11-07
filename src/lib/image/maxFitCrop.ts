@@ -80,3 +80,31 @@ export function cropFits(crop: CropRect, img: ImageDims, ratio: number): boolean
     Math.abs(crop.height - crop.width / ratio) <= 1
   );
 }
+
+/**
+ * A Background crop carried to a slide of another shape (`ratio`, w / h), as
+ * a 16:9 ↔ 4:3 switch does: it keeps its centre and its zoom (its share of
+ * the largest frame of its shape, so the largest frame stays the largest),
+ * pushed back inside the picture where the new shape overhangs it.
+ */
+export function cropForRatio(crop: CropRect, img: ImageDims, ratio: number): CropRect {
+  const largestBefore = maxFitCrop(img, crop.width, crop.height);
+  const largest = maxFitCrop(img, ratio, 1);
+  if (largestBefore.width <= 0 || largest.width <= 0) return largest;
+  const zoom = Math.min(1, crop.width / largestBefore.width);
+  // The largest frame of the new shape in the zoomed box: whole pixels on the
+  // ratio, as maxFitCrop holds them, and never past the largest frame.
+  const box = {
+    w: Math.max(1, Math.round(largest.width * zoom)),
+    h: Math.max(1, Math.round(largest.height * zoom)),
+  };
+  const { width, height } = maxFitCrop(box, ratio, 1);
+  const centreX = crop.x + crop.width / 2;
+  const centreY = crop.y + crop.height / 2;
+  return {
+    x: Math.max(0, Math.min(Math.round(centreX - width / 2), img.w - width)),
+    y: Math.max(0, Math.min(Math.round(centreY - height / 2), img.h - height)),
+    width,
+    height,
+  };
+}

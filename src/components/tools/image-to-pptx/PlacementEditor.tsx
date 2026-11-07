@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useRef, useState, type PointerEvent as RPE, type CSSProperties } from "react";
 import { clampBox, type Box, type PlacementAlign } from "@/lib/pptx/slidePlacement";
+import { BackgroundFill, type ShownBackground } from "./BackgroundFill";
 
 type Handle = "nw" | "ne" | "se" | "sw" | "n" | "e" | "s" | "w";
 
@@ -9,7 +10,8 @@ interface PlacementEditorProps {
   onBoxChange: (box: Box) => void;
   slideW: number; // inches
   slideH: number; // inches
-  background: { kind: "color"; color: string } | { kind: "image"; url: string };
+  /** The deck's background, cut to its crop as the deck will hold it. */
+  background: ShownBackground;
   refImageUrl: string | null;
   align: PlacementAlign;
   /** Accessible name of each resize handle. */
@@ -66,11 +68,6 @@ export function PlacementEditor(props: PlacementEditorProps) {
   );
   const onUp = () => setMode(null);
 
-  const bg: CSSProperties =
-    props.background.kind === "color"
-      ? { background: props.background.color }
-      : { backgroundImage: `url(${props.background.url})`, backgroundSize: "cover", backgroundPosition: "center" };
-
   // The editor takes all the room its parent leaves it (flex-1) and draws the
   // slide as large as fits inside, centred. Its own box never depends on the
   // slide's shape, so switching 16:9 ↔ 4:3 moves nothing around it. Container
@@ -88,11 +85,11 @@ export function PlacementEditor(props: PlacementEditorProps) {
           width: `min(100cqw, calc(100cqh * ${ratio}))`,
           height: `min(100cqh, calc(100cqw / ${ratio}))`,
           borderColor: "var(--border)",
-          ...bg,
         }}
         onPointerMove={onMove}
         onPointerUp={onUp}
       >
+        <BackgroundFill background={props.background} className="pointer-events-none absolute inset-0 size-full" />
         <div
           className="absolute cursor-move"
           style={{

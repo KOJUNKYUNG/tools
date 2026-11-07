@@ -266,6 +266,30 @@ describe("buildPptx's background picture", () => {
     expect(result.header).toMatchObject({ width, height });
   });
 
+  it("takes the crop the user placed instead of the centred one, fitted to Full HD", async () => {
+    const file = named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg");
+    const placed = { x: 1000, y: 100, width: 2560, height: 1440 };
+    const result = await backgroundOf(file, { background: { kind: "image", file, crop: placed } });
+    expect(result.crop).toEqual(placed);
+    expect(result.header).toMatchObject({ width: 1920, height: 1080 });
+  });
+
+  it("takes a placed 4:3 crop on a 4:3 slide, fitted to Full HD", async () => {
+    const file = named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg");
+    const placed = { x: 200, y: 300, width: 2400, height: 1800 };
+    const result = await backgroundOf(file, { slideKind: "4:3", background: { kind: "image", file, crop: placed } });
+    expect(result.crop).toEqual(placed);
+    expect(result.header).toMatchObject({ width: 1440, height: 1080 });
+  });
+
+  it("sizes a placed crop for 4K when the deck asks for it, never enlarging it", async () => {
+    const file = named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg");
+    const big = await backgroundOf(file, { screen: "4k", background: { kind: "image", file, crop: { x: 0, y: 0, width: 4000, height: 2250 } } });
+    expect(big.header).toMatchObject({ width: 3840, height: 2160 });
+    const small = await backgroundOf(file, { screen: "4k", background: { kind: "image", file, crop: { x: 0, y: 0, width: 1600, height: 900 } } });
+    expect(small.header).toMatchObject({ width: 1600, height: 900 });
+  });
+
   it("fits the same crop to 4K when asked", async () => {
     const { header } = await backgroundOf(named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg"), { screen: "4k" });
     expect(header).toMatchObject({ width: 3840, height: 2160 });
@@ -306,6 +330,10 @@ describe("buildPptx", () => {
   it.each([
     ["a color background", { kind: "color", color: "FFFFFF" } as const],
     ["an image background", { kind: "image", file: pngFile("bg.png", 16, 9) } as const],
+    [
+      "an image background with a placed crop",
+      { kind: "image", file: pngFile("bg.png", 40, 30), crop: { x: 8, y: 4, width: 32, height: 18 } } as const,
+    ],
   ])("builds a deck on %s that passes the full check", async (_label, background) => {
     const progress: number[] = [];
     const deck = await buildPptx(request(background), (pct) => progress.push(pct), standInSizedPreparation);
@@ -325,7 +353,13 @@ describe("buildPptx", () => {
           ? background
           : {
               kind: "image" as const,
-              dataUrl: await prepareBackgroundPicture(background.file, "16:9", "full-hd", standInSizedPreparation),
+              dataUrl: await prepareBackgroundPicture(
+                background.file,
+                "16:9",
+                "full-hd",
+                standInSizedPreparation,
+                "crop" in background ? background.crop : undefined,
+              ),
             },
     };
     const pictures = await Promise.all(

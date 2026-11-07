@@ -1,4 +1,7 @@
 import type { Dictionary } from "@/i18n/config";
+import type { BackgroundEditorLabels } from "@/components/background-editor/BackgroundEditor";
+import type { BackgroundEditorCopy } from "@/components/background-editor/useBackgroundEditor";
+import { getBackgroundEditorCopy, getBackgroundEditorLabels } from "@/components/background-editor/labels";
 
 export interface ImageToPptxLabels {
   /** Shared error copy (`common.errors`), in the page's language. */
@@ -9,7 +12,7 @@ export interface ImageToPptxLabels {
   deleteAria: string; duplicateAria: string; processing: string; slideAspectLabel: string;
   aspect169: string; aspect43: string;
   screenSizeLabel: string; screenFullHd: string; screen4k: string;
-  bgLabel: string; bgColor: string; bgChange: string; posX: string; posY: string;
+  bgLabel: string; bgChange: string; bgCancel: string; bgDone: string; posX: string; posY: string;
   sizeW: string; sizeH: string; centerH: string; centerV: string;
   resultTitle: string; slideCountTemplate: string;
   download: string; again: string;
@@ -17,6 +20,9 @@ export interface ImageToPptxLabels {
   errNotImage: string; errTooLarge: string; errNoImages: string;
   errorCorrupt: string;
   resizeHandles: Dictionary["common"]["resizeHandles"];
+  /** The shared background editor "바꾸기" opens in the left half. */
+  editor: BackgroundEditorLabels;
+  editorCopy: BackgroundEditorCopy;
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
@@ -34,7 +40,7 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     aspect169: p.aspect169, aspect43: p.aspect43,
     screenSizeLabel: p.screenSizeLabel, screenFullHd: p.screenFullHd, screen4k: p.screen4k,
     bgLabel: p.bgLabel,
-    bgColor: p.bgColor, bgChange: p.bgChange,
+    bgChange: p.bgChange, bgCancel: p.bgCancel, bgDone: p.bgDone,
     posX: p.posX, posY: p.posY, sizeW: p.sizeW, sizeH: p.sizeH,
     centerH: p.centerH, centerV: p.centerV,
     resultTitle: p.resultTitle, slideCountTemplate: p.slideCount,
@@ -44,6 +50,8 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     errNoImages: p.errNoImages,
     errorCorrupt: p.errorCorrupt,
     resizeHandles: dict.common.resizeHandles,
+    editor: getBackgroundEditorLabels(dict),
+    editorCopy: getBackgroundEditorCopy(dict),
     fileUpload: dict.common.fileUpload,
   };
 }
