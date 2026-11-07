@@ -93,8 +93,11 @@ slide's aspect that the user places on the image (moved, or shrunk to zoom
 in; centred and as large as possible by default). ppt-background keeps only
 those pixels and discards the rest, so the background cannot be repositioned
 in PowerPoint afterwards; the user re-runs the tool with the original image.
-Gallery backgrounds are cropped the same way. image-to-pptx always takes the
-centred rectangle, as its preview shows, with no frame to move.
+Gallery backgrounds are cropped the same way. image-to-pptx places the same
+frame through the same picker as ppt-background (one shared background
+editor, so both look and behave alike); its frame keeps its centre and zoom
+when the user switches the slide between 16:9 and 4:3, pushed back inside
+the picture if it no longer fits. A new pick starts centred again.
 _Avoid_: "cover" or fill offsets: the earlier XML-only approach that kept the
 whole image in the deck.
 
@@ -107,6 +110,26 @@ size pictures enter a deck at; **display size** is what ppt-compress works out
 for pictures already there.
 _Avoid_: a long-edge cap: 1920 px on the long edge of a portrait picture holds
 1920 rows where Full HD shows 1080.
+
+### Placement
+Where image-to-pptx puts the slide pictures: one box for the whole deck, in
+which each picture is fitted keeping its shape (anchored top-left or
+centred). Its size is a share of the **fill size**, the first picture as
+large as fits the slide (100%); it can grow to 300%, past the slide's edges.
+On an axis where the box is larger than the slide it must cover the slide
+(no gap on that axis); on an axis where it is smaller it stays inside. What
+lies outside the slide is cut off when the deck is made: only the visible
+part enters the deck, sized for the [screen size](#screen-size), so it cannot
+be moved back in PowerPoint (the user re-runs the tool), as with the
+[background crop](#background-crop). Position is the box's top-left corner
+from the slide's top-left, as a share of the slide; it goes negative when the
+box grows past the slide. Width and height are locked to the first picture's
+shape by default; unlocked, the box is an area for pictures of other shapes.
+Pictures of another shape than the first may leave a gap even when the first
+fills the slide; the background shows there.
+_Avoid_: "X / Y" as labels (users read them as nothing; say "from the left"
+and "from the top"); cm or pixels (slide sizes differ between 16:9 and 4:3,
+and pixels depend on the screen size).
 
 ### Covering background
 An element lying at the bottom of a slide's stack, under the slide's content,
@@ -175,13 +198,17 @@ they are part of how the recipe looks), softness as colours mixing into
 each other. Blur, and grain laid over any finished picture, belong to the
 [filter set](#filter-set).
 Where WebGL2 is missing the edit is not offered; a failed drawing of an edit
-is an error, never a silent fall back to the unedited file.
+is an error, never a silent fall back to the unedited file. image-to-pptx
+offers the same edit through the shared background editor.
 _Avoid_: "customising the gallery file" (the file is never changed); calling
 Paper's grain a filter.
 
 ### Filter set
-The effects ppt-background lays over a finished background picture, after
-its crop and fit and before its format is chosen, baked into its pixels.
+The effects ppt-background and image-to-pptx (through the shared background
+editor) lay over a finished background picture, after its crop and fit and
+before its format is chosen, baked into its pixels. image-to-pptx fits the
+picture to the deck's [screen size](#screen-size) first, not to 4K; since
+strengths are shares of the picture, the result looks the same.
 They combine, in one fixed order the user does not change: the
 adjustments (blur, saturation, contrast), then one at a time of Paper
 Shaders' image filters (the "style": fluted glass, paper texture, halftone
@@ -198,7 +225,8 @@ the deck as a picture instead of a colour. "No
 background" takes none: it is the theme's colour by definition. Strengths
 are set as shares of the picture, never in pixels, so the preview and the
 4K result look alike and a projector's downscale does not erase the grain.
-Filters stay set when the user picks another background. Paper's filters
+Filters stay set when the user picks another background (a recipe edit
+does not), and through 다시 하기. Paper's filters
 need WebGL2 and are not offered without it. The deck holds only the
 filtered picture, so a filter cannot be changed in PowerPoint; the user
 re-runs the tool.
