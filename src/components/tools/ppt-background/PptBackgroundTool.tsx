@@ -1,15 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ToolHeader } from "@/components/common/ToolHeader";
 import { FileUpload } from "@/components/common/FileUpload";
-import { EMBEDDED_ASSET_LIMIT, uploadLimitFor } from "@/lib/constants";
+import { uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { useToolProcessor } from "@/hooks/useToolProcessor";
-import type { NeedsScreen } from "@/lib/runPresence";
-import { changeBackground, type BgMode, type FillBackground } from "@/lib/ppt/changeBackground";
+import { changeBackground, type BgMode } from "@/lib/ppt/changeBackground";
 import {
   extractCurrentBackgrounds,
   type SlideBackground,
@@ -19,94 +17,29 @@ import { groupBackgrounds, type BackgroundGroup } from "@/lib/ppt/groupBackgroun
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
-import { getErrorMessage, UserFacingError } from "@/lib/errors";
-import { normalizeImageFile } from "@/lib/image/heic";
-import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
-import { belowFullHd, filledSize, slideImagePreparer, type PrepareStep, type SlideSize } from "@/lib/image/slideImage";
-import {
-  activeFilters,
-  bakesPicture,
-  filteredColour,
-  filtersAfter,
-  filtersFor,
-  isFiltered,
-  NO_FILTERS,
-  type BackgroundKind,
-  type FilterSet,
-} from "@/lib/image/filterSet";
+import { maxFitCrop } from "@/lib/image/maxFitCrop";
+import { belowFullHd, filledSize, slideImagePreparer, type SlideSize } from "@/lib/image/slideImage";
+import { bakesPicture, filteredColour } from "@/lib/image/filterSet";
 import { filterStep } from "@/lib/image/filterCanvas";
-import type { GalleryImage, GalleryCategory } from "@/lib/gallery/types";
-import { paperRecipe, type PaperRecipe } from "@/lib/gallery/recipes";
-import {
-  addColour,
-  applyEdit,
-  canAddColour,
-  colourChips,
-  controlsFor,
-  editAreaFor,
-  editStateAfter,
-  FRESH_EDIT_STATE,
-  removeColour,
-  setColour,
-  startEdit,
-  type EditState,
-  type RecipeEdit,
-} from "@/lib/gallery/recipeEdit";
 import { drawRecipeFile } from "@/lib/gallery/drawRecipe";
-import { LostContextError, webgl2Available } from "@/lib/gallery/paperRuntime";
+import { solidPictureFile } from "@/lib/background/backgroundFiles";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
-import { BackgroundPicker } from "./BackgroundPicker";
-import type { GalleryLabels } from "@/components/ppt/InlineGallery";
 import { SelectedBackgroundFrame } from "./SelectedBackgroundFrame";
 import { CurrentBackgroundFrame } from "./CurrentBackgroundFrame";
 import { PreviewLightbox } from "@/components/common/PreviewLightbox";
 import { PptBackgroundResult } from "./PptBackgroundResult";
 import { PptConversionGuide, type ConversionMethodLabels } from "./PptConversionGuide";
-import type { SolidColourLabels } from "./SolidColourGrid";
 import { themeBackground } from "@/lib/ppt/themeBackground";
-import { RecipeEditControls, type RecipeEditLabels } from "./RecipeEditControls";
-import { useRecipePreview } from "./useRecipePreview";
-import { useFilterPreview } from "./useFilterPreview";
-import { FilterControls, filterSummary, type FilterLabels } from "./FilterControls";
+import { useBackgroundEditor } from "@/components/background-editor/useBackgroundEditor";
+import { BackgroundEditor, type BackgroundEditorLabels } from "@/components/background-editor/BackgroundEditor";
+import type { RecipeEditLabels } from "@/components/background-editor/RecipeEditControls";
+import type { SolidColourLabels } from "@/components/background-editor/SolidColourGrid";
 
 const PPTX_ACCEPT = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
   "application/vnd.ms-powerpoint": [".ppt"],
 };
-
-/**
- * A gallery image as the file the preparer starts from, fetched from the
- * site's own `public/gallery/` in its own format (JPEG, or PNG for pixel art),
- * so a photo stays a small JPEG instead of being turned into a large PNG first.
- */
-async function galleryImageFile(image: GalleryImage): Promise<File> {
-  const response = await fetch(image.url);
-  if (!response.ok) throw new Error(`Failed to load gallery image (${response.status})`);
-  const blob = await response.blob();
-  const ext = blob.type === "image/png" ? "png" : "jpg";
-  return new File([blob], `gallery-${image.id}.${ext}`, { type: blob.type });
-}
-
-/**
- * A solid colour as the picture its filters are baked into: the colour at
- * the size a picture of the slide's aspect is stored at, as a PNG (a flat
- * colour is a few KB), handed to the engine as an ordinary picture.
- */
-async function solidPictureFile(rgb: string, slide: SlideSize): Promise<File> {
-  const { width, height } = filledSize(slide);
-  const canvas = new OffscreenCanvas(width, height);
-  try {
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("no 2d canvas context");
-    ctx.fillStyle = `#${rgb}`;
-    ctx.fillRect(0, 0, width, height);
-    const blob = await canvas.convertToBlob({ type: "image/png" });
-    return new File([blob], `solid-${rgb}.png`, { type: "image/png" });
-  } finally {
-    canvas.width = canvas.height = 0;
-  }
-}
 
 /**
  * The share of the gauge an edited pick's 4K drawing takes (measured
@@ -153,11 +86,10 @@ export interface PptBackgroundToolLabels {
     pixelSize: string;
     blurNotice: string;
   };
-  gallery: GalleryLabels;
-  /** The recipe edit under the frame of a Paper gallery item. */
+  /** The shared background editor in the left pane. */
+  editor: BackgroundEditorLabels;
+  /** The recipe edit's copy, for the right pane's drawing spinner. */
   recipeEdit: RecipeEditLabels;
-  /** The filter set's group in the edit area of every picture and solid colour. */
-  filters: FilterLabels;
   solid: SolidColourLabels & {
     tab: string;
     /** The note over the "no background" preview. */
@@ -205,7 +137,6 @@ export interface PptBackgroundToolLabels {
     close: string;
   };
   fileUpload: Dictionary["common"]["fileUpload"];
-  resizeHandles: Dictionary["common"]["resizeHandles"];
 }
 
 interface PptBackgroundToolProps {
@@ -224,25 +155,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // Controlled accordion state — when the guide expands it covers the
   // dropzone, so the parent has to own this to drive the layout.
   const [guideOpen, setGuideOpen] = useState(false);
-  const [bgFiles, setBgFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<BgMode>("all-slides");
-  const [galleryImage, setGalleryImage] = useState<GalleryImage | null>(null);
   const [currentBgs, setCurrentBgs] = useState<SlideBackground[]>([]);
-  const [bgPreviewUrl, setBgPreviewUrl] = useState<string | null>(null);
-  /** A picked HEIC is being converted; the upload button waits. */
-  const [normalizing, setNormalizing] = useState(false);
-  /** The Background crop the frame holds, in the picture's upright pixels. */
-  const [crop, setCrop] = useState<CropRect | null>(null);
-  /** The left pane shows the frame over the picked picture instead of the gallery. */
-  const [framing, setFraming] = useState(false);
-  /** A picked solid colour or "no background", in place of a picture. */
-  const [fill, setFill] = useState<FillBackground | null>(null);
   /** The colour "no background" shows on the loaded deck. */
   const [themeBg, setThemeBg] = useState<string | null>(null);
-  /** The recipe edit of the picked Paper gallery item, and whether its area is open. */
-  const [editState, setEditState] = useState<EditState>(FRESH_EDIT_STATE);
-  /** The filter set laid over the background, kept across picks (CONTEXT "Filter set"). */
-  const [filters, setFilters] = useState<FilterSet>(NO_FILTERS);
 
   // Redesigned workspace state.
   const [slideAspect, setSlideAspect] = useState<SlideAspect>({
@@ -267,47 +183,38 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         ? "16 / 9"
         : `${slideAspect.ratio}`;
 
-  const bgFile = bgFiles[0] ?? null;
   /** The slide's shape, as the image sizing reads it. */
   const slide: SlideSize = { w: slideAspect.ratio, h: 1 };
-  /** The picked solid colour (CSS), not "no background". */
-  const solidColour = fill?.kind === "colour" ? `#${fill.rgb}` : null;
-  // Only a Paper gallery item has a recipe to edit; photos, legacy gradients
-  // and uploads are used as they are.
-  const recipe = galleryImage?.source.kind === "paper" ? paperRecipe(galleryImage.name) : null;
-  const { edit, open: editOpen } = editState;
-  const recipeEdit = useMemo(() => (recipe ? (edit ?? startEdit(recipe)) : null), [recipe, edit]);
-  /** What an edited pick draws; null when the gallery file itself applies. */
-  const editedProps = useMemo(() => {
-    if (!recipe || !recipeEdit) return null;
-    // The recipe itself when the edit draws nothing else (what isEdited reads).
-    const drawn = applyEdit(recipe, recipeEdit);
-    return drawn === recipe ? null : drawn;
-  }, [recipe, recipeEdit]);
-  /** What the edit area shows, worked out once per edit (a crop drag re-renders the tool). */
-  const editView = useMemo(
-    () =>
-      recipe && recipeEdit
-        ? { controls: controlsFor(recipe), chips: colourChips(recipe, recipeEdit), canAdd: canAddColour(recipe, recipeEdit) }
-        : null,
-    [recipe, recipeEdit],
-  );
-  /** Change the edit from its latest state (a slider or colour picker reports many changes in a row). */
-  const changeEdit = useCallback(
-    (change: (edit: RecipeEdit) => RecipeEdit) => {
-      if (recipe) setEditState((prev) => ({ ...prev, edit: change(prev.edit ?? startEdit(recipe)) }));
-    },
-    [recipe],
-  );
+  /** The background pick, its crop, recipe edit and filter set (the shared background editor). */
+  const editor = useBackgroundEditor({
+    slideRatio: slideAspect.ratio,
+    copy: { errors: labels.errors, tooLarge: labels.background.tooLarge },
+  });
+  const {
+    bgFile,
+    previewUrl: bgPreviewUrl,
+    normalizing,
+    crop,
+    framing,
+    setFraming,
+    fill,
+    solidColour,
+    filters,
+    editedProps,
+    editLive,
+    editPending,
+    pickSize,
+    filterPreview,
+    drawEdited,
+    filteredStep,
+    reset: resetBackground,
+    again: againBackground,
+  } = editor;
+  // The latest thumbnails, for the cleanups that run after them.
   const groupThumbUrlsRef = useRef(groupThumbUrls);
-  groupThumbUrlsRef.current = groupThumbUrls;
-  // Mirror bgPreviewUrl into a ref so the unmount cleanup (which has an empty
-  // dep array) revokes the LATEST uploaded blob URL, not the mount-time null.
-  const bgPreviewUrlRef = useRef(bgPreviewUrl);
-  bgPreviewUrlRef.current = bgPreviewUrl;
-  // Each background pick takes a number; a slow pick (a gallery download, a
-  // HEIC conversion) that finishes after a newer pick or a reset is dropped.
-  const pickRef = useRef(0);
+  useEffect(() => {
+    groupThumbUrlsRef.current = groupThumbUrls;
+  }, [groupThumbUrls]);
 
   const {
     files: pptxFiles,
@@ -362,80 +269,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     errorOptions: { copy: labels.errors, corruptOutputHint: labels.processing.errorCorrupt },
   });
 
-  /** What a failed drawing tells the user: that leaving the screen stopped it, or `otherwise`. */
-  function drawFailureCopy(err: unknown, otherwise: string): string {
-    return err instanceof LostContextError && err.afterLeaving ? labels.errors.drawingInterrupted : otherwise;
-  }
-
-  /**
-   * The edited pick as a file. A failed drawing stops the run with its own
-   * message: the unedited gallery file never stands in for the edit.
-   */
-  async function drawEdited(props: PaperRecipe): Promise<File> {
-    try {
-      return await drawRecipeFile(props);
-    } catch (err) {
-      console.error("Edited background failed to draw", err);
-      throw new UserFacingError(drawFailureCopy(err, labels.errors.recipeDrawFailed));
-    }
-  }
-
-  /**
-   * The filter step of the picture path, for a picture or a solid colour's
-   * picture. A failed drawing stops the run with its own message: the
-   * unfiltered picture never stands in for the filters.
-   */
-  function filteredStep(set: FilterSet, kind: BackgroundKind, needsScreen: NeedsScreen): PrepareStep | undefined {
-    const step = filterStep(set, kind, needsScreen);
-    if (!step) return undefined;
-    return async (fitted) => {
-      try {
-        return await step(fitted);
-      } catch (err) {
-        console.error("Filters failed to draw", err);
-        throw new UserFacingError(drawFailureCopy(err, labels.errors.filterDrawFailed));
-      }
-    };
-  }
-
   const pptxFile = pptxFiles[0] ?? null;
-
-  /** Show `url` as the selected background, releasing the previous blob URL. */
-  const showPreview = useCallback((url: string | null) => {
-    const prev = bgPreviewUrlRef.current;
-    if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
-    bgPreviewUrlRef.current = url;
-    setBgPreviewUrl(url);
-  }, []);
-
-  /** Drop the background pick, including one still downloading or converting. */
-  const clearPick = useCallback(() => {
-    pickRef.current++;
-    setNormalizing(false);
-    setBgFiles([]);
-    setGalleryImage(null);
-    showPreview(null);
-    setCrop(null);
-    setFraming(false);
-    setFill(null);
-    setEditState((s) => editStateAfter(s, "pick"));
-    setFilters((f) => filtersAfter(f, "pick"));
-  }, [showPreview]);
-
-  /**
-   * Pick a solid colour or "no background": the picture pick goes. The
-   * effects area under the colours stays open from one colour to the next,
-   * so colours compare under the same filters as they are clicked.
-   */
-  const handleFillSelect = useCallback(
-    (next: FillBackground) => {
-      const keepOpen = fill?.kind === "colour" && next.kind === "colour" && editOpen;
-      clearPick();
-      setFill(next);
-      if (keepOpen) setEditState((s) => ({ ...s, open: true }));
-    },
-    [clearPick, fill?.kind, editOpen],
-  );
 
   // .ppt vs .pptx routing — .ppt never enters useToolProcessor state.
   const setPptxFiles = useCallback(
@@ -453,8 +287,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setShowConversionGuide(false);
       setGuideOpen(false);
       retry();
-      clearPick();
-      setFilters((f) => filtersAfter(f, "reset"));
+      resetBackground();
       setMode("all-slides");
       setCheckedKeys(new Set());
       setKeptCovering(new Set());
@@ -462,7 +295,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setZoom(null);
       setPptxFilesRaw(files);
     },
-    [setPptxFilesRaw, retry, clearPick],
+    [setPptxFilesRaw, retry, resetBackground],
   );
 
   const openPptxFileDialog = useCallback(() => {
@@ -482,6 +315,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // Extract current backgrounds + slide aspect when a .pptx is loaded.
   useEffect(() => {
     if (!pptxFile) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the deck's derived state is cleared with the deck; the loaded branch fills it from async reads
       setThemeBg(null);
       setCurrentBgs([]);
       setGroups([]);
@@ -533,134 +367,15 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     };
   }, [pptxFile]);
 
-  // Cleanup all object URLs on unmount.
+  // Cleanup the group thumbnails' object URLs on unmount (the editor releases its own).
   useEffect(() => {
     return () => {
       groupThumbUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-      const preview = bgPreviewUrlRef.current;
-      if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
     };
   }, []);
 
-  const handleGallerySelect = useCallback(
-    async (image: GalleryImage) => {
-      // The picture already picked: back to its frame, framing kept, but
-      // from the item's own look, as every pick from the gallery starts.
-      if (image.id === galleryImage?.id && bgFile) {
-        setEditState((s) => editStateAfter(s, "pick"));
-        setFilters((f) => filtersAfter(f, "pick"));
-        setFraming(true);
-        return;
-      }
-      const pick = ++pickRef.current;
-      // A HEIC still converting is dropped, so its busy state goes too.
-      setNormalizing(false);
-      setFill(null);
-      setGalleryImage(image);
-      setEditState((s) => editStateAfter(s, "pick"));
-      setFilters((f) => filtersAfter(f, "pick"));
-      // Until the picture arrives nothing can be framed or applied: the old
-      // picture and its frame must not meet the new thumbnail.
-      setBgFiles([]);
-      setCrop(null);
-      setFraming(false);
-      showPreview(image.thumbnailUrl);
-      try {
-        const file = await galleryImageFile(image);
-        if (pick !== pickRef.current) return;
-        setBgFiles([file]);
-        // The frame and the preview work on the full picture, not the thumbnail.
-        showPreview(URL.createObjectURL(file));
-        setFraming(true);
-      } catch {
-        if (pick !== pickRef.current) return;
-        setGalleryImage(null);
-        showPreview(null);
-      }
-    },
-    [showPreview, galleryImage?.id, bgFile],
-  );
-
-  const handleDirectUpload = useCallback(
-    async (files: File[]) => {
-      const picked = files[0];
-      if (!picked) return;
-      // The background is embedded into the deck, so it bypasses the .pptx
-      // UPLOAD_LIMIT and gets its own (tighter) ceiling, checked on the file
-      // as picked (before HEIC conversion).
-      if (picked.size > EMBEDDED_ASSET_LIMIT) {
-        toast.error(
-          template(labels.background.tooLarge, {
-            size: formatBytes(EMBEDDED_ASSET_LIMIT),
-          }),
-        );
-        return;
-      }
-      const pick = ++pickRef.current;
-      let file: File;
-      setNormalizing(true);
-      try {
-        // HEIC/HEIF (iPhone photos) → JPEG; PNG and JPEG pass through.
-        file = await normalizeImageFile(picked);
-      } catch (err) {
-        if (pick === pickRef.current) {
-          toast.error(
-            getErrorMessage(err, {
-              copy: labels.errors,
-              fallbackMessage: labels.errors.heicConvertFailed,
-            }).message,
-          );
-        }
-        return;
-      } finally {
-        if (pick === pickRef.current) setNormalizing(false);
-      }
-      if (pick !== pickRef.current) return;
-      setFill(null);
-      setBgFiles([file]);
-      setGalleryImage(null);
-      setEditState((s) => editStateAfter(s, "pick"));
-      setFilters((f) => filtersAfter(f, "pick"));
-      setCrop(null);
-      showPreview(URL.createObjectURL(file));
-      setFraming(true);
-    },
-    [labels.background.tooLarge, labels.errors, showPreview],
-  );
-
   const totalSlides = currentBgs.length;
 
-  // The live preview of an edit stands in for the gallery file wherever the
-  // pick is shown; Paper Shaders load once the edit area opens.
-  const editArea = editAreaFor(recipe, !!recipe && webgl2Available());
-  const editAvailable = editArea === "edit";
-  const { live: editLive, pending: editPending } = useRecipePreview(
-    editAvailable && bgFile && (editOpen || editedProps) ? recipe : null,
-    editedProps,
-    // The frame would go on showing the unedited file: say so, as a run does.
-    (err) => toast.error(drawFailureCopy(err, labels.errors.recipeDrawFailed), { id: "recipe-preview" }),
-  );
-  /** The gallery pick's size, which the frame is held in and the live preview stands in for. */
-  const pickSize = useMemo(
-    () => (galleryImage ? { w: galleryImage.width, h: galleryImage.height } : undefined),
-    [galleryImage],
-  );
-  const backgroundKind: BackgroundKind = !fill ? "picture" : fill.kind === "colour" ? "solid" : "none";
-  // Read once a picture or a fill is in hand (it touches the DOM, absent while the page is served).
-  const offeredFilters = bgFile || fill ? filtersFor(backgroundKind, webgl2Available()) : null;
-  /** The selected-background preview with the filters baked in; null while unfiltered. */
-  const filterPreview = useFilterPreview({
-    filters,
-    kind: backgroundKind,
-    imageUrl: bgPreviewUrl,
-    colour: solidColour,
-    recipeLive: editLive,
-    crop,
-    sourceSize: pickSize,
-    ratio: slideAspect.ratio,
-    // The preview would go on showing the picture without the filter: say so, as a run does.
-    onPaperFail: (err) => toast.error(drawFailureCopy(err, labels.errors.filterDrawFailed), { id: "filter-preview" }),
-  });
   /**
    * The picture the run would put in the deck, made by the same steps (the
    * edited recipe drawn, cut, fitted inside 4K, filtered, saved as PNG or
@@ -674,6 +389,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [actualPending, setActualPending] = useState(false);
   const slideRatio = slideAspect.ratio;
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the last picture goes the moment its inputs change; the new one is drawn async below
     setActualUrl(null);
     setActualPending(false);
     if (!zoomFullscreen || zoom !== "selected") return;
@@ -769,10 +485,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   // its edit included: the user may only want to frame or tweak it again.
   const handleTryAnother = useCallback(() => {
     retry();
-    setEditState((s) => editStateAfter(s, "again"));
-    setFilters((f) => filtersAfter(f, "again"));
-    setFraming(true);
-  }, [retry]);
+    againBackground();
+  }, [retry, againBackground]);
 
   // Zoom source: the selected background (a filtered colour, at its
   // picture's size) or the current group's thumb.
@@ -785,26 +499,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   })();
   const selectedZoom = fill ? filledColour : bgPreviewUrl;
   const zoomSrc = zoom === "selected" ? selectedZoom : zoom === "current" ? currentThumbUrl : null;
-
-  /** The filter set's group, in a picture's edit area or a solid colour's. */
-  const effectsGroup = offeredFilters
-    ? {
-        name: labels.filters.effects,
-        resetLabel: labels.filters.reset,
-        edited: isFiltered(filters, backgroundKind),
-        summary: filterSummary(activeFilters(filters, backgroundKind), labels.filters),
-        onReset: () => setFilters((f) => filtersAfter(f, "reset")),
-        controls: (
-          <FilterControls
-            offered={offeredFilters}
-            filters={filters}
-            onChange={(change) => setFilters((f) => ({ ...f, ...change }))}
-            locked={status !== "idle"}
-            labels={labels.filters}
-          />
-        ),
-      }
-    : null;
 
   // When the .ppt rejection guide is showing, give the empty-state body itself
   // a definite 50vh height so its flex-1 children (the accordion in particular)
@@ -928,94 +622,13 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
           >
             {/* LEFT panel — gallery, or the frame over the picked picture */}
             <div className="flex h-full min-h-0 flex-col px-6 py-3">
-              <BackgroundPicker
-                galleryImage={galleryImage}
-                onGallerySelect={handleGallerySelect}
-                onDirectUpload={handleDirectUpload}
-                uploadBusy={normalizing}
-                // While a run uses the picture (running, done or failed) its
-                // frame is shown locked; `다시 하기` goes back to edit it.
-                frame={
-                  (framing || status !== "idle") && bgPreviewUrl
-                    ? {
-                        imageUrl: bgPreviewUrl,
-                        live: editLive,
-                        sourceSize: pickSize,
-                        ratio: slideAspect.ratio,
-                        crop,
-                        onCropChange: setCrop,
-                        onBack: () => setFraming(false),
-                        locked: status !== "idle",
-                        busyLabel: editPending ? labels.recipeEdit.drawing : null,
-                        edit: bgFile
-                          ? {
-                              heading: labels.recipeEdit.heading,
-                              open: editOpen,
-                              onOpenChange: (open) => setEditState((s) => ({ ...s, open })),
-                              // Without WebGL2 the recipe edit is not offered, and its note shows in its place.
-                              note: editArea === "unavailable" ? labels.recipeEdit.unavailable : null,
-                              groups: [
-                                ...(editAvailable && recipe && recipeEdit && editView
-                                  ? [
-                                      {
-                                        name: labels.recipeEdit.shape,
-                                        resetLabel: labels.recipeEdit.reset,
-                                        edited: !!editedProps,
-                                        onReset: () => {
-                                          setEditState((s) => editStateAfter(s, "reset"));
-                                          setFilters((f) => filtersAfter(f, "recipeReset"));
-                                        },
-                                        controls: (
-                                          <RecipeEditControls
-                                            controls={editView.controls}
-                                            edit={recipeEdit}
-                                            onHueShift={(degrees) => changeEdit((e) => ({ ...e, hueShift: degrees }))}
-                                            onSlider={(slider, value) => changeEdit((e) => ({ ...e, [slider]: value }))}
-                                            chips={editView.chips}
-                                            canAddColour={editView.canAdd}
-                                            onColour={(id, hex) => changeEdit((e) => setColour(recipe, e, id, hex))}
-                                            onAddColour={() => changeEdit((e) => addColour(recipe, e))}
-                                            onRemoveColour={(id) => changeEdit((e) => removeColour(recipe, e, id))}
-                                            locked={status !== "idle"}
-                                            labels={labels.recipeEdit}
-                                          />
-                                        ),
-                                      },
-                                    ]
-                                  : []),
-                                ...(effectsGroup ? [effectsGroup] : []),
-                              ],
-                              locked: status !== "idle",
-                            }
-                          : null,
-                      }
-                    : null
-                }
-                fill={fill}
-                onFillSelect={handleFillSelect}
-                themeBackground={noneColour}
-                fillLocked={!!fill && status !== "idle"}
-                fillEdit={
-                  // "No background" is the theme's colour by definition: no effects.
-                  fill?.kind === "colour" && effectsGroup
-                    ? {
-                        heading: labels.recipeEdit.heading,
-                        open: editOpen,
-                        onOpenChange: (open) => setEditState((s) => ({ ...s, open })),
-                        groups: [effectsGroup],
-                        locked: status !== "idle",
-                      }
-                    : null
-                }
-                labels={{
-                  uploadLabel: labels.background.uploadLabel,
-                  backToGallery: labels.background.backToGallery,
-                  pixelSize: labels.background.pixelSize,
-                  pictureAlt: labels.preview.selectedCaption,
-                  handles: labels.resizeHandles,
-                  gallery: labels.gallery,
-                  solid: labels.solid,
-                }}
+              <BackgroundEditor
+                editor={editor}
+                // While a run uses the background (running, done or failed)
+                // it is shown locked; `다시 하기` goes back to edit it.
+                locked={status !== "idle"}
+                noneColour={noneColour}
+                labels={labels.editor}
               />
             </div>
 

@@ -36,8 +36,8 @@ interface SolidColourGridProps {
   value: FillBackground | null;
   /** `fromCustom`: picked with "직접 선택", which then shows as the pick even for a preset's colour. */
   onSelect: (fill: FillBackground, fromCustom: boolean) => void;
-  /** The colour "no background" shows on this deck (`#rrggbb`). */
-  themeBackground: string;
+  /** The colour the "no background" tile shows (`#rrggbb`); null leaves the tile out. */
+  noneColour: string | null;
   /** The last colour picked with "직접 선택", as six hex digits. */
   custom: string | null;
   /** The current pick came from "직접 선택". */
@@ -49,14 +49,15 @@ interface SolidColourGridProps {
 }
 
 /**
- * The "단색" tab: a free pick, "no background", then the preset colours. A
+ * The "단색" tab: a free pick, "no background" (where the tool offers it),
+ * then the preset colours. A
  * pick applies as is (no crop step). Tiles share the gallery's grid, size and
  * selection marks, so switching tabs never resizes the pane.
  */
 export function SolidColourGrid({
   value,
   onSelect,
-  themeBackground,
+  noneColour,
   custom,
   customPicked,
   onCustom,
@@ -111,15 +112,17 @@ export function SolidColourGrid({
           },
         }}
       />
-      <Tile
-        label={labels.none}
-        title={labels.noneHint}
-        colour={themeBackground}
-        none
-        selected={value?.kind === "none"}
-        disabled={locked}
-        onClick={() => onSelect({ kind: "none" }, false)}
-      />
+      {noneColour !== null && (
+        <Tile
+          label={labels.none}
+          title={labels.noneHint}
+          colour={noneColour}
+          none
+          selected={value?.kind === "none"}
+          disabled={locked}
+          onClick={() => onSelect({ kind: "none" }, false)}
+        />
+      )}
       {SOLID_PRESETS.map((p) => (
         <Tile
           key={p.id}
