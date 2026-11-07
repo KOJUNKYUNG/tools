@@ -76,7 +76,7 @@ export function InlineGallery({
   return (
     <div
       className={cn(
-        "rounded-[10px] border",
+        "rounded-[4px] border",
         forceOpen && "flex h-full min-h-0 flex-col"
       )}
       style={{

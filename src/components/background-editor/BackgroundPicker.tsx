@@ -53,8 +53,8 @@ interface BackgroundPickerProps {
   /** The picked solid colour or "no background". */
   fill: FillBackground | null;
   onFillSelect: (fill: FillBackground) => void;
-  /** The colour "no background" shows on this deck (`#rrggbb`). */
-  themeBackground: string;
+  /** The colour the "no background" tile shows (`#rrggbb`); null leaves the tile out. */
+  noneColour: string | null;
   /** A run is using the picked fill: the "단색" tab shows it and nothing responds. */
   fillLocked: boolean;
   /** The edit area under the colours, while a solid colour (not "no background") is picked. */
@@ -79,7 +79,7 @@ export function BackgroundPicker({
   frame = null,
   fill,
   onFillSelect,
-  themeBackground,
+  noneColour,
   fillLocked,
   fillEdit = null,
   labels,
@@ -109,7 +109,7 @@ export function BackgroundPicker({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2.5">
-      {/* Header row: category tabs (left) + text-only upload button (right) */}
+      {/* Header row: category tabs (left) + the upload button, a file-open action (right) */}
       <div
         className="flex shrink-0 items-center justify-between gap-2 border-b"
         style={{ borderColor: "var(--hairline)" }}
@@ -156,7 +156,7 @@ export function BackgroundPicker({
           onClick={() => inputRef.current?.click()}
           disabled={uploadBusy || !!frame?.locked || fillLocked}
           aria-busy={uploadBusy}
-          className="subtle-action mb-1 shrink-0 rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
+          className="file-action mb-1 shrink-0 rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
         >
           {labels.uploadLabel}
         </button>
@@ -229,7 +229,7 @@ export function BackgroundPicker({
             {/* The colours scroll in the room the edit area leaves, in the
                 gallery's panel, so every tab of the picker looks alike. */}
             <div
-              className="min-h-0 flex-1 rounded-[10px] border"
+              className="min-h-0 flex-1 rounded-[4px] border"
               style={{ background: "var(--surface)", borderColor: "var(--border)" }}
             >
               <SolidColourGrid
@@ -238,7 +238,7 @@ export function BackgroundPicker({
                   setCustomPicked(fromCustom);
                   onFillSelect(next);
                 }}
-                themeBackground={themeBackground}
+                noneColour={noneColour}
                 custom={custom}
                 customPicked={customPicked}
                 onCustom={setCustom}
