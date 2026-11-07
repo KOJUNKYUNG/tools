@@ -9,8 +9,7 @@ export interface ImageToPptxLabels {
   deleteAria: string; duplicateAria: string; processing: string; slideAspectLabel: string;
   aspect169: string; aspect43: string;
   screenSizeLabel: string; screenFullHd: string; screen4k: string;
-  bgLabel: string; bgImage: string;
-  bgColor: string; bgPick: string; placeLabel: string; posX: string; posY: string;
+  bgLabel: string; bgColor: string; bgChange: string; posX: string; posY: string;
   sizeW: string; sizeH: string; centerH: string; centerV: string;
   resultTitle: string; slideCountTemplate: string;
   download: string; again: string;
@@ -35,7 +34,7 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     aspect169: p.aspect169, aspect43: p.aspect43,
     screenSizeLabel: p.screenSizeLabel, screenFullHd: p.screenFullHd, screen4k: p.screen4k,
     bgLabel: p.bgLabel,
-    bgImage: p.bgImage, bgColor: p.bgColor, bgPick: p.bgPick, placeLabel: p.placeLabel,
+    bgColor: p.bgColor, bgChange: p.bgChange,
     posX: p.posX, posY: p.posY, sizeW: p.sizeW, sizeH: p.sizeH,
     centerH: p.centerH, centerV: p.centerV,
     resultTitle: p.resultTitle, slideCountTemplate: p.slideCount,

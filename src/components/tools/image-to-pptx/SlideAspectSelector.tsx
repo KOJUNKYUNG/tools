@@ -16,6 +16,7 @@ export function SlideAspectSelector(props: {
       ]}
       value={props.value}
       onChange={props.onChange}
+      labelBeside
     />
   );
 }

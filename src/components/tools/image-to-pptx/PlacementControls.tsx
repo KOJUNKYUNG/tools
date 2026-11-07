@@ -10,7 +10,6 @@ interface Props {
   /** The reference image's fit-to-slide placement (inches). Null until first image loads. */
   refSize: { w: number; h: number } | null;
   labels: {
-    placeLabel: string;
     posX: string;
     posY: string;
     sizeW: string;
@@ -21,12 +20,22 @@ interface Props {
 }
 
 type FieldKey = keyof Box;
+type FieldLabel = "posX" | "posY" | "sizeW" | "sizeH";
 
-const FIELDS: { key: FieldKey; lab: "posX" | "posY" | "sizeW" | "sizeH" }[] = [
-  { key: "x", lab: "posX" }, { key: "y", lab: "posY" },
-  { key: "w", lab: "sizeW" }, { key: "h", lab: "sizeH" },
-];
+// DESIGN.md "Input / number fields": --surface-2 fill, --border edge, 3 px corners.
+const INPUT =
+  "h-7 w-[58px] rounded-[3px] border px-1.5 text-right font-body text-[12px] tabular-nums outline-none focus:border-transparent focus:outline-2 focus:outline-[color:var(--emphasis)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+const INPUT_STYLE = {
+  background: "var(--surface-2)",
+  borderColor: "var(--border)",
+  color: "var(--ink-strong)",
+} as const;
+const ACTION = "subtle-action rounded-[5px] px-2.5 py-1.5 font-body text-[11px] whitespace-nowrap";
 
+/**
+ * The placement fields under the preview, in two rows that never change
+ * shape: size (width, height), then position (X, Y) with the centre buttons.
+ */
 export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, labels }: Props) {
   // Guard against degenerate refSize (computeSlidePlacement returns {w:0,h:0} for degenerate inputs)
   const validRef = refSize && refSize.w > 0 && refSize.h > 0 ? refSize : null;
@@ -49,40 +58,37 @@ export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, l
     onBoxChange(clampBox({ ...box, [key]: inches }, slideW, slideH));
   };
 
+  const field = (key: FieldKey, lab: FieldLabel) => (
+    <label className="flex items-center gap-1.5 whitespace-nowrap font-body text-[12px]" style={{ color: "var(--ink)" }}>
+      <span>{labels[lab]}</span>
+      <NumberField
+        value={toDisplay(key)}
+        onCommit={(pct) => commit(key, pct)}
+        min={0}
+        max={100}
+        fallback={0}
+        ariaLabel={labels[lab]}
+        className={INPUT}
+        style={INPUT_STYLE}
+      />
+      <span style={{ color: "var(--ink-soft)" }}>%</span>
+    </label>
+  );
+
   return (
-    <div className="space-y-2">
-      <p className="font-mono text-[11px]" style={{ color: "var(--ink-soft)" }}>{labels.placeLabel}</p>
-      <div className="grid grid-cols-2 gap-2">
-        {FIELDS.map((f) => (
-          <label key={f.key} className="flex items-center gap-1.5 text-[12px]">
-            <span style={{ color: "var(--ink-soft)" }} className="w-9 shrink-0">{labels[f.lab]}</span>
-            <NumberField
-              value={toDisplay(f.key)}
-              onCommit={(pct) => commit(f.key, pct)}
-              min={0}
-              max={100}
-              fallback={0}
-              ariaLabel={labels[f.lab]}
-              className="nameplate h-8 w-full min-w-0 rounded-[9px] px-1.5 text-right text-[12px] tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-            />
-          </label>
-        ))}
+    <div className="flex shrink-0 flex-col gap-1.5">
+      <div className="flex items-center gap-3">
+        {field("w", "sizeW")}
+        {field("h", "sizeH")}
       </div>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => onBoxChange({ ...box, x: (slideW - box.w) / 2 })}
-          className="flex-1 rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)]"
-          style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--ink-strong)" }}
-        >
+      <div className="flex items-center gap-3">
+        {field("x", "posX")}
+        {field("y", "posY")}
+        <span className="flex-1" />
+        <button type="button" onClick={() => onBoxChange({ ...box, x: (slideW - box.w) / 2 })} className={ACTION}>
           {labels.centerH}
         </button>
-        <button
-          type="button"
-          onClick={() => onBoxChange({ ...box, y: (slideH - box.h) / 2 })}
-          className="flex-1 rounded-[5px] border px-2.5 py-1.5 font-body text-[11px] transition-colors hover:border-[color:var(--emphasis)]"
-          style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--ink-strong)" }}
-        >
+        <button type="button" onClick={() => onBoxChange({ ...box, y: (slideH - box.h) / 2 })} className={ACTION}>
           {labels.centerV}
         </button>
       </div>

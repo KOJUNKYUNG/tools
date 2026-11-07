@@ -21,9 +21,10 @@ interface PageItemCardProps {
   bytes: Uint8Array | undefined;
   tint: SectionTint;
   onRotate?: (id: string) => void;
-  onDelete: (id: string) => void;
+  /** Omitted for a read-only card (no delete button). */
+  onDelete?: (id: string) => void;
   rotateAria?: string;
-  deleteAria: string;
+  deleteAria?: string;
   onDuplicate?: (id: string) => void;
   duplicateAria?: string;
   /** dnd-kit drag handle props (listeners + attributes) applied to the sheet. */
@@ -45,6 +46,13 @@ interface PageItemCardProps {
    * Default true preserves pdf-arrange / image-to-pdf behavior.
    */
   draggable?: boolean;
+  /**
+   * When true, the card fills its container's width and takes the shape of
+   * `pageAspect` (image-to-pptx's three-column grid of slide pictures), with
+   * the picture contained on `frameBg` and no page rectangle. Default false
+   * keeps the fixed 150×204 card.
+   */
+  fluid?: boolean;
 }
 
 function PageItemCardImpl({
@@ -62,6 +70,7 @@ function PageItemCardImpl({
   frameBg = "var(--surface-2)",
   pageAspect = null,
   draggable = true,
+  fluid = false,
 }: PageItemCardProps) {
   const { ref, src, status } = useLazyThumbnail({
     fileId: item.sourceFileId,
@@ -83,7 +92,7 @@ function PageItemCardImpl({
     }
   }
 
-  const hasPage = pageAspect != null && pageAspect > 0;
+  const hasPage = !fluid && pageAspect != null && pageAspect > 0;
 
   // Page-frame mode bakes rotation into a bitmap (canvas) instead of CSS-rotating.
   // CSS `transform: rotate()` on an element laid out wider than the card gets
@@ -151,10 +160,11 @@ function PageItemCardImpl({
 
   return (
     <div
-      className={`group relative my-[9px] h-[204px] w-[150px] overflow-hidden rounded-[5px] ${
-        draggable ? "cursor-grab active:cursor-grabbing" : ""
-      }`}
+      className={`group relative overflow-hidden rounded-[5px] ${
+        fluid ? "w-full" : "my-[9px] h-[204px] w-[150px]"
+      } ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
       style={{
+        aspectRatio: fluid && pageAspect ? String(pageAspect) : undefined,
         background: frameBg,
         border: "1px solid var(--border)",
         boxShadow: `var(--shadow-sm), 0 0 0 3px ${tint.ring}`,
@@ -230,17 +240,19 @@ function PageItemCardImpl({
             <CopyPlusIcon className="size-3.5" />
           </button>
         )}
-        <button
-          type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => onDelete(item.id)}
-          aria-label={deleteAria}
-          title={deleteAria}
-          className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
-          style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
-        >
-          <Trash2Icon className="size-3.5" />
-        </button>
+        {onDelete && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => onDelete(item.id)}
+            aria-label={deleteAria}
+            title={deleteAria}
+            className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
+            style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
+          >
+            <Trash2Icon className="size-3.5" />
+          </button>
+        )}
       </div>
 
       <div

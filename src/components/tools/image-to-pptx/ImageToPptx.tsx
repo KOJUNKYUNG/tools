@@ -91,7 +91,6 @@ function SortableCell({
   return (
     <div
       ref={setNodeRef}
-      className="flex items-stretch"
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -110,9 +109,9 @@ function SortableCell({
         deleteAria={deleteAria}
         frameBg="var(--surface-2)"
         pageAspect={pageAspect}
+        fluid
         dragHandleProps={{ ...attributes, ...listeners }}
       />
-      <div className="w-[18px] shrink-0" aria-hidden="true" />
     </div>
   );
 }
@@ -510,98 +509,128 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
   const slideAspect = slide.w / slide.h;
 
-  const editor = (
-    <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
-      {/* Two-column editor: left = image grid, right = slide controls */}
-      <div className="flex min-h-0 flex-1 gap-3">
-        {/* Left: DnD image grid */}
-        <div
-          className="ob-scroll min-h-0 flex-1 overflow-y-auto rounded-2xl p-3"
-          style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            boxShadow: "var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.8)",
-          }}
-        >
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
-              <div className="flex flex-wrap justify-center gap-0">
-                {items.map((item, i) => (
-                  <SortableCell
-                    key={item.id}
-                    item={item}
-                    pageNumber={i + 1}
-                    bytes={sourceBytesById.get(item.sourceFileId)}
-                    onDuplicate={handleDuplicate}
-                    onDelete={handleDelete}
-                    duplicateAria={labels.duplicateAria}
-                    deleteAria={labels.deleteAria}
-                    pageAspect={slideAspect}
-                  />
-                ))}
-                <div className="flex items-stretch">
-                  <button
-                    type="button"
-                    onClick={handleAddClick}
-                    aria-label={labels.addAria}
-                    title={labels.addAria}
-                    className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[5px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
-                    style={{
-                      borderColor: "var(--hairline)",
-                      background: "var(--bg-soft)",
-                    }}
-                  >
-                    <PlusIcon className="size-7" />
-                  </button>
-                  <div className="w-[18px] shrink-0" aria-hidden="true" />
-                </div>
-              </div>
-            </SortableContext>
-          </DndContext>
+  // The slide pictures in three columns. While a run uses them (running,
+  // done or failed) they are shown read-only in the same cells, so the
+  // workspace keeps its shape across states (UI stability contract).
+  const editable = status === "idle";
+  const pictures = editable ? (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
+        <div className="grid grid-cols-3 content-start gap-2.5">
+          {items.map((item, i) => (
+            <SortableCell
+              key={item.id}
+              item={item}
+              pageNumber={i + 1}
+              bytes={sourceBytesById.get(item.sourceFileId)}
+              onDuplicate={handleDuplicate}
+              onDelete={handleDelete}
+              duplicateAria={labels.duplicateAria}
+              deleteAria={labels.deleteAria}
+              pageAspect={slideAspect}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={handleAddClick}
+            aria-label={labels.addAria}
+            title={labels.addAria}
+            className="flex w-full items-center justify-center rounded-[3px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
+            style={{ aspectRatio: String(slideAspect), borderColor: "var(--hairline)" }}
+          >
+            <PlusIcon className="size-6" />
+          </button>
         </div>
+      </SortableContext>
+    </DndContext>
+  ) : (
+    <div className="grid grid-cols-3 content-start gap-2.5">
+      {liveItems.map((item, i) => (
+        <PageItemCard
+          key={item.id}
+          item={item}
+          pageNumber={i + 1}
+          bytes={sourceBytesById.get(item.sourceFileId)}
+          tint={NEUTRAL_TINT}
+          frameBg="var(--surface-2)"
+          pageAspect={slideAspect}
+          fluid
+          draggable={false}
+        />
+      ))}
+    </div>
+  );
 
-        {/* Right: slide settings controls */}
-        <div
-          className="ob-scroll flex w-[220px] shrink-0 flex-col gap-3 overflow-y-auto rounded-2xl p-3"
-          style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            boxShadow: "var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.8)",
-          }}
-        >
-          <SlideAspectSelector value={slideKind} onChange={setSlideKind} labels={labels} />
-          <ScreenSizeSelector value={screen} onChange={setScreen} labels={labels} />
-          <AlignSelector value={align} onChange={setAlign} labels={labels} />
-          <BackgroundPicker
-            value={bg}
-            onChange={chooseBackground}
-            onPickImage={pickBackground}
-            busy={bgBusy}
-            labels={labels}
+  // The slide settings: ratio, screen, alignment and background in one 2×2
+  // block with the labels beside the tabs, the preview taking all the height
+  // left, then the placement fields.
+  const settings = (
+    <>
+      <div className="grid shrink-0 grid-cols-2 gap-x-4 gap-y-1.5">
+        <SlideAspectSelector value={slideKind} onChange={setSlideKind} labels={labels} />
+        <ScreenSizeSelector value={screen} onChange={setScreen} labels={labels} />
+        <AlignSelector value={align} onChange={setAlign} labels={labels} />
+        <BackgroundPicker
+          value={bg}
+          onChange={chooseBackground}
+          onPickImage={pickBackground}
+          busy={bgBusy}
+          labels={labels}
+        />
+      </div>
+      <PlacementEditor
+        box={box}
+        onBoxChange={setBox}
+        slideW={slide.w}
+        slideH={slide.h}
+        background={
+          bg.kind === "color"
+            ? { kind: "color", color: bg.color }
+            : { kind: "image", url: bg.url }
+        }
+        refImageUrl={refImageUrl}
+        handleLabels={labels.resizeHandles}
+        align={align}
+      />
+      <PlacementControls
+        box={box}
+        onBoxChange={setBox}
+        slideW={slide.w}
+        slideH={slide.h}
+        refSize={ref}
+        labels={labels}
+      />
+    </>
+  );
+
+  // Two equal halves with a 1 px divider (ppt-background canon): the slide
+  // pictures left; the settings, the progress or the result right. The tray
+  // height lives here, so nothing in it scrolls but the picture grid.
+  const workspace = (
+    <div
+      className="grid"
+      style={{
+        height: "var(--tray-h)",
+        gridTemplateColumns: "minmax(0, 1fr) 1px minmax(0, 1fr)",
+      }}
+    >
+      <div className="ob-scroll min-h-0 overflow-y-auto pr-5">{pictures}</div>
+      <div style={{ background: "var(--border)" }} />
+      <div className="flex min-h-0 flex-col gap-2.5 pl-5">
+        {status === "idle" ? (
+          settings
+        ) : status === "done" && result ? (
+          <ImageToPptxResult result={result} labels={labels} onDownload={download} />
+        ) : (
+          <ProcessingStatus
+            status={status}
+            progress={progress}
+            runLine={runLine}
+            errorMessage={errorMessage}
+            onRetry={retry}
+            onDownload={download}
           />
-          <PlacementEditor
-            box={box}
-            onBoxChange={setBox}
-            slideW={slide.w}
-            slideH={slide.h}
-            background={
-              bg.kind === "color"
-                ? { kind: "color", color: bg.color }
-                : { kind: "image", url: bg.url }
-            }
-            refImageUrl={refImageUrl}
-            handleLabels={labels.resizeHandles}
-            align={align}
-          />
-          <PlacementControls
-            box={box}
-            onBoxChange={setBox}
-            slideW={slide.w}
-            slideH={slide.h}
-            refSize={ref}
-            labels={labels}
-          />
-        </div>
+        )}
       </div>
     </div>
   );
@@ -651,7 +680,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           description={labels.uploadHint}
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
-      ) : status === "idle" ? (
+      ) : (
         <>
           {showOversize && (
             <OversizeNotice
@@ -661,23 +690,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
               onDismiss={() => setOversizeDismissed(true)}
             />
           )}
-          {editor}
+          {workspace}
         </>
-      ) : status === "done" && result ? (
-        <ImageToPptxResult
-          result={result}
-          labels={labels}
-          onDownload={download}
-        />
-      ) : (
-        <ProcessingStatus
-          status={status}
-          progress={progress}
-          runLine={runLine}
-          errorMessage={errorMessage}
-          onRetry={retry}
-          onDownload={download}
-        />
       )}
     </div>
   );

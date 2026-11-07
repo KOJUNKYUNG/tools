@@ -21,22 +21,20 @@ export function ImageToPptxResult({
 }: ImageToPptxResultProps) {
   const sizeText = useMemo(() => formatBytes(result.bytes.byteLength), [result.bytes]);
 
+  // Fills the right half of the workspace (polishing checklist E: the result
+  // card spans its column, never hugging its content).
   return (
-    <div className="flex justify-end">
-      <div className="w-full max-w-sm">
-        <ResultCard
-          title={labels.resultTitle}
-          actions={
-            <ResultActions
-              download={{ label: labels.download, onClick: onDownload }}
-            />
-          }
-        >
-          <div className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
-            {template(labels.slideCountTemplate, { n: result.slideCount })} · {sizeText}
-          </div>
-        </ResultCard>
+    <ResultCard
+      title={labels.resultTitle}
+      actions={
+        <ResultActions
+          download={{ label: labels.download, onClick: onDownload }}
+        />
+      }
+    >
+      <div className="font-body text-[11.5px]" style={{ color: "var(--ink-soft)" }}>
+        {template(labels.slideCountTemplate, { n: result.slideCount })} · {sizeText}
       </div>
-    </div>
+    </ResultCard>
   );
 }

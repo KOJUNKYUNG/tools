@@ -71,39 +71,54 @@ export function PlacementEditor(props: PlacementEditorProps) {
       ? { background: props.background.color }
       : { backgroundImage: `url(${props.background.url})`, backgroundSize: "cover", backgroundPosition: "center" };
 
+  // The editor takes all the room its parent leaves it (flex-1) and draws the
+  // slide as large as fits inside, centred. Its own box never depends on the
+  // slide's shape, so switching 16:9 ↔ 4:3 moves nothing around it. Container
+  // units (cqw/cqh) size the slide against that box.
+  const ratio = slideW / slideH;
   return (
     <div
-      ref={ref}
-      className="relative w-full select-none overflow-hidden rounded-lg border"
-      style={{ paddingTop: `${(slideH / slideW) * 100}%`, ...bg }}
-      onPointerMove={onMove}
-      onPointerUp={onUp}
+      className="flex min-h-0 w-full flex-1 items-center justify-center"
+      style={{ containerType: "size" }}
     >
       <div
-        className="absolute cursor-move"
+        ref={ref}
+        className="relative shrink-0 select-none overflow-hidden rounded-[3px] border"
         style={{
-          left: `${(props.box.x / slideW) * 100}%`,
-          top: `${(props.box.y / slideH) * 100}%`,
-          width: `${(props.box.w / slideW) * 100}%`,
-          height: `${(props.box.h / slideH) * 100}%`,
-          // Outline (not border) so the box's content area stays exactly box.w×box.h;
-          // a border would shrink the inner image area and make object-contain
-          // letterbox even at 100% (preview-only artifact).
-          outline: "2px solid var(--mono-1000)",
-          outlineOffset: "-1px",
+          width: `min(100cqw, calc(100cqh * ${ratio}))`,
+          height: `min(100cqh, calc(100cqw / ${ratio}))`,
+          borderColor: "var(--border)",
+          ...bg,
         }}
-        onPointerDown={onMoveDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
       >
-        {props.refImageUrl && (
-          <img src={props.refImageUrl} alt="" draggable={false}
-            className={`pointer-events-none absolute left-0 top-0 h-full w-full object-contain ${props.align === "center" ? "object-center" : "object-left-top"}`} />
-        )}
-        {(["nw","n","ne","e","se","s","sw","w"] as Handle[]).map((h) => (
-          <div key={h} role="button" aria-label={props.handleLabels[h]}
-            onPointerDown={(e) => onHandleDown(e, h)}
-            className="absolute size-3 rounded-sm border-2 bg-white"
-            style={{ borderColor: "var(--mono-1000)", ...HANDLE_POS[h], touchAction: "none" }} />
-        ))}
+        <div
+          className="absolute cursor-move"
+          style={{
+            left: `${(props.box.x / slideW) * 100}%`,
+            top: `${(props.box.y / slideH) * 100}%`,
+            width: `${(props.box.w / slideW) * 100}%`,
+            height: `${(props.box.h / slideH) * 100}%`,
+            // Outline (not border) so the box's content area stays exactly box.w×box.h;
+            // a border would shrink the inner image area and make object-contain
+            // letterbox even at 100% (preview-only artifact).
+            outline: "2px solid var(--mono-1000)",
+            outlineOffset: "-1px",
+          }}
+          onPointerDown={onMoveDown}
+        >
+          {props.refImageUrl && (
+            <img src={props.refImageUrl} alt="" draggable={false}
+              className={`pointer-events-none absolute left-0 top-0 h-full w-full object-contain ${props.align === "center" ? "object-center" : "object-left-top"}`} />
+          )}
+          {(["nw","n","ne","e","se","s","sw","w"] as Handle[]).map((h) => (
+            <div key={h} role="button" aria-label={props.handleLabels[h]}
+              onPointerDown={(e) => onHandleDown(e, h)}
+              className="absolute size-3 rounded-sm border-2 bg-white"
+              style={{ borderColor: "var(--mono-1000)", ...HANDLE_POS[h], touchAction: "none" }} />
+          ))}
+        </div>
       </div>
     </div>
   );
