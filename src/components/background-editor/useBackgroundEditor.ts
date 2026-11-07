@@ -234,6 +234,21 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
     setFilters((f) => filtersAfter(f, "reset"));
   }, [clearPick]);
 
+  /** Undo the recipe edit; the filters it changed the defaults of go back with it. */
+  const resetRecipe = useCallback(() => {
+    setEditState((s) => editStateAfter(s, "reset"));
+    setFilters((f) => filtersAfter(f, "recipeReset"));
+  }, []);
+
+  /** Undo the filter set. */
+  const resetFilters = useCallback(() => setFilters((f) => filtersAfter(f, "reset")), []);
+
+  /** Change some of the filters, from their latest state (a slider reports many changes in a row). */
+  const changeFilters = useCallback((change: Partial<FilterSet>) => setFilters((f) => ({ ...f, ...change })), []);
+
+  /** Open or close the edit area. */
+  const setEditOpen = useCallback((open: boolean) => setEditState((s) => ({ ...s, open })), []);
+
   /** 다시 하기: back to the settings with everything kept, the frame open to tweak again. */
   const again = useCallback(() => {
     setEditState((s) => editStateAfter(s, "again"));
@@ -318,6 +333,8 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
   });
 
   return {
+    /** The slide's width / height: the frame's locked aspect. */
+    slideRatio,
     // The pick
     bgFile,
     galleryImage,
@@ -338,14 +355,16 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
     editedProps,
     editView,
     editState,
-    setEditState,
+    setEditOpen,
     changeEdit,
+    resetRecipe,
     editArea,
     editLive,
     editPending,
     // The filter set
     filters,
-    setFilters,
+    changeFilters,
+    resetFilters,
     offeredFilters,
     filterPreview,
     // Actions
@@ -355,7 +374,6 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
     reset,
     again,
     // The run's drawing steps
-    drawFailureCopy,
     drawEdited,
     filteredStep,
   };

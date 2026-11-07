@@ -1,35 +1,22 @@
 "use client";
 
-import type { Dictionary } from "@/i18n/config";
-import { activeFilters, filtersAfter, isFiltered } from "@/lib/image/filterSet";
-import { addColour, editStateAfter, removeColour, setColour } from "@/lib/gallery/recipeEdit";
-import type { GalleryLabels } from "@/components/ppt/InlineGallery";
-import { BackgroundPicker } from "./BackgroundPicker";
+import { activeFilters, isFiltered } from "@/lib/image/filterSet";
+import { addColour, removeColour, setColour } from "@/lib/gallery/recipeEdit";
+import { BackgroundPicker, type BackgroundPickerLabels } from "./BackgroundPicker";
 import type { EditGroup } from "./EditArea";
 import { FilterControls, filterSummary, type FilterLabels } from "./FilterControls";
 import { RecipeEditControls, type RecipeEditLabels } from "./RecipeEditControls";
-import type { SolidColourLabels } from "./SolidColourGrid";
 import type { BackgroundEditorState } from "./useBackgroundEditor";
 
-export interface BackgroundEditorLabels {
-  uploadLabel: string;
-  backToGallery: string;
-  /** The line under the frame: `{sw} × {sh}` the source, `{w} × {h}` the crop. */
-  pixelSize: string;
-  pictureAlt: string;
-  handles: Dictionary["common"]["resizeHandles"];
-  gallery: GalleryLabels;
+export type BackgroundEditorLabels = BackgroundPickerLabels & {
   /** The recipe edit under the frame of a Paper gallery item. */
   recipeEdit: RecipeEditLabels;
   /** The filter set's group in the edit area of every picture and solid colour. */
   filters: FilterLabels;
-  solid: SolidColourLabels & { tab: string };
-}
+};
 
 interface BackgroundEditorProps {
   editor: BackgroundEditorState;
-  /** The slide's width / height: the frame's locked aspect. */
-  slideRatio: number;
   /**
    * A run uses the background (running, done or failed): the frame and the
    * picked fill are shown as they are and nothing responds; 다시 하기 goes
@@ -48,13 +35,15 @@ interface BackgroundEditorProps {
  * for the filter set). Its state lives in `useBackgroundEditor`, which the
  * tool holds, so the tool's run and preview read the same pick.
  */
-export function BackgroundEditor({ editor, slideRatio, locked, noneColour, labels }: BackgroundEditorProps) {
+export function BackgroundEditor({ editor, locked, noneColour, labels }: BackgroundEditorProps) {
   const {
+    slideRatio,
     bgFile,
     previewUrl,
     fill,
     filters,
-    setFilters,
+    changeFilters,
+    resetFilters,
     backgroundKind,
     offeredFilters,
     recipe,
@@ -62,7 +51,8 @@ export function BackgroundEditor({ editor, slideRatio, locked, noneColour, label
     editView,
     editedProps,
     editState,
-    setEditState,
+    setEditOpen,
+    resetRecipe,
     changeEdit,
     editArea,
     editLive,
@@ -74,7 +64,6 @@ export function BackgroundEditor({ editor, slideRatio, locked, noneColour, label
     setFraming,
   } = editor;
   const editOpen = editState.open;
-  const onOpenChange = (open: boolean) => setEditState((s) => ({ ...s, open }));
 
   /** The filter set's group, in a picture's edit area or a solid colour's. */
   const effectsGroup: EditGroup | null = offeredFilters
@@ -83,12 +72,12 @@ export function BackgroundEditor({ editor, slideRatio, locked, noneColour, label
         resetLabel: labels.filters.reset,
         edited: isFiltered(filters, backgroundKind),
         summary: filterSummary(activeFilters(filters, backgroundKind), labels.filters),
-        onReset: () => setFilters((f) => filtersAfter(f, "reset")),
+        onReset: resetFilters,
         controls: (
           <FilterControls
             offered={offeredFilters}
             filters={filters}
-            onChange={(change) => setFilters((f) => ({ ...f, ...change }))}
+            onChange={changeFilters}
             locked={locked}
             labels={labels.filters}
           />
@@ -102,10 +91,7 @@ export function BackgroundEditor({ editor, slideRatio, locked, noneColour, label
           name: labels.recipeEdit.shape,
           resetLabel: labels.recipeEdit.reset,
           edited: !!editedProps,
-          onReset: () => {
-            setEditState((s) => editStateAfter(s, "reset"));
-            setFilters((f) => filtersAfter(f, "recipeReset"));
-          },
+          onReset: resetRecipe,
           controls: (
             <RecipeEditControls
               controls={editView.controls}
@@ -147,7 +133,7 @@ export function BackgroundEditor({ editor, slideRatio, locked, noneColour, label
                 ? {
                     heading: labels.recipeEdit.heading,
                     open: editOpen,
-                    onOpenChange,
+                    onOpenChange: setEditOpen,
                     // Without WebGL2 the recipe edit is not offered, and its note shows in its place.
                     note: editArea === "unavailable" ? labels.recipeEdit.unavailable : null,
                     groups: [...(shapeGroup ? [shapeGroup] : []), ...(effectsGroup ? [effectsGroup] : [])],
@@ -167,21 +153,13 @@ export function BackgroundEditor({ editor, slideRatio, locked, noneColour, label
           ? {
               heading: labels.recipeEdit.heading,
               open: editOpen,
-              onOpenChange,
+              onOpenChange: setEditOpen,
               groups: [effectsGroup],
               locked,
             }
           : null
       }
-      labels={{
-        uploadLabel: labels.uploadLabel,
-        backToGallery: labels.backToGallery,
-        pixelSize: labels.pixelSize,
-        pictureAlt: labels.pictureAlt,
-        handles: labels.handles,
-        gallery: labels.gallery,
-        solid: labels.solid,
-      }}
+      labels={labels}
     />
   );
 }

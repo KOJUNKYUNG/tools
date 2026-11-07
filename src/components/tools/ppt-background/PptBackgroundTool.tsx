@@ -207,6 +207,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     filterPreview,
     drawEdited,
     filteredStep,
+    reset: resetBackground,
+    again: againBackground,
   } = editor;
   // The latest thumbnails, for the cleanups that run after them.
   const groupThumbUrlsRef = useRef(groupThumbUrls);
@@ -269,7 +271,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
   const pptxFile = pptxFiles[0] ?? null;
 
-  const resetBackground = editor.reset;
   // .ppt vs .pptx routing — .ppt never enters useToolProcessor state.
   const setPptxFiles = useCallback(
     (files: File[]) => {
@@ -482,7 +483,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
   // Back to the settings with everything kept, the picture, its frame and
   // its edit included: the user may only want to frame or tweak it again.
-  const againBackground = editor.again;
   const handleTryAnother = useCallback(() => {
     retry();
     againBackground();
@@ -624,7 +624,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             <div className="flex h-full min-h-0 flex-col px-6 py-3">
               <BackgroundEditor
                 editor={editor}
-                slideRatio={slideAspect.ratio}
                 // While a run uses the background (running, done or failed)
                 // it is shown locked; `다시 하기` goes back to edit it.
                 locked={status !== "idle"}

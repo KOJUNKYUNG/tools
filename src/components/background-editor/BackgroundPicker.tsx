@@ -42,6 +42,17 @@ export interface BackgroundFrame {
   busyLabel?: string | null;
 }
 
+export interface BackgroundPickerLabels {
+  uploadLabel: string;
+  backToGallery: string;
+  /** The line under the frame: `{sw} × {sh}` the source, `{w} × {h}` the crop. */
+  pixelSize: string;
+  pictureAlt: string;
+  handles: Dictionary["common"]["resizeHandles"];
+  gallery: GalleryLabels;
+  solid: SolidColourLabels & { tab: string };
+}
+
 interface BackgroundPickerProps {
   galleryImage: GalleryImage | null;
   onGallerySelect: (img: GalleryImage) => void;
@@ -59,16 +70,7 @@ interface BackgroundPickerProps {
   fillLocked: boolean;
   /** The edit area under the colours, while a solid colour (not "no background") is picked. */
   fillEdit?: EditAreaProps | null;
-  labels: {
-    uploadLabel: string;
-    backToGallery: string;
-    /** The line under the frame: `{sw} × {sh}` the source, `{w} × {h}` the crop. */
-    pixelSize: string;
-    pictureAlt: string;
-    handles: Dictionary["common"]["resizeHandles"];
-    gallery: GalleryLabels;
-    solid: SolidColourLabels & { tab: string };
-  };
+  labels: BackgroundPickerLabels;
 }
 
 export function BackgroundPicker({
