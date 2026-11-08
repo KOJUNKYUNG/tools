@@ -4,7 +4,7 @@
 import { CroppedImage } from "@/components/image/CroppedImage";
 import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
 import { CornerSpinner } from "@/components/common/CornerSpinner";
-import { LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
+import { FinishedCanvas, LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
 import { ZoomButton } from "@/components/common/ZoomButton";
 
 interface SelectedBackgroundFrameProps {
@@ -77,7 +77,7 @@ export function SelectedBackgroundFrame({
             </div>
             {filtered ? (
               <>
-                <FilteredCanvas filtered={filtered} />
+                <FinishedCanvas live={filtered} className="pointer-events-none absolute inset-0 size-full" />
                 <ZoomButton label={zoomLabel} onZoom={onZoom} />
               </>
             ) : null}
@@ -96,7 +96,7 @@ export function SelectedBackgroundFrame({
             {live && sourceSize ? (
               <LiveCanvas live={live} crop={crop} sourceSize={sourceSize} className="pointer-events-none absolute inset-0 size-full" />
             ) : null}
-            {filtered ? <FilteredCanvas filtered={filtered} /> : null}
+            {filtered ? <FinishedCanvas live={filtered} className="pointer-events-none absolute inset-0 size-full" /> : null}
             {/* Top left: the zoom button takes the top right on hover. */}
             {busyLabel ? <CornerSpinner label={busyLabel} className="left-1.5 top-1.5" /> : null}
             <ZoomButton label={zoomLabel} onZoom={onZoom} />
@@ -108,16 +108,5 @@ export function SelectedBackgroundFrame({
         )}
       </div>
     </div>
-  );
-}
-
-/** The filtered preview, already cut to the crop: the whole canvas fills the box. */
-function FilteredCanvas({ filtered }: { filtered: LivePicture }) {
-  return (
-    <LiveCanvas
-      live={filtered}
-      sourceSize={{ w: filtered.canvas.width, h: filtered.canvas.height }}
-      className="pointer-events-none absolute inset-0 size-full"
-    />
   );
 }

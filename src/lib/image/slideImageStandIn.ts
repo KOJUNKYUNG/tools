@@ -91,9 +91,9 @@ function encodedStandIn(
   crop: CropRect,
   size: PixelSize,
   format: PreparedImage["format"],
-  stepped?: "stepped",
+  stepped = false,
 ): PreparedImage {
-  const tag = createHash("sha256").update(bytes).update(JSON.stringify(crop)).update(stepped ?? "").digest();
+  const tag = createHash("sha256").update(bytes).update(JSON.stringify(crop)).update(stepped ? "stepped" : "").digest();
   return { bytes: headerOnlyImage(format, size, tag), format, ...size };
 }
 
@@ -118,7 +118,7 @@ export const standInSizedPreparation: SizedImagePreparation = {
       // The step changes the pixels, so its picture is always encoded, as the preparer's is.
       // A stand-in canvas of the fitted size: Node has no OffscreenCanvas, and the steps tests pass read only its size.
       await step({ width: size.width, height: size.height } as OffscreenCanvas);
-      return encodedStandIn(bytes, crop, size, format, "stepped");
+      return encodedStandIn(bytes, crop, size, format, true);
     }
     if (takenWhole(bytes, crop, size) && readImageHeader(bytes)?.format === format) {
       return { bytes, format, ...size };

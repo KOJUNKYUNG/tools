@@ -32,7 +32,7 @@ import { template } from "@/lib/common/template";
 import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { type PageItem } from "@/lib/pdf/pageItem";
-import { buildPptx, prepareBackgroundPicture, type BuildPptxInput } from "@/lib/pptx/assemblePptx";
+import { buildPptx, engineBackground, prepareBackgroundPicture } from "@/lib/pptx/assemblePptx";
 import { type Box, computeSlidePlacement, type PlacementAlign } from "@/lib/pptx/slidePlacement";
 import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
@@ -40,7 +40,7 @@ import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import { normalizeImageFiles } from "@/lib/image/heic";
 import { filledSize, sizedImagePreparation, type ScreenSize } from "@/lib/image/slideImage";
 import { filteredColour } from "@/lib/image/filterSet";
-import type { RunBackground, RunPicture } from "@/lib/background/resolveBackground";
+import type { RunPicture } from "@/lib/background/resolveBackground";
 import { PreviewLightbox } from "@/components/common/PreviewLightbox";
 import { useBackgroundEditor } from "@/components/background-editor/useBackgroundEditor";
 import { useActualBackground } from "@/components/background-editor/useActualBackground";
@@ -68,13 +68,6 @@ const NEUTRAL_TINT = { ring: "transparent" } as const;
 
 /** A new deck's background until the user picks one. */
 const WHITE: FillBackground = { kind: "colour", rgb: "FFFFFF" };
-
-/** The resolved background as image-to-pptx's engine takes it; a new deck has no "no background". */
-function engineBackground(background: RunBackground): BuildPptxInput["background"] {
-  if (background.kind === "picture") return { kind: "image", file: background.file, crop: background.crop, step: background.step };
-  if (background.fill.kind !== "colour") throw new Error("image-to-pptx: a new deck has no theme background");
-  return { kind: "color", color: background.fill.rgb };
-}
 
 export interface ImageToPptxResultData {
   bytes: Uint8Array;
@@ -611,11 +604,13 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   );
 
   // What the zoom enlarges: the picture, or the colour at its picture's size.
+  // Unlike ppt-background's, a plain colour zooms too: the slide pictures lie over it.
+  const colourSize = filledSize(slide, screen);
   const zoomSrc =
     shownBg.kind === "image"
       ? shownBg.url
       : shownBg.kind === "color"
-        ? { colour: shownBg.color, size: ((d) => ({ w: d.width, h: d.height }))(filledSize(slide, screen)) }
+        ? { colour: shownBg.color, size: { w: colourSize.width, h: colourSize.height } }
         : null;
 
   // The slide settings: ratio, screen, alignment and background in one 2×2

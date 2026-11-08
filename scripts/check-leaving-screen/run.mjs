@@ -585,7 +585,8 @@ function toolOptions(origin) {
   const fixture = resolve(FIXTURES, args.fixture);
   if (!existsSync(fixture)) throw new Error(`No such fixture: ${fixture}`);
   // ppt-background's run needs a background, so it defaults to one; image-to-pptx's has its white.
-  const edit = args.tool === "ppt-background" ? (args.edit ?? "recipe") : args.tool === "image-to-pptx" ? (args.edit ?? null) : null;
+  const EDIT_DEFAULT = { "ppt-background": "recipe", "image-to-pptx": null };
+  const edit = args.tool in EDIT_DEFAULT ? (args.edit ?? EDIT_DEFAULT[args.tool]) : null;
   if (args.edit && !edit) throw new Error("--edit is for ppt-background and image-to-pptx");
   if (edit && !(edit in DRAWS_WITH_PAPER)) throw new Error(`--edit takes ${Object.keys(DRAWS_WITH_PAPER).join(", ")}`);
   if (args["context-loss"] && !DRAWS_WITH_PAPER[edit]) throw new Error("--context-loss needs a drawing: --edit=recipe or filter");

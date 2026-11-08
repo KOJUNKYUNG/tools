@@ -1,7 +1,7 @@
 "use client";
 
 import { CroppedImage } from "@/components/image/CroppedImage";
-import { LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
+import { FinishedCanvas, LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
 import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
 
 /** The deck's background as the tool shows it: a colour, or a picture cut to its crop. */
@@ -38,7 +38,7 @@ export function BackgroundFill({ background, className = "" }: { background: Sho
     return (
       <>
         <div aria-hidden="true" className={className} style={{ background: colour }} />
-        {background.kind === "color" && background.filtered ? <Filtered filtered={background.filtered} className={className} /> : null}
+        {background.kind === "color" && background.filtered ? <FinishedCanvas live={background.filtered} className={className} /> : null}
       </>
     );
   }
@@ -52,12 +52,7 @@ export function BackgroundFill({ background, className = "" }: { background: Sho
         <img src={url} alt="" draggable={false} className={`${className} object-cover`} />
       )}
       {live && sourceSize ? <LiveCanvas live={live} crop={crop} sourceSize={sourceSize} className={className} /> : null}
-      {filtered ? <Filtered filtered={filtered} className={className} /> : null}
+      {filtered ? <FinishedCanvas live={filtered} className={className} /> : null}
     </>
   );
-}
-
-/** A filtered preview, already cut to the crop: the whole canvas fills the box. */
-function Filtered({ filtered, className }: { filtered: LivePicture; className: string }) {
-  return <LiveCanvas live={filtered} sourceSize={{ w: filtered.canvas.width, h: filtered.canvas.height }} className={className} />;
 }

@@ -77,3 +77,8 @@ export function LiveCanvas({ live, crop = null, sourceSize, className }: LiveCan
 
   return <canvas ref={ref} aria-hidden="true" className={className} />;
 }
+
+/** A live picture already cut to its box (a filtered preview): the whole canvas fills the element. */
+export function FinishedCanvas({ live, className }: { live: LivePicture; className?: string }) {
+  return <LiveCanvas live={live} sourceSize={{ w: live.canvas.width, h: live.canvas.height }} className={className} />;
+}

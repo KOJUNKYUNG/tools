@@ -5,7 +5,7 @@ import { Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { CroppedImage } from "@/components/image/CroppedImage";
 import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
 import { CornerSpinner } from "./CornerSpinner";
-import { LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
+import { FinishedCanvas, LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
 
 interface PreviewLightboxProps {
   /** Image URL to enlarge, or a solid colour shown in its place at a picture's size. */
@@ -130,13 +130,7 @@ export function PreviewLightbox({
         {live && crop && sourceSize ? (
           <LiveCanvas live={live} crop={crop} sourceSize={sourceSize} className="pointer-events-none absolute inset-0 size-full" />
         ) : null}
-        {finished ? (
-          <LiveCanvas
-            live={finished}
-            sourceSize={{ w: finished.canvas.width, h: finished.canvas.height }}
-            className="pointer-events-none absolute inset-0 size-full"
-          />
-        ) : null}
+        {finished ? <FinishedCanvas live={finished} className="pointer-events-none absolute inset-0 size-full" /> : null}
         {fullscreen && actual ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={actual} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 size-full" />

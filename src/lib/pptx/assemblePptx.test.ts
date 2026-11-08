@@ -4,7 +4,9 @@ import { getImageToPptxLabels } from "@/components/tools/image-to-pptx/labels";
 import type { Dictionary } from "@/i18n/config";
 import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
-import { CORRUPT_OUTPUT_PREFIX, getErrorMessage } from "@/lib/errors";
+import { CORRUPT_OUTPUT_PREFIX, getErrorMessage, UserFacingError } from "@/lib/errors";
+import { resolveBackground } from "@/lib/background/resolveBackground";
+import { NO_FILTERS } from "@/lib/image/filterSet";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import type { PrepareStep, SizedImagePreparation } from "@/lib/image/slideImage";
 import { headerOnlyImage, standInSizedPreparation } from "@/lib/image/slideImageStandIn";
@@ -15,6 +17,7 @@ import { JPEG_3x2, solidPng, withExifOrientation, withJpegSize } from "@/lib/pdf
 import {
   assemblePptxFromPlaced,
   buildPptx,
+  engineBackground,
   prepareBackgroundPicture,
   prepareSlidePicture,
   type BuildPptxInput,
@@ -410,6 +413,56 @@ describe("buildPptx", () => {
       FILES.map((f) => prepareSlidePicture(f, "16:9", "full-hd", standInSizedPreparation)),
     );
     expect(await checkImageToPptx(placedAs(pictures.map((p) => p.dataUrl)), opts, deck, "full")).toEqual([]);
+  });
+
+  it("puts a solid colour with grain in as a picture of the colour, through its solid step, and passes the full check", async () => {
+    const solid = new File([Buffer.from(headerOnlyImage("png", { width: 3840, height: 2160 }, new Uint8Array([5])))], "solid-336699.png", {
+      type: "image/png",
+    });
+    const solidSizes: number[][] = [];
+    const resolved = await resolveBackground(
+      { fill: { kind: "colour", rgb: "336699" }, file: null, crop: null, edited: null, filters: { ...NO_FILTERS, grain: 0.2 } },
+      {
+        drawEdited: () => Promise.reject(new Error("no recipe here")),
+        solidPicture: async () => solid,
+        step: (kind) =>
+          kind === "solid"
+            ? (fitted) => {
+                solidSizes.push([fitted.width, fitted.height]);
+                return fitted;
+              }
+            : undefined,
+      },
+    );
+    const input = request(engineBackground(resolved));
+    const deck = await buildPptx(input, undefined, standInSizedPreparation);
+
+    const zip = await JSZip.loadAsync(deck);
+    expect(backgroundParts(zip)).toHaveLength(1);
+    expect(solidSizes).toEqual([[1920, 1080]]);
+    expect(input.background.kind).toBe("image");
+    const background = input.background.kind === "image" ? input.background : null;
+    const options = {
+      slideKind: "16:9" as const,
+      screen: "full-hd" as const,
+      background: {
+        kind: "image" as const,
+        dataUrl: await prepareBackgroundPicture(solid, "16:9", "full-hd", standInSizedPreparation, undefined, background!.step),
+      },
+    };
+    const pictures = await Promise.all(FILES.map((f) => prepareSlidePicture(f, "16:9", "full-hd", standInSizedPreparation)));
+    expect(await checkImageToPptx(placedAs(pictures.map((p) => p.dataUrl)), options, deck, "full")).toEqual([]);
+  });
+
+  it("keeps a solid colour without picture effects a colour fill", () => {
+    expect(engineBackground({ kind: "fill", fill: { kind: "colour", rgb: "808080" } })).toEqual({ kind: "color", color: "808080" });
+  });
+
+  it("stops with a failing step's error rather than making a deck without it", async () => {
+    const failure = new UserFacingError("the effect could not be drawn");
+    const step: PrepareStep = () => Promise.reject(failure);
+    const run = buildPptx(request({ kind: "image", file: pngFile("bg.png", 16, 9), step }), undefined, standInSizedPreparation);
+    await expect(run).rejects.toBe(failure);
   });
 
   it("blocks a failing quick check with the corrupt-output error and image-to-pptx's hint", async () => {

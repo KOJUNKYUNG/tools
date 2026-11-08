@@ -31,6 +31,8 @@ export interface ImageToPptxLabels {
 export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
   const t = dict.tools["image-to-pptx"];
   const p = t.page;
+  // The preview zoom's copy, where it began (as the shared editor's): ppt-background's.
+  const preview = dict.tools["ppt-background"].page.preview;
   return {
     errors: dict.common.errors,
     title: t.title, description: t.description, uploadPrompt: p.uploadPrompt,
@@ -54,9 +56,12 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     resizeHandles: dict.common.resizeHandles,
     editor: getBackgroundEditorLabels(dict),
     editorCopy: getBackgroundEditorCopy(dict),
-    zoom: (({ zoom, close, fullscreen, exitFullscreen }) => ({ zoom, close, fullscreen, exitFullscreen }))(
-      dict.tools["ppt-background"].page.preview,
-    ),
+    zoom: {
+      zoom: preview.zoom,
+      close: preview.close,
+      fullscreen: preview.fullscreen,
+      exitFullscreen: preview.exitFullscreen,
+    },
     fileUpload: dict.common.fileUpload,
   };
 }

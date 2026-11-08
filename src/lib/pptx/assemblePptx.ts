@@ -1,5 +1,6 @@
 import PptxGenJS from "pptxgenjs";
 import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
+import type { RunBackground } from "@/lib/background/resolveBackground";
 import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
   containedSize,
@@ -89,6 +90,17 @@ export interface BuildPptxInput {
   align: PlacementAlign;
   /** The screen the deck's pictures are sized for (CONTEXT "Screen size"). */
   screen: ScreenSize;
+}
+
+/**
+ * The background the tool resolved for the run (`resolveBackground`) as this
+ * engine takes it: a colour fill, or a picture with its crop and step. A new
+ * deck has no theme background for "no background" to mean.
+ */
+export function engineBackground(background: RunBackground): BuildPptxInput["background"] {
+  if (background.kind === "picture") return { kind: "image", file: background.file, crop: background.crop, step: background.step };
+  if (background.fill.kind !== "colour") throw new Error("image-to-pptx: a new deck has no theme background");
+  return { kind: "color", color: background.fill.rgb };
 }
 
 /** Bytes per `String.fromCharCode` call: bounds its argument count. */
