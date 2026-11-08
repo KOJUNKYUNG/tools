@@ -23,6 +23,8 @@ export interface ImageToPptxLabels {
   /** The shared background editor "바꾸기" opens in the left half. */
   editor: BackgroundEditorLabels;
   editorCopy: BackgroundEditorCopy;
+  /** The preview's zoom and its full screen; the same copy as ppt-background's. */
+  zoom: { zoom: string; close: string; fullscreen: string; exitFullscreen: string };
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
@@ -52,6 +54,9 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     resizeHandles: dict.common.resizeHandles,
     editor: getBackgroundEditorLabels(dict),
     editorCopy: getBackgroundEditorCopy(dict),
+    zoom: (({ zoom, close, fullscreen, exitFullscreen }) => ({ zoom, close, fullscreen, exitFullscreen }))(
+      dict.tools["ppt-background"].page.preview,
+    ),
     fileUpload: dict.common.fileUpload,
   };
 }

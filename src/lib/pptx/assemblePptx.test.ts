@@ -6,7 +6,7 @@ import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
 import { CORRUPT_OUTPUT_PREFIX, getErrorMessage } from "@/lib/errors";
 import type { CropRect } from "@/lib/image/maxFitCrop";
-import type { SizedImagePreparation } from "@/lib/image/slideImage";
+import type { PrepareStep, SizedImagePreparation } from "@/lib/image/slideImage";
 import { headerOnlyImage, standInSizedPreparation } from "@/lib/image/slideImageStandIn";
 import { testPng } from "@/lib/image/testPng";
 import { readImageHeader } from "@/lib/output-check/imageHeader";
@@ -233,9 +233,9 @@ async function backgroundOf(background: File, overrides: Partial<BuildPptxInput>
   const crops: { name: string; crop: CropRect }[] = [];
   const recording: SizedImagePreparation = {
     measure: standInSizedPreparation.measure,
-    prepare(source, crop, size) {
+    prepare(source, crop, size, step) {
       crops.push({ name: source instanceof File ? source.name : "", crop });
-      return standInSizedPreparation.prepare(source, crop, size);
+      return standInSizedPreparation.prepare(source, crop, size, step);
     },
   };
   const input: BuildPptxInput = { ...request({ kind: "image", file: background }), ...overrides };
@@ -318,6 +318,45 @@ describe("buildPptx's background picture", () => {
     expect(parts).toEqual(["ppt/media/ONTAB_BG-image-1.png"]);
   });
 
+  /** A preparation step that records the size of each picture it is handed. */
+  function recordingStep() {
+    const sizes: { width: number; height: number }[] = [];
+    const step: PrepareStep = (fitted) => {
+      sizes.push({ width: fitted.width, height: fitted.height });
+      return fitted;
+    };
+    return { step, sizes };
+  }
+
+  it.each([
+    ["full-hd", 1920, 1080],
+    ["4k", 3840, 2160],
+  ] as const)("hands the background's step the picture fitted to the deck's %s screen", async (screen, width, height) => {
+    const file = named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg");
+    const { step, sizes } = recordingStep();
+    const { header } = await backgroundOf(file, { screen, background: { kind: "image", file, step } });
+    expect(sizes).toEqual([{ width, height }]);
+    expect(header).toMatchObject({ width, height });
+  });
+
+  it("encodes a stepped background that would go in as uploaded, rather than putting the upload in", async () => {
+    const file = named(headerFile("jpeg", 1600, 900, 9), "bg.jpeg");
+    const { step, sizes } = recordingStep();
+    const { bytes, header } = await backgroundOf(file, { background: { kind: "image", file, step } });
+    expect(sizes).toEqual([{ width: 1600, height: 900 }]);
+    expect(bytes).not.toEqual(new Uint8Array(await file.arrayBuffer()));
+    expect(header).toMatchObject({ format: "jpeg", width: 1600, height: 900 });
+  });
+
+  it("runs the step on the background only, never on the slide pictures", async () => {
+    const file = named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg");
+    const { step, sizes } = recordingStep();
+    const files = [1, 2, 3].map((tag) => headerFile("jpeg", 800, 600, tag));
+    const { media } = await backgroundOf(file, { files, background: { kind: "image", file, step } });
+    expect(sizes).toHaveLength(1);
+    expect(media).toHaveLength(files.length + 1);
+  });
+
   it("stores the prepared background once, however many slides the engine makes", async () => {
     const files = [1, 2, 3, 4].map((tag) => headerFile("jpeg", 800, 600, tag));
     const { media, parts } = await backgroundOf(named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg"), { files });
@@ -333,6 +372,10 @@ describe("buildPptx", () => {
     [
       "an image background with a placed crop",
       { kind: "image", file: pngFile("bg.png", 40, 30), crop: { x: 8, y: 4, width: 32, height: 18 } } as const,
+    ],
+    [
+      "an image background with a preparation step",
+      { kind: "image", file: pngFile("bg.png", 16, 9), step: (fitted: OffscreenCanvas) => fitted } as const,
     ],
   ])("builds a deck on %s that passes the full check", async (_label, background) => {
     const progress: number[] = [];
@@ -359,6 +402,7 @@ describe("buildPptx", () => {
                 "full-hd",
                 standInSizedPreparation,
                 "crop" in background ? background.crop : undefined,
+                "step" in background ? background.step : undefined,
               ),
             },
     };

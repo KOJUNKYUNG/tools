@@ -123,12 +123,13 @@ export type PrepareSizedImage = (
 
 /**
  * What an engine sizing pictures itself needs: a picture's upright size, to
- * work out the crop and the size, then the preparation. Tests and Node stand
- * it in for the canvas.
+ * work out the crop and the size, then the preparation, with an optional
+ * step between the fit and the format (`sizedImagePreparer`). Tests and Node
+ * stand it in for the canvas.
  */
 export interface SizedImagePreparation {
   measure(source: Blob): Promise<PixelSize>;
-  prepare: PrepareSizedImage;
+  prepare(source: Blob, crop: CropRect, size: PixelSize, step?: PrepareStep): Promise<PreparedImage>;
 }
 
 /**
@@ -296,7 +297,8 @@ export function slideImagePreparer(step?: PrepareStep): PrepareSlideImage {
 export const prepareSlideImage: PrepareSlideImage = slideImagePreparer();
 
 /** The shared preparation for an engine that sizes pictures itself. */
+const unstepped = sizedImagePreparer();
 export const sizedImagePreparation: SizedImagePreparation = {
   measure: uprightSize,
-  prepare: sizedImagePreparer(),
+  prepare: (source, crop, size, step) => (step ? sizedImagePreparer(step) : unstepped)(source, crop, size),
 };

@@ -7,6 +7,7 @@ import {
   sizedImagePreparation,
   type PixelSize,
   type PreparedImage,
+  type PrepareStep,
   type ScreenSize,
   type SizedImagePreparation,
 } from "@/lib/image/slideImage";
@@ -79,6 +80,11 @@ export interface BuildPptxInput {
         file: File;
         /** The Background crop, in the picture's upright pixels; centred and as large as possible when absent. */
         crop?: CropRect;
+        /**
+         * The preparation step, such as the filter set baked in: run on the
+         * crop fitted to the deck's screen, before its format is chosen.
+         */
+        step?: PrepareStep;
       };
   align: PlacementAlign;
   /** The screen the deck's pictures are sized for (CONTEXT "Screen size"). */
@@ -119,8 +125,10 @@ export async function prepareSlidePicture(
 /**
  * The background picture as it enters the deck: cut to its Background crop of
  * the slide's aspect (the one the user placed, or else the centred one), which
- * is what the tool's preview shows, then fitted to the deck's screen. The
- * engine takes it as a plain picture file, whatever its source.
+ * is what the tool's preview shows, then fitted to the deck's screen, then
+ * `step` (the filter set) when given. The engine takes it as a plain picture
+ * file, whatever its source: an edited recipe or a filtered solid colour is
+ * drawn to a file by the tool before the run (`resolveBackground`).
  */
 export async function prepareBackgroundPicture(
   file: File,
@@ -128,10 +136,11 @@ export async function prepareBackgroundPicture(
   screen: ScreenSize,
   preparation: SizedImagePreparation,
   placed?: CropRect,
+  step?: PrepareStep,
 ): Promise<string> {
   const slide = SLIDE_SIZES[slideKind];
   const crop = placed ?? (await centredCrop(file, slide, preparation));
-  return dataUrlOf(await preparation.prepare(file, crop, fittedSize(crop, slide, screen)));
+  return dataUrlOf(await preparation.prepare(file, crop, fittedSize(crop, slide, screen), step));
 }
 
 async function centredCrop(file: File, slide: { w: number; h: number }, preparation: SizedImagePreparation) {
@@ -155,8 +164,8 @@ export async function buildPptx(
   let background: Background;
   if (input.background.kind === "color") background = { kind: "color", color: input.background.color };
   else {
-    const { file, crop } = input.background;
-    const dataUrl = await prepareBackgroundPicture(file, input.slideKind, input.screen, preparation, crop);
+    const { file, crop, step } = input.background;
+    const dataUrl = await prepareBackgroundPicture(file, input.slideKind, input.screen, preparation, crop, step);
     background = { kind: "image", dataUrl };
   }
   const placed: PlacedImage[] = [];

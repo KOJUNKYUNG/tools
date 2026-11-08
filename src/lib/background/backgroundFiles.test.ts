@@ -96,6 +96,15 @@ describe("solidPictureFile", () => {
     expect(FakeCanvas.made[0].fills[0].rect).toEqual([0, 0, 2880, 2160]);
   });
 
+  it("sizes the picture for the deck's screen when given one", async () => {
+    FakeCanvas.made = [];
+    vi.stubGlobal("OffscreenCanvas", FakeCanvas);
+
+    await solidPictureFile("FFFFFF", { w: 4, h: 3 }, "full-hd");
+
+    expect(FakeCanvas.made[0].fills[0].rect).toEqual([0, 0, 1440, 1080]);
+  });
+
   it("releases the canvas once encoded", async () => {
     FakeCanvas.made = [];
     vi.stubGlobal("OffscreenCanvas", FakeCanvas);

@@ -32,21 +32,25 @@ import { template } from "@/lib/common/template";
 import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { type PageItem } from "@/lib/pdf/pageItem";
-import { buildPptx, type BuildPptxInput } from "@/lib/pptx/assemblePptx";
+import { buildPptx, prepareBackgroundPicture, type BuildPptxInput } from "@/lib/pptx/assemblePptx";
 import { type Box, computeSlidePlacement, type PlacementAlign } from "@/lib/pptx/slidePlacement";
 import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import { normalizeImageFiles } from "@/lib/image/heic";
-import type { ScreenSize } from "@/lib/image/slideImage";
+import { filledSize, sizedImagePreparation, type ScreenSize } from "@/lib/image/slideImage";
+import { filteredColour } from "@/lib/image/filterSet";
+import type { RunBackground, RunPicture } from "@/lib/background/resolveBackground";
+import { PreviewLightbox } from "@/components/common/PreviewLightbox";
 import { useBackgroundEditor } from "@/components/background-editor/useBackgroundEditor";
+import { useActualBackground } from "@/components/background-editor/useActualBackground";
 import { BackgroundEditor } from "@/components/background-editor/BackgroundEditor";
 import type { FillBackground } from "@/lib/ppt/changeBackground";
 import { AlignSelector } from "./AlignSelector";
 import { BackgroundRow } from "./BackgroundRow";
 import type { ShownBackground } from "./BackgroundFill";
 import { PlacementControls } from "./PlacementControls";
-import { PlacementEditor } from "./PlacementEditor";
+import { boxStyle, PlacedPicture, PlacementEditor } from "./PlacementEditor";
 import { ScreenSizeSelector } from "./ScreenSizeSelector";
 import { SlideAspectSelector } from "./SlideAspectSelector";
 import { ImageToPptxResult } from "./ImageToPptxResult";
@@ -64,6 +68,13 @@ const NEUTRAL_TINT = { ring: "transparent" } as const;
 
 /** A new deck's background until the user picks one. */
 const WHITE: FillBackground = { kind: "colour", rgb: "FFFFFF" };
+
+/** The resolved background as image-to-pptx's engine takes it; a new deck has no "no background". */
+function engineBackground(background: RunBackground): BuildPptxInput["background"] {
+  if (background.kind === "picture") return { kind: "image", file: background.file, crop: background.crop, step: background.step };
+  if (background.fill.kind !== "colour") throw new Error("image-to-pptx: a new deck has no theme background");
+  return { kind: "color", color: background.fill.rgb };
+}
 
 export interface ImageToPptxResultData {
   bytes: Uint8Array;
@@ -160,19 +171,50 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     copy: labels.editorCopy,
     initialFill: WHITE,
   });
-  const { bgFile, fill, crop, previewUrl: bgUrl, cropSource, normalizing: bgNormalizing } = editor;
+  const {
+    bgFile,
+    fill,
+    crop,
+    previewUrl: bgUrl,
+    cropSource,
+    normalizing: bgNormalizing,
+    solidColour,
+    filters,
+    editLive,
+    editPending,
+    filterPreview,
+    resolveForRun,
+  } = editor;
+  /** The run can start: a colour, or a picture in hand (not a pick still on its way). */
+  const bgReady = fill?.kind === "colour" || (!!bgFile && !bgNormalizing);
   /**
-   * The background as the run puts it in the deck (null while a pick is still
-   * on its way), and as the row's thumbnail and the preview show it, cut to
-   * its crop as it changes.
+   * The background as the row's thumbnail and the preview show it: the colour
+   * its colour effects make, or the picture cut to its crop, with the recipe
+   * edit and the filters laid over it as they change.
    */
-  const [background, shownBg]: [BuildPptxInput["background"] | null, ShownBackground] =
-    fill?.kind === "colour"
-      ? [{ kind: "color", color: fill.rgb }, { kind: "color", color: `#${fill.rgb}` }]
-      : [
-          bgFile && !bgNormalizing ? { kind: "image", file: bgFile, crop: crop ?? undefined } : null,
-          bgUrl ? { kind: "image", url: bgUrl, crop, sourceSize: cropSource ?? undefined } : { kind: "empty" },
-        ];
+  const shownBg: ShownBackground = solidColour
+    ? { kind: "color", color: filteredColour(filters, solidColour), filtered: filterPreview }
+    : bgUrl
+      ? { kind: "image", url: bgUrl, crop, sourceSize: cropSource ?? undefined, live: editLive, filtered: filterPreview }
+      : { kind: "empty" };
+  /** The preview enlarged over the right half, and whether it fills the screen. */
+  const [zoomed, setZoomed] = useState(false);
+  const [zoomFullscreen, setZoomFullscreen] = useState(false);
+  /** The background file the run would put in, shown under the slide pictures while the zoom fills the screen. */
+  const prepareActual = useCallback(
+    async ({ file, crop: cut, step }: RunPicture) => {
+      const dataUrl = await prepareBackgroundPicture(file, slideKind, screen, sizedImagePreparation, cut, step);
+      return (await fetch(dataUrl)).blob();
+    },
+    [slideKind, screen],
+  );
+  const { url: actualUrl, pending: actualPending } = useActualBackground(editor, {
+    active: zoomed && zoomFullscreen,
+    slide,
+    screen,
+    prepare: prepareActual,
+  });
+
   /** The left half shows the background editor ("바꾸기") in place of the slide pictures. */
   const [editingBg, setEditingBg] = useState(false);
   /**
@@ -203,7 +245,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     retry,
     download,
   } = useToolProcessor<ImageToPptxResultData>({
-    processor: async (_files, onProgress) => {
+    processor: async (_files, onProgress, needsScreen) => {
       const live = items.filter((p) => !p.deleted);
       if (live.length === 0) throw new UserFacingError(labels.errNoImages);
       const orderedFiles = live
@@ -211,10 +253,14 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         .filter((f): f is File => !!f);
       if (orderedFiles.length === 0) throw new UserFacingError(labels.errNoImages);
       // The run is offered only once the background is in hand.
-      if (!background) throw new Error("image-to-pptx: run started before the background was ready");
+      if (!bgReady) throw new Error("image-to-pptx: run started before the background was ready");
+      // The pick as the run puts it in: an edited recipe drawn, a solid colour
+      // with grain or a Paper filter a picture of the colour, the filters the
+      // step the engine runs between the fit and the format.
+      const resolved = await resolveForRun({ slide, screen, needsScreen, onProgress });
       const bytes = await buildPptx(
-        { files: orderedFiles, box, slideKind, background, align, screen },
-        onProgress,
+        { files: orderedFiles, box, slideKind, background: engineBackground(resolved.background), align, screen },
+        resolved.onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pptx`;
       return { bytes, name, slideCount: orderedFiles.length };
@@ -413,6 +459,13 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 다시 하기: back to the settings with the background, its crop, edit and filters kept.
+  const { again: againBg } = editor;
+  const handleAgain = useCallback(() => {
+    retry();
+    againBg();
+  }, [retry, againBg]);
+
   const handleUpload = useCallback(
     (newFiles: File[]) => {
       retry();
@@ -557,6 +610,14 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     </div>
   );
 
+  // What the zoom enlarges: the picture, or the colour at its picture's size.
+  const zoomSrc =
+    shownBg.kind === "image"
+      ? shownBg.url
+      : shownBg.kind === "color"
+        ? { colour: shownBg.color, size: ((d) => ({ w: d.width, h: d.height }))(filledSize(slide, screen)) }
+        : null;
+
   // The slide settings: ratio, screen, alignment and background in one 2×2
   // block with the labels beside the tabs, the preview taking all the height
   // left, then the placement fields.
@@ -577,6 +638,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         refImageUrl={refImageUrl}
         handleLabels={labels.resizeHandles}
         align={align}
+        zoom={shownBg.kind === "empty" ? undefined : { label: labels.zoom.zoom, onZoom: () => setZoomed(true) }}
       />
       <PlacementControls
         box={box}
@@ -622,7 +684,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
                   type="button"
                   onClick={finishBgEditor}
                   // A pick still on its way (a download, a HEIC conversion) is not a background yet.
-                  disabled={!background}
+                  disabled={!bgReady}
                   className="subtle-action rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
                 >
                   {labels.bgDone}
@@ -635,7 +697,6 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
                 locked={status !== "idle"}
                 // A new deck has no theme background for "no background" to mean.
                 noneColour={null}
-                offerEdits={false}
                 labels={labels.editor}
               />
             </div>
@@ -643,7 +704,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         )}
       </div>
       <div style={{ background: "var(--border)" }} />
-      <div className="flex min-h-0 flex-col gap-2.5 pl-5">
+      <div className="relative flex min-h-0 flex-col gap-2.5 pl-5">
         {status === "idle" ? (
           settings
         ) : status === "done" && result ? (
@@ -656,6 +717,30 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
             errorMessage={errorMessage}
             onRetry={retry}
             onDownload={download}
+          />
+        )}
+        {zoomed && status === "idle" && zoomSrc && (
+          <PreviewLightbox
+            src={zoomSrc}
+            alt={labels.bgLabel}
+            aspect={String(slideAspect)}
+            crop={shownBg.kind === "image" ? shownBg.crop : null}
+            sourceSize={shownBg.kind === "image" ? shownBg.sourceSize : undefined}
+            live={shownBg.kind === "image" ? editLive : null}
+            finished={filterPreview}
+            busyLabel={editPending || actualPending ? labels.editor.recipeEdit.drawing : null}
+            closeLabel={labels.zoom.close}
+            fullscreenLabels={{ enter: labels.zoom.fullscreen, exit: labels.zoom.exitFullscreen }}
+            onFullscreenChange={setZoomFullscreen}
+            actual={actualUrl}
+            onClose={() => setZoomed(false)}
+            overlay={
+              refImageUrl ? (
+                <div className="absolute" style={boxStyle(box, slide.w, slide.h)}>
+                  <PlacedPicture url={refImageUrl} align={align} />
+                </div>
+              ) : null
+            }
           />
         )}
       </div>
@@ -679,10 +764,12 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
       // The deck is made with the background as picked: the editor closes on it.
       onExecute={() => {
         if (editingBg) finishBgEditor();
+        // The zoomed preview covers the right half, where the run's status and result show.
+        setZoomed(false);
         run();
       }}
-      onAgain={retry}
-      executeDisabled={liveItems.length === 0 || !background}
+      onAgain={handleAgain}
+      executeDisabled={liveItems.length === 0 || !bgReady}
     />
   );
 

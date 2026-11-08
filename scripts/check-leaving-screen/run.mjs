@@ -5,7 +5,7 @@
 // checks that only a run that truly stops is called paused (the tab's title and
 // the was-paused line), and reports the visible run's longest main-thread
 // freeze. With --context-loss it forces a WebGL context loss during a
-// ppt-background apply and during its preview, on screen and minimized, and
+// ppt-background or image-to-pptx apply and during its preview, on screen and minimized, and
 // checks what the user is told, that a retry or the next edit draws again, and
 // that the applied picture is the right one.
 //
@@ -13,6 +13,7 @@
 //   pnpm check:leaving-screen --tool=pdf-arrange --fixture=<file>
 //   pnpm check:leaving-screen --tool=ppt-background --fixture=<deck> --edit=recipe|filter [--context-loss]
 //   pnpm check:leaving-screen --tool=ppt-background --fixture=<deck> --edit=photo|effect
+//   pnpm check:leaving-screen --tool=image-to-pptx --fixture=<picture> [--edit=recipe|filter|photo|effect] [--context-loss]
 //   pnpm check:leaving-screen --compare <fileA> <fileB>
 //   pnpm check:leaving-screen --print-intent [--dpi=150] [--gpu]: pdf-to-image's gate (#139)
 // Options: --paused says this file's run truly stops while hidden, where the tool
@@ -68,11 +69,14 @@ const PAPER_ITEM = "/gallery/gradient/mesh-3c-thumb.jpg";
 /** Gallery photo: applying it draws nothing with Paper. */
 const PHOTO_ITEM = "/gallery/nature/balkhash-lake-thumb.jpg";
 
-/** ppt-background's setups (--edit), and whether a run of each draws with Paper, so truly stops while hidden. */
+/** The background editor's setups (--edit), and whether a run of each draws with Paper, so truly stops while hidden. */
 const DRAWS_WITH_PAPER = { recipe: true, filter: true, photo: false, effect: false };
 
 /** The copy of the page openTool opens: the checks follow it, so a wording change does not break them. */
-const { processingStatus: RUN_COPY, errors: ERROR_COPY } = JSON.parse(await readFile(join(root, "src/i18n/dictionaries/en.json"), "utf8")).common;
+const EN = JSON.parse(await readFile(join(root, "src/i18n/dictionaries/en.json"), "utf8"));
+const { processingStatus: RUN_COPY, errors: ERROR_COPY } = EN.common;
+/** image-to-pptx's "change" on the background row, which opens the background editor. */
+const BG_CHANGE = EN.tools["image-to-pptx"].page.bgChange;
 
 const seconds = (ms) => `${(ms / 1000).toFixed(1)} s`;
 
@@ -204,9 +208,22 @@ async function setUpBackground(browser, { edit }) {
   await sleep(SETTLE_MS);
 }
 
+/**
+ * image-to-pptx with its background set up as ppt-background's is (--edit),
+ * in the background editor its background row's "change" opens; without
+ * --edit, on its white background, as before.
+ */
+async function setUpImageToPptx(browser, options) {
+  if (!options.edit) return;
+  const change = `[...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(BG_CHANGE)})`;
+  await waitFor(() => browser.evaluate(`(() => { const el = ${change}; el?.click(); return !!el; })()`), "the background row's change");
+  await setUpBackground(browser, options);
+}
+
 /** What a tool needs beyond its file before a run can start. */
 const TOOL_SET_UP = {
   "ppt-background": setUpBackground,
+  "image-to-pptx": setUpImageToPptx,
   // Its text watermark, the default, needs a text.
   "pdf-watermark": (browser) => setInput(browser, `document.querySelector('input[type="text"]')`, `"Ontab"`),
 };
@@ -567,7 +584,9 @@ async function checkContextLoss(browser, reader, options, work) {
 function toolOptions(origin) {
   const fixture = resolve(FIXTURES, args.fixture);
   if (!existsSync(fixture)) throw new Error(`No such fixture: ${fixture}`);
-  const edit = args.tool === "ppt-background" ? (args.edit ?? "recipe") : null;
+  // ppt-background's run needs a background, so it defaults to one; image-to-pptx's has its white.
+  const edit = args.tool === "ppt-background" ? (args.edit ?? "recipe") : args.tool === "image-to-pptx" ? (args.edit ?? null) : null;
+  if (args.edit && !edit) throw new Error("--edit is for ppt-background and image-to-pptx");
   if (edit && !(edit in DRAWS_WITH_PAPER)) throw new Error(`--edit takes ${Object.keys(DRAWS_WITH_PAPER).join(", ")}`);
   if (args["context-loss"] && !DRAWS_WITH_PAPER[edit]) throw new Error("--context-loss needs a drawing: --edit=recipe or filter");
   return { origin, tool: args.tool, fixture, edit, paused: Boolean(args.paused) };

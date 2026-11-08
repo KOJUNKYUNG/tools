@@ -8,7 +8,7 @@ import { template } from "@/lib/common/template";
 import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { normalizeImageFile } from "@/lib/image/heic";
 import { cropForRatio, type CropRect, type ImageDims } from "@/lib/image/maxFitCrop";
-import type { PrepareStep } from "@/lib/image/slideImage";
+import type { PrepareStep, ScreenSize, SlideSize } from "@/lib/image/slideImage";
 import { filtersAfter, filtersFor, NO_FILTERS, type BackgroundKind, type FilterSet } from "@/lib/image/filterSet";
 import { filterStep } from "@/lib/image/filterCanvas";
 import type { GalleryImage } from "@/lib/gallery/types";
@@ -27,12 +27,19 @@ import {
 } from "@/lib/gallery/recipeEdit";
 import { drawRecipeFile } from "@/lib/gallery/drawRecipe";
 import { LostContextError, webgl2Available } from "@/lib/gallery/paperRuntime";
-import { galleryImageFile } from "@/lib/background/backgroundFiles";
+import { galleryImageFile, solidPictureFile } from "@/lib/background/backgroundFiles";
+import { resolveBackground, type RunBackground } from "@/lib/background/resolveBackground";
 import type { FillBackground } from "@/lib/ppt/changeBackground";
 import type { NeedsScreen } from "@/lib/runPresence";
 import type { Dictionary } from "@/i18n/config";
 import { useRecipePreview } from "./useRecipePreview";
 import { useFilterPreview } from "./useFilterPreview";
+
+/**
+ * The share of the gauge an edited pick's 4K drawing takes (measured
+ * 2026-10-29: 0.2-0.25 s of a 0.7-1 s run on a laptop iGPU).
+ */
+const DRAWING_SHARE = 15;
 
 export interface BackgroundEditorCopy {
   /** Shared error copy (`common.errors`), in the page's language. */
@@ -351,7 +358,7 @@ export function useBackgroundEditor({
    * unfiltered picture never stands in for the filters.
    */
   const filteredStep = useCallback(
-    (set: FilterSet, kind: BackgroundKind, needsScreen: NeedsScreen): PrepareStep | undefined => {
+    (set: FilterSet, kind: BackgroundKind, needsScreen?: NeedsScreen): PrepareStep | undefined => {
       const step = filterStep(set, kind, needsScreen);
       if (!step) return undefined;
       return async (fitted) => {
@@ -364,6 +371,43 @@ export function useBackgroundEditor({
       };
     },
     [drawFailureCopy, errors.filterDrawFailed],
+  );
+
+  /**
+   * The background a run puts in its deck, as `resolveBackground` makes it
+   * from the pick, drawn with the run's `needsScreen` (none for a picture
+   * made outside a run, such as the full screen's). An edited pick's drawing
+   * is the gauge's first share, so the gauge moves from the click on; the
+   * returned `onProgress` takes the engine's 0-100 into the rest.
+   */
+  const resolveForRun = useCallback(
+    async ({
+      slide,
+      screen,
+      needsScreen,
+      onProgress,
+    }: {
+      slide: SlideSize;
+      /** The deck's screen size, which a solid colour's picture is drawn for; 4K when absent. */
+      screen?: ScreenSize;
+      needsScreen?: NeedsScreen;
+      onProgress?: (pct: number) => void;
+    }): Promise<{ background: RunBackground; onProgress: (pct: number) => void }> => {
+      const drawing = !fill && !!editedProps;
+      if (drawing) onProgress?.(DRAWING_SHARE / 3);
+      const background = await resolveBackground(
+        { fill, file: bgFile, crop, edited: editedProps, filters },
+        {
+          drawEdited: (props) => (needsScreen ? needsScreen(() => drawEdited(props)) : drawEdited(props)),
+          solidPicture: (rgb) => solidPictureFile(rgb, slide, screen),
+          step: (kind) => filteredStep(filters, kind, needsScreen),
+        },
+      );
+      if (drawing) onProgress?.(DRAWING_SHARE);
+      const shown = (pct: number) => onProgress?.(drawing ? DRAWING_SHARE + (pct * (100 - DRAWING_SHARE)) / 100 : pct);
+      return { background, onProgress: shown };
+    },
+    [fill, editedProps, bgFile, crop, filters, drawEdited, filteredStep],
   );
 
   // The live preview of an edit stands in for the gallery file wherever the
@@ -455,9 +499,8 @@ export function useBackgroundEditor({
     hold,
     restore,
     release,
-    // The run's drawing steps
-    drawEdited,
-    filteredStep,
+    // The run's background
+    resolveForRun,
   };
 }
 

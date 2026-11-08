@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { CroppedImage } from "@/components/image/CroppedImage";
 import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
@@ -34,6 +34,8 @@ interface PreviewLightboxProps {
   busyLabel?: string | null;
   /** The part to show already cut and finished (filters baked in), laid over all. */
   finished?: LivePicture | null;
+  /** What lies over the picture on the slide (e.g. the slide pictures), laid over everything, in the box. */
+  overlay?: ReactNode;
 }
 
 /** A square corner button over the lightbox. */
@@ -54,6 +56,7 @@ export function PreviewLightbox({
   busyLabel,
   live,
   finished,
+  overlay,
 }: PreviewLightboxProps) {
   const ref = useRef<HTMLDivElement>(null);
   // Whether the lightbox fills the screen: the browser's state, which Esc also ends.
@@ -138,6 +141,7 @@ export function PreviewLightbox({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={actual} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 size-full" />
         ) : null}
+        {overlay ? <div className="pointer-events-none absolute inset-0">{overlay}</div> : null}
       </div>
       {busyLabel ? <CornerSpinner label={busyLabel} className="left-2.5 top-2.5" /> : null}
       <div className="absolute right-2.5 top-2.5 flex gap-1.5">

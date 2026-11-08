@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useRef, useState, type PointerEvent as RPE, type CSSProperties } from "react";
 import { clampBox, type Box, type PlacementAlign } from "@/lib/pptx/slidePlacement";
+import { ZoomButton } from "@/components/common/ZoomButton";
 import { BackgroundFill, type ShownBackground } from "./BackgroundFill";
 
 type Handle = "nw" | "ne" | "se" | "sw" | "n" | "e" | "s" | "w";
@@ -16,6 +17,31 @@ interface PlacementEditorProps {
   align: PlacementAlign;
   /** Accessible name of each resize handle. */
   handleLabels: Record<Handle, string>;
+  /** The zoom button's name, and what it opens (the preview enlarged); no button without them. */
+  zoom?: { label: string; onZoom: () => void };
+}
+
+/** The placement box's position and size on the slide, as shares of it. */
+export function boxStyle(box: Box, slideW: number, slideH: number): CSSProperties {
+  return {
+    left: `${(box.x / slideW) * 100}%`,
+    top: `${(box.y / slideH) * 100}%`,
+    width: `${(box.w / slideW) * 100}%`,
+    height: `${(box.h / slideH) * 100}%`,
+  };
+}
+
+/** The first slide picture fitted in the placement box by the alignment, as the deck places it. */
+export function PlacedPicture({ url, align }: { url: string; align: PlacementAlign }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt=""
+      draggable={false}
+      className={`pointer-events-none absolute left-0 top-0 h-full w-full object-contain ${align === "center" ? "object-center" : "object-left-top"}`}
+    />
+  );
 }
 
 
@@ -80,7 +106,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
     >
       <div
         ref={ref}
-        className="relative shrink-0 select-none overflow-hidden rounded-[3px] border"
+        className="group relative shrink-0 select-none overflow-hidden rounded-[3px] border"
         style={{
           width: `min(100cqw, calc(100cqh * ${ratio}))`,
           height: `min(100cqh, calc(100cqw / ${ratio}))`,
@@ -93,10 +119,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
         <div
           className="absolute cursor-move"
           style={{
-            left: `${(props.box.x / slideW) * 100}%`,
-            top: `${(props.box.y / slideH) * 100}%`,
-            width: `${(props.box.w / slideW) * 100}%`,
-            height: `${(props.box.h / slideH) * 100}%`,
+            ...boxStyle(props.box, slideW, slideH),
             // Outline (not border) so the box's content area stays exactly box.w×box.h;
             // a border would shrink the inner image area and make object-contain
             // letterbox even at 100% (preview-only artifact).
@@ -105,10 +128,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
           }}
           onPointerDown={onMoveDown}
         >
-          {props.refImageUrl && (
-            <img src={props.refImageUrl} alt="" draggable={false}
-              className={`pointer-events-none absolute left-0 top-0 h-full w-full object-contain ${props.align === "center" ? "object-center" : "object-left-top"}`} />
-          )}
+          {props.refImageUrl && <PlacedPicture url={props.refImageUrl} align={props.align} />}
           {(["nw","n","ne","e","se","s","sw","w"] as Handle[]).map((h) => (
             <div key={h} role="button" aria-label={props.handleLabels[h]}
               onPointerDown={(e) => onHandleDown(e, h)}
@@ -116,6 +136,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
               style={{ borderColor: "var(--mono-1000)", ...HANDLE_POS[h], touchAction: "none" }} />
           ))}
         </div>
+        {props.zoom ? <ZoomButton label={props.zoom.label} onZoom={props.zoom.onZoom} /> : null}
       </div>
     </div>
   );

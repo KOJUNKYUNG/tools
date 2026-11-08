@@ -19,10 +19,8 @@ import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
 import { maxFitCrop } from "@/lib/image/maxFitCrop";
 import { belowFullHd, filledSize, slideImagePreparer, type SlideSize } from "@/lib/image/slideImage";
-import { bakesPicture, filteredColour } from "@/lib/image/filterSet";
-import { filterStep } from "@/lib/image/filterCanvas";
-import { drawRecipeFile } from "@/lib/gallery/drawRecipe";
-import { solidPictureFile } from "@/lib/background/backgroundFiles";
+import { filteredColour } from "@/lib/image/filterSet";
+import type { RunPicture } from "@/lib/background/resolveBackground";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
 import { SelectedBackgroundFrame } from "./SelectedBackgroundFrame";
@@ -32,6 +30,7 @@ import { PptBackgroundResult } from "./PptBackgroundResult";
 import { PptConversionGuide, type ConversionMethodLabels } from "./PptConversionGuide";
 import { themeBackground } from "@/lib/ppt/themeBackground";
 import { useBackgroundEditor } from "@/components/background-editor/useBackgroundEditor";
+import { useActualBackground } from "@/components/background-editor/useActualBackground";
 import { BackgroundEditor, type BackgroundEditorLabels } from "@/components/background-editor/BackgroundEditor";
 import type { RecipeEditLabels } from "@/components/background-editor/RecipeEditControls";
 import type { SolidColourLabels } from "@/components/background-editor/SolidColourGrid";
@@ -40,12 +39,6 @@ const PPTX_ACCEPT = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
   "application/vnd.ms-powerpoint": [".ppt"],
 };
-
-/**
- * The share of the gauge an edited pick's 4K drawing takes (measured
- * 2026-10-29: 0.2-0.25 s of a 0.7-1 s run on a laptop iGPU).
- */
-const DRAWING_SHARE = 15;
 
 export interface PptBackgroundToolLabels {
   /** Shared error copy (`common.errors`), in the page's language. */
@@ -200,13 +193,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     fill,
     solidColour,
     filters,
-    editedProps,
     editLive,
     editPending,
     pickSize,
     filterPreview,
-    drawEdited,
-    filteredStep,
+    resolveForRun,
     reset: resetBackground,
     again: againBackground,
   } = editor;
@@ -228,34 +219,21 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     download,
   } = useToolProcessor<Uint8Array>({
     processor: async (files, onProgress, needsScreen) => {
-      // A solid colour with grain or a Paper filter goes in as a picture of
-      // the colour, whole, its filters baked in as a picture's are; otherwise
-      // it stays a fill, of the colour its colour effects make.
-      const solid = fill?.kind === "colour" && bakesPicture(filters, "solid") ? fill : null;
-      const filledFill = fill?.kind === "colour" ? { ...fill, rgb: filteredColour(filters, `#${fill.rgb}`).slice(1) } : fill;
-      // An edited pick is drawn now, at the gallery file's size, so the frame
-      // set on the file applies to it as is. The drawing is the gauge's first
-      // share, so the gauge moves from the click on.
-      const drawing = !fill && editedProps;
-      // Baked in between the fit and the format; an unfiltered pick is prepared as before.
-      const step = solid ? filteredStep(filters, "solid", needsScreen) : fill ? undefined : filteredStep(filters, "picture", needsScreen);
-      if (drawing) onProgress(DRAWING_SHARE / 3);
-      const file = drawing ? await needsScreen(() => drawEdited(editedProps)) : bgFile!;
-      const shown = drawing ? (pct: number) => DRAWING_SHARE + (pct * (100 - DRAWING_SHARE)) / 100 : (pct: number) => pct;
-      if (drawing) onProgress(DRAWING_SHARE);
+      // The pick as the run puts it in: an edited recipe drawn, a solid colour
+      // with grain or a Paper filter a picture of the colour, the filters the
+      // step baked in between the fit and the format.
+      const { background, onProgress: shown } = await resolveForRun({ slide, needsScreen, onProgress });
       return changeBackground({
         pptxFile: files[0],
-        background: solid
-          ? { kind: "picture", file: await solidPictureFile(solid.rgb, slide) }
-          : (filledFill ?? { kind: "picture", file, crop: crop ?? undefined }),
+        background: background.kind === "fill" ? background.fill : { kind: "picture", file: background.file, crop: background.crop },
         mode,
         targetSlides:
           mode === "specific-slides"
             ? [...selectedSlides].sort((a, b) => a - b)
             : undefined,
         keptCovering: [...keptCovering],
-        onProgress: (pct) => onProgress(shown(pct)),
-        prepare: step ? slideImagePreparer(step) : undefined,
+        onProgress: shown,
+        prepare: background.kind === "picture" && background.step ? slideImagePreparer(background.step) : undefined,
       });
     },
     onDownload: (bytes) => {
@@ -376,55 +354,24 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
   const totalSlides = currentBgs.length;
 
-  /**
-   * The picture the run would put in the deck, made by the same steps (the
-   * edited recipe drawn, cut, fitted inside 4K, filtered, saved as PNG or
-   * JPEG), while the zoom fills the screen: the preview is drawn at Full HD
-   * from stand-ins, and grain and dots show differently when stretched to a
-   * screen, so the full screen shows the file itself. Null until it is made,
-   * or where the background is a fill.
-   */
-  const [actualUrl, setActualUrl] = useState<string | null>(null);
-  /** The file for the full screen is being made. */
-  const [actualPending, setActualPending] = useState(false);
   const slideRatio = slideAspect.ratio;
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the last picture goes the moment its inputs change; the new one is drawn async below
-    setActualUrl(null);
-    setActualPending(false);
-    if (!zoomFullscreen || zoom !== "selected") return;
-    const solid = fill?.kind === "colour" ? fill : null;
-    // A fill (no background, or a colour its effects keep a colour) shows as its colour.
-    if (fill && !(solid && bakesPicture(filters, "solid"))) return;
-    let current = true;
-    let url: string | null = null;
-    setActualPending(true);
-    void (async () => {
-      const slide = { w: slideRatio, h: 1 };
-      const source = solid ? await solidPictureFile(solid.rgb, slide) : editedProps ? await drawRecipeFile(editedProps) : bgFile;
-      if (!source || !current) return;
-      const bitmap = await createImageBitmap(source);
+  /** The file the run would put in, shown while the zoom fills the screen. */
+  const prepareActual = useCallback(
+    async ({ file, crop: cut, step }: RunPicture) => {
+      const bitmap = await createImageBitmap(file);
       const size = { w: bitmap.width, h: bitmap.height };
       bitmap.close();
-      const cut = solid ? { x: 0, y: 0, width: size.w, height: size.h } : (crop ?? maxFitCrop(size, slideRatio, 1));
-      const prepared = await slideImagePreparer(filterStep(filters, solid ? "solid" : "picture"))(source, cut, slide);
-      if (!current) return;
+      const prepared = await slideImagePreparer(step)(file, cut ?? maxFitCrop(size, slideRatio, 1), { w: slideRatio, h: 1 });
       // The bytes are the prepared picture's own buffer; a Blob takes them as they are.
-      url = URL.createObjectURL(new Blob([prepared.bytes as Uint8Array<ArrayBuffer>], { type: `image/${prepared.format}` }));
-      setActualUrl(url);
-    })()
-      .catch((err) => {
-        // The preview stays in its place; the run reports its own failure.
-        console.error("Full-screen picture failed to draw", err);
-      })
-      .finally(() => {
-        if (current) setActualPending(false);
-      });
-    return () => {
-      current = false;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [zoomFullscreen, zoom, fill, filters, editedProps, bgFile, crop, slideRatio]);
+      return new Blob([prepared.bytes as Uint8Array<ArrayBuffer>], { type: `image/${prepared.format}` });
+    },
+    [slideRatio],
+  );
+  const { url: actualUrl, pending: actualPending } = useActualBackground(editor, {
+    active: zoomFullscreen && zoom === "selected",
+    slide,
+    prepare: prepareActual,
+  });
   // "No background" shows the deck's theme colour; white until it is read.
   const noneColour = themeBg ?? "#ffffff";
   // A solid colour as its fill: with its colour effects.
