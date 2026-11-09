@@ -281,11 +281,12 @@ function PageItemCardImpl({
         {item.sourceFileName}
       </div>
 
-      {/* Picked: a black edge inside the card, over the picture, so a scroll edge never clips it. */}
+      {/* Picked (DESIGN.md thumbnail selection): a 2px --emphasis ring inside
+          the card, over the picture, so a scroll edge never clips it. */}
       {selected && (
         <div
           className="pointer-events-none absolute inset-0 rounded-[3px] border-2"
-          style={{ borderColor: "var(--mono-1000)" }}
+          style={{ borderColor: "var(--emphasis)" }}
           aria-hidden
         />
       )}

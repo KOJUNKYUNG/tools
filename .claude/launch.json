@@ -4,31 +4,53 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev"],
+      "runtimeArgs": [
+        "dev"
+      ],
       "port": 3000
+    },
+    {
+      "name": "prod-check",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "exec",
+        "next",
+        "start",
+        "-p",
+        "3100"
+      ],
+      "port": 3100
     },
     {
       "name": "measure-ppt-ratios",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["scripts/measure-ppt-ratios/serve.mjs"],
+      "runtimeArgs": [
+        "scripts/measure-ppt-ratios/serve.mjs"
+      ],
       "port": 4310
     },
     {
       "name": "measure-filters",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["scripts/measure-filters/serve.mjs"],
+      "runtimeArgs": [
+        "scripts/measure-filters/serve.mjs"
+      ],
       "port": 4330
     },
     {
       "name": "measure-image-prep",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["scripts/measure-image-prep/serve.mjs"],
+      "runtimeArgs": [
+        "scripts/measure-image-prep/serve.mjs"
+      ],
       "port": 4340
     },
     {
       "name": "gallery-lab",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["scripts/gallery/lab.mjs"],
+      "runtimeArgs": [
+        "scripts/gallery/lab.mjs"
+      ],
       "port": 4320
     }
   ]
