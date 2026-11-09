@@ -633,6 +633,7 @@
         "screen4k": "4K",
         "bgLabel": "배경",
         "bgChange": "바꾸기",
+        "bgZoom": "배경 크게 보기",
         "bgCancel": "취소",
         "bgDone": "완료",
         "fromLeft": "왼쪽에서",

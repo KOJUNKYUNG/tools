@@ -232,7 +232,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
       ? { kind: "image", url: bgUrl, crop, sourceSize: cropSource ?? undefined, live: editLive, filtered: filterPreview }
       : { kind: "empty" };
   /** The preview enlarged over the right half, and whether it fills the screen. */
-  const [zoomed, setZoomed] = useState(false);
+  /** What the zoom shows: the slide (background with the shown picture), the background alone, or nothing. */
+  const [zoomed, setZoomed] = useState<null | "slide" | "background">(null);
   const [zoomFullscreen, setZoomFullscreen] = useState(false);
   /** The background file the run would put in, shown under the slide pictures while the zoom fills the screen. */
   const prepareActual = useCallback(
@@ -243,7 +244,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     [slideKind, screen],
   );
   const { url: actualUrl, pending: actualPending } = useActualBackground(editor, {
-    active: zoomed && zoomFullscreen,
+    active: zoomed !== null && zoomFullscreen,
     slide,
     screen,
     prepare: prepareActual,
@@ -370,7 +371,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     setOffSlides(null);
     if (editingBg) finishBgEditor();
     // The zoomed preview covers the right half, where the run's status and result show.
-    setZoomed(false);
+    setZoomed(null);
     run();
   };
 
@@ -683,7 +684,13 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         <SlideAspectSelector value={slideKind} onChange={setSlideKind} labels={labels} />
         <ScreenSizeSelector value={screen} onChange={setScreen} labels={labels} />
         <AlignSelector value={align} onChange={setAlign} labels={labels} />
-        <BackgroundRow background={shownBg} ratio={slideAspect} onChange={openBgEditor} labels={labels} />
+        <BackgroundRow
+          background={shownBg}
+          ratio={slideAspect}
+          onChange={openBgEditor}
+          onZoom={shownBg.kind === "empty" ? undefined : () => setZoomed("background")}
+          labels={labels}
+        />
       </div>
       <PlacementEditor
         box={box}
@@ -694,7 +701,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         refImageUrl={shownImageUrl}
         handleLabels={labels.resizeHandles}
         align={align}
-        zoom={shownBg.kind === "empty" ? undefined : { label: labels.zoom.zoom, onZoom: () => setZoomed(true) }}
+        zoom={shownBg.kind === "empty" ? undefined : { label: labels.zoom.zoom, onZoom: () => setZoomed("slide") }}
         fill={ref}
         cut={pictureCut}
         cutNotice={labels.cutNotice}
@@ -797,9 +804,9 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
             fullscreenLabels={{ enter: labels.zoom.fullscreen, exit: labels.zoom.exitFullscreen }}
             onFullscreenChange={setZoomFullscreen}
             actual={actualUrl}
-            onClose={() => setZoomed(false)}
+            onClose={() => setZoomed(null)}
             overlay={
-              shownImageUrl ? (
+              zoomed === "slide" && shownImageUrl ? (
                 <div className="absolute" style={boxStyle(box, slide.w, slide.h)}>
                   <PlacedPicture url={shownImageUrl} align={align} />
                 </div>

@@ -633,6 +633,7 @@
         "screen4k": "4K",
         "bgLabel": "Background",
         "bgChange": "Change",
+        "bgZoom": "View the background larger",
         "bgCancel": "Cancel",
         "bgDone": "Done",
         "fromLeft": "From left",

@@ -13,6 +13,8 @@ export interface ImageToPptxLabels {
   aspect169: string; aspect43: string;
   screenSizeLabel: string; screenFullHd: string; screen4k: string;
   bgLabel: string; bgChange: string; bgCancel: string; bgDone: string;
+  /** The background thumbnail's name: it opens the background alone, enlarged ([임시] until the spec-end QA). */
+  bgZoom: string;
   /** The placement fields ([임시] until the spec-end QA): position from the slide's left and top, one size or width and height, the lock, the 100% hint. */
   fromLeft: string; fromTop: string; size: string; sizeW: string; sizeH: string;
   sizeLock: string; sizeHint: string; centerH: string; centerV: string;
@@ -50,7 +52,7 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     aspect169: p.aspect169, aspect43: p.aspect43,
     screenSizeLabel: p.screenSizeLabel, screenFullHd: p.screenFullHd, screen4k: p.screen4k,
     bgLabel: p.bgLabel,
-    bgChange: p.bgChange, bgCancel: p.bgCancel, bgDone: p.bgDone,
+    bgChange: p.bgChange, bgCancel: p.bgCancel, bgDone: p.bgDone, bgZoom: p.bgZoom,
     fromLeft: p.fromLeft, fromTop: p.fromTop, size: p.size, sizeW: p.sizeW, sizeH: p.sizeH,
     sizeLock: p.sizeLock, sizeHint: p.sizeHint,
     centerH: p.centerH, centerV: p.centerV, cutNotice: p.cutNotice, offSlide: p.offSlide,
