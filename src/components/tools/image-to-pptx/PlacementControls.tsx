@@ -1,6 +1,6 @@
 "use client";
 import { NumberField } from "@/components/common/NumberField";
-import { clampBox, type Box } from "@/lib/pptx/slidePlacement";
+import { clampBox, MAX_PLACEMENT_SHARE, MIN_PLACEMENT_SHARE, type Box } from "@/lib/pptx/slidePlacement";
 
 interface Props {
   box: Box;
@@ -21,6 +21,15 @@ interface Props {
 
 type FieldKey = keyof Box;
 type FieldLabel = "posX" | "posY" | "sizeW" | "sizeH";
+
+// Size runs 10–300% of the fill size; a position goes negative as far as a
+// 300% box reaches past the slide. The clamp then applies the full rule.
+const RANGE: Record<FieldKey, [number, number]> = {
+  w: [MIN_PLACEMENT_SHARE * 100, MAX_PLACEMENT_SHARE * 100],
+  h: [MIN_PLACEMENT_SHARE * 100, MAX_PLACEMENT_SHARE * 100],
+  x: [(1 - MAX_PLACEMENT_SHARE) * 100, 100],
+  y: [(1 - MAX_PLACEMENT_SHARE) * 100, 100],
+};
 
 // DESIGN.md "Input / number fields": --surface-2 fill, --border edge, 3 px corners.
 const INPUT =
@@ -55,7 +64,7 @@ export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, l
     else if (key === "y") inches = (pct / 100) * slideH;
     else if (key === "w") inches = validRef ? (pct / 100) * validRef.w : (pct / 100) * slideW;
     else /* h */ inches = validRef ? (pct / 100) * validRef.h : (pct / 100) * slideH;
-    onBoxChange(clampBox({ ...box, [key]: inches }, slideW, slideH));
+    onBoxChange(clampBox({ ...box, [key]: inches }, slideW, slideH, validRef));
   };
 
   const field = (key: FieldKey, lab: FieldLabel) => (
@@ -64,8 +73,8 @@ export function PlacementControls({ box, onBoxChange, slideW, slideH, refSize, l
       <NumberField
         value={toDisplay(key)}
         onCommit={(pct) => commit(key, pct)}
-        min={0}
-        max={100}
+        min={RANGE[key][0]}
+        max={RANGE[key][1]}
         fallback={0}
         ariaLabel={labels[lab]}
         className={INPUT}

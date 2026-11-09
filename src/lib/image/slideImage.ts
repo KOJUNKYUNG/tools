@@ -89,6 +89,32 @@ export function containedSize(picture: PixelSize, slide: SlideSize, screen: Scre
 }
 
 /**
+ * The size a part of a picture cut at the slide's edge is stored at: the
+ * pixels its rectangle covers on the slide's rectangle on the screen (`share`
+ * is that rectangle's fraction of the slide's width and height), keeping the
+ * crop's shape, and never enlarged. Unlike a whole picture's size, which
+ * follows the slide so it can be enlarged in PowerPoint, a cut part cannot be
+ * moved back in, so it holds only what it shows.
+ */
+export function shownPartSize(
+  crop: PixelSize,
+  share: { w: number; h: number },
+  slide: SlideSize,
+  screen: ScreenSize = "4k",
+): PixelSize {
+  const rectangle = filledSize(slide, screen);
+  const scale = Math.min(
+    1,
+    (share.w * rectangle.width) / crop.width,
+    (share.h * rectangle.height) / crop.height,
+  );
+  return {
+    width: Math.max(1, Math.round(crop.width * scale)),
+    height: Math.max(1, Math.round(crop.height * scale)),
+  };
+}
+
+/**
  * Whether a crop is too small to fill a Full HD screen without being
  * enlarged, so it may look blurry there: its long side in the slide's
  * orientation (width, or height for a portrait slide) is under 1920 pixels.

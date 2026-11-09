@@ -1,10 +1,11 @@
 "use client";
 import { useCallback, useRef, useState, type PointerEvent as RPE, type CSSProperties } from "react";
-import { clampBox, type Box, type PlacementAlign } from "@/lib/pptx/slidePlacement";
+import { clampBox, resizeBox, type Box, type PlacementAlign, type ResizeHandle } from "@/lib/pptx/slidePlacement";
 import { ZoomButton } from "@/components/common/ZoomButton";
 import { BackgroundFill, type ShownBackground } from "./BackgroundFill";
 
-type Handle = "nw" | "ne" | "se" | "sw" | "n" | "e" | "s" | "w";
+type Handle = ResizeHandle;
+const HANDLES: readonly Handle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 
 interface PlacementEditorProps {
   box: Box;
@@ -19,7 +20,16 @@ interface PlacementEditorProps {
   handleLabels: Record<Handle, string>;
   /** The zoom button's name, and what it opens (the preview enlarged); no button without them. */
   zoom?: { label: string; onZoom: () => void };
+  /** The fill size (inches): the first picture as large as fits the slide; null before it loads. */
+  fill: { w: number; h: number } | null;
+  /** Whether the first picture reaches past the slide, so the deck will cut it. */
+  cut: boolean;
+  /** The line held under the preview, shown while `cut`. */
+  cutNotice: string;
 }
+
+/** The band (px) drawn around the slide, where the part past its edge shows faded. */
+const OUTSIDE_PX = 14;
 
 /** The placement box's position and size on the slide, as shares of it. */
 export function boxStyle(box: Box, slideW: number, slideH: number): CSSProperties {
@@ -45,19 +55,29 @@ export function PlacedPicture({ url, align }: { url: string; align: PlacementAli
 }
 
 
-const HANDLE_POS: Record<Handle, CSSProperties> = {
-  nw: { top: -6, left: -6 }, n: { top: -6, left: "calc(50% - 6px)" },
-  ne: { top: -6, right: -6 }, e: { top: "calc(50% - 6px)", right: -6 },
-  se: { bottom: -6, right: -6 }, s: { bottom: -6, left: "calc(50% - 6px)" },
-  sw: { bottom: -6, left: -6 }, w: { top: "calc(50% - 6px)", left: -6 },
-};
+/** Half a handle's 12 px side. */
+const HANDLE_HALF_PX = 6;
+
+/**
+ * A handle's place on the slide: on the box's edge or corner, held inside the
+ * band around the slide, so it can still be grabbed when the box reaches far
+ * past the slide. A drag moves the box's own edge, wherever the handle sits.
+ */
+function handleStyle(h: Handle, box: Box, slideW: number, slideH: number): CSSProperties {
+  const along = (lo: number, len: number, low: boolean, high: boolean) => (low ? lo : high ? lo + len : lo + len / 2);
+  const xPct = (along(box.x, box.w, h.includes("w"), h.includes("e")) / slideW) * 100;
+  const yPct = (along(box.y, box.h, h.includes("n"), h.includes("s")) / slideH) * 100;
+  const reach = OUTSIDE_PX - HANDLE_HALF_PX;
+  const held = (pct: number) => `clamp(${-reach}px, ${pct}%, calc(100% + ${reach}px))`;
+  return { left: held(xPct), top: held(yPct), transform: "translate(-50%, -50%)" };
+}
 
 export function PlacementEditor(props: PlacementEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef({ px: 0, py: 0, box: props.box });
   const [mode, setMode] = useState<null | "move" | Handle>(null);
 
-  const { slideW, slideH, onBoxChange } = props;
+  const { slideW, slideH, onBoxChange, fill } = props;
 
   const onMoveDown = (e: RPE<HTMLDivElement>) => {
     e.preventDefault();
@@ -80,64 +100,89 @@ export function PlacementEditor(props: PlacementEditorProps) {
       if (r.width <= 0 || r.height <= 0) return;
       const dxIn = ((e.clientX - drag.current.px) / r.width) * slideW;
       const dyIn = ((e.clientY - drag.current.py) / r.height) * slideH;
-      const b = { ...drag.current.box };
-      if (mode === "move") { b.x += dxIn; b.y += dyIn; }
-      else {
-        if (mode.includes("w")) { b.x += dxIn; b.w -= dxIn; }
-        if (mode.includes("n")) { b.y += dyIn; b.h -= dyIn; }
-        if (mode.includes("e")) { b.w += dxIn; }
-        if (mode.includes("s")) { b.h += dyIn; }
-      }
-      onBoxChange(clampBox(b, slideW, slideH));
+      // The same placement rule as the fields: 10–300% of the fill size,
+      // covering the slide on an axis where larger, inside it where smaller.
+      const start = drag.current.box;
+      onBoxChange(
+        mode === "move"
+          ? clampBox({ ...start, x: start.x + dxIn, y: start.y + dyIn }, slideW, slideH, fill)
+          : resizeBox(start, mode, dxIn, dyIn, slideW, slideH, fill),
+      );
     },
-    [mode, slideW, slideH, onBoxChange],
+    [mode, slideW, slideH, onBoxChange, fill],
   );
   const onUp = () => setMode(null);
 
   // The editor takes all the room its parent leaves it (flex-1) and draws the
-  // slide as large as fits inside, centred. Its own box never depends on the
-  // slide's shape, so switching 16:9 ↔ 4:3 moves nothing around it. Container
-  // units (cqw/cqh) size the slide against that box.
+  // slide as large as fits inside with a band around it, centred. Its own box
+  // never depends on the slide's shape, so switching 16:9 ↔ 4:3 moves nothing
+  // around it. Container units (cqw/cqh) size the slide against that box.
   const ratio = slideW / slideH;
+  const band = `${OUTSIDE_PX * 2}px`;
+  const boxAt = boxStyle(props.box, slideW, slideH);
   return (
-    <div
-      className="flex min-h-0 w-full flex-1 items-center justify-center"
-      style={{ containerType: "size" }}
-    >
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-1">
       <div
-        ref={ref}
-        className="group relative shrink-0 select-none overflow-hidden rounded-[3px] border"
-        style={{
-          width: `min(100cqw, calc(100cqh * ${ratio}))`,
-          height: `min(100cqh, calc(100cqw / ${ratio}))`,
-          borderColor: "var(--border)",
-        }}
-        onPointerMove={onMove}
-        onPointerUp={onUp}
+        className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden"
+        style={{ containerType: "size" }}
       >
-        <BackgroundFill background={props.background} className="pointer-events-none absolute inset-0 size-full" />
         <div
-          className="absolute cursor-move"
+          ref={ref}
+          className="group relative shrink-0 select-none"
           style={{
-            ...boxStyle(props.box, slideW, slideH),
-            // Outline (not border) so the box's content area stays exactly box.w×box.h;
-            // a border would shrink the inner image area and make object-contain
-            // letterbox even at 100% (preview-only artifact).
-            outline: "2px solid var(--mono-1000)",
-            outlineOffset: "-1px",
+            width: `min(calc(100cqw - ${band}), calc((100cqh - ${band}) * ${ratio}))`,
+            height: `min(calc(100cqh - ${band}), calc((100cqw - ${band}) / ${ratio}))`,
           }}
-          onPointerDown={onMoveDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
         >
-          {props.refImageUrl && <PlacedPicture url={props.refImageUrl} align={props.align} />}
-          {(["nw","n","ne","e","se","s","sw","w"] as Handle[]).map((h) => (
+          {/* The picture past the slide's edge, faded: the deck cuts it off. */}
+          {props.refImageUrl && (
+            <div className="pointer-events-none absolute opacity-30" style={boxAt}>
+              <PlacedPicture url={props.refImageUrl} align={props.align} />
+            </div>
+          )}
+          {/* The slide itself: the background and the picture as the deck shows them. */}
+          <div
+            className="pointer-events-none absolute inset-0 overflow-hidden rounded-[3px] border"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <BackgroundFill background={props.background} className="absolute inset-0 size-full" />
+            {props.refImageUrl && (
+              <div className="absolute" style={boxAt}>
+                <PlacedPicture url={props.refImageUrl} align={props.align} />
+              </div>
+            )}
+          </div>
+          <div
+            className="absolute cursor-move"
+            style={{
+              ...boxAt,
+              // Outline (not border) so the box's content area stays exactly box.w×box.h;
+              // a border would shrink the inner image area and make object-contain
+              // letterbox even at 100% (preview-only artifact).
+              outline: "2px solid var(--mono-1000)",
+              outlineOffset: "-1px",
+            }}
+            onPointerDown={onMoveDown}
+          />
+          {HANDLES.map((h) => (
             <div key={h} role="button" aria-label={props.handleLabels[h]}
               onPointerDown={(e) => onHandleDown(e, h)}
               className="absolute size-3 rounded-sm border-2 bg-white"
-              style={{ borderColor: "var(--mono-1000)", ...HANDLE_POS[h], touchAction: "none" }} />
+              style={{ borderColor: "var(--mono-1000)", ...handleStyle(h, props.box, slideW, slideH), touchAction: "none" }} />
           ))}
+          {props.zoom ? <ZoomButton label={props.zoom.label} onZoom={props.zoom.onZoom} /> : null}
         </div>
-        {props.zoom ? <ZoomButton label={props.zoom.label} onZoom={props.zoom.onZoom} /> : null}
       </div>
+      {/* Held in place, empty while nothing is cut, so nothing below it moves. */}
+      <p
+        className="h-4 shrink-0 truncate text-center font-body text-[11px] leading-4"
+        style={{ color: "var(--ink-soft)" }}
+        aria-live="polite"
+      >
+        {props.cut ? props.cutNotice : ""}
+      </p>
     </div>
   );
 }

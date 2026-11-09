@@ -14,6 +14,8 @@ export interface ImageToPptxLabels {
   screenSizeLabel: string; screenFullHd: string; screen4k: string;
   bgLabel: string; bgChange: string; bgCancel: string; bgDone: string; posX: string; posY: string;
   sizeW: string; sizeH: string; centerH: string; centerV: string;
+  /** The line under the preview while part of the picture lies past the slide. */
+  cutNotice: string;
   resultTitle: string; slideCountTemplate: string;
   download: string; again: string;
   alignLabel: string; alignTopLeft: string; alignCenter: string;
@@ -46,7 +48,7 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     bgLabel: p.bgLabel,
     bgChange: p.bgChange, bgCancel: p.bgCancel, bgDone: p.bgDone,
     posX: p.posX, posY: p.posY, sizeW: p.sizeW, sizeH: p.sizeH,
-    centerH: p.centerH, centerV: p.centerV,
+    centerH: p.centerH, centerV: p.centerV, cutNotice: p.cutNotice,
     resultTitle: p.resultTitle, slideCountTemplate: p.slideCount,
     download: p.download, again: p.again,
     alignLabel: p.alignLabel, alignTopLeft: p.alignTopLeft, alignCenter: p.alignCenter,

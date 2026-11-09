@@ -33,7 +33,7 @@ import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { type PageItem } from "@/lib/pdf/pageItem";
 import { buildPptx, engineBackground, prepareBackgroundPicture } from "@/lib/pptx/assemblePptx";
-import { type Box, computeSlidePlacement, type PlacementAlign } from "@/lib/pptx/slidePlacement";
+import { type Box, clampBox, computeSlidePlacement, type PlacementAlign, reachesPastSlide } from "@/lib/pptx/slidePlacement";
 import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
@@ -325,6 +325,12 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
       ? computeSlidePlacement({ x: 0, y: 0, w: slide.w, h: slide.h }, refNatural.w, refNatural.h)
       : null;
 
+  // Whether the deck will cut the first picture: its placed rectangle (the box
+  // itself until its size is known) reaches past the slide.
+  const firstPlaced =
+    ref && refNatural ? computeSlidePlacement(box, refNatural.w, refNatural.h, align) : box;
+  const pictureCut = reachesPastSlide(firstPlaced, slide.w, slide.h);
+
   // Auto-init box once per reference-image identity (NOT on slide toggle). `ref`
   // is null until the correct image's natural size has loaded, so this never
   // fires with stale dimensions on reupload.
@@ -340,15 +346,10 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     initedForRef.current = firstId;
   }, [ref, firstId, slide.w, slide.h]);
 
-  // Clamp box into new slide bounds when slide ratio toggles (image-invariant)
+  // Bring the box back under the placement rule when the slide ratio toggles:
+  // the slide and the fill size both change (CONTEXT "Placement").
   useEffect(() => {
-    setBox((prev) => {
-      const w = Math.max(0.1, Math.min(slide.w, prev.w));
-      const h = Math.max(0.1, Math.min(slide.h, prev.h));
-      const x = Math.max(0, Math.min(prev.x, slide.w - w));
-      const y = Math.max(0, Math.min(prev.y, slide.h - h));
-      return { x, y, w, h };
-    });
+    setBox((prev) => clampBox(prev, slide.w, slide.h, ref));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slideKind]);
 
@@ -634,6 +635,9 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         handleLabels={labels.resizeHandles}
         align={align}
         zoom={shownBg.kind === "empty" ? undefined : { label: labels.zoom.zoom, onZoom: () => setZoomed(true) }}
+        fill={ref}
+        cut={pictureCut}
+        cutNotice={labels.cutNotice}
       />
       <PlacementControls
         box={box}

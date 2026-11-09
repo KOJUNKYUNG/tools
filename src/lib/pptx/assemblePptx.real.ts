@@ -8,24 +8,30 @@ import { realFileSuite, type RealFileRequest } from "@/lib/output-check/realFile
 import { solidPng } from "@/lib/pdf/testImages";
 import {
   buildPptx,
+  placeSlidePicture,
   prepareBackgroundPicture,
-  prepareSlidePicture,
   type AssembleOptions,
   type BuildPptxInput,
+  type PlacedImage,
 } from "./assemblePptx";
 import { checkImageToPptx } from "./imageToPptxCheck";
-import { placedAs } from "./testPlaced";
+import type { Box } from "./slidePlacement";
+import { SLIDE_SIZES } from "./slideSize";
 
 /** What the user asked for, and what the stand-in preparation embeds for it. */
 interface Request {
   slides: File[];
-  /** Encoded up front, so no timed step pays for it. */
-  slidesEmbedded: string[];
+  /** Placed and encoded up front, so no timed step pays for it. */
+  slidesPlaced: PlacedImage[];
   background: { file: File; embedded: string } | null;
+  box: Box;
   slideKind: BuildPptxInput["slideKind"];
   align: BuildPptxInput["align"];
   screen: ScreenSize;
 }
+
+/** The box the tool's earlier tests used: inside a 16:9 or 4:3 slide. */
+const INSIDE: Box = { x: 1.33, y: 0.75, w: 6, h: 6 };
 
 function upload(bytes: Uint8Array, name: string): File {
   const format = readImageHeader(bytes)?.format;
@@ -57,19 +63,25 @@ async function requests(input: Uint8Array): Promise<RealFileRequest<Request>[]> 
     slideKind: Request["slideKind"],
     align: Request["align"],
     screen: ScreenSize,
+    box: Box = INSIDE,
   ): Promise<Request> => ({
     slides,
-    slidesEmbedded: await Promise.all(
-      slides.map(async (file) => (await prepareSlidePicture(file, slideKind, screen, standInSizedPreparation)).dataUrl),
+    slidesPlaced: await Promise.all(
+      slides.map((file) => placeSlidePicture(file, box, align, slideKind, screen, standInSizedPreparation)),
     ),
     background: background && {
       file: background,
       embedded: await prepareBackgroundPicture(background, slideKind, screen, standInSizedPreparation),
     },
+    box,
     slideKind,
     align,
     screen,
   });
+
+  // The photo at 200% of the slide, centred: cut on every side whatever its shape.
+  const SLIDE = SLIDE_SIZES["16:9"];
+  const enlarged: Box = { x: -SLIDE.w / 2, y: -SLIDE.h / 2, w: SLIDE.w * 2, h: SLIDE.h * 2 };
 
   return [
     {
@@ -94,6 +106,15 @@ async function requests(input: Uint8Array): Promise<RealFileRequest<Request>[]> 
       label: "4:3, the photo as background, 4K",
       request: await requested([other], photo, "4:3", "center", "4k"),
     },
+    {
+      // Placed past the slide: only the part on it enters the deck (#159).
+      label: "16:9, the photo enlarged past the slide, Full HD",
+      request: await requested([photo, other], null, "16:9", "center", "full-hd", enlarged),
+    },
+    {
+      label: "16:9, the photo enlarged past the slide, 4K",
+      request: await requested([photo], backdrop, "16:9", "center", "4k", enlarged),
+    },
   ];
 }
 
@@ -105,7 +126,7 @@ realFileSuite({
     buildPptx(
       {
         files: request.slides,
-        box: { x: 1.33, y: 0.75, w: 10.67, h: 6 },
+        box: request.box,
         slideKind: request.slideKind,
         background: request.background
           ? { kind: "image", file: request.background.file }
@@ -117,5 +138,5 @@ realFileSuite({
       standInSizedPreparation,
     ),
   check: (_input, request, output, depth) =>
-    checkImageToPptx(placedAs(request.slidesEmbedded), optionsOf(request), output, depth),
+    checkImageToPptx(request.slidesPlaced, optionsOf(request), output, depth),
 });

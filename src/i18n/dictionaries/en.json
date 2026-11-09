@@ -639,6 +639,7 @@
         "posY": "Y",
         "sizeW": "Width",
         "sizeH": "Height",
+        "cutNotice": "The part outside the slide is cut off when the deck is made",
         "resultTitle": "PPTX ready",
         "slideCount": "{n} slides",
         "download": "Download",

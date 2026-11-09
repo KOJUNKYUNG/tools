@@ -5,6 +5,7 @@ import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
   containedSize,
   fittedSize,
+  shownPartSize,
   sizedImagePreparation,
   type PixelSize,
   type PreparedImage,
@@ -14,13 +15,18 @@ import {
 } from "@/lib/image/slideImage";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { SLIDE_SIZES, type SlideKind } from "./slideSize";
-import { computeSlidePlacement, type Box, type PlacementAlign } from "./slidePlacement";
+import { computeSlidePlacement, cutAtSlide, type Box, type PlacementAlign } from "./slidePlacement";
 import { checkImageToPptx } from "./imageToPptxCheck";
 
 export type Background =
   | { kind: "color"; color: string }
   | { kind: "image"; dataUrl: string };
-export interface PlacedImage { dataUrl: string; placement: Box; }
+/**
+ * A slide's picture as the engine placed it: its prepared data, null when it
+ * lies wholly off the slide, and its rectangle on the slide in inches. `cut`
+ * marks one that reached past the slide's edge and holds only its visible part.
+ */
+export interface PlacedImage { dataUrl: string | null; placement: Box; cut?: boolean; }
 export interface AssembleOptions { slideKind: SlideKind; background: Background; screen: ScreenSize; }
 
 const BG_MASTER = "ONTAB_BG";
@@ -65,7 +71,7 @@ export async function assemblePptxFromPlaced(images: PlacedImage[], opts: Assemb
   for (const img of images) {
     const slide = pptx.addSlide({ masterName: BG_MASTER });
     const p = img.placement;
-    slide.addImage({ data: img.dataUrl, x: p.x, y: p.y, w: p.w, h: p.h });
+    if (img.dataUrl !== null) slide.addImage({ data: img.dataUrl, x: p.x, y: p.y, w: p.w, h: p.h });
   }
   return (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
 }
@@ -116,22 +122,39 @@ function dataUrlOf({ bytes, format }: PreparedImage): string {
 }
 
 /**
- * A slide picture as it enters the deck: whole, at its contained size for the
- * slide on the screen. The size follows the slide, not the placement box, so
- * a picture placed small stays sharp when enlarged in PowerPoint, and
- * ppt-compress can remove the excess later. `upright` is the picture's own
- * shape, which placement uses.
+ * A slide picture placed in the deck's placement box, as it enters its slide
+ * (CONTEXT "Placement"), placed by its upright shape:
+ *
+ * - within the slide, whole at its contained size for the slide on the
+ *   screen. The size follows the slide, not the placement box, so a picture
+ *   placed small stays sharp when enlarged in PowerPoint, and ppt-compress
+ *   can remove the excess later.
+ * - past the slide's edge, only the part on the slide, cut from the picture,
+ *   at `shownPartSize` and placed where it shows.
+ * - wholly off the slide, nothing (`dataUrl` null): the slide shows the
+ *   background alone.
  */
-export async function prepareSlidePicture(
+export async function placeSlidePicture(
   file: File,
+  box: Box,
+  align: PlacementAlign,
   slideKind: SlideKind,
   screen: ScreenSize,
   preparation: SizedImagePreparation,
-): Promise<{ dataUrl: string; upright: PixelSize }> {
+): Promise<PlacedImage> {
+  const slide = SLIDE_SIZES[slideKind];
   const upright = await preparation.measure(file);
-  const uncut = { x: 0, y: 0, ...upright };
-  const size = containedSize(upright, SLIDE_SIZES[slideKind], screen);
-  return { dataUrl: dataUrlOf(await preparation.prepare(file, uncut, size)), upright };
+  const placement = computeSlidePlacement(box, upright.width, upright.height, align);
+  const cut = cutAtSlide(placement, slide.w, slide.h, upright);
+  if (cut.kind === "whole") {
+    const size = containedSize(upright, slide, screen);
+    const dataUrl = dataUrlOf(await preparation.prepare(file, { x: 0, y: 0, ...upright }, size));
+    return { dataUrl, placement, cut: false };
+  }
+  if (cut.kind === "hidden") return { dataUrl: null, placement, cut: true };
+  const share = { w: cut.rect.w / slide.w, h: cut.rect.h / slide.h };
+  const size = shownPartSize(cut.crop, share, slide, screen);
+  return { dataUrl: dataUrlOf(await preparation.prepare(file, cut.crop, size)), placement: cut.rect, cut: true };
 }
 
 /**
@@ -183,8 +206,7 @@ export async function buildPptx(
   const placed: PlacedImage[] = [];
   const total = input.files.length;
   for (let i = 0; i < total; i++) {
-    const { dataUrl, upright } = await prepareSlidePicture(input.files[i], input.slideKind, input.screen, preparation);
-    placed.push({ dataUrl, placement: computeSlidePlacement(boxInches, upright.width, upright.height, input.align) });
+    placed.push(await placeSlidePicture(input.files[i], boxInches, input.align, input.slideKind, input.screen, preparation));
     onProgress?.(Math.round(((i + 1) / total) * 90));
   }
   const options: AssembleOptions = { slideKind: input.slideKind, background, screen: input.screen };

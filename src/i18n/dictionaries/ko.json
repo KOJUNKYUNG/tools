@@ -639,6 +639,7 @@
         "posY": "Y",
         "sizeW": "너비",
         "sizeH": "높이",
+        "cutNotice": "슬라이드 밖으로 나간 부분은 PPT를 만들 때 잘립니다",
         "resultTitle": "PPTX 완성",
         "slideCount": "슬라이드 {n}장",
         "download": "다운로드",
