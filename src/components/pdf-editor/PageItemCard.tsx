@@ -184,7 +184,7 @@ function PageItemCardImpl({
       onClick={
         onSelect
           ? (e) => {
-              if ((e.target as HTMLElement).closest("button")) return;
+              if (e.target instanceof Element && e.target.closest("button")) return;
               onSelect(item.id);
             }
           : undefined

@@ -180,7 +180,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   );
   // Map from sourceFileId → File object, kept in sync with items/sourceBytesById
   const [fileById, setFileById] = useState<Map<string, File>>(new Map());
-  // Map from sourceFileId → object URL (for refImageUrl preview in PlacementEditor)
+  // Map from sourceFileId → object URL (the pictures the placement preview and the zoom show)
   const [sourceUrlById, setSourceUrlById] = useState<Map<string, string>>(new Map());
 
   const [loadingPages, setLoadingPages] = useState(false);
@@ -231,8 +231,10 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     : bgUrl
       ? { kind: "image", url: bgUrl, crop, sourceSize: cropSource ?? undefined, live: editLive, filtered: filterPreview }
       : { kind: "empty" };
-  /** The preview enlarged over the right half, and whether it fills the screen. */
-  /** What the zoom shows: the slide (background with the shown picture), the background alone, or nothing. */
+  /**
+   * The zoom over the right half: the slide (background with the shown
+   * picture), the background alone, or nothing; and whether it fills the screen.
+   */
   const [zoomed, setZoomed] = useState<null | "slide" | "background">(null);
   const [zoomFullscreen, setZoomFullscreen] = useState(false);
   /** The background file the run would put in, shown under the slide pictures while the zoom fills the screen. */
@@ -345,7 +347,10 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   // The frame stays as set; only the picture in it changes.
   const shownItem = liveItems.find((p) => p.id === shownItemId) ?? liveItems[0] ?? null;
   const shownImageUrl = shownItem ? (sourceUrlById.get(shownItem.sourceFileId) ?? null) : null;
-  const shownNatural = useNaturalSize(shownImageUrl, shownItem?.sourceFileId ?? null);
+  // The first picture's size is in hand already: measured once, not twice.
+  const shownIsFirst = !shownItem || shownItem.sourceFileId === firstId;
+  const otherNatural = useNaturalSize(shownIsFirst ? null : shownImageUrl, shownIsFirst ? null : shownItem.sourceFileId);
+  const shownNatural = shownIsFirst ? refNatural : otherNatural;
 
   // Derive the reference placement in inches. refNatural is null until the
   // current first image's size has loaded (never a stale one).

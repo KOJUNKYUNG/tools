@@ -250,6 +250,10 @@ export function PlacementEditor(props: PlacementEditorProps) {
           }}
           onPointerMove={onMove}
           onPointerUp={onUp}
+          // A drag the browser takes over (a touch pan) or loses ends here too,
+          // so no guide or stale drag start stays behind.
+          onPointerCancel={onUp}
+          onLostPointerCapture={onUp}
         >
           {/* The picture past the slide's edge, faded: the deck cuts it off. */}
           {props.refImageUrl && (
@@ -278,6 +282,8 @@ export function PlacementEditor(props: PlacementEditorProps) {
               // letterbox even at 100% (preview-only artifact).
               outline: "2px solid var(--mono-1000)",
               outlineOffset: "-1px",
+              // A touch drags the frame rather than panning the page.
+              touchAction: "none",
             }}
             onPointerDown={onMoveDown}
           />
