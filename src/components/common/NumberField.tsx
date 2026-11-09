@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 
 interface NumberFieldProps {
@@ -31,9 +31,11 @@ interface NumberFieldProps {
  * A number input that COMMITS on blur / Enter rather than on every keystroke.
  * While the field is focused the user's literal text is preserved — including an
  * empty field — so clearing a value and typing a new one is never fought by an
- * intermediate clamp or fallback. On commit the text is parsed, clamped to
- * [min, max], and pushed up via `onCommit`; an empty/invalid field falls back to
- * `fallback` (else `min`, else 0). A step of the field's own arrows or the
+ * intermediate clamp or fallback; only a change of `value` from outside (a
+ * drag on a preview) replaces it. On commit the text is parsed, clamped to
+ * [min, max], and pushed up via `onCommit`, unless the field was left
+ * untouched; an empty/invalid field falls back to `fallback` (else `min`,
+ * else 0). A step of the field's own arrows or the
  * arrow keys is no typing: it commits at once, as a slider does. This is the
  * one number-entry treatment across tools — the deliberate slider/range still
  * updates live.
@@ -54,13 +56,13 @@ export function NumberField({
   normalize,
 }: NumberFieldProps) {
   const [text, setText] = useState(() => String(value));
-  const focusedRef = useRef(false);
 
-  // Sync from the external value only when the user is NOT mid-edit, so a live
-  // parent update (e.g. a paired slider) reflects here without clobbering typing.
+  // Sync from the external value whenever it changes, mid-edit too: typing
+  // never changes it (only a commit does), so a change from outside is a newer
+  // intent, e.g. a drag on a preview while this field keeps the focus, and the
+  // half-typed text gives way to it.
   useEffect(() => {
-    if (focusedRef.current) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- controlled sync, guarded against clobbering an active edit
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- controlled sync from the external value
     setText((current) => (current === String(value) ? current : String(value)));
   }, [value]);
 
@@ -71,7 +73,9 @@ export function NumberField({
     if (min !== undefined) n = Math.max(min, n);
     if (max !== undefined) n = Math.min(max, n);
     if (normalize) n = normalize(n);
-    onCommit(n);
+    // Leaving the field untouched is no edit: the value it shows may be a
+    // rounding of the parent's, and committing it would move what it reads.
+    if (!(entered === String(value) && n === value)) onCommit(n);
     setText(String(n));
   }
 
@@ -86,9 +90,6 @@ export function NumberField({
       disabled={disabled}
       placeholder={placeholder}
       aria-label={ariaLabel}
-      onFocus={() => {
-        focusedRef.current = true;
-      }}
       onChange={(e) => {
         // Typing comes with an input type (insertText, deleteContentBackward,
         // insertReplacementText for autofill); a step of the arrows without
@@ -98,7 +99,6 @@ export function NumberField({
         else commit(e.target.value);
       }}
       onBlur={() => {
-        focusedRef.current = false;
         commit();
       }}
       onKeyDown={(e) => {

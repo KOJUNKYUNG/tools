@@ -38,7 +38,7 @@ interface PlacementEditorProps {
   cutNotice: string;
   /** Width and height locked to the first picture's shape: a resize keeps it. */
   lock: boolean;
-  /** What the focused placement field asks to see drawn; null when none is focused. */
+  /** What the focused placement field asks to see drawn; null when none is focused. A drag adds its own. */
   guide: PlacementGuide;
 }
 
@@ -109,20 +109,28 @@ function DistanceGuide({ axis, box, slideW, slideH }: { axis: "x" | "y"; box: Bo
   );
 }
 
+/** One guide drawn on the preview: a position's distance, or the 100% size. */
+type GuideKind = Exclude<PlacementGuide, null>;
+
 /**
- * The focused field's meaning on the preview: a position's distance, or the
- * 100% size outlined where typing 100 would put the box.
+ * The guides on the preview: a position's distance, or the 100% size outlined
+ * where typing 100 would put the box. While a resize handle is dragged, the
+ * box's own size reads on it (`sizeTag`).
  */
-function Guide({ guide, box, slideW, slideH, fill }: {
-  guide: PlacementGuide; box: Box; slideW: number; slideH: number; fill: FillSize | null;
+function Guides({ guides, sizeTag, box, slideW, slideH, fill }: {
+  guides: readonly GuideKind[]; sizeTag: string | null; box: Box; slideW: number; slideH: number; fill: FillSize | null;
 }) {
-  if (guide === "x" || guide === "y") {
-    return <DistanceGuide axis={guide} box={box} slideW={slideW} slideH={slideH} />;
-  }
-  if (guide === "size") {
-    const full = setPlacementField(box, "size", 100, { slideW, slideH, fill, lock: true });
-    return (
-      <div className="pointer-events-none absolute inset-0" aria-hidden>
+  const full = guides.includes("size") ? setPlacementField(box, "size", 100, { slideW, slideH, fill, lock: true }) : null;
+  // The box's top-left, held on the slide so its size reads past the edge too.
+  const tagAt: CSSProperties = {
+    left: `clamp(4px, ${(box.x / slideW) * 100}% + 4px, calc(100% - 84px))`,
+    top: `clamp(4px, ${(box.y / slideH) * 100}% + 4px, calc(100% - 20px))`,
+  };
+  return (
+    <div className="pointer-events-none absolute inset-0" aria-hidden>
+      {guides.includes("x") && <DistanceGuide axis="x" box={box} slideW={slideW} slideH={slideH} />}
+      {guides.includes("y") && <DistanceGuide axis="y" box={box} slideW={slideW} slideH={slideH} />}
+      {full && (
         <div
           className="absolute"
           style={{
@@ -134,10 +142,32 @@ function Guide({ guide, box, slideW, slideH, fill }: {
         >
           <span className={GUIDE_TAG} style={{ ...GUIDE_TAG_STYLE, left: 4, top: 4 }}>100%</span>
         </div>
-      </div>
-    );
-  }
-  return null;
+      )}
+      {sizeTag && (
+        <span className={GUIDE_TAG} style={{ ...GUIDE_TAG_STYLE, ...tagAt }}>{sizeTag}</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * What the preview draws: a drag's own guides (both distances while the box
+ * moves; the 100% size and the box's size while a handle resizes it), with
+ * the focused field's guide.
+ */
+function guidesFor(mode: null | "move" | Handle, focused: PlacementGuide): GuideKind[] {
+  const shown = new Set<GuideKind>(focused ? [focused] : []);
+  if (mode === "move") {
+    shown.add("x");
+    shown.add("y");
+  } else if (mode) shown.add("size");
+  return [...shown];
+}
+
+/** The box's size as the fields read it: one share locked, width × height unlocked. */
+function sizeLabel(box: Box, slideW: number, slideH: number, fill: FillSize | null, lock: boolean): string {
+  const pct = placementPercents(box, slideW, slideH, fill);
+  return lock ? `${Math.round(pct.w)}%` : `${Math.round(pct.w)}% × ${Math.round(pct.h)}%`;
 }
 
 /** Half a handle's 12 px side. */
@@ -186,7 +216,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
       const dxIn = ((e.clientX - drag.current.px) / r.width) * slideW;
       const dyIn = ((e.clientY - drag.current.py) / r.height) * slideH;
       // The same placement rule as the fields: 10–300% of the fill size,
-      // covering the slide on an axis where larger, inside it where smaller.
+      // anywhere that keeps 5% of the slide covered.
       const start = drag.current.box;
       onBoxChange(
         mode === "move"
@@ -251,7 +281,14 @@ export function PlacementEditor(props: PlacementEditorProps) {
             }}
             onPointerDown={onMoveDown}
           />
-          <Guide guide={props.guide} box={props.box} slideW={slideW} slideH={slideH} fill={fill} />
+          <Guides
+            guides={guidesFor(mode, props.guide)}
+            sizeTag={mode && mode !== "move" ? sizeLabel(props.box, slideW, slideH, fill, lock) : null}
+            box={props.box}
+            slideW={slideW}
+            slideH={slideH}
+            fill={fill}
+          />
           {HANDLES.map((h) => (
             <div key={h} role="button" aria-label={props.handleLabels[h]}
               onPointerDown={(e) => onHandleDown(e, h)}
