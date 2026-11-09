@@ -53,6 +53,12 @@ interface PageItemCardProps {
    * keeps the fixed 150×204 card.
    */
   fluid?: boolean;
+  /**
+   * Clicking the card picks it (its buttons excepted), and `selected` draws
+   * it picked: image-to-pptx's picture shown in the placement preview.
+   */
+  onSelect?: (id: string) => void;
+  selected?: boolean;
 }
 
 function PageItemCardImpl({
@@ -71,6 +77,8 @@ function PageItemCardImpl({
   pageAspect = null,
   draggable = true,
   fluid = false,
+  onSelect,
+  selected = false,
 }: PageItemCardProps) {
   const { ref, src, status } = useLazyThumbnail({
     fileId: item.sourceFileId,
@@ -172,6 +180,15 @@ function PageItemCardImpl({
         boxShadow: `0 0 0 3px ${tint.ring}`,
       }}
       {...dragHandleProps}
+      aria-current={onSelect ? selected : undefined}
+      onClick={
+        onSelect
+          ? (e) => {
+              if ((e.target as HTMLElement).closest("button")) return;
+              onSelect(item.id);
+            }
+          : undefined
+      }
     >
       <div
         ref={ref}
@@ -263,6 +280,15 @@ function PageItemCardImpl({
       >
         {item.sourceFileName}
       </div>
+
+      {/* Picked: a black edge inside the card, over the picture, so a scroll edge never clips it. */}
+      {selected && (
+        <div
+          className="pointer-events-none absolute inset-0 rounded-[3px] border-2"
+          style={{ borderColor: "var(--mono-1000)" }}
+          aria-hidden
+        />
+      )}
     </div>
   );
 }

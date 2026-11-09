@@ -92,12 +92,39 @@ interface SortableCellProps {
   duplicateAria: string;
   deleteAria: string;
   pageAspect: number;
+  /** Whether this picture is the one the placement preview shows. */
+  selected: boolean;
+  onSelect: (id: string) => void;
+}
+
+/**
+ * A picture's natural size, tagged with the id it was measured for so a load
+ * still on its way for another picture is never taken for this one's.
+ */
+function useNaturalSize(url: string | null, id: string | null): { id: string; w: number; h: number } | null {
+  const [size, setSize] = useState<{ id: string; w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (!url || !id) return;
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled) setSize({ id, w: img.naturalWidth, h: img.naturalHeight });
+    };
+    img.onerror = () => {
+      if (!cancelled) setSize(null);
+    };
+    img.src = url;
+    return () => { cancelled = true; };
+  }, [url, id]);
+  return size && size.id === id ? size : null;
 }
 
 function SortableCell({
   item,
   pageNumber,
   bytes,
+  selected,
+  onSelect,
   onDuplicate,
   onDelete,
   duplicateAria,
@@ -130,6 +157,8 @@ function SortableCell({
         pageAspect={pageAspect}
         fluid
         dragHandleProps={{ ...attributes, ...listeners }}
+        selected={selected}
+        onSelect={onSelect}
       />
     </div>
   );
@@ -228,10 +257,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
    */
   const [editorMounted, setEditorMounted] = useState(false);
 
-  // Natural pixel dimensions of the first (reference) image, tagged with the
-  // sourceFileId it was measured for so async loads can't be applied to the
-  // wrong image (reupload race).
-  const [refNatural, setRefNatural] = useState<{ id: string; w: number; h: number } | null>(null);
+  /** The slide picture the placement preview shows (its item id); the first while none is picked or it is gone. */
+  const [shownItemId, setShownItemId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
@@ -309,41 +336,30 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   const liveItems = items.filter((p) => !p.deleted);
   const firstId = liveItems[0]?.sourceFileId ?? null;
 
-  // The first live item's source URL for use in PlacementEditor preview
+  // The first live item's source URL: its natural size gives the fill size.
   const refImageUrl = firstId ? (sourceUrlById.get(firstId) ?? null) : null;
+  const refNatural = useNaturalSize(refImageUrl, firstId);
 
-  // Load natural dimensions of the reference (first) image, tagged with its id.
-  useEffect(() => {
-    if (!refImageUrl || !firstId) {
-      setRefNatural(null);
-      return;
-    }
-    let cancelled = false;
-    const img = new Image();
-    img.onload = () => {
-      if (!cancelled) setRefNatural({ id: firstId, w: img.naturalWidth, h: img.naturalHeight });
-    };
-    img.onerror = () => {
-      if (!cancelled) setRefNatural(null);
-    };
-    img.src = refImageUrl;
-    return () => { cancelled = true; };
-  }, [refImageUrl, firstId]);
+  // The picture the preview shows: the one picked in the list, else the first.
+  // The frame stays as set; only the picture in it changes.
+  const shownItem = liveItems.find((p) => p.id === shownItemId) ?? liveItems[0] ?? null;
+  const shownImageUrl = shownItem ? (sourceUrlById.get(shownItem.sourceFileId) ?? null) : null;
+  const shownNatural = useNaturalSize(shownImageUrl, shownItem?.sourceFileId ?? null);
 
-  // Derive the reference placement in inches. Only trust refNatural when it
-  // matches the current first image (else it's a stale async load).
+  // Derive the reference placement in inches. refNatural is null until the
+  // current first image's size has loaded (never a stale one).
   // A degenerate picture (zero size) gives none: the fields then measure from the slide.
-  const refPlaced =
-    refNatural && firstId && refNatural.id === firstId
-      ? computeSlidePlacement({ x: 0, y: 0, w: slide.w, h: slide.h }, refNatural.w, refNatural.h)
-      : null;
+  const refPlaced = refNatural
+    ? computeSlidePlacement({ x: 0, y: 0, w: slide.w, h: slide.h }, refNatural.w, refNatural.h)
+    : null;
   const ref = refPlaced && refPlaced.w > 0 && refPlaced.h > 0 ? refPlaced : null;
 
-  // Whether the deck will cut the first picture: its placed rectangle (the box
+  // Whether the deck will cut the shown picture: its placed rectangle (the box
   // itself until its size is known) reaches past the slide.
-  const firstPlaced =
-    ref && refNatural ? computeSlidePlacement(box, refNatural.w, refNatural.h, align) : box;
-  const pictureCut = reachesPastSlide(firstPlaced, slide.w, slide.h);
+  const shownPlaced = shownNatural
+    ? computeSlidePlacement(box, shownNatural.w, shownNatural.h, align)
+    : box;
+  const pictureCut = reachesPastSlide(shownPlaced, slide.w, slide.h);
 
   // The slides whose picture the frame puts wholly off the slide, asked about
   // before the deck is made; null while no question is open.
@@ -613,6 +629,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
               duplicateAria={labels.duplicateAria}
               deleteAria={labels.deleteAria}
               pageAspect={slideAspect}
+              selected={item.id === shownItem?.id}
+              onSelect={setShownItemId}
             />
           ))}
           <button
@@ -673,7 +691,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         slideW={slide.w}
         slideH={slide.h}
         background={shownBg}
-        refImageUrl={refImageUrl}
+        refImageUrl={shownImageUrl}
         handleLabels={labels.resizeHandles}
         align={align}
         zoom={shownBg.kind === "empty" ? undefined : { label: labels.zoom.zoom, onZoom: () => setZoomed(true) }}
@@ -781,9 +799,9 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
             actual={actualUrl}
             onClose={() => setZoomed(false)}
             overlay={
-              refImageUrl ? (
+              shownImageUrl ? (
                 <div className="absolute" style={boxStyle(box, slide.w, slide.h)}>
-                  <PlacedPicture url={refImageUrl} align={align} />
+                  <PlacedPicture url={shownImageUrl} align={align} />
                 </div>
               ) : null
             }
