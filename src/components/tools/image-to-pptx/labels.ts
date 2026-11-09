@@ -13,9 +13,9 @@ export interface ImageToPptxLabels {
   aspect169: string; aspect43: string;
   screenSizeLabel: string; screenFullHd: string; screen4k: string;
   bgLabel: string; bgChange: string; bgCancel: string; bgDone: string;
-  /** The background thumbnail's name: it opens the background alone, enlarged ([임시] until the spec-end QA). */
+  /** The background thumbnail's name: it opens the background alone, enlarged. */
   bgZoom: string;
-  /** The placement fields ([임시] until the spec-end QA): position from the slide's left and top, one size or width and height, the lock, the 100% hint. */
+  /** The placement fields: position from the slide's left and top, one size or width and height, the lock, the 100% hint. */
   fromLeft: string; fromTop: string; size: string; sizeW: string; sizeH: string;
   sizeLock: string; sizeHint: string; centerH: string; centerV: string;
   /** The line under the preview while part of the picture lies past the slide. */
