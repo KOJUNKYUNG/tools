@@ -118,14 +118,16 @@ centred). The user places a frame, not a picture: the deck's pictures may
 differ in size and shape, so the alignment says where in the frame each sits,
 and the frame is placed with the first picture in view. Its size is a share of the **fill size**, the first picture as
 large as fits the slide (100%); it can grow to 300%, past the slide's edges.
-On an axis where the box is larger than the slide it must cover the slide
-(no gap on that axis); on an axis where it is smaller it stays inside. What
+At any size the box may reach past the slide's edges, as long as it still
+covers 5% of the slide on each axis (all of itself where it is smaller), so
+it can be grabbed again on the preview; a box larger than the slide may leave
+a gap. What
 lies outside the slide is cut off when the deck is made: only the visible
 part enters the deck, sized for the [screen size](#screen-size), so it cannot
 be moved back in PowerPoint (the user re-runs the tool), as with the
 [background crop](#background-crop). Position is the box's top-left corner
-from the slide's top-left, as a share of the slide; it goes negative when the
-box grows past the slide. Width and height are locked to the first picture's
+from the slide's top-left, as a share of the slide; it goes negative past
+the slide's left or top edge. Width and height are locked to the first picture's
 shape by default; unlocked, the box is an area for pictures of other shapes.
 Pictures of another shape than the first may leave a gap even when the first
 fills the slide; the background shows there. In a frame past the slide, such

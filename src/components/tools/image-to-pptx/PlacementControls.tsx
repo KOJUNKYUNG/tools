@@ -42,9 +42,9 @@ interface Props {
 }
 
 // Size runs 10–300% of the fill size; a position goes negative as far as a
-// 300% box reaches past the slide. The placement rule then applies in full.
+// 300% box can reach past the slide. The placement rule then applies in full.
 const SIZE = { min: MIN_PLACEMENT_SHARE * 100, max: MAX_PLACEMENT_SHARE * 100, fallback: 100 };
-const POSITION = { min: (1 - MAX_PLACEMENT_SHARE) * 100, max: 100, fallback: 0 };
+const POSITION = { min: -MAX_PLACEMENT_SHARE * 100, max: 100, fallback: 0 };
 
 /** Per field: its value in the placement percents, its range, and the guide it draws when focused. */
 const FIELDS: Record<PlacementField, { reads: keyof PlacementPercents; range: typeof SIZE; guide: PlacementGuide }> = {

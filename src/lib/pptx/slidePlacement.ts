@@ -146,14 +146,21 @@ export const MIN_PLACEMENT_SHARE = 0.1;
 export const MAX_PLACEMENT_SHARE = 3;
 
 /**
+ * How much of the slide the box must still cover on each axis, as a share of
+ * the slide (all of the box where it is smaller): enough to grab it again on
+ * the preview (CONTEXT "Placement").
+ */
+export const MIN_ON_SLIDE_SHARE = 0.05;
+
+/**
  * One axis of the placement rule: the length between 10% and 300% of the
- * fill length; then, where it is longer than the slide, a position that
- * covers the slide (between slide − length and 0), else one inside it.
+ * fill length; then a position anywhere that keeps 5% of the slide covered
+ * (between that much − length and slide − that much).
  */
 function clampAxis(pos: number, len: number, slideLen: number, fillLen: number): [number, number] {
   const size = Math.max(MIN_PLACEMENT_SHARE * fillLen, Math.min(MAX_PLACEMENT_SHARE * fillLen, len));
-  const room = slideLen - size;
-  return [Math.max(Math.min(0, room), Math.min(pos, Math.max(0, room))), size];
+  const keep = Math.min(MIN_ON_SLIDE_SHARE * slideLen, size);
+  return [Math.max(keep - size, Math.min(pos, slideLen - keep)), size];
 }
 
 /**
@@ -247,7 +254,7 @@ export function lockBox(box: Box, slideW: number, slideH: number, fill?: FillSiz
 
 /**
  * The box centred on the slide across (`x`) or down (`y`). A box larger than
- * the slide reaches past both edges equally, so it still covers the slide.
+ * the slide reaches past both edges equally.
  */
 export function centerBox(box: Box, axis: "x" | "y", slideW: number, slideH: number): Box {
   return axis === "x" ? { ...box, x: (slideW - box.w) / 2 } : { ...box, y: (slideH - box.h) / 2 };

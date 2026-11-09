@@ -96,29 +96,30 @@ describe("clampBox (CONTEXT Placement)", () => {
     expect(b).toMatchObject({ w: 15, h: 20 });
   });
 
-  it("on an axis where the box is larger than the slide, makes it cover the slide", () => {
-    // Pushed right, the box would leave a gap at the left: it comes back to x = 0.
-    expect(clampBox({ x: 2, y: 0, w: 15, h: 7.5 }, SW, SH, FILL).x).toBe(0);
-    // Pushed left, it would leave a gap at the right: it stops where its right edge meets the slide's.
-    expect(clampBox({ x: -5, y: 0, w: 15, h: 7.5 }, SW, SH, FILL).x).toBeCloseTo(13.333 - 15, 6);
-    // Anywhere between covers the slide and stays where it was put.
-    expect(clampBox({ x: -1, y: 0, w: 15, h: 7.5 }, SW, SH, FILL).x).toBe(-1);
+  // 5% of the slide must stay covered: 0.667 in across, 0.375 in down.
+  it("lets a box smaller than the slide reach past its edges, 5% of the slide still covered", () => {
+    expect(clampBox({ x: -1, y: 0, w: 5, h: 7.5 }, SW, SH, FILL).x).toBe(-1);
+    // Pushed further left, its right edge stops 5% of the slide inside the left edge.
+    expect(clampBox({ x: -10, y: 0, w: 5, h: 7.5 }, SW, SH, FILL).x).toBeCloseTo(0.66665 - 5, 6);
+    // Pushed right, its left edge stops 5% of the slide inside the right edge.
+    expect(clampBox({ x: 20, y: 0, w: 5, h: 7.5 }, SW, SH, FILL).x).toBeCloseTo(13.333 - 0.66665, 6);
   });
 
-  it("on an axis where the box is smaller than the slide, keeps it inside", () => {
-    expect(clampBox({ x: -1, y: 0, w: 5, h: 7.5 }, SW, SH, FILL).x).toBe(0);
-    expect(clampBox({ x: 12, y: 0, w: 5, h: 7.5 }, SW, SH, FILL).x).toBeCloseTo(8.333, 6);
+  it("lets a box larger than the slide leave a gap, 5% of the slide still covered", () => {
+    expect(clampBox({ x: 2, y: 0, w: 15, h: 7.5 }, SW, SH, FILL).x).toBe(2);
+    expect(clampBox({ x: -20, y: 0, w: 15, h: 7.5 }, SW, SH, FILL).x).toBeCloseTo(0.66665 - 15, 6);
   });
 
-  it("treats each axis on its own: covering across, inside down", () => {
-    // 200% of a 16:9 fill: wider than the slide, and here shorter than it.
-    const fill = { w: 13.333, h: 7.5 };
-    const b = clampBox({ x: 1, y: -1, w: 20, h: 5 }, SW, SH, fill);
-    expect(b.x).toBe(0);
-    expect(b.y).toBe(0);
-    const c = clampBox({ x: -10, y: 4, w: 20, h: 5 }, SW, SH, fill);
-    expect(c.x).toBeCloseTo(13.333 - 20, 6);
-    expect(c.y).toBeCloseTo(2.5, 6);
+  it("keeps a box narrower than 5% of the slide wholly on it", () => {
+    // 10% of the fill size: 0.5625 in, under 0.667 in.
+    expect(clampBox({ x: -1, y: 0, w: 0.5625, h: 0.75 }, SW, SH, FILL).x).toBe(0);
+    expect(clampBox({ x: 20, y: 0, w: 0.5625, h: 0.75 }, SW, SH, FILL).x).toBeCloseTo(13.333 - 0.5625, 6);
+  });
+
+  it("treats each axis on its own", () => {
+    const b = clampBox({ x: -30, y: -10, w: 20, h: 5 }, SW, SH, { w: 13.333, h: 7.5 });
+    expect(b.x).toBeCloseTo(0.66665 - 20, 6);
+    expect(b.y).toBeCloseTo(0.375 - 5, 6);
   });
 
   it("resizing from the left edge past 300% stops there, its right edge staying put", () => {
@@ -205,13 +206,12 @@ describe("placement fields (percent ↔ inches)", () => {
     expect(b.h).toBeCloseTo(6, 6);
   });
 
-  it("with the lock on, 300% is the largest: the box covers the slide down and keeps its place across", () => {
+  it("with the lock on, 300% is the largest, the top-left corner kept", () => {
     const b = setPlacementField({ x: 1, y: 0.5, w: 5.625, h: 7.5 }, "size", 400, at(true));
     expect(b.w).toBeCloseTo(16.875, 6); // 300% of 5.625
     expect(b.h).toBeCloseTo(22.5, 6);
-    // Wider than the slide, so it covers it: x comes back to 0. Taller too: y to 0.
-    expect(b.x).toBe(0);
-    expect(b.y).toBe(0);
+    expect(b.x).toBe(1);
+    expect(b.y).toBe(0.5);
   });
 
   it("with the lock on, typing a width or a height moves both", () => {
@@ -232,25 +232,26 @@ describe("placement fields (percent ↔ inches)", () => {
     expect(b.h).toBeCloseTo(3, 6);
   });
 
-  it("with the lock off, 300% wide covers the slide across while the height stays inside", () => {
+  it("with the lock off, 300% wide leaves the height and the top-left corner as they were", () => {
     const b = setPlacementField({ x: 2, y: 1, w: 5.625, h: 3.75 }, "w", 300, at(false));
     expect(b.w).toBeCloseTo(16.875, 6);
-    expect(b.x).toBe(0); // wider than the slide: back to covering it
+    expect(b.x).toBe(2);
     expect(b.h).toBe(3.75);
-    expect(b.y).toBe(1); // shorter than the slide: where it was
+    expect(b.y).toBe(1);
     expect(placementPercents(b, SW, SH, FILL)).toMatchObject({ w: 300, h: 50 });
   });
 
-  it("a negative position places a box past the slide's left edge, as far as it still covers the slide", () => {
-    // 300% wide (16.875 in) on a 13.333 in slide: x may run from −3.542 in to 0.
+  it("a negative position places a box past the slide's left edge, as far as 5% of the slide stays covered", () => {
+    // 300% wide (16.875 in) on a 13.333 in slide: x may run down to 0.667 − 16.875 in.
     const big = { x: 0, y: 0, w: 16.875, h: 22.5 };
-    expect(setPlacementField(big, "x", -20, at(true)).x).toBeCloseTo(-2.6666, 4);
-    expect(setPlacementField(big, "x", -50, at(true)).x).toBeCloseTo(13.333 - 16.875, 6);
+    expect(setPlacementField(big, "x", -50, at(true)).x).toBeCloseTo(-6.6665, 4);
+    expect(setPlacementField(big, "x", -200, at(true)).x).toBeCloseTo(0.66665 - 16.875, 6);
     expect(setPlacementField(big, "y", -100, at(true)).y).toBeCloseTo(-7.5, 6);
   });
 
-  it("a negative position on a box smaller than the slide stays inside it", () => {
-    expect(setPlacementField({ x: 2, y: 0, w: 5.625, h: 7.5 }, "x", -10, at(false)).x).toBe(0);
+  it("a negative position places a box at 100% past the slide's edge too", () => {
+    expect(setPlacementField({ x: 2, y: 0, w: 5.625, h: 7.5 }, "x", -10, at(false)).x).toBeCloseTo(-1.3333, 4);
+    expect(setPlacementField({ x: 2, y: 0, w: 5.625, h: 7.5 }, "y", 90, at(false)).y).toBeCloseTo(6.75, 6);
   });
 
   it("a typed position round-trips through the fields", () => {
@@ -268,9 +269,9 @@ describe("lockBox, centerBox and a locked resize", () => {
     // Width 200%, height 50% of the fill size.
     const b = lockBox({ x: 1, y: 1, w: 11.25, h: 3.75 }, SW, SH, FILL);
     expect(b.w).toBeCloseTo(11.25, 6);
-    expect(b.h).toBeCloseTo(15, 6); // 200% of 7.5: taller than the slide, so it now covers it
+    expect(b.h).toBeCloseTo(15, 6); // 200% of 7.5
     expect(b.x).toBe(1);
-    expect(b.y).toBe(0);
+    expect(b.y).toBe(1);
   });
 
   it("centres an enlarged box across: an equal part past each edge", () => {
@@ -295,11 +296,11 @@ describe("lockBox, centerBox and a locked resize", () => {
     expect(b.w).toBeCloseTo(6.75, 6);
     expect(b.h).toBeCloseTo(9, 6);
     expect(b.x + b.w).toBeCloseTo(13.333, 6);
-    expect(b.y).toBe(0); // taller than the slide now, its top stays at the slide's top
+    expect(b.y).toBe(0); // the top edge, opposite the handle, stays put
   });
 
   it("with the lock on, an edge drag grows both sides, the box's centre kept on the other axis", () => {
-    // The right edge dragged 2.8125 in: 150%. Its height grows around its middle, then covers the slide.
+    // The right edge dragged 2.8125 in: 150%. Its height grows around its middle.
     const b = resizeBox({ x: 1, y: 0, w: 5.625, h: 7.5 }, "e", 2.8125, 0, SW, SH, FILL, true);
     expect(b.x).toBe(1);
     expect(b.w).toBeCloseTo(8.4375, 6);
