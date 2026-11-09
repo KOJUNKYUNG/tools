@@ -12,8 +12,10 @@ export interface ImageToPptxLabels {
   deleteAria: string; duplicateAria: string; processing: string; slideAspectLabel: string;
   aspect169: string; aspect43: string;
   screenSizeLabel: string; screenFullHd: string; screen4k: string;
-  bgLabel: string; bgChange: string; bgCancel: string; bgDone: string; posX: string; posY: string;
-  sizeW: string; sizeH: string; centerH: string; centerV: string;
+  bgLabel: string; bgChange: string; bgCancel: string; bgDone: string;
+  /** The placement fields ([임시] until the spec-end QA): position from the slide's left and top, one size or width and height, the lock, the 100% hint. */
+  fromLeft: string; fromTop: string; size: string; sizeW: string; sizeH: string;
+  sizeLock: string; sizeHint: string; centerH: string; centerV: string;
   /** The line under the preview while part of the picture lies past the slide. */
   cutNotice: string;
   /** The question asked before making a deck where some slides' pictures fall wholly off the slide. */
@@ -49,7 +51,8 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     screenSizeLabel: p.screenSizeLabel, screenFullHd: p.screenFullHd, screen4k: p.screen4k,
     bgLabel: p.bgLabel,
     bgChange: p.bgChange, bgCancel: p.bgCancel, bgDone: p.bgDone,
-    posX: p.posX, posY: p.posY, sizeW: p.sizeW, sizeH: p.sizeH,
+    fromLeft: p.fromLeft, fromTop: p.fromTop, size: p.size, sizeW: p.sizeW, sizeH: p.sizeH,
+    sizeLock: p.sizeLock, sizeHint: p.sizeHint,
     centerH: p.centerH, centerV: p.centerV, cutNotice: p.cutNotice, offSlide: p.offSlide,
     resultTitle: p.resultTitle, slideCountTemplate: p.slideCount,
     download: p.download, again: p.again,

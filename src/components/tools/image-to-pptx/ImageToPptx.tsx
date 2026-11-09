@@ -57,7 +57,7 @@ import type { FillBackground } from "@/lib/ppt/changeBackground";
 import { AlignSelector } from "./AlignSelector";
 import { BackgroundRow } from "./BackgroundRow";
 import type { ShownBackground } from "./BackgroundFill";
-import { PlacementControls } from "./PlacementControls";
+import { PlacementControls, type PlacementGuide } from "./PlacementControls";
 import { boxStyle, PlacedPicture, PlacementEditor } from "./PlacementEditor";
 import { ScreenSizeSelector } from "./ScreenSizeSelector";
 import { SlideAspectSelector } from "./SlideAspectSelector";
@@ -161,6 +161,10 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   // Deck-wide; Full HD unless the user asks for 4K (CONTEXT "Screen size").
   const [screen, setScreen] = useState<ScreenSize>("full-hd");
   const [align, setAlign] = useState<PlacementAlign>("top-left");
+  // Width and height locked to the first picture's shape, by default (CONTEXT "Placement").
+  const [lockSize, setLockSize] = useState(true);
+  // The guide the focused placement field draws on the preview.
+  const [guide, setGuide] = useState<PlacementGuide>(null);
   const slide = SLIDE_SIZES[slideKind];
   /**
    * The deck's background, picked and cropped in the shared background editor
@@ -328,10 +332,12 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
   // Derive the reference placement in inches. Only trust refNatural when it
   // matches the current first image (else it's a stale async load).
-  const ref =
+  // A degenerate picture (zero size) gives none: the fields then measure from the slide.
+  const refPlaced =
     refNatural && firstId && refNatural.id === firstId
       ? computeSlidePlacement({ x: 0, y: 0, w: slide.w, h: slide.h }, refNatural.w, refNatural.h)
       : null;
+  const ref = refPlaced && refPlaced.w > 0 && refPlaced.h > 0 ? refPlaced : null;
 
   // Whether the deck will cut the first picture: its placed rectangle (the box
   // itself until its size is known) reaches past the slide.
@@ -674,13 +680,18 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         fill={ref}
         cut={pictureCut}
         cutNotice={labels.cutNotice}
+        lock={lockSize}
+        guide={guide}
       />
       <PlacementControls
         box={box}
         onBoxChange={setBox}
         slideW={slide.w}
         slideH={slide.h}
-        refSize={ref}
+        fill={ref}
+        lock={lockSize}
+        onLockChange={setLockSize}
+        onGuideChange={setGuide}
         labels={labels}
       />
     </>

@@ -2,6 +2,8 @@ import type { CropRect } from "@/lib/image/maxFitCrop";
 import type { PixelSize } from "@/lib/image/slideImage";
 
 export interface Box { x: number; y: number; w: number; h: number; }
+/** The fill size (inches): the first picture as large as fits the slide, 100% of the placement size. */
+export interface FillSize { w: number; h: number }
 export type PlacementAlign = "top-left" | "center";
 
 /**
@@ -42,9 +44,34 @@ export function slidesWithPictureOff(
 export type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 
 /**
+ * A resize with width and height locked: one share of the fill size, taken
+ * from the edge the handle moves (a corner: whichever moved further), held to
+ * 10–300%. The edges opposite the handle stay put; on an axis the handle does
+ * not move, the box grows around its middle.
+ */
+function lockedResize(start: Box, handle: ResizeHandle, dx: number, dy: number, fillW: number, fillH: number): Box {
+  const share0 = start.w / fillW;
+  const across = handle.includes("w") ? -dx / fillW : handle.includes("e") ? dx / fillW : 0;
+  const down = handle.includes("n") ? -dy / fillH : handle.includes("s") ? dy / fillH : 0;
+  const delta = Math.abs(across) >= Math.abs(down) ? across : down;
+  const share = Math.max(MIN_PLACEMENT_SHARE, Math.min(MAX_PLACEMENT_SHARE, share0 + delta));
+  const w = share * fillW;
+  const h = share * fillH;
+  const place = (pos: number, len: number, next: number, low: boolean, high: boolean) =>
+    low ? pos + len - next : high ? pos : pos + (len - next) / 2;
+  return {
+    x: place(start.x, start.w, w, handle.includes("w"), handle.includes("e")),
+    y: place(start.y, start.h, h, handle.includes("n"), handle.includes("s")),
+    w,
+    h,
+  };
+}
+
+/**
  * The box resized from `handle` by (`dx`, `dy`) inches from where the drag
  * began, under the placement rule. The size is held to 10–300% before the
  * moving edge is placed, so at a limit the opposite edge stays where it was.
+ * With `lock`, width and height keep the fill size's shape.
  */
 export function resizeBox(
   start: Box,
@@ -53,10 +80,12 @@ export function resizeBox(
   dy: number,
   slideW: number,
   slideH: number,
-  fill?: { w: number; h: number } | null,
+  fill?: FillSize | null,
+  lock = false,
 ): Box {
   const fillW = fill?.w ?? slideW;
   const fillH = fill?.h ?? slideH;
+  if (lock) return clampBox(lockedResize(start, handle, dx, dy, fillW, fillH), slideW, slideH, fill);
   const size = (len: number, fillLen: number) =>
     Math.max(MIN_PLACEMENT_SHARE * fillLen, Math.min(MAX_PLACEMENT_SHARE * fillLen, len));
   const b = { ...start };
@@ -132,7 +161,7 @@ function clampAxis(pos: number, len: number, slideLen: number, fillLen: number):
  * `fill` is the fill size, the first picture as large as fits the slide; the
  * slide itself while no picture gives one.
  */
-export function clampBox(b: Box, slideW: number, slideH: number, fill?: { w: number; h: number } | null): Box {
+export function clampBox(b: Box, slideW: number, slideH: number, fill?: FillSize | null): Box {
   const [x, w] = clampAxis(b.x, b.w, slideW, fill?.w ?? slideW);
   const [y, h] = clampAxis(b.y, b.h, slideH, fill?.h ?? slideH);
   return { x, y, w, h };
@@ -155,4 +184,71 @@ export function computeSlidePlacement(box: Box, imgW: number, imgH: number, alig
   let x = box.x; let y = box.y;
   if (align === "center") { x = box.x + (box.w - w) / 2; y = box.y + (box.h - h) / 2; }
   return { x, y, w, h };
+}
+
+/** The placement fields' values, in percent: size as a share of the fill size, position of the slide. */
+export interface PlacementPercents { x: number; y: number; w: number; h: number }
+
+/**
+ * What the placement fields read for `box`: width and height as shares of the
+ * fill size (the slide's own while no picture gives one), the top-left corner
+ * from the slide's top-left as shares of the slide, negative past its edge.
+ * Unrounded: the fields round for display.
+ */
+export function placementPercents(box: Box, slideW: number, slideH: number, fill?: FillSize | null): PlacementPercents {
+  return {
+    x: (box.x / slideW) * 100,
+    y: (box.y / slideH) * 100,
+    w: (box.w / (fill?.w ?? slideW)) * 100,
+    h: (box.h / (fill?.h ?? slideH)) * 100,
+  };
+}
+
+/** A placement field: the one size field (lock on), width, height, or position from the left / top. */
+export type PlacementField = "size" | "w" | "h" | "x" | "y";
+
+/** What a placement field is set against: the slide, the fill size, and whether width and height are locked. */
+export interface PlacementFrame {
+  slideW: number;
+  slideH: number;
+  fill?: FillSize | null;
+  /** Width and height locked to the fill size's shape: one size moves both. */
+  lock: boolean;
+}
+
+/**
+ * The box with one field set to `pct` percent, under the placement rule. A
+ * size keeps the top-left corner where the rule lets it; with the lock on,
+ * any size field sets width and height to the same share of the fill size.
+ */
+export function setPlacementField(box: Box, field: PlacementField, pct: number, frame: PlacementFrame): Box {
+  const { slideW, slideH, fill, lock } = frame;
+  const fillW = fill?.w ?? slideW;
+  const fillH = fill?.h ?? slideH;
+  const share = pct / 100;
+  const b = { ...box };
+  if (field === "x") b.x = share * slideW;
+  else if (field === "y") b.y = share * slideH;
+  else if (lock || field === "size") {
+    b.w = share * fillW;
+    b.h = share * fillH;
+  } else if (field === "w") b.w = share * fillW;
+  else b.h = share * fillH;
+  return clampBox(b, slideW, slideH, fill);
+}
+
+/**
+ * The box with its height brought to its width's share of the fill size, as
+ * the lock is turned back on; the top-left corner kept where the rule lets it.
+ */
+export function lockBox(box: Box, slideW: number, slideH: number, fill?: FillSize | null): Box {
+  return setPlacementField(box, "size", placementPercents(box, slideW, slideH, fill).w, { slideW, slideH, fill, lock: true });
+}
+
+/**
+ * The box centred on the slide across (`x`) or down (`y`). A box larger than
+ * the slide reaches past both edges equally, so it still covers the slide.
+ */
+export function centerBox(box: Box, axis: "x" | "y", slideW: number, slideH: number): Box {
+  return axis === "x" ? { ...box, x: (slideW - box.w) / 2 } : { ...box, y: (slideH - box.h) / 2 };
 }

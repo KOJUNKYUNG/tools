@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { clampBox, computeSlidePlacement, cutAtSlide, resizeBox, slidesWithPictureOff } from "./slidePlacement";
+import {
+  centerBox,
+  clampBox,
+  computeSlidePlacement,
+  cutAtSlide,
+  lockBox,
+  placementPercents,
+  resizeBox,
+  setPlacementField,
+  slidesWithPictureOff,
+} from "./slidePlacement";
 
 describe("slidesWithPictureOff", () => {
   // A 300% frame of a 4:3 picture, flush with a 4:3 slide's right edge.
@@ -169,5 +179,137 @@ describe("computeSlidePlacement", () => {
   it("top-left is the default (no align arg)", () => {
     const r = computeSlidePlacement({ x: 0, y: 0, w: 4, h: 4 }, 200, 100);
     expect(r).toEqual({ x: 0, y: 0, w: 4, h: 2 });
+  });
+});
+
+describe("placement fields (percent ↔ inches)", () => {
+  // A 16:9 slide; the first picture is 3:4, so its fill size is 5.625 × 7.5.
+  const SW = 13.333;
+  const SH = 7.5;
+  const FILL = { w: 5.625, h: 7.5 };
+  const at = (lock: boolean) => ({ slideW: SW, slideH: SH, fill: FILL, lock });
+
+  it("reads size as a share of the fill size and position as a share of the slide, negative past its edge", () => {
+    const p = placementPercents({ x: -3.542, y: -15, w: 16.875, h: 22.5 }, SW, SH, FILL);
+    expect(p.w).toBeCloseTo(300, 6);
+    expect(p.h).toBeCloseTo(300, 6);
+    expect(p.x).toBeCloseTo(-26.566, 2);
+    expect(p.y).toBeCloseTo(-200, 6);
+  });
+
+  it("with the lock on, a size sets width and height together, the top-left corner kept", () => {
+    const b = setPlacementField({ x: 1, y: 0.5, w: 2.8125, h: 3.75 }, "size", 80, at(true));
+    expect(b.x).toBe(1);
+    expect(b.y).toBe(0.5);
+    expect(b.w).toBeCloseTo(4.5, 6);
+    expect(b.h).toBeCloseTo(6, 6);
+  });
+
+  it("with the lock on, 300% is the largest: the box covers the slide down and keeps its place across", () => {
+    const b = setPlacementField({ x: 1, y: 0.5, w: 5.625, h: 7.5 }, "size", 400, at(true));
+    expect(b.w).toBeCloseTo(16.875, 6); // 300% of 5.625
+    expect(b.h).toBeCloseTo(22.5, 6);
+    // Wider than the slide, so it covers it: x comes back to 0. Taller too: y to 0.
+    expect(b.x).toBe(0);
+    expect(b.y).toBe(0);
+  });
+
+  it("with the lock on, typing a width or a height moves both", () => {
+    const b = setPlacementField({ x: 0, y: 0, w: 5.625, h: 7.5 }, "h", 50, at(true));
+    expect(b.w).toBeCloseTo(2.8125, 6);
+    expect(b.h).toBeCloseTo(3.75, 6);
+  });
+
+  it("with the lock off, a width leaves the height as it was", () => {
+    const b = setPlacementField({ x: 0, y: 0, w: 5.625, h: 7.5 }, "w", 150, at(false));
+    expect(b.w).toBeCloseTo(8.4375, 6);
+    expect(b.h).toBe(7.5);
+  });
+
+  it("with the lock off, a height leaves the width as it was", () => {
+    const b = setPlacementField({ x: 0, y: 0, w: 5.625, h: 7.5 }, "h", 40, at(false));
+    expect(b.w).toBe(5.625);
+    expect(b.h).toBeCloseTo(3, 6);
+  });
+
+  it("with the lock off, 300% wide covers the slide across while the height stays inside", () => {
+    const b = setPlacementField({ x: 2, y: 1, w: 5.625, h: 3.75 }, "w", 300, at(false));
+    expect(b.w).toBeCloseTo(16.875, 6);
+    expect(b.x).toBe(0); // wider than the slide: back to covering it
+    expect(b.h).toBe(3.75);
+    expect(b.y).toBe(1); // shorter than the slide: where it was
+    expect(placementPercents(b, SW, SH, FILL)).toMatchObject({ w: 300, h: 50 });
+  });
+
+  it("a negative position places a box past the slide's left edge, as far as it still covers the slide", () => {
+    // 300% wide (16.875 in) on a 13.333 in slide: x may run from −3.542 in to 0.
+    const big = { x: 0, y: 0, w: 16.875, h: 22.5 };
+    expect(setPlacementField(big, "x", -20, at(true)).x).toBeCloseTo(-2.6666, 4);
+    expect(setPlacementField(big, "x", -50, at(true)).x).toBeCloseTo(13.333 - 16.875, 6);
+    expect(setPlacementField(big, "y", -100, at(true)).y).toBeCloseTo(-7.5, 6);
+  });
+
+  it("a negative position on a box smaller than the slide stays inside it", () => {
+    expect(setPlacementField({ x: 2, y: 0, w: 5.625, h: 7.5 }, "x", -10, at(false)).x).toBe(0);
+  });
+
+  it("a typed position round-trips through the fields", () => {
+    const b = setPlacementField({ x: 0, y: 0, w: 16.875, h: 22.5 }, "y", -150, at(true));
+    expect(placementPercents(b, SW, SH, FILL).y).toBeCloseTo(-150, 6);
+  });
+});
+
+describe("lockBox, centerBox and a locked resize", () => {
+  const SW = 13.333;
+  const SH = 7.5;
+  const FILL = { w: 5.625, h: 7.5 };
+
+  it("locking again brings the height to the width's share, the top-left corner kept", () => {
+    // Width 200%, height 50% of the fill size.
+    const b = lockBox({ x: 1, y: 1, w: 11.25, h: 3.75 }, SW, SH, FILL);
+    expect(b.w).toBeCloseTo(11.25, 6);
+    expect(b.h).toBeCloseTo(15, 6); // 200% of 7.5: taller than the slide, so it now covers it
+    expect(b.x).toBe(1);
+    expect(b.y).toBe(0);
+  });
+
+  it("centres an enlarged box across: an equal part past each edge", () => {
+    const b = centerBox({ x: 0, y: 0, w: 16.875, h: 22.5 }, "x", SW, SH);
+    expect(b.x).toBeCloseTo((13.333 - 16.875) / 2, 6);
+    expect(b.y).toBe(0);
+  });
+
+  it("centres an enlarged box down: an equal part past the top and the bottom", () => {
+    const b = centerBox({ x: 0, y: 0, w: 16.875, h: 22.5 }, "y", SW, SH);
+    expect(b.y).toBeCloseTo(-7.5, 6);
+    expect(b.x).toBe(0);
+  });
+
+  it("centres a box smaller than the slide inside it", () => {
+    expect(centerBox({ x: 0, y: 0, w: 5.625, h: 7.5 }, "x", SW, SH).x).toBeCloseTo(3.854, 3);
+  });
+
+  it("with the lock on, a corner drag keeps the picture's shape, the opposite corner staying put", () => {
+    // From 100% at the slide's right edge, the bottom-left corner dragged 1.125 in left: 120%.
+    const b = resizeBox({ x: 7.708, y: 0, w: 5.625, h: 7.5 }, "sw", -1.125, 0, SW, SH, FILL, true);
+    expect(b.w).toBeCloseTo(6.75, 6);
+    expect(b.h).toBeCloseTo(9, 6);
+    expect(b.x + b.w).toBeCloseTo(13.333, 6);
+    expect(b.y).toBe(0); // taller than the slide now, its top stays at the slide's top
+  });
+
+  it("with the lock on, an edge drag grows both sides, the box's centre kept on the other axis", () => {
+    // The right edge dragged 2.8125 in: 150%. Its height grows around its middle, then covers the slide.
+    const b = resizeBox({ x: 1, y: 0, w: 5.625, h: 7.5 }, "e", 2.8125, 0, SW, SH, FILL, true);
+    expect(b.x).toBe(1);
+    expect(b.w).toBeCloseTo(8.4375, 6);
+    expect(b.h).toBeCloseTo(11.25, 6);
+    expect(b.y).toBeCloseTo(-1.875, 6);
+  });
+
+  it("with the lock on, a corner drag stops at 300%", () => {
+    const b = resizeBox({ x: 0, y: 0, w: 5.625, h: 7.5 }, "se", 50, 50, SW, SH, FILL, true);
+    expect(b.w).toBeCloseTo(16.875, 6);
+    expect(b.h).toBeCloseTo(22.5, 6);
   });
 });

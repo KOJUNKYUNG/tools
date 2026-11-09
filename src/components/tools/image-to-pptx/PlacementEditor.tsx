@@ -1,8 +1,18 @@
 "use client";
 import { useCallback, useRef, useState, type PointerEvent as RPE, type CSSProperties } from "react";
-import { clampBox, resizeBox, type Box, type PlacementAlign, type ResizeHandle } from "@/lib/pptx/slidePlacement";
+import {
+  clampBox,
+  placementPercents,
+  resizeBox,
+  setPlacementField,
+  type Box,
+  type FillSize,
+  type PlacementAlign,
+  type ResizeHandle,
+} from "@/lib/pptx/slidePlacement";
 import { ZoomButton } from "@/components/common/ZoomButton";
 import { BackgroundFill, type ShownBackground } from "./BackgroundFill";
+import type { PlacementGuide } from "./PlacementControls";
 
 type Handle = ResizeHandle;
 const HANDLES: readonly Handle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
@@ -21,11 +31,15 @@ interface PlacementEditorProps {
   /** The zoom button's name, and what it opens (the preview enlarged); no button without them. */
   zoom?: { label: string; onZoom: () => void };
   /** The fill size (inches): the first picture as large as fits the slide; null before it loads. */
-  fill: { w: number; h: number } | null;
+  fill: FillSize | null;
   /** Whether the first picture reaches past the slide, so the deck will cut it. */
   cut: boolean;
   /** The line held under the preview, shown while `cut`. */
   cutNotice: string;
+  /** Width and height locked to the first picture's shape: a resize keeps it. */
+  lock: boolean;
+  /** What the focused placement field asks to see drawn; null when none is focused. */
+  guide: PlacementGuide;
 }
 
 /** The band (px) drawn around the slide, where the part past its edge shows faded. */
@@ -55,6 +69,77 @@ export function PlacedPicture({ url, align }: { url: string; align: PlacementAli
 }
 
 
+// The guides sit over any background: black on a white halo, as the handles.
+const GUIDE_LINE: CSSProperties = { background: "var(--mono-1000)", boxShadow: "0 0 0 1px var(--mono-0)" };
+const GUIDE_TAG =
+  "absolute whitespace-nowrap rounded-[2px] px-1 font-body text-[10px] leading-4 tabular-nums";
+const GUIDE_TAG_STYLE: CSSProperties = { background: "var(--mono-1000)", color: "var(--mono-0)" };
+
+const clampTo = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+/**
+ * A position's distance on the preview: a line from the slide's edge to the
+ * box's edge along `axis`, through the box's middle, with the value the field
+ * reads. Past the edge (negative) the line runs outward and the value sits at
+ * the slide's edge, where it can be read.
+ */
+function DistanceGuide({ axis, box, slideW, slideH }: { axis: "x" | "y"; box: Box; slideW: number; slideH: number }) {
+  const pct = placementPercents(box, slideW, slideH);
+  const across = axis === "x";
+  const value = across ? pct.x : pct.y;
+  // The box's middle on the other axis, as a share of the slide, held on it.
+  const middle = clampTo(across ? ((box.y + box.h / 2) / slideH) * 100 : ((box.x + box.w / 2) / slideW) * 100, 0, 100);
+  const lo = Math.min(0, value);
+  const len = Math.abs(value);
+  const inside = value > 0;
+  const tagAt = inside ? lo + len / 2 : 0;
+  const line: CSSProperties = across
+    ? { left: `${lo}%`, width: `${len}%`, top: `${middle}%`, height: 2, transform: "translateY(-50%)" }
+    : { top: `${lo}%`, height: `${len}%`, left: `${middle}%`, width: 2, transform: "translateX(-50%)" };
+  const tag: CSSProperties = across
+    ? { left: `${tagAt}%`, top: `${middle}%`, transform: `translate(${inside ? "-50%" : "2px"}, calc(-100% - 3px))` }
+    : { top: `${tagAt}%`, left: `${middle}%`, transform: `translate(4px, ${inside ? "-50%" : "2px"})` };
+  return (
+    <div className="pointer-events-none absolute inset-0" aria-hidden>
+      <div className="absolute" style={{ ...GUIDE_LINE, ...line }} />
+      <span className={GUIDE_TAG} style={{ ...GUIDE_TAG_STYLE, ...tag }}>
+        {Math.round(value)}%
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The focused field's meaning on the preview: a position's distance, or the
+ * 100% size outlined where typing 100 would put the box.
+ */
+function Guide({ guide, box, slideW, slideH, fill }: {
+  guide: PlacementGuide; box: Box; slideW: number; slideH: number; fill: FillSize | null;
+}) {
+  if (guide === "x" || guide === "y") {
+    return <DistanceGuide axis={guide} box={box} slideW={slideW} slideH={slideH} />;
+  }
+  if (guide === "size") {
+    const full = setPlacementField(box, "size", 100, { slideW, slideH, fill, lock: true });
+    return (
+      <div className="pointer-events-none absolute inset-0" aria-hidden>
+        <div
+          className="absolute"
+          style={{
+            ...boxStyle(full, slideW, slideH),
+            outline: "2px dashed var(--mono-1000)",
+            outlineOffset: "-1px",
+            boxShadow: "inset 0 0 0 3px var(--mono-0)",
+          }}
+        >
+          <span className={GUIDE_TAG} style={{ ...GUIDE_TAG_STYLE, left: 4, top: 4 }}>100%</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
 /** Half a handle's 12 px side. */
 const HANDLE_HALF_PX = 6;
 
@@ -77,7 +162,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
   const drag = useRef({ px: 0, py: 0, box: props.box });
   const [mode, setMode] = useState<null | "move" | Handle>(null);
 
-  const { slideW, slideH, onBoxChange, fill } = props;
+  const { slideW, slideH, onBoxChange, fill, lock } = props;
 
   const onMoveDown = (e: RPE<HTMLDivElement>) => {
     e.preventDefault();
@@ -106,10 +191,10 @@ export function PlacementEditor(props: PlacementEditorProps) {
       onBoxChange(
         mode === "move"
           ? clampBox({ ...start, x: start.x + dxIn, y: start.y + dyIn }, slideW, slideH, fill)
-          : resizeBox(start, mode, dxIn, dyIn, slideW, slideH, fill),
+          : resizeBox(start, mode, dxIn, dyIn, slideW, slideH, fill, lock),
       );
     },
-    [mode, slideW, slideH, onBoxChange, fill],
+    [mode, slideW, slideH, onBoxChange, fill, lock],
   );
   const onUp = () => setMode(null);
 
@@ -166,6 +251,7 @@ export function PlacementEditor(props: PlacementEditorProps) {
             }}
             onPointerDown={onMoveDown}
           />
+          <Guide guide={props.guide} box={props.box} slideW={slideW} slideH={slideH} fill={fill} />
           {HANDLES.map((h) => (
             <div key={h} role="button" aria-label={props.handleLabels[h]}
               onPointerDown={(e) => onHandleDown(e, h)}
