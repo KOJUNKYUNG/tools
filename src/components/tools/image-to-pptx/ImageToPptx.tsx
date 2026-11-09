@@ -265,8 +265,9 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
-  // Track which sourceFileId the box was last auto-initialised for
-  const initedForRef = useRef<string | null>(null);
+  // Whether the frame was placed for this upload: an upload (replace) clears
+  // it; reordering or deleting the pictures keeps the frame as the user set it.
+  const framePlacedRef = useRef(false);
 
   const {
     files,
@@ -395,27 +396,30 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     else make();
   };
 
-  // Auto-init box once per reference-image identity (NOT on slide toggle). `ref`
-  // is null until the correct image's natural size has loaded, so this never
-  // fires with stale dimensions on reupload.
+  // Place the frame once per upload: the first picture at 100%, centred. `ref`
+  // is null until the current first picture's size has loaded, so this never
+  // fires with stale dimensions on reupload. Reordering or deleting pictures
+  // keeps the frame in inches, as the user set it (the percentages then read
+  // against the new first picture's fill size).
   useEffect(() => {
     if (!ref || !firstId) return;
-    if (initedForRef.current === firstId) return;
+    if (framePlacedRef.current) return;
     setBox({
       x: (slide.w - ref.w) / 2,
       y: (slide.h - ref.h) / 2,
       w: ref.w,
       h: ref.h,
     });
-    initedForRef.current = firstId;
+    framePlacedRef.current = true;
   }, [ref, firstId, slide.w, slide.h]);
 
-  // Bring the box back under the placement rule when the slide ratio toggles:
-  // the slide and the fill size both change (CONTEXT "Placement").
+  // Bring the box back under the placement rule when the slide ratio toggles
+  // or another picture becomes the first: the slide or the fill size changes
+  // (CONTEXT "Placement").
   useEffect(() => {
     setBox((prev) => clampBox(prev, slide.w, slide.h, ref));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slideKind]);
+  }, [slideKind, ref?.w, ref?.h]);
 
   const ingest = useCallback(
     async (incoming: File[], mode: "replace" | "append") => {
@@ -465,9 +469,9 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
         if (mode === "replace") {
           clearThumbnailCache();
-          // Force placement re-init for the new upload (even if the same file
+          // A new upload places the frame afresh (even if the same file
           // yields the same sourceFileId) → box recenters at 100% W/H.
-          initedForRef.current = null;
+          framePlacedRef.current = false;
           setItems(built.items);
           setSourceBytesById(built.sourceBytesById);
           setFileById(newFileById);
