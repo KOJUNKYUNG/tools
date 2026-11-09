@@ -16,6 +16,28 @@ export type SlideCut =
 /** Float slack, in inches, for a picture flush with the slide's edge (under one EMU). */
 const EDGE_SLACK_IN = 1e-6;
 
+/**
+ * The slides, numbered from 1, whose picture the frame `box` puts wholly off
+ * the slide, so the deck shows the background alone there (`cutAtSlide`'s
+ * "hidden"). The frame is placed with the first picture in view, so a later
+ * picture of another shape can fall off unnoticed: the tool warns before the
+ * deck is made.
+ */
+export function slidesWithPictureOff(
+  box: Box,
+  align: PlacementAlign,
+  slideW: number,
+  slideH: number,
+  pictures: readonly PixelSize[],
+): number[] {
+  const off: number[] = [];
+  pictures.forEach((picture, i) => {
+    const placed = computeSlidePlacement(box, picture.width, picture.height, align);
+    if (cutAtSlide(placed, slideW, slideH, picture).kind === "hidden") off.push(i + 1);
+  });
+  return off;
+}
+
 /** A resize handle: the box edges it moves, as compass letters ("se" = bottom-right corner). */
 export type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 

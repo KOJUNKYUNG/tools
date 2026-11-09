@@ -640,6 +640,12 @@
         "sizeW": "Width",
         "sizeH": "Height",
         "cutNotice": "The part outside the slide is cut off when the deck is made",
+        "offSlide": {
+          "title": "Some pictures won't show on their slide",
+          "body": "As placed, the picture on slide {slides} falls wholly outside the slide, so that slide shows only the background.",
+          "confirm": "Make anyway",
+          "cancel": "Go back and fix"
+        },
         "resultTitle": "PPTX ready",
         "slideCount": "{n} slides",
         "download": "Download",

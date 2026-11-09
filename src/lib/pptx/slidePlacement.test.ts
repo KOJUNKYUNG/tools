@@ -1,5 +1,30 @@
 import { describe, it, expect } from "vitest";
-import { clampBox, computeSlidePlacement, cutAtSlide, resizeBox } from "./slidePlacement";
+import { clampBox, computeSlidePlacement, cutAtSlide, resizeBox, slidesWithPictureOff } from "./slidePlacement";
+
+describe("slidesWithPictureOff", () => {
+  // A 300% frame of a 4:3 picture, flush with a 4:3 slide's right edge.
+  const FRAME = { x: -20, y: 0, w: 30, h: 22.5 };
+  const PICTURES = [
+    { width: 4000, height: 3000 }, // fills the frame: cut, shows
+    { width: 3000, height: 4000 }, // narrower, at the frame's left: wholly off the slide
+    { width: 4000, height: 1000 }, // as wide as the frame: cut, shows
+    { width: 1000, height: 4000 }, // narrower still: wholly off
+  ];
+
+  it("names the slides (from 1) whose picture lies wholly off the slide", () => {
+    expect(slidesWithPictureOff(FRAME, "top-left", 10, 7.5, PICTURES)).toEqual([2, 4]);
+  });
+
+  it("follows the frame's alignment: centred, other pictures fall off instead", () => {
+    // Across, at x = -20 + (30 − w) / 2: 3:4 (w 16.875) ends at 3.44 in, on the slide; 1:4 (w 5.625) at −2.19 in.
+    // Down, the 4:1 picture (h 7.5) starts at y = (22.5 − 7.5) / 2 = 7.5 in, the slide's bottom edge.
+    expect(slidesWithPictureOff(FRAME, "center", 10, 7.5, PICTURES)).toEqual([3, 4]);
+  });
+
+  it("finds none for a frame within the slide", () => {
+    expect(slidesWithPictureOff({ x: 1, y: 1, w: 5, h: 4 }, "top-left", 10, 7.5, PICTURES)).toEqual([]);
+  });
+});
 
 describe("cutAtSlide", () => {
   // A 4:3 slide, 10 × 7.5 in.

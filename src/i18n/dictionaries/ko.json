@@ -640,6 +640,12 @@
         "sizeW": "너비",
         "sizeH": "높이",
         "cutNotice": "슬라이드 밖으로 나간 부분은 PPT를 만들 때 잘립니다",
+        "offSlide": {
+          "title": "슬라이드에 보이지 않는 그림이 있습니다",
+          "body": "지금 배치에서는 {slides}번 슬라이드의 그림이 슬라이드 밖으로 완전히 나가, 그 슬라이드에는 배경만 남습니다.",
+          "confirm": "그대로 만들기",
+          "cancel": "돌아가서 고치기"
+        },
         "resultTitle": "PPTX 완성",
         "slideCount": "슬라이드 {n}장",
         "download": "다운로드",

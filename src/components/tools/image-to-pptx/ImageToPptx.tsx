@@ -20,6 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolHeader } from "@/components/common/ToolHeader";
@@ -33,12 +34,19 @@ import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { type PageItem } from "@/lib/pdf/pageItem";
 import { buildPptx, engineBackground, prepareBackgroundPicture } from "@/lib/pptx/assemblePptx";
-import { type Box, clampBox, computeSlidePlacement, type PlacementAlign, reachesPastSlide } from "@/lib/pptx/slidePlacement";
+import {
+  type Box,
+  clampBox,
+  computeSlidePlacement,
+  type PlacementAlign,
+  reachesPastSlide,
+  slidesWithPictureOff,
+} from "@/lib/pptx/slidePlacement";
 import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import { normalizeImageFiles } from "@/lib/image/heic";
-import { filledSize, sizedImagePreparation, type ScreenSize } from "@/lib/image/slideImage";
+import { filledSize, sizedImagePreparation, uprightSize, type ScreenSize } from "@/lib/image/slideImage";
 import { filteredColour } from "@/lib/image/filterSet";
 import type { RunPicture } from "@/lib/background/resolveBackground";
 import { PreviewLightbox } from "@/components/common/PreviewLightbox";
@@ -330,6 +338,34 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   const firstPlaced =
     ref && refNatural ? computeSlidePlacement(box, refNatural.w, refNatural.h, align) : box;
   const pictureCut = reachesPastSlide(firstPlaced, slide.w, slide.h);
+
+  // The slides whose picture the frame puts wholly off the slide, asked about
+  // before the deck is made; null while no question is open.
+  const [offSlides, setOffSlides] = useState<number[] | null>(null);
+
+  // The deck is made with the background as picked: the editor closes on it.
+  const make = () => {
+    setOffSlides(null);
+    if (editingBg) finishBgEditor();
+    // The zoomed preview covers the right half, where the run's status and result show.
+    setZoomed(false);
+    run();
+  };
+
+  // The frame is placed with the first picture in view, so a later picture of
+  // another shape can fall wholly off its slide unseen: ask before making it.
+  const checkThenMake = async () => {
+    const files = liveItems.map((p) => fileById.get(p.sourceFileId)).filter((f): f is File => !!f);
+    let off: number[] = [];
+    try {
+      const sizes = await Promise.all(files.map(uprightSize));
+      off = slidesWithPictureOff(box, align, slide.w, slide.h, sizes);
+    } catch {
+      // An unreadable picture is the run's to report, with its own message.
+    }
+    if (off.length > 0) setOffSlides(off);
+    else make();
+  };
 
   // Auto-init box once per reference-image identity (NOT on slide toggle). `ref`
   // is null until the correct image's natural size has loaded, so this never
@@ -760,13 +796,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
       executeLabel={template(labels.convertTemplate, { n: liveItems.length })}
       processingLabel={labels.processing}
       againLabel={labels.again}
-      // The deck is made with the background as picked: the editor closes on it.
-      onExecute={() => {
-        if (editingBg) finishBgEditor();
-        // The zoomed preview covers the right half, where the run's status and result show.
-        setZoomed(false);
-        run();
-      }}
+      onExecute={() => void checkThenMake()}
       onAgain={handleAgain}
       executeDisabled={liveItems.length === 0 || !bgReady}
     />
@@ -808,6 +838,15 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
             />
           )}
           {workspace}
+          <ConfirmDialog
+            open={offSlides !== null}
+            title={labels.offSlide.title}
+            body={template(labels.offSlide.body, { slides: (offSlides ?? []).join(", ") })}
+            confirmLabel={labels.offSlide.confirm}
+            cancelLabel={labels.offSlide.cancel}
+            onConfirm={make}
+            onCancel={() => setOffSlides(null)}
+          />
         </>
       )}
     </div>
