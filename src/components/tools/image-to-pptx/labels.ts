@@ -1,4 +1,7 @@
 import type { Dictionary } from "@/i18n/config";
+import type { BackgroundEditorLabels } from "@/components/background-editor/BackgroundEditor";
+import type { BackgroundEditorCopy } from "@/components/background-editor/useBackgroundEditor";
+import { getBackgroundEditorCopy, getBackgroundEditorLabels } from "@/components/background-editor/labels";
 
 export interface ImageToPptxLabels {
   /** Shared error copy (`common.errors`), in the page's language. */
@@ -9,21 +12,35 @@ export interface ImageToPptxLabels {
   deleteAria: string; duplicateAria: string; processing: string; slideAspectLabel: string;
   aspect169: string; aspect43: string;
   screenSizeLabel: string; screenFullHd: string; screen4k: string;
-  bgLabel: string; bgImage: string;
-  bgColor: string; bgPick: string; placeLabel: string; posX: string; posY: string;
-  sizeW: string; sizeH: string; centerH: string; centerV: string;
+  bgLabel: string; bgChange: string; bgCancel: string; bgDone: string;
+  /** The background thumbnail's name: it opens the background alone, enlarged. */
+  bgZoom: string;
+  /** The placement fields: position from the slide's left and top, one size or width and height, the lock, the 100% hint. */
+  fromLeft: string; fromTop: string; size: string; sizeW: string; sizeH: string;
+  sizeLock: string; sizeHint: string; centerH: string; centerV: string;
+  /** The line under the preview while part of the picture lies past the slide. */
+  cutNotice: string;
+  /** The question asked before making a deck where some slides' pictures fall wholly off the slide. */
+  offSlide: { title: string; body: string; confirm: string; cancel: string };
   resultTitle: string; slideCountTemplate: string;
   download: string; again: string;
   alignLabel: string; alignTopLeft: string; alignCenter: string;
   errNotImage: string; errTooLarge: string; errNoImages: string;
   errorCorrupt: string;
   resizeHandles: Dictionary["common"]["resizeHandles"];
+  /** The shared background editor "바꾸기" opens in the left half. */
+  editor: BackgroundEditorLabels;
+  editorCopy: BackgroundEditorCopy;
+  /** The preview's zoom and its full screen; the same copy as ppt-background's. */
+  zoom: { zoom: string; close: string; fullscreen: string; exitFullscreen: string };
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
 export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
   const t = dict.tools["image-to-pptx"];
   const p = t.page;
+  // The preview zoom's copy, where it began (as the shared editor's): ppt-background's.
+  const preview = dict.tools["ppt-background"].page.preview;
   return {
     errors: dict.common.errors,
     title: t.title, description: t.description, uploadPrompt: p.uploadPrompt,
@@ -35,9 +52,10 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     aspect169: p.aspect169, aspect43: p.aspect43,
     screenSizeLabel: p.screenSizeLabel, screenFullHd: p.screenFullHd, screen4k: p.screen4k,
     bgLabel: p.bgLabel,
-    bgImage: p.bgImage, bgColor: p.bgColor, bgPick: p.bgPick, placeLabel: p.placeLabel,
-    posX: p.posX, posY: p.posY, sizeW: p.sizeW, sizeH: p.sizeH,
-    centerH: p.centerH, centerV: p.centerV,
+    bgChange: p.bgChange, bgCancel: p.bgCancel, bgDone: p.bgDone, bgZoom: p.bgZoom,
+    fromLeft: p.fromLeft, fromTop: p.fromTop, size: p.size, sizeW: p.sizeW, sizeH: p.sizeH,
+    sizeLock: p.sizeLock, sizeHint: p.sizeHint,
+    centerH: p.centerH, centerV: p.centerV, cutNotice: p.cutNotice, offSlide: p.offSlide,
     resultTitle: p.resultTitle, slideCountTemplate: p.slideCount,
     download: p.download, again: p.again,
     alignLabel: p.alignLabel, alignTopLeft: p.alignTopLeft, alignCenter: p.alignCenter,
@@ -45,6 +63,14 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     errNoImages: p.errNoImages,
     errorCorrupt: p.errorCorrupt,
     resizeHandles: dict.common.resizeHandles,
+    editor: getBackgroundEditorLabels(dict),
+    editorCopy: getBackgroundEditorCopy(dict),
+    zoom: {
+      zoom: preview.zoom,
+      close: preview.close,
+      fullscreen: preview.fullscreen,
+      exitFullscreen: preview.exitFullscreen,
+    },
     fileUpload: dict.common.fileUpload,
   };
 }

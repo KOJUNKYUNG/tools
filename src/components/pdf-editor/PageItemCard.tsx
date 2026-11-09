@@ -21,9 +21,10 @@ interface PageItemCardProps {
   bytes: Uint8Array | undefined;
   tint: SectionTint;
   onRotate?: (id: string) => void;
-  onDelete: (id: string) => void;
+  /** Omitted for a read-only card (no delete button). */
+  onDelete?: (id: string) => void;
   rotateAria?: string;
-  deleteAria: string;
+  deleteAria?: string;
   onDuplicate?: (id: string) => void;
   duplicateAria?: string;
   /** dnd-kit drag handle props (listeners + attributes) applied to the sheet. */
@@ -45,6 +46,19 @@ interface PageItemCardProps {
    * Default true preserves pdf-arrange / image-to-pdf behavior.
    */
   draggable?: boolean;
+  /**
+   * When true, the card fills its container's width and takes the shape of
+   * `pageAspect` (image-to-pptx's three-column grid of slide pictures), with
+   * the picture contained on `frameBg` and no page rectangle. Default false
+   * keeps the fixed 150×204 card.
+   */
+  fluid?: boolean;
+  /**
+   * Clicking the card picks it (its buttons excepted), and `selected` draws
+   * it picked: image-to-pptx's picture shown in the placement preview.
+   */
+  onSelect?: (id: string) => void;
+  selected?: boolean;
 }
 
 function PageItemCardImpl({
@@ -62,6 +76,9 @@ function PageItemCardImpl({
   frameBg = "var(--surface-2)",
   pageAspect = null,
   draggable = true,
+  fluid = false,
+  onSelect,
+  selected = false,
 }: PageItemCardProps) {
   const { ref, src, status } = useLazyThumbnail({
     fileId: item.sourceFileId,
@@ -83,7 +100,7 @@ function PageItemCardImpl({
     }
   }
 
-  const hasPage = pageAspect != null && pageAspect > 0;
+  const hasPage = !fluid && pageAspect != null && pageAspect > 0;
 
   // Page-frame mode bakes rotation into a bitmap (canvas) instead of CSS-rotating.
   // CSS `transform: rotate()` on an element laid out wider than the card gets
@@ -151,15 +168,27 @@ function PageItemCardImpl({
 
   return (
     <div
-      className={`group relative my-[9px] h-[204px] w-[150px] overflow-hidden rounded-[5px] ${
-        draggable ? "cursor-grab active:cursor-grabbing" : ""
-      }`}
+      className={`group relative overflow-hidden rounded-[3px] ${
+        fluid ? "w-full" : "my-[9px] h-[204px] w-[150px]"
+      } ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
       style={{
+        aspectRatio: fluid && pageAspect ? String(pageAspect) : undefined,
         background: frameBg,
         border: "1px solid var(--border)",
-        boxShadow: `var(--shadow-sm), 0 0 0 3px ${tint.ring}`,
+        // Flat (DESIGN.md): the border separates the card; the ring is only the
+        // per-section grouping cue (transparent where a tool has no sections).
+        boxShadow: `0 0 0 3px ${tint.ring}`,
       }}
       {...dragHandleProps}
+      aria-current={onSelect ? selected : undefined}
+      onClick={
+        onSelect
+          ? (e) => {
+              if (e.target instanceof Element && e.target.closest("button")) return;
+              onSelect(item.id);
+            }
+          : undefined
+      }
     >
       <div
         ref={ref}
@@ -197,7 +226,7 @@ function PageItemCardImpl({
       </div>
 
       <span
-        className="pointer-events-none absolute left-1.5 top-1.5 rounded-md px-[7px] py-px text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
+        className="pointer-events-none absolute left-1.5 top-1.5 rounded-[3px] px-[7px] py-px text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
         style={{ background: "rgba(0,0,0,0.7)" }}
       >
         {pageNumber}
@@ -211,7 +240,7 @@ function PageItemCardImpl({
             onClick={() => onRotate(item.id)}
             aria-label={rotateAria}
             title={rotateAria}
-            className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
+            className="flex size-6 items-center justify-center rounded-[3px] border bg-white/95"
             style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
           >
             <RotateCwIcon className="size-3.5" />
@@ -224,31 +253,43 @@ function PageItemCardImpl({
             onClick={() => onDuplicate(item.id)}
             aria-label={duplicateAria}
             title={duplicateAria}
-            className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
+            className="flex size-6 items-center justify-center rounded-[3px] border bg-white/95"
             style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
           >
             <CopyPlusIcon className="size-3.5" />
           </button>
         )}
-        <button
-          type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => onDelete(item.id)}
-          aria-label={deleteAria}
-          title={deleteAria}
-          className="flex size-6 items-center justify-center rounded-md border bg-white/95 shadow-sm"
-          style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
-        >
-          <Trash2Icon className="size-3.5" />
-        </button>
+        {onDelete && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => onDelete(item.id)}
+            aria-label={deleteAria}
+            title={deleteAria}
+            className="flex size-6 items-center justify-center rounded-[3px] border bg-white/95"
+            style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
+          >
+            <Trash2Icon className="size-3.5" />
+          </button>
+        )}
       </div>
 
       <div
-        className="pointer-events-none absolute inset-x-2 bottom-1.5 truncate rounded-md border bg-white/95 px-1 py-0.5 text-center text-[10px] opacity-0 transition-opacity group-hover:opacity-100"
+        className="pointer-events-none absolute inset-x-2 bottom-1.5 truncate rounded-[3px] border bg-white/95 px-1 py-0.5 text-center text-[10px] opacity-0 transition-opacity group-hover:opacity-100"
         style={{ borderColor: "var(--mono-200)", color: "var(--mono-900)" }}
       >
         {item.sourceFileName}
       </div>
+
+      {/* Picked (DESIGN.md thumbnail selection): a 2px --emphasis ring inside
+          the card, over the picture, so a scroll edge never clips it. */}
+      {selected && (
+        <div
+          className="pointer-events-none absolute inset-0 rounded-[3px] border-2"
+          style={{ borderColor: "var(--emphasis)" }}
+          aria-hidden
+        />
+      )}
     </div>
   );
 }

@@ -296,7 +296,7 @@ export function PdfToImage({ labels, lang, inline = false }: PdfToImageProps) {
               onClick={handleAddClick}
               aria-label={labels.addAria}
               title={labels.addAria}
-              className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[5px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
+              className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[3px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
               style={{
                 borderColor: "var(--hairline)",
                 background: "var(--surface-2)",

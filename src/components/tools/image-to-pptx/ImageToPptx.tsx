@@ -20,6 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileUpload } from "@/components/common/FileUpload";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
 import { ToolHeader } from "@/components/common/ToolHeader";
@@ -32,17 +33,32 @@ import { template } from "@/lib/common/template";
 import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { type PageItem } from "@/lib/pdf/pageItem";
-import { buildPptx, type BuildPptxInput } from "@/lib/pptx/assemblePptx";
-import { type Box, computeSlidePlacement, type PlacementAlign } from "@/lib/pptx/slidePlacement";
+import { buildPptx, engineBackground, prepareBackgroundPicture } from "@/lib/pptx/assemblePptx";
+import {
+  type Box,
+  clampBox,
+  computeSlidePlacement,
+  type PlacementAlign,
+  reachesPastSlide,
+  slidesWithPictureOff,
+} from "@/lib/pptx/slidePlacement";
 import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
-import { normalizeImageFile, normalizeImageFiles } from "@/lib/image/heic";
-import type { ScreenSize } from "@/lib/image/slideImage";
+import { normalizeImageFiles } from "@/lib/image/heic";
+import { filledSize, sizedImagePreparation, uprightSize, type ScreenSize } from "@/lib/image/slideImage";
+import { filteredColour } from "@/lib/image/filterSet";
+import type { RunPicture } from "@/lib/background/resolveBackground";
+import { PreviewLightbox } from "@/components/common/PreviewLightbox";
+import { useBackgroundEditor } from "@/components/background-editor/useBackgroundEditor";
+import { useActualBackground } from "@/components/background-editor/useActualBackground";
+import { BackgroundEditor } from "@/components/background-editor/BackgroundEditor";
+import type { FillBackground } from "@/lib/ppt/changeBackground";
 import { AlignSelector } from "./AlignSelector";
-import { BackgroundPicker, type BgChoice } from "./BackgroundPicker";
-import { PlacementControls } from "./PlacementControls";
-import { PlacementEditor } from "./PlacementEditor";
+import { BackgroundRow } from "./BackgroundRow";
+import type { ShownBackground } from "./BackgroundFill";
+import { PlacementControls, type PlacementGuide } from "./PlacementControls";
+import { boxStyle, PlacedPicture, PlacementEditor } from "./PlacementEditor";
 import { ScreenSizeSelector } from "./ScreenSizeSelector";
 import { SlideAspectSelector } from "./SlideAspectSelector";
 import { ImageToPptxResult } from "./ImageToPptxResult";
@@ -57,6 +73,9 @@ const ACCEPT = {
 const ACCEPT_ATTR = "image/png,image/jpeg,image/heic,image/heif,.heic,.heif";
 
 const NEUTRAL_TINT = { ring: "transparent" } as const;
+
+/** A new deck's background until the user picks one. */
+const WHITE: FillBackground = { kind: "colour", rgb: "FFFFFF" };
 
 export interface ImageToPptxResultData {
   bytes: Uint8Array;
@@ -73,12 +92,39 @@ interface SortableCellProps {
   duplicateAria: string;
   deleteAria: string;
   pageAspect: number;
+  /** Whether this picture is the one the placement preview shows. */
+  selected: boolean;
+  onSelect: (id: string) => void;
+}
+
+/**
+ * A picture's natural size, tagged with the id it was measured for so a load
+ * still on its way for another picture is never taken for this one's.
+ */
+function useNaturalSize(url: string | null, id: string | null): { id: string; w: number; h: number } | null {
+  const [size, setSize] = useState<{ id: string; w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (!url || !id) return;
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled) setSize({ id, w: img.naturalWidth, h: img.naturalHeight });
+    };
+    img.onerror = () => {
+      if (!cancelled) setSize(null);
+    };
+    img.src = url;
+    return () => { cancelled = true; };
+  }, [url, id]);
+  return size && size.id === id ? size : null;
 }
 
 function SortableCell({
   item,
   pageNumber,
   bytes,
+  selected,
+  onSelect,
   onDuplicate,
   onDelete,
   duplicateAria,
@@ -91,7 +137,6 @@ function SortableCell({
   return (
     <div
       ref={setNodeRef}
-      className="flex items-stretch"
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -110,9 +155,11 @@ function SortableCell({
         deleteAria={deleteAria}
         frameBg="var(--surface-2)"
         pageAspect={pageAspect}
+        fluid
         dragHandleProps={{ ...attributes, ...listeners }}
+        selected={selected}
+        onSelect={onSelect}
       />
-      <div className="w-[18px] shrink-0" aria-hidden="true" />
     </div>
   );
 }
@@ -133,9 +180,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   );
   // Map from sourceFileId → File object, kept in sync with items/sourceBytesById
   const [fileById, setFileById] = useState<Map<string, File>>(new Map());
-  // Map from sourceFileId → object URL (for refImageUrl preview in PlacementEditor)
+  // Map from sourceFileId → object URL (the pictures the placement preview and the zoom show)
   const [sourceUrlById, setSourceUrlById] = useState<Map<string, string>>(new Map());
-  const prevBgUrlRef = useRef<string | null>(null);
 
   const [loadingPages, setLoadingPages] = useState(false);
   // Box in INCHES on the slide
@@ -143,22 +189,85 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   const [slideKind, setSlideKind] = useState<SlideKind>("16:9");
   // Deck-wide; Full HD unless the user asks for 4K (CONTEXT "Screen size").
   const [screen, setScreen] = useState<ScreenSize>("full-hd");
-  const [bg, setBg] = useState<BgChoice>({ kind: "color", color: "#FFFFFF" });
-  // A picked background is being converted (HEIC); bgPickRef numbers the picks
-  // so a slow conversion never replaces a later pick.
-  const [bgBusy, setBgBusy] = useState(false);
-  const bgPickRef = useRef(0);
   const [align, setAlign] = useState<PlacementAlign>("top-left");
+  // Width and height locked to the first picture's shape, by default (CONTEXT "Placement").
+  const [lockSize, setLockSize] = useState(true);
+  // The guide the focused placement field draws on the preview.
+  const [guide, setGuide] = useState<PlacementGuide>(null);
+  const slide = SLIDE_SIZES[slideKind];
+  /**
+   * The deck's background, picked and cropped in the shared background editor
+   * (gallery, solid colours, upload); its crop follows the slide's shape.
+   * 다시 하기 and new slide pictures keep it.
+   */
+  const editor = useBackgroundEditor({
+    slideRatio: slide.w / slide.h,
+    copy: labels.editorCopy,
+    initialFill: WHITE,
+  });
+  const {
+    bgFile,
+    fill,
+    crop,
+    previewUrl: bgUrl,
+    cropSource,
+    normalizing: bgNormalizing,
+    solidColour,
+    filters,
+    editLive,
+    editPending,
+    filterPreview,
+    resolveForRun,
+  } = editor;
+  /** The run can start: a colour, or a picture in hand (not a pick still on its way). */
+  const bgReady = fill?.kind === "colour" || (!!bgFile && !bgNormalizing);
+  /**
+   * The background as the row's thumbnail and the preview show it: the colour
+   * its colour effects make, or the picture cut to its crop, with the recipe
+   * edit and the filters laid over it as they change.
+   */
+  const shownBg: ShownBackground = solidColour
+    ? { kind: "color", color: filteredColour(filters, solidColour), filtered: filterPreview }
+    : bgUrl
+      ? { kind: "image", url: bgUrl, crop, sourceSize: cropSource ?? undefined, live: editLive, filtered: filterPreview }
+      : { kind: "empty" };
+  /**
+   * The zoom over the right half: the slide (background with the shown
+   * picture), the background alone, or nothing; and whether it fills the screen.
+   */
+  const [zoomed, setZoomed] = useState<null | "slide" | "background">(null);
+  const [zoomFullscreen, setZoomFullscreen] = useState(false);
+  /** The background file the run would put in, shown under the slide pictures while the zoom fills the screen. */
+  const prepareActual = useCallback(
+    async ({ file, crop: cut, step }: RunPicture) => {
+      const dataUrl = await prepareBackgroundPicture(file, slideKind, screen, sizedImagePreparation, cut, step);
+      return (await fetch(dataUrl)).blob();
+    },
+    [slideKind, screen],
+  );
+  const { url: actualUrl, pending: actualPending } = useActualBackground(editor, {
+    active: zoomed !== null && zoomFullscreen,
+    slide,
+    screen,
+    prepare: prepareActual,
+  });
 
-  // Natural pixel dimensions of the first (reference) image, tagged with the
-  // sourceFileId it was measured for so async loads can't be applied to the
-  // wrong image (reupload race).
-  const [refNatural, setRefNatural] = useState<{ id: string; w: number; h: number } | null>(null);
+  /** The left half shows the background editor ("바꾸기") in place of the slide pictures. */
+  const [editingBg, setEditingBg] = useState(false);
+  /**
+   * The editor stays mounted once opened, hidden behind the slide pictures, so
+   * its tab, scroll and colour picker are where the user left them.
+   */
+  const [editorMounted, setEditorMounted] = useState(false);
+
+  /** The slide picture the placement preview shows (its item id); the first while none is picked or it is gone. */
+  const [shownItemId, setShownItemId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
-  // Track which sourceFileId the box was last auto-initialised for
-  const initedForRef = useRef<string | null>(null);
+  // Whether the frame was placed for this upload: an upload (replace) clears
+  // it; reordering or deleting the pictures keeps the frame as the user set it.
+  const framePlacedRef = useRef(false);
 
   const {
     files,
@@ -172,20 +281,22 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     retry,
     download,
   } = useToolProcessor<ImageToPptxResultData>({
-    processor: async (_files, onProgress) => {
+    processor: async (_files, onProgress, needsScreen) => {
       const live = items.filter((p) => !p.deleted);
       if (live.length === 0) throw new UserFacingError(labels.errNoImages);
       const orderedFiles = live
         .map((p) => fileById.get(p.sourceFileId))
         .filter((f): f is File => !!f);
       if (orderedFiles.length === 0) throw new UserFacingError(labels.errNoImages);
-      const background: BuildPptxInput["background"] =
-        bg.kind === "color"
-          ? { kind: "color", color: bg.color.replace("#", "") }
-          : { kind: "image", file: bg.file };
+      // The run is offered only once the background is in hand.
+      if (!bgReady) throw new Error("image-to-pptx: run started before the background was ready");
+      // The pick as the run puts it in: an edited recipe drawn, a solid colour
+      // with grain or a Paper filter a picture of the colour, the filters the
+      // step the engine runs between the fit and the format.
+      const resolved = await resolveForRun({ slide, screen, needsScreen, onProgress });
       const bytes = await buildPptx(
-        { files: orderedFiles, box, slideKind, background, align, screen },
-        onProgress,
+        { files: orderedFiles, box, slideKind, background: engineBackground(resolved.background), align, screen },
+        resolved.onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pptx`;
       return { bytes, name, slideCount: orderedFiles.length };
@@ -226,79 +337,89 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     urlsRef.current.clear();
   }, []);
 
-  // Track and revoke previous background image URL when bg changes
-  useEffect(() => {
-    if (bg.kind === "image") {
-      if (prevBgUrlRef.current && prevBgUrlRef.current !== bg.url) URL.revokeObjectURL(prevBgUrlRef.current);
-      prevBgUrlRef.current = bg.url;
-    } else {
-      if (prevBgUrlRef.current) { URL.revokeObjectURL(prevBgUrlRef.current); prevBgUrlRef.current = null; }
-    }
-  }, [bg]);
-  // revoke background URL on unmount
-  useEffect(() => () => {
-    bgPickRef.current++; // a conversion still running sets nothing after unmount
-    if (prevBgUrlRef.current) { URL.revokeObjectURL(prevBgUrlRef.current); prevBgUrlRef.current = null; }
-  }, []);
-
   const liveItems = items.filter((p) => !p.deleted);
   const firstId = liveItems[0]?.sourceFileId ?? null;
 
-  // The first live item's source URL for use in PlacementEditor preview
+  // The first live item's source URL: its natural size gives the fill size.
   const refImageUrl = firstId ? (sourceUrlById.get(firstId) ?? null) : null;
+  const refNatural = useNaturalSize(refImageUrl, firstId);
 
-  // Load natural dimensions of the reference (first) image, tagged with its id.
-  useEffect(() => {
-    if (!refImageUrl || !firstId) {
-      setRefNatural(null);
-      return;
+  // The picture the preview shows: the one picked in the list, else the first.
+  // The frame stays as set; only the picture in it changes.
+  const shownItem = liveItems.find((p) => p.id === shownItemId) ?? liveItems[0] ?? null;
+  const shownImageUrl = shownItem ? (sourceUrlById.get(shownItem.sourceFileId) ?? null) : null;
+  // The first picture's size is in hand already: measured once, not twice.
+  const shownIsFirst = !shownItem || shownItem.sourceFileId === firstId;
+  const otherNatural = useNaturalSize(shownIsFirst ? null : shownImageUrl, shownIsFirst ? null : shownItem.sourceFileId);
+  const shownNatural = shownIsFirst ? refNatural : otherNatural;
+
+  // Derive the reference placement in inches. refNatural is null until the
+  // current first image's size has loaded (never a stale one).
+  // A degenerate picture (zero size) gives none: the fields then measure from the slide.
+  const refPlaced = refNatural
+    ? computeSlidePlacement({ x: 0, y: 0, w: slide.w, h: slide.h }, refNatural.w, refNatural.h)
+    : null;
+  const ref = refPlaced && refPlaced.w > 0 && refPlaced.h > 0 ? refPlaced : null;
+
+  // Whether the deck will cut the shown picture: its placed rectangle (the box
+  // itself until its size is known) reaches past the slide.
+  const shownPlaced = shownNatural
+    ? computeSlidePlacement(box, shownNatural.w, shownNatural.h, align)
+    : box;
+  const pictureCut = reachesPastSlide(shownPlaced, slide.w, slide.h);
+
+  // The slides whose picture the frame puts wholly off the slide, asked about
+  // before the deck is made; null while no question is open.
+  const [offSlides, setOffSlides] = useState<number[] | null>(null);
+
+  // The deck is made with the background as picked: the editor closes on it.
+  const make = () => {
+    setOffSlides(null);
+    if (editingBg) finishBgEditor();
+    // The zoomed preview covers the right half, where the run's status and result show.
+    setZoomed(null);
+    run();
+  };
+
+  // The frame is placed with the first picture in view, so a later picture of
+  // another shape can fall wholly off its slide unseen: ask before making it.
+  const checkThenMake = async () => {
+    const files = liveItems.map((p) => fileById.get(p.sourceFileId)).filter((f): f is File => !!f);
+    let off: number[] = [];
+    try {
+      const sizes = await Promise.all(files.map(uprightSize));
+      off = slidesWithPictureOff(box, align, slide.w, slide.h, sizes);
+    } catch {
+      // An unreadable picture is the run's to report, with its own message.
     }
-    let cancelled = false;
-    const img = new Image();
-    img.onload = () => {
-      if (!cancelled) setRefNatural({ id: firstId, w: img.naturalWidth, h: img.naturalHeight });
-    };
-    img.onerror = () => {
-      if (!cancelled) setRefNatural(null);
-    };
-    img.src = refImageUrl;
-    return () => { cancelled = true; };
-  }, [refImageUrl, firstId]);
+    if (off.length > 0) setOffSlides(off);
+    else make();
+  };
 
-  // Derive slide dims and reference placement in inches. Only trust refNatural
-  // when it matches the current first image (else it's a stale async load).
-  const slide = SLIDE_SIZES[slideKind];
-  const ref =
-    refNatural && firstId && refNatural.id === firstId
-      ? computeSlidePlacement({ x: 0, y: 0, w: slide.w, h: slide.h }, refNatural.w, refNatural.h)
-      : null;
-
-  // Auto-init box once per reference-image identity (NOT on slide toggle). `ref`
-  // is null until the correct image's natural size has loaded, so this never
-  // fires with stale dimensions on reupload.
+  // Place the frame once per upload: the first picture at 100%, centred. `ref`
+  // is null until the current first picture's size has loaded, so this never
+  // fires with stale dimensions on reupload. Reordering or deleting pictures
+  // keeps the frame in inches, as the user set it (the percentages then read
+  // against the new first picture's fill size).
   useEffect(() => {
     if (!ref || !firstId) return;
-    if (initedForRef.current === firstId) return;
+    if (framePlacedRef.current) return;
     setBox({
       x: (slide.w - ref.w) / 2,
       y: (slide.h - ref.h) / 2,
       w: ref.w,
       h: ref.h,
     });
-    initedForRef.current = firstId;
+    framePlacedRef.current = true;
   }, [ref, firstId, slide.w, slide.h]);
 
-  // Clamp box into new slide bounds when slide ratio toggles (image-invariant)
+  // Bring the box back under the placement rule when the slide ratio toggles
+  // or another picture becomes the first: the slide or the fill size changes
+  // (CONTEXT "Placement").
   useEffect(() => {
-    setBox((prev) => {
-      const w = Math.max(0.1, Math.min(slide.w, prev.w));
-      const h = Math.max(0.1, Math.min(slide.h, prev.h));
-      const x = Math.max(0, Math.min(prev.x, slide.w - w));
-      const y = Math.max(0, Math.min(prev.y, slide.h - h));
-      return { x, y, w, h };
-    });
+    setBox((prev) => clampBox(prev, slide.w, slide.h, ref));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slideKind]);
+  }, [slideKind, ref?.w, ref?.h]);
 
   const ingest = useCallback(
     async (incoming: File[], mode: "replace" | "append") => {
@@ -348,9 +469,9 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
         if (mode === "replace") {
           clearThumbnailCache();
-          // Force placement re-init for the new upload (even if the same file
+          // A new upload places the frame afresh (even if the same file
           // yields the same sourceFileId) → box recenters at 100% W/H.
-          initedForRef.current = null;
+          framePlacedRef.current = false;
           setItems(built.items);
           setSourceBytesById(built.sourceBytesById);
           setFileById(newFileById);
@@ -372,42 +493,23 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     [labels, setFiles],
   );
 
-  // The background takes the slide pictures' conversion and errors. On any
-  // error the previous background stays.
-  const pickBackground = useCallback(
-    async (picked: File) => {
-      const pick = ++bgPickRef.current;
-      setBgBusy(true);
-      try {
-        // HEIC/HEIF (iPhone photos) → JPEG; PNG and JPEG pass through.
-        const file = await normalizeImageFile(picked);
-        if (pick !== bgPickRef.current) return;
-        if (file.type !== "image/png" && file.type !== "image/jpeg") {
-          toast.error(template(labels.errNotImage, { name: file.name }));
-          return;
-        }
-        if (file.size > uploadLimitFor("image-to-pptx")) {
-          toast.error(template(labels.errTooLarge, { name: file.name, size: formatBytes(uploadLimitFor("image-to-pptx")) }));
-          return;
-        }
-        setBg({ kind: "image", file, url: URL.createObjectURL(file) });
-      } catch (err) {
-        if (pick !== bgPickRef.current) return;
-        toast.error(
-          getErrorMessage(err, { copy: labels.errors, fallbackMessage: labels.errors.heicConvertFailed }).message,
-        );
-      } finally {
-        if (pick === bgPickRef.current) setBgBusy(false);
-      }
-    },
-    [labels],
-  );
-  // A colour chosen while a picture converts wins over that picture.
-  const chooseBackground = useCallback((choice: BgChoice) => {
-    bgPickRef.current++;
-    setBgBusy(false);
-    setBg(choice);
-  }, []);
+  /** "바꾸기": the left half becomes the background editor, the background as it stands held for "취소". */
+  const { hold: holdBg, release: releaseBg, restore: restoreBg } = editor;
+  const openBgEditor = useCallback(() => {
+    holdBg();
+    setEditorMounted(true);
+    setEditingBg(true);
+  }, [holdBg]);
+  /** "완료": back to the slide pictures with the background as picked. */
+  const finishBgEditor = useCallback(() => {
+    releaseBg();
+    setEditingBg(false);
+  }, [releaseBg]);
+  /** "취소": back to the slide pictures with the background from before "바꾸기". */
+  const cancelBgEditor = useCallback(() => {
+    restoreBg();
+    setEditingBg(false);
+  }, [restoreBg]);
 
   // Consume staged files on mount (StrictMode-safe via consumedRef)
   const consumedRef = useRef(false);
@@ -418,6 +520,13 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     if (staged && staged.files.length > 0) void ingest(staged.files, "replace");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 다시 하기: back to the settings with the background, its crop, edit and filters kept.
+  const { again: againBg } = editor;
+  const handleAgain = useCallback(() => {
+    retry();
+    againBg();
+  }, [retry, againBg]);
 
   const handleUpload = useCallback(
     (newFiles: File[]) => {
@@ -510,98 +619,210 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
 
   const slideAspect = slide.w / slide.h;
 
-  const editor = (
-    <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
-      {/* Two-column editor: left = image grid, right = slide controls */}
-      <div className="flex min-h-0 flex-1 gap-3">
-        {/* Left: DnD image grid */}
-        <div
-          className="ob-scroll min-h-0 flex-1 overflow-y-auto rounded-2xl p-3"
-          style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            boxShadow: "var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.8)",
-          }}
-        >
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
-              <div className="flex flex-wrap justify-center gap-0">
-                {items.map((item, i) => (
-                  <SortableCell
-                    key={item.id}
-                    item={item}
-                    pageNumber={i + 1}
-                    bytes={sourceBytesById.get(item.sourceFileId)}
-                    onDuplicate={handleDuplicate}
-                    onDelete={handleDelete}
-                    duplicateAria={labels.duplicateAria}
-                    deleteAria={labels.deleteAria}
-                    pageAspect={slideAspect}
-                  />
-                ))}
-                <div className="flex items-stretch">
-                  <button
-                    type="button"
-                    onClick={handleAddClick}
-                    aria-label={labels.addAria}
-                    title={labels.addAria}
-                    className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[5px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
-                    style={{
-                      borderColor: "var(--hairline)",
-                      background: "var(--bg-soft)",
-                    }}
-                  >
-                    <PlusIcon className="size-7" />
-                  </button>
-                  <div className="w-[18px] shrink-0" aria-hidden="true" />
-                </div>
-              </div>
-            </SortableContext>
-          </DndContext>
+  // The slide pictures in three columns. While a run uses them (running,
+  // done or failed) they are shown read-only in the same cells, so the
+  // workspace keeps its shape across states (UI stability contract).
+  const editable = status === "idle";
+  const showEditor = editingBg && editable;
+  const pictures = editable ? (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
+        <div className="grid grid-cols-3 content-start gap-2.5">
+          {items.map((item, i) => (
+            <SortableCell
+              key={item.id}
+              item={item}
+              pageNumber={i + 1}
+              bytes={sourceBytesById.get(item.sourceFileId)}
+              onDuplicate={handleDuplicate}
+              onDelete={handleDelete}
+              duplicateAria={labels.duplicateAria}
+              deleteAria={labels.deleteAria}
+              pageAspect={slideAspect}
+              selected={item.id === shownItem?.id}
+              onSelect={setShownItemId}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={handleAddClick}
+            aria-label={labels.addAria}
+            title={labels.addAria}
+            className="flex w-full items-center justify-center rounded-[3px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
+            style={{ aspectRatio: String(slideAspect), borderColor: "var(--hairline)" }}
+          >
+            <PlusIcon className="size-6" />
+          </button>
         </div>
+      </SortableContext>
+    </DndContext>
+  ) : (
+    <div className="grid grid-cols-3 content-start gap-2.5">
+      {liveItems.map((item, i) => (
+        <PageItemCard
+          key={item.id}
+          item={item}
+          pageNumber={i + 1}
+          bytes={sourceBytesById.get(item.sourceFileId)}
+          tint={NEUTRAL_TINT}
+          frameBg="var(--surface-2)"
+          pageAspect={slideAspect}
+          fluid
+          draggable={false}
+        />
+      ))}
+    </div>
+  );
 
-        {/* Right: slide settings controls */}
-        <div
-          className="ob-scroll flex w-[220px] shrink-0 flex-col gap-3 overflow-y-auto rounded-2xl p-3"
-          style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            boxShadow: "var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.8)",
-          }}
-        >
-          <SlideAspectSelector value={slideKind} onChange={setSlideKind} labels={labels} />
-          <ScreenSizeSelector value={screen} onChange={setScreen} labels={labels} />
-          <AlignSelector value={align} onChange={setAlign} labels={labels} />
-          <BackgroundPicker
-            value={bg}
-            onChange={chooseBackground}
-            onPickImage={pickBackground}
-            busy={bgBusy}
-            labels={labels}
+  // What the zoom enlarges: the picture, or the colour at its picture's size.
+  // Unlike ppt-background's, a plain colour zooms too: the slide pictures lie over it.
+  const colourSize = filledSize(slide, screen);
+  const zoomSrc =
+    shownBg.kind === "image"
+      ? shownBg.url
+      : shownBg.kind === "color"
+        ? { colour: shownBg.color, size: { w: colourSize.width, h: colourSize.height } }
+        : null;
+
+  // The slide settings: ratio, screen, alignment and background in one 2×2
+  // block with the labels beside the tabs, the preview taking all the height
+  // left, then the placement fields.
+  const settings = (
+    <>
+      <div className="grid shrink-0 grid-cols-2 gap-x-4 gap-y-1.5">
+        <SlideAspectSelector value={slideKind} onChange={setSlideKind} labels={labels} />
+        <ScreenSizeSelector value={screen} onChange={setScreen} labels={labels} />
+        <AlignSelector value={align} onChange={setAlign} labels={labels} />
+        <BackgroundRow
+          background={shownBg}
+          ratio={slideAspect}
+          onChange={openBgEditor}
+          onZoom={shownBg.kind === "empty" ? undefined : () => setZoomed("background")}
+          labels={labels}
+        />
+      </div>
+      <PlacementEditor
+        box={box}
+        onBoxChange={setBox}
+        slideW={slide.w}
+        slideH={slide.h}
+        background={shownBg}
+        refImageUrl={shownImageUrl}
+        handleLabels={labels.resizeHandles}
+        align={align}
+        zoom={shownBg.kind === "empty" ? undefined : { label: labels.zoom.zoom, onZoom: () => setZoomed("slide") }}
+        fill={ref}
+        cut={pictureCut}
+        cutNotice={labels.cutNotice}
+        lock={lockSize}
+        guide={guide}
+      />
+      <PlacementControls
+        box={box}
+        onBoxChange={setBox}
+        slideW={slide.w}
+        slideH={slide.h}
+        fill={ref}
+        lock={lockSize}
+        onLockChange={setLockSize}
+        onGuideChange={setGuide}
+        labels={labels}
+      />
+    </>
+  );
+
+  // Two equal halves with a 1 px divider (ppt-background canon): the slide
+  // pictures left; the settings, the progress or the result right. The tray
+  // height lives here, so nothing in it scrolls but the picture grid.
+  const workspace = (
+    <div
+      className="grid"
+      style={{
+        height: "var(--tray-h)",
+        gridTemplateColumns: "minmax(0, 1fr) 1px minmax(0, 1fr)",
+      }}
+    >
+      <div className="relative min-h-0">
+        {/* The slide pictures, or the background editor after "바꾸기". */}
+        <div className={`ob-scroll h-full overflow-y-auto pr-5 ${showEditor ? "hidden" : ""}`}>{pictures}</div>
+        {editorMounted && (
+          <div className={`h-full min-h-0 flex-col gap-2 pr-5 ${showEditor ? "flex" : "hidden"}`}>
+            {/* image-to-pptx's own bar over the shared editor. */}
+            <div className="flex shrink-0 items-center justify-between gap-2">
+              <p className="font-mono text-[11px]" style={{ color: "var(--ink-soft)" }}>
+                {labels.bgLabel}
+              </p>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={cancelBgEditor}
+                  className="subtle-action rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
+                >
+                  {labels.bgCancel}
+                </button>
+                <button
+                  type="button"
+                  onClick={finishBgEditor}
+                  // A pick still on its way (a download, a HEIC conversion) is not a background yet.
+                  disabled={!bgReady}
+                  className="subtle-action rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
+                >
+                  {labels.bgDone}
+                </button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1">
+              <BackgroundEditor
+                editor={editor}
+                locked={status !== "idle"}
+                // A new deck has no theme background for "no background" to mean.
+                noneColour={null}
+                labels={labels.editor}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+      <div style={{ background: "var(--border)" }} />
+      <div className="relative flex min-h-0 flex-col gap-2.5 pl-5">
+        {status === "idle" ? (
+          settings
+        ) : status === "done" && result ? (
+          <ImageToPptxResult result={result} labels={labels} onDownload={download} />
+        ) : (
+          <ProcessingStatus
+            status={status}
+            progress={progress}
+            runLine={runLine}
+            errorMessage={errorMessage}
+            onRetry={retry}
+            onDownload={download}
           />
-          <PlacementEditor
-            box={box}
-            onBoxChange={setBox}
-            slideW={slide.w}
-            slideH={slide.h}
-            background={
-              bg.kind === "color"
-                ? { kind: "color", color: bg.color }
-                : { kind: "image", url: bg.url }
+        )}
+        {zoomed && status === "idle" && zoomSrc && (
+          <PreviewLightbox
+            src={zoomSrc}
+            alt={labels.bgLabel}
+            aspect={String(slideAspect)}
+            crop={shownBg.kind === "image" ? shownBg.crop : null}
+            sourceSize={shownBg.kind === "image" ? shownBg.sourceSize : undefined}
+            live={shownBg.kind === "image" ? editLive : null}
+            finished={filterPreview}
+            busyLabel={editPending || actualPending ? labels.editor.recipeEdit.drawing : null}
+            closeLabel={labels.zoom.close}
+            fullscreenLabels={{ enter: labels.zoom.fullscreen, exit: labels.zoom.exitFullscreen }}
+            onFullscreenChange={setZoomFullscreen}
+            actual={actualUrl}
+            onClose={() => setZoomed(null)}
+            overlay={
+              zoomed === "slide" && shownImageUrl ? (
+                <div className="absolute" style={boxStyle(box, slide.w, slide.h)}>
+                  <PlacedPicture url={shownImageUrl} align={align} />
+                </div>
+              ) : null
             }
-            refImageUrl={refImageUrl}
-            handleLabels={labels.resizeHandles}
-            align={align}
           />
-          <PlacementControls
-            box={box}
-            onBoxChange={setBox}
-            slideW={slide.w}
-            slideH={slide.h}
-            refSize={ref}
-            labels={labels}
-          />
-        </div>
+        )}
       </div>
     </div>
   );
@@ -620,9 +841,9 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
       executeLabel={template(labels.convertTemplate, { n: liveItems.length })}
       processingLabel={labels.processing}
       againLabel={labels.again}
-      onExecute={run}
-      onAgain={retry}
-      executeDisabled={liveItems.length === 0}
+      onExecute={() => void checkThenMake()}
+      onAgain={handleAgain}
+      executeDisabled={liveItems.length === 0 || !bgReady}
     />
   );
 
@@ -651,7 +872,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
           description={labels.uploadHint}
           labels={{ ...labels.fileUpload, maxSize: labels.uploadMaxSize }}
         />
-      ) : status === "idle" ? (
+      ) : (
         <>
           {showOversize && (
             <OversizeNotice
@@ -661,23 +882,17 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
               onDismiss={() => setOversizeDismissed(true)}
             />
           )}
-          {editor}
+          {workspace}
+          <ConfirmDialog
+            open={offSlides !== null}
+            title={labels.offSlide.title}
+            body={template(labels.offSlide.body, { slides: (offSlides ?? []).join(", ") })}
+            confirmLabel={labels.offSlide.confirm}
+            cancelLabel={labels.offSlide.cancel}
+            onConfirm={make}
+            onCancel={() => setOffSlides(null)}
+          />
         </>
-      ) : status === "done" && result ? (
-        <ImageToPptxResult
-          result={result}
-          labels={labels}
-          onDownload={download}
-        />
-      ) : (
-        <ProcessingStatus
-          status={status}
-          progress={progress}
-          runLine={runLine}
-          errorMessage={errorMessage}
-          onRetry={retry}
-          onDownload={download}
-        />
       )}
     </div>
   );

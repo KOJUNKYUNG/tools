@@ -10,10 +10,10 @@ const dataUrl = (bytes: Uint8Array) =>
   `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`;
 
 // Distinct images, so a slide pointing at the wrong one is detectable.
-const IMAGES: PlacedImage[] = [solidPng(1, 1), solidPng(2, 1), solidPng(3, 1)].map((png) => ({
+const IMAGES = [solidPng(1, 1), solidPng(2, 1), solidPng(3, 1)].map((png) => ({
   dataUrl: dataUrl(png),
   placement: { x: 1, y: 1, w: 4, h: 3 },
-}));
+})) satisfies PlacedImage[];
 const COLOR: AssembleOptions = { slideKind: "16:9", screen: "full-hd", background: { kind: "color", color: "FFFFFF" } };
 const IMAGE_BG: AssembleOptions = {
   slideKind: "4:3",
@@ -172,6 +172,49 @@ describe("checkImageToPptx", () => {
         },
       ]);
     }
+  });
+
+  describe("pictures cut at the slide", () => {
+    // A cut picture's part fills the 4:3 slide's left half: 720 × 1080 on Full HD.
+    const HALF = { x: 0, y: 0, w: 5, h: 7.5 };
+    const FOUR_THREE: AssembleOptions = { slideKind: "4:3", screen: "full-hd", background: COLOR.background };
+    const cutPicture = (width: number, height: number, placement = HALF): PlacedImage[] => [
+      { ...onePicture(sized("png", width, height))[0], placement, cut: true },
+    ];
+
+    it("accepts a cut picture holding at most what its rectangle shows on the screen", async () => {
+      const images = cutPicture(720, 1080);
+      expect(await checkImageToPptx(images, FOUR_THREE, await assemblePptxFromPlaced(images, FOUR_THREE), "full")).toEqual([]);
+    });
+
+    it("flags a cut picture holding more than its rectangle shows, at full depth only", async () => {
+      // Within the slide's 1440 × 1080, but twice the half slide's width.
+      const images = cutPicture(1440, 1080);
+      const deck = await assemblePptxFromPlaced(images, FOUR_THREE);
+      expect(await checkImageToPptx(images, FOUR_THREE, deck, "quick")).toEqual([]);
+      expect(await checkImageToPptx(images, FOUR_THREE, deck, "full")).toEqual([
+        { property: "cut-size", detail: "ppt/media/image-1-1.png: 1440 × 1080 shown on 720 × 1080" },
+      ]);
+    });
+
+    it("flags a picture reaching past the slide's edge", async () => {
+      const images = onePicture(sized("png", 40, 30)).map((img) => ({ ...img, placement: { x: -1, y: 1, w: 4, h: 3 } }));
+      const deck = await assemblePptxFromPlaced(images, FOUR_THREE);
+      expect(await checkImageToPptx(images, FOUR_THREE, deck, "full")).toEqual([
+        { property: "slide-bounds", detail: "ppt/slides/slide1.xml: picture at -914400, 914400, 3657600 × 2743200 EMU on a 9144000 × 6858000 slide" },
+      ]);
+    });
+
+    it("accepts a slide left with the background alone when its picture lies wholly off it, and flags a picture there", async () => {
+      const images: PlacedImage[] = [IMAGES[0], { dataUrl: null, placement: { x: -6, y: 0, w: 5, h: 7.5 }, cut: true }];
+      const deck = await assemblePptxFromPlaced(images, FOUR_THREE);
+      expect(await checkImageToPptx(images, FOUR_THREE, deck, "full")).toEqual([]);
+
+      const shown = await assemblePptxFromPlaced([IMAGES[0], IMAGES[1]], FOUR_THREE);
+      expect(await checkImageToPptx(images, FOUR_THREE, shown, "full")).toEqual([
+        { property: "slide-image", detail: "ppt/slides/slide2.xml: shows 1 images, none expected" },
+      ]);
+    });
   });
 
   it("flags a picture over the screen size by the size it shows, not as stored", async () => {

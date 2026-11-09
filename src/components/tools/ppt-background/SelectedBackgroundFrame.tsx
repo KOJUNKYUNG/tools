@@ -4,7 +4,8 @@
 import { CroppedImage } from "@/components/image/CroppedImage";
 import type { CropRect, ImageDims } from "@/lib/image/maxFitCrop";
 import { CornerSpinner } from "@/components/common/CornerSpinner";
-import { LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
+import { FinishedCanvas, LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
+import { ZoomButton } from "@/components/common/ZoomButton";
 
 interface SelectedBackgroundFrameProps {
   caption: string;
@@ -76,7 +77,7 @@ export function SelectedBackgroundFrame({
             </div>
             {filtered ? (
               <>
-                <FilteredCanvas filtered={filtered} />
+                <FinishedCanvas live={filtered} className="pointer-events-none absolute inset-0 size-full" />
                 <ZoomButton label={zoomLabel} onZoom={onZoom} />
               </>
             ) : null}
@@ -95,7 +96,7 @@ export function SelectedBackgroundFrame({
             {live && sourceSize ? (
               <LiveCanvas live={live} crop={crop} sourceSize={sourceSize} className="pointer-events-none absolute inset-0 size-full" />
             ) : null}
-            {filtered ? <FilteredCanvas filtered={filtered} /> : null}
+            {filtered ? <FinishedCanvas live={filtered} className="pointer-events-none absolute inset-0 size-full" /> : null}
             {/* Top left: the zoom button takes the top right on hover. */}
             {busyLabel ? <CornerSpinner label={busyLabel} className="left-1.5 top-1.5" /> : null}
             <ZoomButton label={zoomLabel} onZoom={onZoom} />
@@ -107,34 +108,5 @@ export function SelectedBackgroundFrame({
         )}
       </div>
     </div>
-  );
-}
-
-/** The filtered preview, already cut to the crop: the whole canvas fills the box. */
-function FilteredCanvas({ filtered }: { filtered: LivePicture }) {
-  return (
-    <LiveCanvas
-      live={filtered}
-      sourceSize={{ w: filtered.canvas.width, h: filtered.canvas.height }}
-      className="pointer-events-none absolute inset-0 size-full"
-    />
-  );
-}
-
-/** The zoom button, shown at the top right on hover. */
-function ZoomButton({ label, onZoom }: { label: string; onZoom: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onZoom}
-      aria-label={label}
-      className="absolute right-1.5 top-1.5 hidden size-6 items-center justify-center rounded-[6px] group-hover:flex"
-      style={{ background: "color-mix(in oklch, var(--surface) 85%, transparent)", color: "var(--ink-strong)", backdropFilter: "blur(4px)" }}
-    >
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="10.5" cy="10.5" r="6.5" />
-        <path d="M15.2 15.2 L20 20" />
-      </svg>
-    </button>
   );
 }

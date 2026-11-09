@@ -89,6 +89,32 @@ export function containedSize(picture: PixelSize, slide: SlideSize, screen: Scre
 }
 
 /**
+ * The size a part of a picture cut at the slide's edge is stored at: the
+ * pixels its rectangle covers on the slide's rectangle on the screen (`share`
+ * is that rectangle's fraction of the slide's width and height), keeping the
+ * crop's shape, and never enlarged. Unlike a whole picture's size, which
+ * follows the slide so it can be enlarged in PowerPoint, a cut part cannot be
+ * moved back in, so it holds only what it shows.
+ */
+export function shownPartSize(
+  crop: PixelSize,
+  share: { w: number; h: number },
+  slide: SlideSize,
+  screen: ScreenSize = "4k",
+): PixelSize {
+  const rectangle = filledSize(slide, screen);
+  const scale = Math.min(
+    1,
+    (share.w * rectangle.width) / crop.width,
+    (share.h * rectangle.height) / crop.height,
+  );
+  return {
+    width: Math.max(1, Math.round(crop.width * scale)),
+    height: Math.max(1, Math.round(crop.height * scale)),
+  };
+}
+
+/**
  * Whether a crop is too small to fill a Full HD screen without being
  * enlarged, so it may look blurry there: its long side in the slide's
  * orientation (width, or height for a portrait slide) is under 1920 pixels.
@@ -123,12 +149,13 @@ export type PrepareSizedImage = (
 
 /**
  * What an engine sizing pictures itself needs: a picture's upright size, to
- * work out the crop and the size, then the preparation. Tests and Node stand
- * it in for the canvas.
+ * work out the crop and the size, then the preparation, with an optional
+ * step between the fit and the format (`sizedImagePreparer`). Tests and Node
+ * stand it in for the canvas.
  */
 export interface SizedImagePreparation {
   measure(source: Blob): Promise<PixelSize>;
-  prepare: PrepareSizedImage;
+  prepare(source: Blob, crop: CropRect, size: PixelSize, step?: PrepareStep): Promise<PreparedImage>;
 }
 
 /**
@@ -296,7 +323,8 @@ export function slideImagePreparer(step?: PrepareStep): PrepareSlideImage {
 export const prepareSlideImage: PrepareSlideImage = slideImagePreparer();
 
 /** The shared preparation for an engine that sizes pictures itself. */
+const unstepped = sizedImagePreparer();
 export const sizedImagePreparation: SizedImagePreparation = {
   measure: uprightSize,
-  prepare: sizedImagePreparer(),
+  prepare: (source, crop, size, step) => (step ? sizedImagePreparer(step) : unstepped)(source, crop, size),
 };

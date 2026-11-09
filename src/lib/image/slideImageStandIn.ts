@@ -85,21 +85,23 @@ async function photoFormat(bytes: Uint8Array): Promise<PreparedImage["format"]> 
   return preparedFormat({ alphaUsed, ...PHOTO_ENCODED });
 }
 
-/** The picture a canvas would encode: tagged with its source and cut. */
+/** The picture a canvas would encode: tagged with its source, cut and any step. */
 function encodedStandIn(
   bytes: Uint8Array,
   crop: CropRect,
   size: PixelSize,
   format: PreparedImage["format"],
+  stepped = false,
 ): PreparedImage {
-  const tag = createHash("sha256").update(bytes).update(JSON.stringify(crop)).digest();
+  const tag = createHash("sha256").update(bytes).update(JSON.stringify(crop)).update(stepped ? "stepped" : "").digest();
   return { bytes: headerOnlyImage(format, size, tag), format, ...size };
 }
 
 /**
  * Stands in for `sizedImagePreparation` in Node: the size from the header, the
  * real rule for what goes in as uploaded, and otherwise a header-only image,
- * sized as a photo as `standInPrepare` is. So an opaque PNG taken whole comes
+ * sized as a photo as `standInPrepare` is. A step is handed a stand-in canvas
+ * of the fitted size, and its picture is always encoded. So an opaque PNG taken whole comes
  * out JPEG here; the preparer's own tests cover one JPEG would not halve.
  */
 export const standInSizedPreparation: SizedImagePreparation = {
@@ -109,9 +111,15 @@ export const standInSizedPreparation: SizedImagePreparation = {
     const [width, height] = displayedSize(header);
     return { width, height };
   },
-  async prepare(source, crop, size) {
+  async prepare(source, crop, size, step) {
     const bytes = new Uint8Array(await source.arrayBuffer());
     const format = await photoFormat(bytes);
+    if (step) {
+      // The step changes the pixels, so its picture is always encoded, as the preparer's is.
+      // A stand-in canvas of the fitted size: Node has no OffscreenCanvas, and the steps tests pass read only its size.
+      await step({ width: size.width, height: size.height } as OffscreenCanvas);
+      return encodedStandIn(bytes, crop, size, format, true);
+    }
     if (takenWhole(bytes, crop, size) && readImageHeader(bytes)?.format === format) {
       return { bytes, format, ...size };
     }

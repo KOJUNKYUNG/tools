@@ -1,5 +1,5 @@
 import type { Dictionary } from "@/i18n/config";
-import type { GalleryCategory } from "@/lib/gallery/types";
+import { getBackgroundEditorLabels } from "@/components/background-editor/labels";
 import type { PptBackgroundToolLabels } from "./PptBackgroundTool";
 
 type PptBgPageDict = Dictionary["tools"]["ppt-background"]["page"];
@@ -8,13 +8,6 @@ export function getPptBackgroundLabels(
   dict: Dictionary,
 ): PptBackgroundToolLabels {
   const p: PptBgPageDict = dict.tools["ppt-background"].page;
-
-  const categoryByKey: Record<GalleryCategory, string> = {
-    gradient: p.gallery.categoryGradient,
-    nature: p.gallery.categoryNature,
-    texture: p.gallery.categoryTexture,
-    pattern: p.gallery.categoryPattern,
-  };
 
   return {
     errors: dict.common.errors,
@@ -46,24 +39,7 @@ export function getPptBackgroundLabels(
       },
     },
     background: p.background,
-    editor: {
-      uploadLabel: p.background.uploadLabel,
-      backToGallery: p.background.backToGallery,
-      pixelSize: p.background.pixelSize,
-      pictureAlt: p.preview.selectedCaption,
-      handles: dict.common.resizeHandles,
-      gallery: {
-        heading: p.gallery.heading,
-        countSuffixTemplate: p.gallery.countSuffixTemplate,
-        categoryAll: p.gallery.categoryAll,
-        categoryByKey,
-        empty: p.gallery.empty,
-        titles: p.gallery.titles,
-      },
-      recipeEdit: p.recipeEdit,
-      filters: p.filters,
-      solid: p.solid,
-    },
+    editor: getBackgroundEditorLabels(dict),
     recipeEdit: p.recipeEdit,
     solid: p.solid,
     action: p.action,

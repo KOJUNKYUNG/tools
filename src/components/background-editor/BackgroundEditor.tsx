@@ -60,6 +60,8 @@ export function BackgroundEditor({ editor, locked, noneColour, labels }: Backgro
     pickSize,
     crop,
     setCrop,
+    setFrameSize,
+    restores,
     framing,
     setFraming,
   } = editor;
@@ -125,7 +127,9 @@ export function BackgroundEditor({ editor, locked, noneColour, labels }: Backgro
               sourceSize: pickSize,
               ratio: slideRatio,
               crop,
+              version: restores,
               onCropChange: setCrop,
+              onSourceSize: setFrameSize,
               onBack: () => setFraming(false),
               locked,
               busyLabel: editPending ? labels.recipeEdit.drawing : null,

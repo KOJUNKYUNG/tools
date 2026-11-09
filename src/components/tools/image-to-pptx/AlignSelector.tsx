@@ -16,6 +16,7 @@ export function AlignSelector(props: {
       ]}
       value={props.value}
       onChange={props.onChange}
+      labelBeside
     />
   );
 }

@@ -4,9 +4,11 @@ import { getImageToPptxLabels } from "@/components/tools/image-to-pptx/labels";
 import type { Dictionary } from "@/i18n/config";
 import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
-import { CORRUPT_OUTPUT_PREFIX, getErrorMessage } from "@/lib/errors";
+import { CORRUPT_OUTPUT_PREFIX, getErrorMessage, UserFacingError } from "@/lib/errors";
+import { resolveBackground } from "@/lib/background/resolveBackground";
+import { NO_FILTERS } from "@/lib/image/filterSet";
 import type { CropRect } from "@/lib/image/maxFitCrop";
-import type { SizedImagePreparation } from "@/lib/image/slideImage";
+import type { PrepareStep, SizedImagePreparation } from "@/lib/image/slideImage";
 import { headerOnlyImage, standInSizedPreparation } from "@/lib/image/slideImageStandIn";
 import { testPng } from "@/lib/image/testPng";
 import { readImageHeader } from "@/lib/output-check/imageHeader";
@@ -15,13 +17,14 @@ import { JPEG_3x2, solidPng, withExifOrientation, withJpegSize } from "@/lib/pdf
 import {
   assemblePptxFromPlaced,
   buildPptx,
+  engineBackground,
+  placeSlidePicture,
   prepareBackgroundPicture,
-  prepareSlidePicture,
   type BuildPptxInput,
   type PlacedImage,
 } from "./assemblePptx";
 import * as check from "./imageToPptxCheck";
-import { placedAs } from "./testPlaced";
+import { SLIDE_SIZES } from "./slideSize";
 
 // The real checker by default; one test makes it report a violation.
 vi.mock("./imageToPptxCheck", async (importOriginal) => {
@@ -120,20 +123,26 @@ const headerFile = (format: "png" | "jpeg", width: number, height: number, tag =
   );
 
 /** A deck of one picture, on the stand-in preparation, with what its slide shows. */
-async function deckOf(file: File, overrides: Partial<BuildPptxInput> = {}) {
+async function deckOf(
+  file: File,
+  overrides: Partial<BuildPptxInput> = {},
+  preparation: SizedImagePreparation = standInSizedPreparation,
+) {
+  // The whole slide by default: a box past it would cut the picture.
+  const slide = SLIDE_SIZES[overrides.slideKind ?? "16:9"];
   const input: BuildPptxInput = {
     ...request(WHITE),
     files: [file],
-    box: { x: 0, y: 0, w: 13.333, h: 7.5 },
+    box: { x: 0, y: 0, ...slide },
     ...overrides,
   };
-  const deck = await buildPptx(input, undefined, standInSizedPreparation);
+  const deck = await buildPptx(input, undefined, preparation);
   const pkg = (await openPptxPackage(deck))!;
   const [part] = await pkg.shownImages(pkg.slideParts[0]);
   const bytes = (await pkg.read(part!))!;
   const xml = await (await JSZip.loadAsync(deck)).file(pkg.slideParts[0])!.async("text");
   const [, offX, offY, extX, extY] =
-    /<p:pic>[\s\S]*?<a:off\s+x="(\d+)"\s+y="(\d+)"\s*\/>\s*<a:ext\s+cx="(\d+)"\s+cy="(\d+)"/.exec(xml)!;
+    /<p:pic>[\s\S]*?<a:off\s+x="(-?\d+)"\s+y="(-?\d+)"\s*\/>\s*<a:ext\s+cx="(\d+)"\s+cy="(\d+)"/.exec(xml)!;
   return {
     deck,
     part: part!,
@@ -221,10 +230,106 @@ describe("buildPptx's slide pictures", () => {
     const input = { ...request(WHITE), files };
     const deck = await buildPptx(input, undefined, standInSizedPreparation);
     const pictures = await Promise.all(
-      files.map((f) => prepareSlidePicture(f, input.slideKind, input.screen, standInSizedPreparation)),
+      files.map((f) => placeSlidePicture(f, input.box, input.align, input.slideKind, input.screen, standInSizedPreparation)),
     );
     const opts = { slideKind: input.slideKind, background: WHITE, screen: input.screen };
-    expect(await checkImageToPptx(placedAs(pictures.map((p) => p.dataUrl)), opts, deck, "full")).toEqual([]);
+    expect(await checkImageToPptx(pictures, opts, deck, "full")).toEqual([]);
+  });
+});
+
+describe("buildPptx's slide pictures placed past the slide", () => {
+  /** `deckOf`, also recording the crop each picture was cut to. */
+  async function cutDeckOf(file: File, overrides: Partial<BuildPptxInput>) {
+    const crops: CropRect[] = [];
+    const recording: SizedImagePreparation = {
+      measure: standInSizedPreparation.measure,
+      prepare(source, crop, size, step) {
+        crops.push(crop);
+        return standInSizedPreparation.prepare(source, crop, size, step);
+      },
+    };
+    return { ...(await deckOf(file, overrides, recording)), crops };
+  }
+
+  it("puts a picture enlarged past every edge in as the part on the slide, sized for the screen", async () => {
+    // A 4:3 picture at 150% on a 4:3 slide, centred: a quarter of the extra cut on each side.
+    const { header, placement, crops } = await cutDeckOf(headerFile("jpeg", 4000, 3000), {
+      slideKind: "4:3",
+      box: { x: -2.5, y: -1.875, w: 15, h: 11.25 },
+    });
+    expect(crops).toEqual([{ x: 667, y: 500, width: 2666, height: 2000 }]);
+    expect(header).toMatchObject({ width: 1440, height: 1080 });
+    expect(placement).toEqual([0, 0, 10, 7.5]);
+  });
+
+  it("cuts a box covering a 16:9 slide across only on the sides it passes", async () => {
+    // A 4:3 picture as tall as the slide but 133% of its fill size: 13.333 / 10 → 10 × 7.5 at 133%.
+    const { header, placement, crops } = await cutDeckOf(headerFile("jpeg", 4000, 3000), {
+      box: { x: 0, y: -1.25, w: 13.333, h: 10 },
+      align: "top-left",
+    });
+    // 7.5 of the 10 in tall picture shows: rows 375 to 2625 of 3000; every column.
+    expect(crops).toEqual([{ x: 0, y: 375, width: 4000, height: 2250 }]);
+    expect(header).toMatchObject({ width: 1920, height: 1080 });
+    const [x, y, w, h] = placement;
+    expect(x).toBe(0);
+    expect(y).toBe(0);
+    expect(w).toBeCloseTo(13.333, 3);
+    expect(h).toBeCloseTo(7.5, 3);
+  });
+
+  it("never enlarges the part on the slide", async () => {
+    // A 400 × 300 picture at 300%, centred: its middle third shows, 134 × 100 pixels.
+    const { header, crops } = await cutDeckOf(headerFile("png", 400, 300), {
+      slideKind: "4:3",
+      box: { x: -10, y: -7.5, w: 30, h: 22.5 },
+    });
+    expect(crops).toEqual([{ x: 133, y: 100, width: 134, height: 100 }]);
+    expect(header).toMatchObject({ width: 134, height: 100 });
+  });
+
+  it("cuts a picture of another shape than the box by its own placed rectangle", async () => {
+    // A 3:4 picture in a 150% box of a 4:3 one, centred: as tall as the box, its sides on the slide.
+    const { header, placement, crops } = await cutDeckOf(headerFile("jpeg", 3000, 4000), {
+      slideKind: "4:3",
+      box: { x: -2.5, y: -1.875, w: 15, h: 11.25 },
+    });
+    expect(crops).toEqual([{ x: 0, y: 667, width: 3000, height: 2666 }]);
+    expect(header).toMatchObject({ width: 1215, height: 1080 });
+    expect(placement).toEqual([0.78125, 0, 8.4375, 7.5]);
+  });
+
+  /** A 300% box of a 4:3 picture, top-left aligned, flush with a 4:3 slide's right edge. */
+  const flushRight = (files: File[]): BuildPptxInput => ({
+    ...request(WHITE),
+    files,
+    slideKind: "4:3",
+    align: "top-left",
+    box: { x: -20, y: 0, w: 30, h: 22.5 },
+  });
+
+  it("leaves a slide whose picture lies wholly off it with the background alone", async () => {
+    // A 300% box flush with the slide's right edge; a 3:4 picture at its left falls off the slide.
+    const files = [headerFile("jpeg", 4000, 3000, 1), headerFile("jpeg", 3000, 4000, 2)];
+    const input = flushRight(files);
+    const deck = await buildPptx(input, undefined, standInSizedPreparation);
+    const pkg = (await openPptxPackage(deck))!;
+    expect(pkg.slideParts).toHaveLength(2);
+    expect(await pkg.shownImages(pkg.slideParts[0])).toHaveLength(1);
+    expect(await pkg.shownImages(pkg.slideParts[1])).toHaveLength(0);
+  });
+
+  it("passes the full check with pictures cut and one wholly off the slide", async () => {
+    // In a 300% box flush right: the 4:3 and the wide picture are cut, the 3:4 one falls off.
+    const files = [headerFile("jpeg", 4000, 3000, 1), headerFile("jpeg", 3000, 4000, 2), headerFile("jpeg", 4000, 1000, 3)];
+    const input = flushRight(files);
+    const deck = await buildPptx(input, undefined, standInSizedPreparation);
+    const placedImages = await Promise.all(
+      files.map((f) => placeSlidePicture(f, input.box, input.align, input.slideKind, input.screen, standInSizedPreparation)),
+    );
+    expect(placedImages.map((p) => [p.cut, p.dataUrl !== null])).toEqual([[true, true], [true, false], [true, true]]);
+    const opts = { slideKind: input.slideKind, background: WHITE, screen: input.screen };
+    expect(await checkImageToPptx(placedImages, opts, deck, "full")).toEqual([]);
   });
 });
 
@@ -233,9 +338,9 @@ async function backgroundOf(background: File, overrides: Partial<BuildPptxInput>
   const crops: { name: string; crop: CropRect }[] = [];
   const recording: SizedImagePreparation = {
     measure: standInSizedPreparation.measure,
-    prepare(source, crop, size) {
+    prepare(source, crop, size, step) {
       crops.push({ name: source instanceof File ? source.name : "", crop });
-      return standInSizedPreparation.prepare(source, crop, size);
+      return standInSizedPreparation.prepare(source, crop, size, step);
     },
   };
   const input: BuildPptxInput = { ...request({ kind: "image", file: background }), ...overrides };
@@ -266,6 +371,30 @@ describe("buildPptx's background picture", () => {
     expect(result.header).toMatchObject({ width, height });
   });
 
+  it("takes the crop the user placed instead of the centred one, fitted to Full HD", async () => {
+    const file = named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg");
+    const placed = { x: 1000, y: 100, width: 2560, height: 1440 };
+    const result = await backgroundOf(file, { background: { kind: "image", file, crop: placed } });
+    expect(result.crop).toEqual(placed);
+    expect(result.header).toMatchObject({ width: 1920, height: 1080 });
+  });
+
+  it("takes a placed 4:3 crop on a 4:3 slide, fitted to Full HD", async () => {
+    const file = named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg");
+    const placed = { x: 200, y: 300, width: 2400, height: 1800 };
+    const result = await backgroundOf(file, { slideKind: "4:3", background: { kind: "image", file, crop: placed } });
+    expect(result.crop).toEqual(placed);
+    expect(result.header).toMatchObject({ width: 1440, height: 1080 });
+  });
+
+  it("sizes a placed crop for 4K when the deck asks for it, never enlarging it", async () => {
+    const file = named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg");
+    const big = await backgroundOf(file, { screen: "4k", background: { kind: "image", file, crop: { x: 0, y: 0, width: 4000, height: 2250 } } });
+    expect(big.header).toMatchObject({ width: 3840, height: 2160 });
+    const small = await backgroundOf(file, { screen: "4k", background: { kind: "image", file, crop: { x: 0, y: 0, width: 1600, height: 900 } } });
+    expect(small.header).toMatchObject({ width: 1600, height: 900 });
+  });
+
   it("fits the same crop to 4K when asked", async () => {
     const { header } = await backgroundOf(named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg"), { screen: "4k" });
     expect(header).toMatchObject({ width: 3840, height: 2160 });
@@ -294,6 +423,45 @@ describe("buildPptx's background picture", () => {
     expect(parts).toEqual(["ppt/media/ONTAB_BG-image-1.png"]);
   });
 
+  /** A preparation step that records the size of each picture it is handed. */
+  function recordingStep() {
+    const sizes: { width: number; height: number }[] = [];
+    const step: PrepareStep = (fitted) => {
+      sizes.push({ width: fitted.width, height: fitted.height });
+      return fitted;
+    };
+    return { step, sizes };
+  }
+
+  it.each([
+    ["full-hd", 1920, 1080],
+    ["4k", 3840, 2160],
+  ] as const)("hands the background's step the picture fitted to the deck's %s screen", async (screen, width, height) => {
+    const file = named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg");
+    const { step, sizes } = recordingStep();
+    const { header } = await backgroundOf(file, { screen, background: { kind: "image", file, step } });
+    expect(sizes).toEqual([{ width, height }]);
+    expect(header).toMatchObject({ width, height });
+  });
+
+  it("encodes a stepped background that would go in as uploaded, rather than putting the upload in", async () => {
+    const file = named(headerFile("jpeg", 1600, 900, 9), "bg.jpeg");
+    const { step, sizes } = recordingStep();
+    const { bytes, header } = await backgroundOf(file, { background: { kind: "image", file, step } });
+    expect(sizes).toEqual([{ width: 1600, height: 900 }]);
+    expect(bytes).not.toEqual(new Uint8Array(await file.arrayBuffer()));
+    expect(header).toMatchObject({ format: "jpeg", width: 1600, height: 900 });
+  });
+
+  it("runs the step on the background only, never on the slide pictures", async () => {
+    const file = named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg");
+    const { step, sizes } = recordingStep();
+    const files = [1, 2, 3].map((tag) => headerFile("jpeg", 800, 600, tag));
+    const { media } = await backgroundOf(file, { files, background: { kind: "image", file, step } });
+    expect(sizes).toHaveLength(1);
+    expect(media).toHaveLength(files.length + 1);
+  });
+
   it("stores the prepared background once, however many slides the engine makes", async () => {
     const files = [1, 2, 3, 4].map((tag) => headerFile("jpeg", 800, 600, tag));
     const { media, parts } = await backgroundOf(named(headerFile("jpeg", 4032, 3024, 9), "bg.jpeg"), { files });
@@ -306,6 +474,14 @@ describe("buildPptx", () => {
   it.each([
     ["a color background", { kind: "color", color: "FFFFFF" } as const],
     ["an image background", { kind: "image", file: pngFile("bg.png", 16, 9) } as const],
+    [
+      "an image background with a placed crop",
+      { kind: "image", file: pngFile("bg.png", 40, 30), crop: { x: 8, y: 4, width: 32, height: 18 } } as const,
+    ],
+    [
+      "an image background with a preparation step",
+      { kind: "image", file: pngFile("bg.png", 16, 9), step: (fitted: OffscreenCanvas) => fitted } as const,
+    ],
   ])("builds a deck on %s that passes the full check", async (_label, background) => {
     const progress: number[] = [];
     const deck = await buildPptx(request(background), (pct) => progress.push(pct), standInSizedPreparation);
@@ -325,13 +501,70 @@ describe("buildPptx", () => {
           ? background
           : {
               kind: "image" as const,
-              dataUrl: await prepareBackgroundPicture(background.file, "16:9", "full-hd", standInSizedPreparation),
+              dataUrl: await prepareBackgroundPicture(
+                background.file,
+                "16:9",
+                "full-hd",
+                standInSizedPreparation,
+                "crop" in background ? background.crop : undefined,
+                "step" in background ? background.step : undefined,
+              ),
             },
     };
     const pictures = await Promise.all(
-      FILES.map((f) => prepareSlidePicture(f, "16:9", "full-hd", standInSizedPreparation)),
+      FILES.map((f) => placeSlidePicture(f, request(WHITE).box, "center", "16:9", "full-hd", standInSizedPreparation)),
     );
-    expect(await checkImageToPptx(placedAs(pictures.map((p) => p.dataUrl)), opts, deck, "full")).toEqual([]);
+    expect(await checkImageToPptx(pictures, opts, deck, "full")).toEqual([]);
+  });
+
+  it("puts a solid colour with grain in as a picture of the colour, through its solid step, and passes the full check", async () => {
+    const solid = new File([Buffer.from(headerOnlyImage("png", { width: 3840, height: 2160 }, new Uint8Array([5])))], "solid-336699.png", {
+      type: "image/png",
+    });
+    const solidSizes: number[][] = [];
+    const resolved = await resolveBackground(
+      { fill: { kind: "colour", rgb: "336699" }, file: null, crop: null, edited: null, filters: { ...NO_FILTERS, grain: 0.2 } },
+      {
+        drawEdited: () => Promise.reject(new Error("no recipe here")),
+        solidPicture: async () => solid,
+        step: (kind) =>
+          kind === "solid"
+            ? (fitted) => {
+                solidSizes.push([fitted.width, fitted.height]);
+                return fitted;
+              }
+            : undefined,
+      },
+    );
+    const input = request(engineBackground(resolved));
+    const deck = await buildPptx(input, undefined, standInSizedPreparation);
+
+    const zip = await JSZip.loadAsync(deck);
+    expect(backgroundParts(zip)).toHaveLength(1);
+    expect(solidSizes).toEqual([[1920, 1080]]);
+    expect(input.background.kind).toBe("image");
+    const background = input.background.kind === "image" ? input.background : null;
+    const options = {
+      slideKind: "16:9" as const,
+      screen: "full-hd" as const,
+      background: {
+        kind: "image" as const,
+        dataUrl: await prepareBackgroundPicture(solid, "16:9", "full-hd", standInSizedPreparation, undefined, background!.step),
+      },
+    };
+    const pictures = await Promise.all(FILES.map((f) => placeSlidePicture(f, input.box, input.align, "16:9", "full-hd", standInSizedPreparation)));
+    expect(await checkImageToPptx(pictures, options, deck, "full")).toEqual([]);
+  });
+
+  it("keeps a solid colour without picture effects a colour fill", () => {
+    expect(engineBackground({ kind: "fill", fill: { kind: "colour", rgb: "808080" } })).toEqual({ kind: "color", color: "808080" });
+  });
+
+  it("stops with a failing step's error rather than making a deck without it", async () => {
+    const failure = new UserFacingError("the effect could not be drawn");
+    const step: PrepareStep = () => Promise.reject(failure);
+    const run = buildPptx(request({ kind: "image", file: pngFile("bg.png", 16, 9), step }), undefined, standInSizedPreparation);
+    await expect(run).rejects.toBe(failure);
   });
 
   it("blocks a failing quick check with the corrupt-output error and image-to-pptx's hint", async () => {

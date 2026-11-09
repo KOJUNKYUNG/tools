@@ -84,6 +84,59 @@ function offAspect(part: string, bytes: Uint8Array | null, slideKind: SlideKind)
   return `${part}: ${width} × ${height} on a ${slideKind} slide`;
 }
 
+/** A rectangle in EMU, as `<a:off>` and `<a:ext>` hold it. */
+interface Frame { x: number; y: number; w: number; h: number; }
+
+/** EMU a frame may pass the slide's edge by: pptxgenjs rounds its offset and extent apart. */
+const EDGE_EMU = 2;
+
+/** The deck's `<p:sldSz>` in EMU, or null when absent or unreadable. */
+async function slideSizeEmu(pkg: PptxPackage): Promise<{ w: number; h: number } | null> {
+  const tag = (await pkg.text("ppt/presentation.xml"))?.match(/<p:sldSz\b[^>]*>/)?.[0] ?? "";
+  const attr = (name: string) => Number(tag.match(new RegExp(`\\b${name}="(\\d+)"`))?.[1]);
+  const w = attr("cx");
+  const h = attr("cy");
+  return w > 0 && h > 0 ? { w, h } : null;
+}
+
+/** The frame of the slide's (only) picture, or null when it has none readable. */
+async function pictureFrame(pkg: PptxPackage, slide: string): Promise<Frame | null> {
+  const pic = (await pkg.text(slide))?.match(/<p:pic>[\s\S]*?<\/p:pic>/)?.[0] ?? "";
+  const off = pic.match(/<a:off\s+x="(-?\d+)"\s+y="(-?\d+)"/);
+  const ext = pic.match(/<a:ext\s+cx="(\d+)"\s+cy="(\d+)"/);
+  if (!off || !ext) return null;
+  return { x: Number(off[1]), y: Number(off[2]), w: Number(ext[1]), h: Number(ext[2]) };
+}
+
+/**
+ * Why `frame` reaches past the slide, or null when it lies within it. Read
+ * from the deck's own XML in EMU rather than through the engine's
+ * `reachesPastSlide`, so the check stays a second, independent reading.
+ */
+function pastSlide(slide: string, frame: Frame, size: { w: number; h: number }): string | null {
+  const within =
+    frame.x >= -EDGE_EMU &&
+    frame.y >= -EDGE_EMU &&
+    frame.x + frame.w <= size.w + EDGE_EMU &&
+    frame.y + frame.h <= size.h + EDGE_EMU;
+  if (within) return null;
+  return `${slide}: picture at ${frame.x}, ${frame.y}, ${frame.w} × ${frame.h} EMU on a ${size.w} × ${size.h} slide`;
+}
+
+/**
+ * Why a cut picture holds more pixels than its frame shows on the slide's
+ * rectangle on the screen, or null when it does not: a pixel's rounding allowed.
+ */
+function overShown(part: string, bytes: Uint8Array | null, frame: Frame, size: { w: number; h: number }, slideOnScreen: PixelSize): string | null {
+  const shown = shownSize(bytes);
+  if (!shown) return null;
+  const [width, height] = shown;
+  const frameW = (frame.w / size.w) * slideOnScreen.width;
+  const frameH = (frame.h / size.h) * slideOnScreen.height;
+  if (width <= frameW + 1 && height <= frameH + 1) return null;
+  return `${part}: ${width} × ${height} shown on ${Math.round(frameW)} × ${Math.round(frameH)}`;
+}
+
 /**
  * Package overhead pptxgenjs adds besides the images: about 41 KB for an
  * empty deck plus 5 KB per slide (slide, notes and their relationships),
@@ -102,7 +155,12 @@ const SLIDE_OVERHEAD = 8 * 1024;
  *   parts, well-formed XML, `[Content_Types]` coverage, relationship targets
  * - ⚡ `slide-count`: one slide per image
  * - `slide-image`: slide N shows exactly one image, the N-th image as
- *   embedded (byte-identical to the prepared data the engine placed)
+ *   embedded (byte-identical to the prepared data the engine placed), or
+ *   none when that picture lay wholly off the slide
+ * - `slide-bounds`: every slide picture lies within the slide, since what
+ *   reaches past it is cut off when the deck is made (CONTEXT "Placement")
+ * - `cut-size`: a picture cut at the slide's edge holds no more pixels than
+ *   its rectangle shows on the slide's rectangle on the deck's screen
  * - `slide-image-header`: each slide picture's bytes are the format its
  *   part's extension names, since formats mix within a deck
  * - `screen-size`: no embedded picture, background included, holds more
@@ -135,20 +193,29 @@ export const checkImageToPptx: OutputChecker<PlacedImage[], AssembleOptions, Uin
     }
     if (depth === "quick") return violations;
 
-    const embedded = images.map((img) => dataUrlBytes(img.dataUrl));
+    const embedded = images.map((img) => (img.dataUrl === null ? null : dataUrlBytes(img.dataUrl)));
     const backgroundImage = background.kind === "image" ? dataUrlBytes(background.dataUrl) : null;
     const count = Math.min(images.length, pkg.slideParts.length);
     const slideOnScreen = filledSize(SLIDE_SIZES[slideKind], screen);
+    const slideEmu = await slideSizeEmu(pkg);
     for (let i = 0; i < count; i++) {
       const slide = pkg.slideParts[i];
       const shown = await pkg.shownImages(slide);
+      const expected = embedded[i];
+      if (expected === null) {
+        // Its picture lay wholly off the slide: the background alone shows.
+        if (shown.length !== 0) {
+          violations.push({ property: "slide-image", detail: `${slide}: shows ${shown.length} images, none expected` });
+        }
+        continue;
+      }
       if (shown.length !== 1) {
         violations.push({ property: "slide-image", detail: `${slide}: shows ${shown.length} images` });
         continue;
       }
       const part = shown[0];
       const bytes = part === null ? null : await pkg.read(part);
-      if (part === null || !sameBytes(bytes, embedded[i])) {
+      if (part === null || !sameBytes(bytes, expected)) {
         violations.push({
           property: "slide-image",
           detail: `${slide}: shows ${part ?? "an external image"}, not image ${i + 1}`,
@@ -159,6 +226,13 @@ export const checkImageToPptx: OutputChecker<PlacedImage[], AssembleOptions, Uin
       if (mismatch) violations.push({ property: "slide-image-header", detail: mismatch });
       const over = overScreen(part, bytes, slideOnScreen);
       if (over) violations.push({ property: "screen-size", detail: over });
+      const frame = await pictureFrame(pkg, slide);
+      if (frame && slideEmu) {
+        const past = pastSlide(slide, frame, slideEmu);
+        if (past) violations.push({ property: "slide-bounds", detail: past });
+        const overCut = images[i].cut ? overShown(part, bytes, frame, slideEmu, slideOnScreen) : null;
+        if (overCut) violations.push({ property: "cut-size", detail: overCut });
+      }
     }
 
     if (backgroundImage !== null) {
@@ -186,7 +260,7 @@ export const checkImageToPptx: OutputChecker<PlacedImage[], AssembleOptions, Uin
     }
 
     const imageBytes =
-      embedded.reduce((sum, b) => sum + b.byteLength, 0) + (backgroundImage?.byteLength ?? 0);
+      embedded.reduce((sum, b) => sum + (b?.byteLength ?? 0), 0) + (backgroundImage?.byteLength ?? 0);
     const bound =
       imageBytes * 1.01 + BASE_OVERHEAD + SLIDE_OVERHEAD * Math.max(images.length, 1);
     if (output.byteLength > bound) {

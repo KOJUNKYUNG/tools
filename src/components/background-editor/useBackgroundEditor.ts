@@ -7,8 +7,8 @@ import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { getErrorMessage, UserFacingError } from "@/lib/errors";
 import { normalizeImageFile } from "@/lib/image/heic";
-import type { CropRect } from "@/lib/image/maxFitCrop";
-import type { PrepareStep } from "@/lib/image/slideImage";
+import { cropForRatio, type CropRect, type ImageDims } from "@/lib/image/maxFitCrop";
+import type { PrepareStep, ScreenSize, SlideSize } from "@/lib/image/slideImage";
 import { filtersAfter, filtersFor, NO_FILTERS, type BackgroundKind, type FilterSet } from "@/lib/image/filterSet";
 import { filterStep } from "@/lib/image/filterCanvas";
 import type { GalleryImage } from "@/lib/gallery/types";
@@ -27,12 +27,19 @@ import {
 } from "@/lib/gallery/recipeEdit";
 import { drawRecipeFile } from "@/lib/gallery/drawRecipe";
 import { LostContextError, webgl2Available } from "@/lib/gallery/paperRuntime";
-import { galleryImageFile } from "@/lib/background/backgroundFiles";
+import { galleryImageFile, solidPictureFile } from "@/lib/background/backgroundFiles";
+import { resolveBackground, type RunBackground } from "@/lib/background/resolveBackground";
 import type { FillBackground } from "@/lib/ppt/changeBackground";
 import type { NeedsScreen } from "@/lib/runPresence";
 import type { Dictionary } from "@/i18n/config";
 import { useRecipePreview } from "./useRecipePreview";
 import { useFilterPreview } from "./useFilterPreview";
+
+/**
+ * The share of the gauge an edited pick's 4K drawing takes (measured
+ * 2026-10-29: 0.2-0.25 s of a 0.7-1 s run on a laptop iGPU).
+ */
+const DRAWING_SHARE = 15;
 
 export interface BackgroundEditorCopy {
   /** Shared error copy (`common.errors`), in the page's language. */
@@ -49,9 +56,19 @@ export interface BackgroundEditorCopy {
  *
  * The rules: a new pick resets the crop and drops the recipe edit, the
  * filters stay; `again` (다시 하기) keeps everything; `reset` (new input
- * file) drops the pick and the filters.
+ * file) drops the pick and the filters. A change of the slide's shape
+ * carries the crop over, keeping its centre and zoom (`cropForRatio`).
  */
-export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; copy: BackgroundEditorCopy }) {
+export function useBackgroundEditor({
+  slideRatio,
+  copy,
+  initialFill = null,
+}: {
+  slideRatio: number;
+  copy: BackgroundEditorCopy;
+  /** The background before the user picks one, e.g. a white fill for a new deck. */
+  initialFill?: FillBackground | null;
+}) {
   const [bgFiles, setBgFiles] = useState<File[]>([]);
   const [galleryImage, setGalleryImage] = useState<GalleryImage | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -59,10 +76,16 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
   const [normalizing, setNormalizing] = useState(false);
   /** The Background crop the frame holds, in the picture's upright pixels. */
   const [crop, setCrop] = useState<CropRect | null>(null);
+  /** The size the frame holds the crop in, as it reports it (an upload's is known only once it loads). */
+  const [frameSize, setFrameSize] = useState<ImageDims | null>(null);
+  /** The slide shape the crop was last set for. */
+  const [cropRatio, setCropRatio] = useState(slideRatio);
+  /** Counts `restore`s: a frame showing the same picture starts again from the restored crop. */
+  const [restores, setRestores] = useState(0);
   /** The left pane shows the frame over the picked picture instead of the gallery. */
   const [framing, setFraming] = useState(false);
   /** A picked solid colour or "no background", in place of a picture. */
-  const [fill, setFill] = useState<FillBackground | null>(null);
+  const [fill, setFill] = useState<FillBackground | null>(initialFill);
   /** The recipe edit of the picked Paper gallery item, and whether its area is open. */
   const [editState, setEditState] = useState<EditState>(FRESH_EDIT_STATE);
   /** The filter set laid over the background, kept across picks (CONTEXT "Filter set"). */
@@ -105,19 +128,22 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
   // Each background pick takes a number; a slow pick (a gallery download, a
   // HEIC conversion) that finishes after a newer pick or a reset is dropped.
   const pickRef = useRef(0);
+  // The background held by `hold`, and its preview URL, kept alive for `restore`.
+  const heldRef = useRef<HeldBackground | null>(null);
+  const heldUrlRef = useRef<string | null>(null);
 
-  /** Show `url` as the selected background, releasing the previous blob URL. */
+  /** Show `url` as the selected background, releasing the previous blob URL unless it is held. */
   const showPreview = useCallback((url: string | null) => {
     const prev = previewUrlRef.current;
-    if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+    if (prev !== url && prev !== heldUrlRef.current) revokeBlob(prev);
     previewUrlRef.current = url;
     setPreviewUrl(url);
   }, []);
 
   useEffect(() => {
     return () => {
-      const preview = previewUrlRef.current;
-      if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+      revokeBlob(previewUrlRef.current);
+      if (heldUrlRef.current !== previewUrlRef.current) revokeBlob(heldUrlRef.current);
     };
   }, []);
 
@@ -129,6 +155,7 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
     setGalleryImage(null);
     showPreview(null);
     setCrop(null);
+    setFrameSize(null);
     setFraming(false);
     setFill(null);
     setEditState((s) => editStateAfter(s, "pick"));
@@ -171,6 +198,7 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
       // picture and its frame must not meet the new thumbnail.
       setBgFiles([]);
       setCrop(null);
+      setFrameSize(null);
       setFraming(false);
       showPreview(image.thumbnailUrl);
       try {
@@ -222,6 +250,7 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
       setEditState((s) => editStateAfter(s, "pick"));
       setFilters((f) => filtersAfter(f, "pick"));
       setCrop(null);
+      setFrameSize(null);
       showPreview(URL.createObjectURL(file));
       setFraming(true);
     },
@@ -248,6 +277,50 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
 
   /** Open or close the edit area. */
   const setEditOpen = useCallback((open: boolean) => setEditState((s) => ({ ...s, open })), []);
+
+  /**
+   * Hold the background as it stands, to come back to with `restore` (a
+   * tool's cancel, "취소"); its preview stays loadable until `restore` or
+   * `release`.
+   */
+  const hold = useCallback(() => {
+    heldUrlRef.current = previewUrl;
+    heldRef.current = { bgFiles, galleryImage, previewUrl, fill, crop, frameSize, ratio: slideRatio, framing, editState, filters };
+  }, [bgFiles, galleryImage, previewUrl, fill, crop, frameSize, slideRatio, framing, editState, filters]);
+
+  /** Back to the held background, including one held before the slide changed shape. */
+  const restore = useCallback(
+    () => {
+      const held = heldRef.current;
+      heldRef.current = null;
+      if (!held) return;
+      // A pick still downloading or converting is dropped.
+      pickRef.current++;
+      setNormalizing(false);
+      setBgFiles(held.bgFiles);
+      setGalleryImage(held.galleryImage);
+      setFill(held.fill);
+      const size = cropSourceOf(held.galleryImage, held.frameSize);
+      setCrop(held.crop && size && held.ratio !== slideRatio ? cropForRatio(held.crop, size, slideRatio) : held.crop);
+      setFrameSize(held.frameSize);
+      setCropRatio(slideRatio);
+      setFraming(held.framing);
+      setEditState(held.editState);
+      setFilters(held.filters);
+      setRestores((n) => n + 1);
+      heldUrlRef.current = null;
+      showPreview(held.previewUrl);
+    },
+    [slideRatio, showPreview],
+  );
+
+  /** Keep the background as it stands: the held one is let go. */
+  const release = useCallback(() => {
+    heldRef.current = null;
+    const held = heldUrlRef.current;
+    heldUrlRef.current = null;
+    if (held !== previewUrlRef.current) revokeBlob(held);
+  }, []);
 
   /** 다시 하기: back to the settings with everything kept, the frame open to tweak again. */
   const again = useCallback(() => {
@@ -285,7 +358,7 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
    * unfiltered picture never stands in for the filters.
    */
   const filteredStep = useCallback(
-    (set: FilterSet, kind: BackgroundKind, needsScreen: NeedsScreen): PrepareStep | undefined => {
+    (set: FilterSet, kind: BackgroundKind, needsScreen?: NeedsScreen): PrepareStep | undefined => {
       const step = filterStep(set, kind, needsScreen);
       if (!step) return undefined;
       return async (fitted) => {
@@ -298,6 +371,43 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
       };
     },
     [drawFailureCopy, errors.filterDrawFailed],
+  );
+
+  /**
+   * The background a run puts in its deck, as `resolveBackground` makes it
+   * from the pick, drawn with the run's `needsScreen` (none for a picture
+   * made outside a run, such as the full screen's). An edited pick's drawing
+   * is the gauge's first share, so the gauge moves from the click on; the
+   * returned `onProgress` takes the engine's 0-100 into the rest.
+   */
+  const resolveForRun = useCallback(
+    async ({
+      slide,
+      screen,
+      needsScreen,
+      onProgress,
+    }: {
+      slide: SlideSize;
+      /** The deck's screen size, which a solid colour's picture is drawn for; 4K when absent. */
+      screen?: ScreenSize;
+      needsScreen?: NeedsScreen;
+      onProgress?: (pct: number) => void;
+    }): Promise<{ background: RunBackground; onProgress: (pct: number) => void }> => {
+      const drawing = !fill && !!editedProps;
+      if (drawing) onProgress?.(DRAWING_SHARE / 3);
+      const background = await resolveBackground(
+        { fill, file: bgFile, crop, edited: editedProps, filters },
+        {
+          drawEdited: (props) => (needsScreen ? needsScreen(() => drawEdited(props)) : drawEdited(props)),
+          solidPicture: (rgb) => solidPictureFile(rgb, slide, screen),
+          step: (kind) => filteredStep(filters, kind, needsScreen),
+        },
+      );
+      if (drawing) onProgress?.(DRAWING_SHARE);
+      const shown = (pct: number) => onProgress?.(drawing ? DRAWING_SHARE + (pct * (100 - DRAWING_SHARE)) / 100 : pct);
+      return { background, onProgress: shown };
+    },
+    [fill, editedProps, bgFile, crop, filters, drawEdited, filteredStep],
   );
 
   // The live preview of an edit stands in for the gallery file wherever the
@@ -315,9 +425,19 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
     () => (galleryImage ? { w: galleryImage.width, h: galleryImage.height } : undefined),
     [galleryImage],
   );
+  /** The size the crop is held in. */
+  const cropSource = cropSourceOf(galleryImage, frameSize);
+  // A new slide shape carries the crop over, set before anything renders with
+  // it, so the frame (shown or not) and the run read the carried crop.
+  if (cropRatio !== slideRatio) {
+    setCropRatio(slideRatio);
+    if (crop && cropSource) setCrop(cropForRatio(crop, cropSource, slideRatio));
+  }
   const backgroundKind: BackgroundKind = !fill ? "picture" : fill.kind === "colour" ? "solid" : "none";
-  // Read once a picture or a fill is in hand (it touches the DOM, absent while the page is served).
-  const offeredFilters = bgFile || fill ? filtersFor(backgroundKind, webgl2Available()) : null;
+  // Read once a picture or a fill is in hand, and never while the page is
+  // served (it touches the DOM): a tool may start from a fill (`initialFill`).
+  const offeredFilters =
+    (bgFile || fill) && typeof document !== "undefined" ? filtersFor(backgroundKind, webgl2Available()) : null;
   /** The selected-background preview with the filters baked in; null while unfiltered. */
   const filterPreview = useFilterPreview({
     filters,
@@ -347,6 +467,9 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
     // The crop frame
     crop,
     setCrop,
+    cropSource,
+    setFrameSize,
+    restores,
     framing,
     setFraming,
     // The recipe edit
@@ -373,10 +496,36 @@ export function useBackgroundEditor({ slideRatio, copy }: { slideRatio: number; 
     selectFill,
     reset,
     again,
-    // The run's drawing steps
-    drawEdited,
-    filteredStep,
+    hold,
+    restore,
+    release,
+    // The run's background
+    resolveForRun,
   };
 }
 
 export type BackgroundEditorState = ReturnType<typeof useBackgroundEditor>;
+
+/** The size a crop is held in: the gallery pick's own, or else the size the frame measured. */
+function cropSourceOf(galleryImage: GalleryImage | null, frameSize: ImageDims | null): ImageDims | null {
+  return galleryImage ? { w: galleryImage.width, h: galleryImage.height } : frameSize;
+}
+
+/** A background held to come back to (`hold` / `restore`). */
+interface HeldBackground {
+  bgFiles: File[];
+  galleryImage: GalleryImage | null;
+  previewUrl: string | null;
+  fill: FillBackground | null;
+  crop: CropRect | null;
+  frameSize: ImageDims | null;
+  /** The slide shape `crop` was set for. */
+  ratio: number;
+  framing: boolean;
+  editState: EditState;
+  filters: FilterSet;
+}
+
+function revokeBlob(url: string | null): void {
+  if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
+}

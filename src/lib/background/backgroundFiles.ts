@@ -1,5 +1,5 @@
 import type { GalleryImage } from "@/lib/gallery/types";
-import { filledSize, type SlideSize } from "@/lib/image/slideImage";
+import { filledSize, type ScreenSize, type SlideSize } from "@/lib/image/slideImage";
 
 /**
  * A gallery image as the file the preparer starts from, fetched from the
@@ -16,11 +16,12 @@ export async function galleryImageFile(image: GalleryImage): Promise<File> {
 
 /**
  * A solid colour as the picture its filters are baked into: the colour at
- * the size a picture of the slide's aspect is stored at, as a PNG (a flat
- * colour is a few KB), handed to the engine as an ordinary picture.
+ * the size a picture of the slide's aspect is stored at on `screen` (4K
+ * unless the deck asks for less), as a PNG (a flat colour is a few KB),
+ * handed to the engine as an ordinary picture.
  */
-export async function solidPictureFile(rgb: string, slide: SlideSize): Promise<File> {
-  const { width, height } = filledSize(slide);
+export async function solidPictureFile(rgb: string, slide: SlideSize, screen: ScreenSize = "4k"): Promise<File> {
+  const { width, height } = filledSize(slide, screen);
   const canvas = new OffscreenCanvas(width, height);
   try {
     const ctx = canvas.getContext("2d");
