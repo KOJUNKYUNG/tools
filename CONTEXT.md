@@ -139,17 +139,31 @@ _Avoid_: "X / Y" as labels (users read them as nothing; say "from the left"
 and "from the top"); cm or pixels (slide sizes differ between 16:9 and 4:3,
 and pixels depend on the screen size).
 
+### Background graphics
+The elements of a slide's master and layout that show on the slide, under the
+slide's own elements: everything in them but placeholders (which are only
+frames for the slide to fill), unless the slide or its layout hides them
+(PowerPoint's "Hide background graphics", 배경 그래픽 숨기기). A logo, a
+decorative band or a full-slide picture placed on the master are background
+graphics. Hiding them on a slide hides all of them at once; PowerPoint has no
+way to hide one.
+_Avoid_: "master shapes" (the layout's count too).
+
 ### Covering background
 An element lying at the bottom of a slide's stack, under the slide's content,
 that acts as the slide's background and hides or tints the real one, so a new
-background would not show as chosen. It is a top-level element with no text
+background would not show as chosen. A slide's stack is its background
+graphics (master's, then layout's), then its own elements; a covering
+background may lie in any of them, and one in the master or a layout covers
+every slide that shows it. It is a top-level element with no text
 whose bounds cover at least 90% of the slide and which either holds a picture
 (a picture, a shape filled with a picture, or a group containing one) or is
 filled opaquely (a solid or gradient fill with no transparency, or a pattern
 fill, often a plain rectangle laid under everything; a shape without its own
 fill takes the one its style reference names in the theme). Elements qualify
 upwards from the bottom while consecutive ones do, and only with at least one
-element above them. Hidden elements show nothing and are passed over. A slide
+element above them (a master or layout holds no content, so one there needs
+none). Hidden elements show nothing and are passed over. A slide
 whose only element is one large picture holds content (a sheet-music slide
 from image-to-pptx, a lyrics image); a translucent overlay that darkens a
 photo for legible lyrics, a filled box holding text, a large element higher in
@@ -159,9 +173,29 @@ tools often carry one as a picture-filled shape or a group, and a picture may
 be mostly transparent (soft colour blobs), so a picture's transparency does
 not tell it from content. ppt-background deletes covering backgrounds on the
 slides it changes unless the user keeps one (sheet music caught by the rule);
-the user keeps the original file.
+the user keeps the original file. One in the master or a layout is deleted
+there when every slide showing it changes (master mode always); when only some
+do, those slides hide their background graphics instead, and ppt-background
+says so when other background graphics that show something go with it.
+Background graphics that are not covering backgrounds (a logo) stay.
 _Avoid_: "covering picture" (it need not be a picture); "individual
 background" — that is a slide's own background.
+
+### Background piece
+An element the user picks in ppt-background to be deleted with the old
+background, when the rule leaves part of it behind: a background built from
+several smaller elements (colour blobs, a band, a frame), none of which covers
+90% of the slide. Any element without text that shows something and takes at
+least 5% of the slide can be picked, wherever it lies in the slide's stack,
+background graphics included; smaller ones (icons, lines) cannot. A group is
+one piece, as the slide's selection pane shows it. None is
+picked by default, so the tool behaves as the rule says unless the user asks
+for more. Picking one picks the same element (the same picture, or the same
+fill at the same place and size) on every slide that has it, and it goes from
+the slides that change, as a covering background would (one in the background
+graphics follows the same rule).
+_Avoid_: "decoration" (a piece may be content the user wants gone); "covering
+background" for a piece (the rule never finds it).
 
 ### Visible background
 What a viewer sees behind a slide's content: the first of its covering
