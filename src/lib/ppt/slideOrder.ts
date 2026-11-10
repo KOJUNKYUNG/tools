@@ -30,6 +30,12 @@ export function inFileOrder(parts: readonly string[]): string[] {
   return [...parts].sort((a, b) => trailingNumber(a) - trailingNumber(b));
 }
 
+/** The XML parts directly under `dir` among a package's `parts`, by their trailing file number. */
+export function partsUnder(parts: readonly string[], dir: string): string[] {
+  const pattern = new RegExp(`^${dir}/[^/]+\\.xml$`);
+  return inFileOrder(parts.filter((p) => pattern.test(p)));
+}
+
 /** The relationship ids the slide list names, in order; null when the deck has no list. */
 function listedIds(presentationXml: string): string[] | null {
   const list = presentationXml.match(/<(?:\w+:)?sldIdLst\b[^>]*>([\s\S]*?)<\/(?:\w+:)?sldIdLst>/)?.[1];

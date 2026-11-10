@@ -20,11 +20,8 @@ const deck = (slideList?: TestDeckOptions["slideList"]) =>
   );
 
 const NAVY = "1F2A44";
-const thirdSlide: PptBackgroundRequest = {
-  background: { kind: "colour", rgb: NAVY },
-  mode: "specific-slides",
-  targetSlides: [3],
-};
+const navy: FillBackground = { kind: "colour", rgb: NAVY };
+const thirdSlide: PptBackgroundRequest = { background: navy, mode: "specific-slides", targetSlides: [3] };
 
 /** The input with one slide painted navy, everything else byte-for-byte. */
 async function paint(input: Uint8Array, part: string): Promise<Uint8Array> {
@@ -34,14 +31,14 @@ async function paint(input: Uint8Array, part: string): Promise<Uint8Array> {
   return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 }
 
-const properties = async (input: Uint8Array, output: Uint8Array) =>
+const violations = async (input: Uint8Array, output: Uint8Array) =>
   (await checkPptBackground(input, thirdSlide, output, "full")).map((v) => `${v.property} ${v.detail}`);
 
-/** The slide parts whose XML the engine changed, choosing slides 3. */
+/** The slide parts whose XML the engine changed, choosing slide 3. */
 async function changedSlides(input: Uint8Array): Promise<string[]> {
   const output = await changeBackground({
     pptxFile: new File([new Uint8Array(input)], "deck.pptx"),
-    background: thirdSlide.background as FillBackground,
+    background: navy,
     mode: "specific-slides",
     targetSlides: thirdSlide.targetSlides,
   });
@@ -60,6 +57,20 @@ describe("changeBackground chooses slides in presentation order", () => {
     expect(await changedSlides(await deck(OUT_OF_ORDER))).toEqual([THIRD_SHOWN]);
   });
 
+  it("reads the slide list from a presentation part named in another case", async () => {
+    // OPC part names compare case-insensitively; the output check reads it so too.
+    const zip = await JSZip.loadAsync(await deck(OUT_OF_ORDER));
+    for (const [from, to] of [
+      ["ppt/presentation.xml", "ppt/Presentation.xml"],
+      ["ppt/_rels/presentation.xml.rels", "ppt/_rels/Presentation.xml.rels"],
+    ]) {
+      zip.file(to, await zip.file(from)!.async("uint8array"));
+      zip.remove(from);
+    }
+    const renamed = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+    expect(await changedSlides(renamed)).toEqual([THIRD_SHOWN]);
+  });
+
   it("chooses in file order when the slide list is missing or names no slide", async () => {
     for (const slideList of ["missing", "dangling"] as const) {
       expect(await changedSlides(await deck(slideList))).toEqual(["ppt/slides/slide3.xml"]);
@@ -70,8 +81,8 @@ describe("changeBackground chooses slides in presentation order", () => {
 describe("checkPptBackground reads slide N in presentation order", () => {
   it("passes the slide PowerPoint shows third changed, and fails the third file changed", async () => {
     const input = await deck(OUT_OF_ORDER);
-    expect(await properties(input, await paint(input, THIRD_SHOWN))).toEqual([]);
-    expect(await properties(input, await paint(input, "ppt/slides/slide3.xml"))).toEqual([
+    expect(await violations(input, await paint(input, THIRD_SHOWN))).toEqual([]);
+    expect(await violations(input, await paint(input, "ppt/slides/slide3.xml"))).toEqual([
       `target-background ${THIRD_SHOWN}`,
       "non-target-unchanged ppt/slides/slide3.xml",
     ]);
@@ -80,7 +91,7 @@ describe("checkPptBackground reads slide N in presentation order", () => {
   it("reads file order when the slide list is missing or names no slide", async () => {
     for (const slideList of ["missing", "dangling"] as const) {
       const input = await deck(slideList);
-      expect(await properties(input, await paint(input, "ppt/slides/slide3.xml"))).toEqual([]);
+      expect(await violations(input, await paint(input, "ppt/slides/slide3.xml"))).toEqual([]);
     }
   });
 });

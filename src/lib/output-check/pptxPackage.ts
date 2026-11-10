@@ -1,4 +1,4 @@
-import { inFileOrder, slideOrder } from "@/lib/ppt/slideOrder";
+import { partsUnder, slideOrder } from "@/lib/ppt/slideOrder";
 import type { Violation } from "./core";
 import { xmlWellFormedError } from "./xmlWellFormed";
 import { indexZip, openZip, storedIdentically, type ZipReader } from "./zipReader";
@@ -88,11 +88,6 @@ const RELS_PART = /^(?:(.*)\/)?_rels\/([^/]*)\.rels$/;
 const TAG_ATTRS = /([\w:]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 const ATTR_VALUES = /=\s*(?:"([^"]*)"|'([^']*)')/g;
 const IMAGE_REL_TYPE = /\/relationships\/image$/;
-
-function partsIn(parts: string[], dir: string): string[] {
-  const pattern = new RegExp(`^${dir}/[^/]+\\.xml$`);
-  return inFileOrder(parts.filter((p) => pattern.test(p)));
-}
 
 function attrs(tag: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -219,9 +214,9 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
 
   const pkg: PptxPackage = {
     parts,
-    slideParts: slideOrder(partsIn(parts, "ppt/slides"), presentationXml, presentationRels),
-    masterParts: partsIn(parts, "ppt/slideMasters"),
-    layoutParts: partsIn(parts, "ppt/slideLayouts"),
+    slideParts: slideOrder(partsUnder(parts, "ppt/slides"), presentationXml, presentationRels),
+    masterParts: partsUnder(parts, "ppt/slideMasters"),
+    layoutParts: partsUnder(parts, "ppt/slideLayouts"),
 
     read(part) {
       return zip.bytes(part);

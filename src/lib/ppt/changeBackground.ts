@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
-import { parseRelationships } from "@/lib/output-check/pptxPackage";
+import { parseRelationships, relsPartOf } from "@/lib/output-check/pptxPackage";
 import { zipCompressionMethods } from "@/lib/output-check/zipReader";
 import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
@@ -17,7 +17,8 @@ import {
 } from "./coveringBackgrounds";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { slideColours, zipPartReader, type ColoursOf } from "./slideColours";
-import { partsUnder, slidesInOrder } from "./zipSlides";
+import { partsUnder } from "./slideOrder";
+import { slidesInOrder, zipParts } from "./zipSlides";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
 
@@ -284,12 +285,11 @@ function relTargets(relsXml: string | null, sourceDir: string): Map<string, stri
 }
 
 /**
- * Change the background of each of `slideFiles`, the parts directly under
- * `dir` in order; returns the parts the replaced backgrounds pointed at.
+ * Change the background of each of `slideFiles` (slides, layouts or masters,
+ * in order); returns the parts the replaced backgrounds pointed at.
  */
 async function processSlideGroup(
   zip: JSZip,
-  dir: string,
   slideFiles: readonly string[],
   { background, onEach, targetIndices1Based, slideSize, coloursOf, keptCovering }: GroupChange,
 ): Promise<Set<string>> {
@@ -305,9 +305,9 @@ async function processSlideGroup(
 
   for (let i = 0; i < filtered.length; i++) {
     const slidePath = filtered[i];
-    const slideFileName = slidePath.split("/").pop()!;
+    const dir = slidePath.slice(0, slidePath.lastIndexOf("/"));
     let slideXml = await zip.file(slidePath)!.async("text");
-    const relsPath = `${dir}/_rels/${slideFileName}.rels`;
+    const relsPath = relsPartOf(slidePath);
     const relsFile = zip.file(relsPath);
     let relsXml = relsFile ? await relsFile.async("text") : null;
 
@@ -525,14 +525,11 @@ export async function changeBackground({
     // The master shows the new background; everything above it that would
     // hide it goes, so it shows on every slide, like "all slides", and on
     // slides added later.
+    const parts = zipParts(zip);
     replaced = new Set([
-      ...(await processSlideGroup(zip, "ppt/slideMasters", partsUnder(zip, "ppt/slideMasters"), {
-        background: partBackground,
-      })),
-      ...(await processSlideGroup(zip, "ppt/slideLayouts", partsUnder(zip, "ppt/slideLayouts"), {
-        background: "clear",
-      })),
-      ...(await processSlideGroup(zip, "ppt/slides", slides, {
+      ...(await processSlideGroup(zip, partsUnder(parts, "ppt/slideMasters"), { background: partBackground })),
+      ...(await processSlideGroup(zip, partsUnder(parts, "ppt/slideLayouts"), { background: "clear" })),
+      ...(await processSlideGroup(zip, slides, {
         background: "clear",
         onEach: progress,
         slideSize,
@@ -548,7 +545,7 @@ export async function changeBackground({
       }
       whitelist = new Set(targetSlides);
     }
-    replaced = await processSlideGroup(zip, "ppt/slides", slides, {
+    replaced = await processSlideGroup(zip, slides, {
       background: partBackground,
       onEach: progress,
       targetIndices1Based: whitelist,
