@@ -17,6 +17,7 @@ import {
 } from "./coveringBackgrounds";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { slideColours, zipPartReader, type ColoursOf } from "./slideColours";
+import { partsUnder, slidesInOrder } from "./zipSlides";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
 
@@ -251,16 +252,6 @@ function ensureNamespaces(xml: string): string {
   return result;
 }
 
-/**
- * Extract the trailing integer from a slide-like filename
- * (e.g. "ppt/slides/slide12.xml" → 12, "ppt/slideMasters/slideMaster3.xml" → 3).
- * Falls back to 0 if no match — sorted-stable for non-conforming names.
- */
-export function slideOrdinal(path: string): number {
-  const m = path.match(/(\d+)\.xml$/);
-  return m ? parseInt(m[1], 10) : 0;
-}
-
 /** What a part's own background becomes. */
 type PartBackground =
   /** The picture at this media target. */
@@ -273,8 +264,8 @@ type PartBackground =
 interface GroupChange {
   background: PartBackground;
   onEach?: (done: number, total: number) => void;
-  /** 1-based whitelist over the slide order (sorted by trailing integer in the
-   *  filename — matches extractCurrentBackgrounds). Undefined = all. */
+  /** 1-based whitelist over the parts' order (for slides, presentation order,
+   *  as the preview numbers them). Undefined = all. */
   targetIndices1Based?: ReadonlySet<number>;
   /** The slide's size and each slide's colours, to delete covering backgrounds on each part; none for masters and layouts. */
   slideSize?: SlideSize;
@@ -292,22 +283,18 @@ function relTargets(relsXml: string | null, sourceDir: string): Map<string, stri
   return new Map(parseRelationships(relsXml ?? "", sourceDir).map((r) => [r.id, r.part]));
 }
 
-/** Change the background of each part in `dir`; returns the parts the replaced backgrounds pointed at. */
+/**
+ * Change the background of each of `slideFiles`, the parts directly under
+ * `dir` in order; returns the parts the replaced backgrounds pointed at.
+ */
 async function processSlideGroup(
   zip: JSZip,
   dir: string,
+  slideFiles: readonly string[],
   { background, onEach, targetIndices1Based, slideSize, coloursOf, keptCovering }: GroupChange,
 ): Promise<Set<string>> {
   /** Parts the replaced backgrounds pointed at, to delete once unreferenced. */
   const replaced = new Set<string>();
-  const pattern = new RegExp(`^${dir}/[^/]+\\.xml$`);
-  const slideFiles: string[] = [];
-
-  zip.forEach((path) => {
-    if (pattern.test(path)) slideFiles.push(path);
-  });
-
-  slideFiles.sort((a, b) => slideOrdinal(a) - slideOrdinal(b));
 
   const filtered = targetIndices1Based
     ? slideFiles
@@ -532,15 +519,20 @@ export async function changeBackground({
   const progress = (done: number, total: number) => onProgress?.(Math.round((done / total) * 100));
   // Read lazily: rewriting backgrounds changes no theme or colour map.
   const coloursOf = slideColours(zipPartReader(zip));
+  const slides = await slidesInOrder(zip);
   let replaced: Set<string>;
   if (mode === "master") {
     // The master shows the new background; everything above it that would
     // hide it goes, so it shows on every slide, like "all slides", and on
     // slides added later.
     replaced = new Set([
-      ...(await processSlideGroup(zip, "ppt/slideMasters", { background: partBackground })),
-      ...(await processSlideGroup(zip, "ppt/slideLayouts", { background: "clear" })),
-      ...(await processSlideGroup(zip, "ppt/slides", {
+      ...(await processSlideGroup(zip, "ppt/slideMasters", partsUnder(zip, "ppt/slideMasters"), {
+        background: partBackground,
+      })),
+      ...(await processSlideGroup(zip, "ppt/slideLayouts", partsUnder(zip, "ppt/slideLayouts"), {
+        background: "clear",
+      })),
+      ...(await processSlideGroup(zip, "ppt/slides", slides, {
         background: "clear",
         onEach: progress,
         slideSize,
@@ -556,7 +548,7 @@ export async function changeBackground({
       }
       whitelist = new Set(targetSlides);
     }
-    replaced = await processSlideGroup(zip, "ppt/slides", {
+    replaced = await processSlideGroup(zip, "ppt/slides", slides, {
       background: partBackground,
       onEach: progress,
       targetIndices1Based: whitelist,

@@ -155,6 +155,32 @@ export interface TestLayout {
   pictures?: Record<string, string>;
 }
 
+export interface TestDeckOptions {
+  /**
+   * The presentation's slide list (`p:sldIdLst`): the slides' file numbers in
+   * the order PowerPoint shows them (`[2, 3, 1]` shows `slide2.xml` first);
+   * `"missing"` drops the list, `"dangling"` names a relationship that does
+   * not exist. File order when absent.
+   */
+  slideList?: readonly number[] | "missing" | "dangling";
+}
+
+/** Rewrite the presentation's slide list as `slideList` asks. */
+async function writeSlideList(zip: JSZip, slideList: NonNullable<TestDeckOptions["slideList"]>) {
+  const part = "ppt/presentation.xml";
+  const xml = await zip.file(part)!.async("text");
+  const list = /<p:sldIdLst>([\s\S]*?)<\/p:sldIdLst>/;
+  // pptxgenjs writes one entry per slide, in file order.
+  const entries = xml.match(list)![1].match(/<p:sldId\b[^>]*\/>/g)!;
+  const rewritten =
+    slideList === "missing"
+      ? ""
+      : slideList === "dangling"
+        ? `<p:sldIdLst>${entries.map((e, i) => (i === 0 ? e.replace(/r:id="[^"]*"/, 'r:id="rId999"') : e)).join("")}</p:sldIdLst>`
+        : `<p:sldIdLst>${slideList.map((n) => entries[n - 1]).join("")}</p:sldIdLst>`;
+  zip.file(part, xml.replace(list, rewritten));
+}
+
 /** A small, distinct PNG for each media name. */
 function mediaBytes(name: string): Uint8Array {
   const tag = [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) & 0xff, 7);
@@ -175,7 +201,11 @@ async function addPictures(zip: JSZip, relsPath: string, pictures: Record<string
 }
 
 /** A 16:9 deck with these slides, in order, and optionally its layout's own background. */
-export async function testDeck(slides: TestSlide[], layout?: TestLayout): Promise<Uint8Array> {
+export async function testDeck(
+  slides: TestSlide[],
+  layout?: TestLayout,
+  { slideList }: TestDeckOptions = {},
+): Promise<Uint8Array> {
   const pptx = new PptxGenJS();
   for (let i = 0; i < slides.length; i++) pptx.addSlide();
   // write() returns a union over every outputType; "uint8array" yields this one.
@@ -204,5 +234,6 @@ export async function testDeck(slides: TestSlide[], layout?: TestLayout): Promis
     zip.file(layoutPath, xml.replace(/<p:bg>[\s\S]*?<\/p:bg>/, layout.background));
     await addPictures(zip, "ppt/slideLayouts/_rels/slideLayout1.xml.rels", layout.pictures);
   }
+  if (slideList) await writeSlideList(zip, slideList);
   return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 }

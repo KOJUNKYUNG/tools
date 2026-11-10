@@ -201,3 +201,34 @@ describe("extractCurrentBackgrounds finds inherited backgrounds", () => {
     expect(fromMaster.map((g) => [g.key, g.source])).toEqual([["ppt/media/master.png", "master"]]);
   });
 });
+
+describe("extractCurrentBackgrounds numbers slides in presentation order", () => {
+  const RED = "C0392B";
+  const GREEN = "1E8449";
+  const BLUE = "2E86C1";
+  /** slide1.xml red, slide2.xml green, slide3.xml blue, each with its own background. */
+  const slides = [RED, GREEN, BLUE].map((rgb) => ({ shapes: [textBox(9, "가사")], background: solidBackground(rgb) }));
+
+  async function numbered(deck: Uint8Array) {
+    const backgrounds = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
+    return backgrounds.map((b) => [b.slideIndex, b.slideName, b.swatch]);
+  }
+
+  it("lists the slides as PowerPoint shows them, numbered in that order", async () => {
+    expect(await numbered(await testDeck(slides, undefined, { slideList: [2, 3, 1] }))).toEqual([
+      [1, "슬라이드 1", "#1e8449"],
+      [2, "슬라이드 2", "#2e86c1"],
+      [3, "슬라이드 3", "#c0392b"],
+    ]);
+  });
+
+  it("lists them in file order when the slide list is missing or names no slide", async () => {
+    for (const slideList of ["missing", "dangling"] as const) {
+      expect(await numbered(await testDeck(slides, undefined, { slideList }))).toEqual([
+        [1, "슬라이드 1", "#c0392b"],
+        [2, "슬라이드 2", "#1e8449"],
+        [3, "슬라이드 3", "#2e86c1"],
+      ]);
+    }
+  });
+});

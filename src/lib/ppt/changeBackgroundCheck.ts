@@ -106,8 +106,8 @@ export interface PptBackgroundRequest {
  *
  * Structural defects the input already had are not the tool's doing and are
  * not reported: the user's deck opened before, so blocking it would be a
- * false positive. Slide N means the N-th slide part by file number, the
- * order the engine and the slide picker use.
+ * false positive. Slide N means the N-th slide in presentation order
+ * (`slideOrder`), the order the engine and the slide picker use.
  */
 export const checkPptBackground: OutputChecker<
   Uint8Array,

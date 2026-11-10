@@ -6,12 +6,14 @@ import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { slideColours, zipPartReader, type PartReader } from "./slideColours";
 import { child, parseXml } from "./xmlTree";
+import { slidesInOrder } from "./zipSlides";
 
 /**
  * A slide's visible background (CONTEXT.md): its covering backgrounds when it
  * has any, else its own background, its layout's or its master's.
  */
 export interface SlideBackground {
+  /** 1-based, in presentation order: the number the user picks the slide by. */
   slideIndex: number;
   slideName: string;
   imageBlob: Blob | null;
@@ -124,18 +126,8 @@ export async function extractCurrentBackgrounds(
   const arrayBuffer = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
 
-  const slideFiles: string[] = [];
-  zip.forEach((path) => {
-    if (/^ppt\/slides\/slide\d+\.xml$/.test(path)) {
-      slideFiles.push(path);
-    }
-  });
-
-  slideFiles.sort((a, b) => {
-    const numA = parseInt(a.match(/slide(\d+)/)?.[1] ?? "0");
-    const numB = parseInt(b.match(/slide(\d+)/)?.[1] ?? "0");
-    return numA - numB;
-  });
+  // Numbered as PowerPoint shows them: the engine reads the user's slide numbers in this order.
+  const slideFiles = await slidesInOrder(zip);
 
   const presXml = await zip.file("ppt/presentation.xml")?.async("text");
   const slideSize = (presXml && slideSizeFromXml(presXml)) || DEFAULT_SLIDE;
@@ -146,11 +138,10 @@ export async function extractCurrentBackgrounds(
   for (let i = 0; i < slideFiles.length; i++) {
     const slidePath = slideFiles[i];
     const slideXml = await zip.file(slidePath)!.async("text");
-    const slideNum = parseInt(slidePath.match(/slide(\d+)/)?.[1] ?? `${i + 1}`);
 
     const bg: SlideBackground = {
       slideIndex: i + 1,
-      slideName: `슬라이드 ${slideNum}`,
+      slideName: `슬라이드 ${i + 1}`,
       imageBlob: null,
       source: "none",
       imagePath: null,
