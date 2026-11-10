@@ -252,3 +252,52 @@ describe("extractCurrentBackgrounds finds covering backgrounds on the master", (
     );
   });
 });
+
+describe("extractCurrentBackgrounds reads background graphics as the deck shows them", () => {
+  const masterPicture = { shapes: [picture(20, "rId10")], pictures: { rId10: "master.png" } };
+
+  it("groups every slide showing the master picture as one covering background the user can keep", async () => {
+    const groups = await analyse(
+      await testDeck([{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }, { shapes: [textBox(9, "3절")] }], undefined, {
+        master: masterPicture,
+      }),
+    );
+    // A covering-background key is what the "변경하면 이 그림 지우기" toggle keeps a group by.
+    expect(groups.map(({ key, source, slideIndexes }) => ({ key, source, slideIndexes }))).toEqual([
+      { key: "covering:ppt/media/master.png", source: "covering", slideIndexes: [1, 2, 3] },
+    ]);
+  });
+
+  it("finds a layout's full-slide picture the same way", async () => {
+    const groups = await analyse(
+      await testDeck([{ shapes: [textBox(9, "1절")] }], { shapes: [picture(30, "rId10")], pictures: { rId10: "layout.png" } }),
+    );
+    expect(groups.map(({ key, source }) => ({ key, source }))).toEqual([
+      { key: "covering:ppt/media/layout.png", source: "covering" },
+    ]);
+  });
+
+  it("shows a slide hiding background graphics its own visible background", async () => {
+    const groups = await analyse(
+      await testDeck(
+        [
+          { shapes: [textBox(9, "1절")] },
+          { shapes: [textBox(9, "2절")], background: solidBackground("1F2A44"), hidesBackgroundGraphics: true },
+        ],
+        undefined,
+        { master: masterPicture },
+      ),
+    );
+    expect(groups.map(({ key, source, slideIndexes }) => ({ key, source, slideIndexes }))).toEqual([
+      { key: "covering:ppt/media/master.png", source: "covering", slideIndexes: [1] },
+      { key: "colour:#1f2a44", source: "slide", slideIndexes: [2] },
+    ]);
+  });
+
+  it("does not count the master picture under a layout hiding background graphics", async () => {
+    const groups = await analyse(
+      await testDeck([{ shapes: [textBox(9, "1절")] }], { hidesBackgroundGraphics: true }, { master: masterPicture }),
+    );
+    expect(groups.map((g) => g.source)).not.toContain("covering");
+  });
+});

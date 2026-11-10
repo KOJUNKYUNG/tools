@@ -15,7 +15,7 @@ import { coveringDeletions } from "./coveringPlan";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { zipPartReader } from "./slideColours";
 import { partsUnder } from "./slideOrder";
-import { readSlideStacks } from "./slideStacks";
+import { readLayoutStacks, readSlideStacks } from "./slideStacks";
 import { slidesInOrder, zipParts } from "./zipSlides";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
@@ -522,13 +522,15 @@ export async function changeBackground({
   }
   const progress = (done: number, total: number) => onProgress?.(Math.round((done / total) * 100));
   const slides = await slidesInOrder(zip);
+  const parts = zipParts(zip);
   // Planned on the input, before any part changes: deleting a master's
   // covering background would change what every slide's stack shows.
-  const deletions = coveringDeletions(await readSlideStacks(zipPartReader(zip), slides, slideSize), {
-    mode,
-    targetSlides,
-    keptCovering,
-  });
+  const reader = zipPartReader(zip);
+  const deletions = coveringDeletions(
+    await readSlideStacks(reader, slides, slideSize),
+    { mode, targetSlides, keptCovering },
+    mode === "master" ? await readLayoutStacks(reader, partsUnder(parts, "ppt/slideLayouts"), slideSize) : [],
+  );
   const replaced = new Set<string>();
   // Masters and layouts lose theirs first: the slides' own go as each slide is rewritten.
   const slideSet = new Set(slides);
@@ -542,7 +544,6 @@ export async function changeBackground({
     // The master shows the new background; everything above it that would
     // hide it goes, so it shows on every slide, like "all slides", and on
     // slides added later.
-    const parts = zipParts(zip);
     await rewrite(partsUnder(parts, "ppt/slideMasters"), { background: partBackground });
     await rewrite(partsUnder(parts, "ppt/slideLayouts"), { background: "clear" });
     await rewrite(slides, { background: "clear", onEach: progress, deletions });

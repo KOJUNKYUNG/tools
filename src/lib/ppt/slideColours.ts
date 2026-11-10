@@ -51,18 +51,26 @@ export function packagePartReader(pkg: PptxPackage): PartReader {
  * against what it has.
  */
 export function slideColours(reader: PartReader): ColoursOf {
-  const ofMaster = once(async (path) => {
-    const theme = await reader.related(path, "theme");
-    return masterColours(theme && (await reader.text(theme)), await reader.text(path));
-  });
-  const ofLayout = once(async (path) => {
-    const master = await reader.related(path, "slideMaster");
-    return withOverride(master ? await ofMaster(master) : NO_COLOURS, await reader.text(path));
-  });
+  const ofLayout = layoutColours(reader);
   return async (slidePath, slideXml) => {
     const layout = await reader.related(slidePath, "slideLayout");
     return withOverride(layout ? await ofLayout(layout) : NO_COLOURS, slideXml);
   };
+}
+
+/**
+ * The colours of a layout given its part: its master's theme and colour map,
+ * overridden by its own; each layout and master is read once.
+ */
+export function layoutColours(reader: PartReader): (layoutPath: string) => Promise<Colours> {
+  const ofMaster = once(async (path) => {
+    const theme = await reader.related(path, "theme");
+    return masterColours(theme && (await reader.text(theme)), await reader.text(path));
+  });
+  return once(async (path) => {
+    const master = await reader.related(path, "slideMaster");
+    return withOverride(master ? await ofMaster(master) : NO_COLOURS, await reader.text(path));
+  });
 }
 
 /** `colours` computed once per part path. */

@@ -24,12 +24,18 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-async function runOn(deck: Uint8Array, mode: BgMode, targetSlides?: number[]): Promise<JSZip> {
+async function runOn(
+  deck: Uint8Array,
+  mode: BgMode,
+  targetSlides?: number[],
+  keptCovering?: readonly string[],
+): Promise<JSZip> {
   const output = await changeBackground({
     pptxFile: new File([new Uint8Array(deck)], "deck.pptx"),
     background: { kind: "picture", file: new File([new Uint8Array(PHOTO)], "photo.jpg") },
     mode,
     targetSlides,
+    keptCovering,
     prepare: standInPrepare,
   });
   return JSZip.loadAsync(output);
@@ -38,6 +44,14 @@ async function runOn(deck: Uint8Array, mode: BgMode, targetSlides?: number[]): P
 const text = (zip: JSZip, part: string) => zip.file(part)!.async("text");
 const MASTER = "ppt/slideMasters/slideMaster1.xml";
 const MASTER_RELS = "ppt/slideMasters/_rels/slideMaster1.xml.rels";
+const LAYOUT = "ppt/slideLayouts/slideLayout1.xml";
+const LAYOUT_RELS = "ppt/slideLayouts/_rels/slideLayout1.xml.rels";
+
+/** Whether the part is byte-identical in the input and the output. */
+async function unchanged(input: JSZip, output: JSZip, part: string): Promise<boolean> {
+  const [a, b] = await Promise.all([input.file(part)!.async("uint8array"), output.file(part)!.async("uint8array")]);
+  return a.length === b.length && a.every((byte, i) => byte === b[i]);
+}
 
 const mediaParts = (zip: JSZip) =>
   Object.keys(zip.files)
@@ -134,5 +148,80 @@ describe("changeBackground deletes a covering background on the master", () => {
     });
     const [input, zip] = await Promise.all([JSZip.loadAsync(deck), runOn(deck, "all-slides")]);
     expect(await text(zip, MASTER)).toBe(await text(input, MASTER));
+  });
+});
+
+describe("changeBackground deletes covering backgrounds on layouts, in master mode, and as the deck hides them", () => {
+  const layoutPicture = picture(30, "rId10");
+  /** The full-slide picture placed on the layout, not the master. */
+  const pictureLayout = { shapes: [layoutPicture], pictures: { rId10: "layout.png" } };
+
+  it("deletes a layout's full-slide picture in 전체", async () => {
+    const zip = await runOn(await testDeck(slides, pictureLayout), "all-slides");
+    expect(await text(zip, LAYOUT)).not.toContain(layoutPicture);
+    expect(await text(zip, LAYOUT_RELS)).not.toContain("layout.png");
+    expect(mediaParts(zip)).toEqual(["ppt/media/background_custom.jpeg"]);
+  });
+
+  it("deletes the master's and every layout's covering backgrounds in master mode, keeping the logo", async () => {
+    const unusedPicture = picture(31, "rId10");
+    const deck = await testDeck(slides, pictureLayout, {
+      master: pictureAndLogo,
+      unusedLayouts: [{ shapes: [unusedPicture], pictures: { rId10: "unused.png" } }],
+    });
+    const zip = await runOn(deck, "master");
+
+    const master = await text(zip, MASTER);
+    expect(master).not.toContain(masterPicture);
+    expect(master).toContain(logo);
+    expect(master).toMatch(/<p:bg><p:bgPr><a:blipFill/);
+    expect(await text(zip, LAYOUT)).not.toContain(layoutPicture);
+    expect(await text(zip, "ppt/slideLayouts/slideLayout2.xml")).not.toContain(unusedPicture);
+    expect(mediaParts(zip)).toEqual(["ppt/media/background_custom.jpeg", "ppt/media/logo.png"]);
+  });
+
+  it("keeps the master picture in master mode when the user keeps its group", async () => {
+    const deck = await testDeck(slides, undefined, { master: pictureAndLogo });
+    const zip = await runOn(deck, "master", undefined, ["covering:ppt/media/master.png"]);
+    expect(await text(zip, MASTER)).toContain(masterPicture);
+    expect(await text(zip, MASTER_RELS)).toContain("master.png");
+  });
+
+  it("does not count a slide hiding background graphics as showing the master picture", async () => {
+    const deck = await testDeck([lyrics("1절"), lyrics("2절"), { ...lyrics("3절"), hidesBackgroundGraphics: true }], undefined, {
+      master: pictureAndLogo,
+    });
+    const [input, zip] = await Promise.all([JSZip.loadAsync(deck), runOn(deck, "specific-slides", [1, 2])]);
+    expect(await text(zip, MASTER)).not.toContain(masterPicture);
+    expect(await text(zip, MASTER)).toContain(logo);
+    expect(await unchanged(input, zip, "ppt/slides/slide3.xml")).toBe(true);
+  });
+
+  it("leaves the master alone under a layout hiding background graphics", async () => {
+    const deck = await testDeck(slides, { hidesBackgroundGraphics: true }, { master: pictureAndLogo });
+    const [input, zip] = await Promise.all([JSZip.loadAsync(deck), runOn(deck, "all-slides")]);
+    for (const part of [MASTER, MASTER_RELS, LAYOUT]) expect(await unchanged(input, zip, part)).toBe(true);
+  });
+
+  it("leaves a kept master picture, the layout and the slides' flags untouched", async () => {
+    const deck = await testDeck(slides, undefined, { master: pictureAndLogo });
+    const [input, zip] = await Promise.all([
+      JSZip.loadAsync(deck),
+      runOn(deck, "all-slides", undefined, ["covering:ppt/media/master.png"]),
+    ]);
+    for (const part of [MASTER, MASTER_RELS, LAYOUT, LAYOUT_RELS]) expect(await unchanged(input, zip, part)).toBe(true);
+    expect(mediaParts(zip)).toContain("ppt/media/master.png");
+    for (const n of [1, 2, 3]) expect(await text(zip, `ppt/slides/slide${n}.xml`)).not.toContain("showMasterSp");
+  });
+});
+
+describe("changeBackground keeps a kept group's picture on a layout no slide uses", () => {
+  it("leaves the unused layout's copy of a kept picture in master mode", async () => {
+    const keptPicture = picture(31, "rId10");
+    const deck = await testDeck([{ shapes: [picture(2, "rId10"), textBox(9, "1절")], pictures: { rId10: "kept.png" } }], undefined, {
+      unusedLayouts: [{ shapes: [keptPicture], pictures: { rId10: "kept.png" } }],
+    });
+    const zip = await runOn(deck, "master", undefined, ["covering:ppt/media/kept.png"]);
+    expect(await text(zip, "ppt/slideLayouts/slideLayout2.xml")).toContain(keptPicture);
   });
 });

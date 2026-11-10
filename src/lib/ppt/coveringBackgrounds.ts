@@ -127,14 +127,25 @@ export interface StackPart {
  * graphics drops the master's; a slide hiding them drops both.
  */
 export function stackLayers(slide: StackPart, layout: StackPart | null, master: StackPart | null): StackLayer[] {
-  const layers: StackLayer[] = [];
-  const shows = (p: StackPart) => p.root !== null && showsBackgroundGraphics(p.root);
+  return [
+    ...(layout && showsGraphicsUnder(slide) ? layoutLayers(layout, master) : []),
+    { part: slide.part, holder: "slide", elements: topLevelElements(slide.root) ?? [] },
+  ];
+}
+
+/** Whether a slide or layout part shows the background graphics under it. */
+const showsGraphicsUnder = (p: StackPart) => p.root !== null && showsBackgroundGraphics(p.root);
+
+/**
+ * The background graphics a layout shows, bottom first: the master's (unless
+ * the layout hides them), then its own. Master mode reads every layout's,
+ * since slides added later show them.
+ */
+export function layoutLayers(layout: StackPart, master: StackPart | null): StackLayer[] {
   const graphics = (p: StackPart) => backgroundGraphics(topLevelElements(p.root) ?? []);
-  if (layout && shows(slide)) {
-    if (master && shows(layout)) layers.push({ part: master.part, holder: "master", elements: graphics(master) });
-    layers.push({ part: layout.part, holder: "layout", elements: graphics(layout) });
-  }
-  layers.push({ part: slide.part, holder: "slide", elements: topLevelElements(slide.root) ?? [] });
+  const layers: StackLayer[] = [];
+  if (master && showsGraphicsUnder(layout)) layers.push({ part: master.part, holder: "master", elements: graphics(master) });
+  layers.push({ part: layout.part, holder: "layout", elements: graphics(layout) });
   return layers;
 }
 

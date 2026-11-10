@@ -10,7 +10,7 @@ import { shapeIdsIn, topLevelElements, type CoveringBackground } from "./coverin
 import { coveringDeletions } from "./coveringPlan";
 import { animationTargets } from "./slideAnimations";
 import { packagePartReader } from "./slideColours";
-import { readSlideStacks } from "./slideStacks";
+import { readLayoutStacks, readSlideStacks } from "./slideStacks";
 import { child, firstElementNamed, parseXml, type XmlElement } from "./xmlTree";
 
 /** The background the user asked for, as the checker re-derives it. */
@@ -74,7 +74,8 @@ export interface PptBackgroundRequest {
  * master mode) and on every master and layout (spec #163: their background
  * graphics show on the slides), re-detected on the input with the shared
  * rule over each slide's stack and re-planned with the shared plan
- * (`coveringDeletions`), picture and fill forms alike (fills resolved through
+ * (`coveringDeletions`; in master mode over every layout's stack too, used
+ * or not), picture and fill forms alike (fills resolved through
  * the input's theme). The rule and plan are the spec: these prove the engine
  * applied them, not that they are right (the regression set covers the rule
  * itself). Elements are matched by their XML text: the engine copies the
@@ -168,9 +169,11 @@ export const checkPptBackground: OutputChecker<
 
   // The covering backgrounds the engine must have deleted, re-planned on the
   // input with the shared rule and plan (not the engine's own selection).
+  const [reader, size] = [packagePartReader(before), await slideSize(before)];
   const deletions = coveringDeletions(
-    await readSlideStacks(packagePartReader(before), before.slideParts, await slideSize(before)),
+    await readSlideStacks(reader, before.slideParts, size),
     request,
+    request.mode === "master" ? await readLayoutStacks(reader, before.layoutParts, size) : [],
   );
   // Master mode also rewrites every slide (covering backgrounds deleted, own
   // background cleared) and every layout (own background cleared); any mode

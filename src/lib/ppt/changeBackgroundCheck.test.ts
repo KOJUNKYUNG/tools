@@ -964,3 +964,71 @@ describe("checkPptBackground checks covering backgrounds on the master", () => {
     });
   });
 });
+
+describe("checkPptBackground checks covering backgrounds on layouts, in master mode and when kept", () => {
+  const MASTER = "ppt/slideMasters/slideMaster1.xml";
+  const LAYOUT1 = "ppt/slideLayouts/slideLayout1.xml";
+  const LAYOUT2 = "ppt/slideLayouts/slideLayout2.xml";
+  const masterPicture = pictureElement(20, "rId10");
+  const logo = pictureElement(21, "rId11", { x: 8001000, y: 4343400, w: 914400, h: 571500 });
+  const layoutPicture = pictureElement(30, "rId10");
+  const unusedPicture = pictureElement(31, "rId10");
+  const masterMode: Intent = { source: newBgBytes, mode: "master" };
+  const kept: Intent = { ...allSlides, keptCovering: ["covering:ppt/media/master.png"] };
+  /** Lyrics slides under a master picture and logo, a layout picture, and a layout no slide uses with its own picture. */
+  const deck = () =>
+    testDeck(
+      [{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }],
+      { shapes: [layoutPicture], pictures: { rId10: "layout.png" } },
+      {
+        master: { shapes: [masterPicture, logo], pictures: { rId10: "master.png", rId11: "logo.png" } },
+        unusedLayouts: [{ shapes: [unusedPicture], pictures: { rId10: "unused.png" } }],
+      },
+    );
+  const masterDeck = () =>
+    testDeck([{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }], undefined, {
+      master: { shapes: [masterPicture, logo], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+  const edit = (output: Uint8Array, part: string, change: (xml: string) => string) =>
+    mutate(output, async (zip) => {
+      zip.file(part, change(await zip.file(part)!.async("text")));
+    });
+  /** Put `element` back first in the part's shape tree. */
+  const putBack = (element: string) => (xml: string) =>
+    xml.replace(/(<p:spTree>[\s\S]*?<\/p:grpSpPr>)/, `$1${element}`);
+
+  it("passes the engine's output in 전체 and in master mode", async () => {
+    const input = await deck();
+    expect(await properties(input, allSlides, await apply(input, allSlides))).toEqual([]);
+    expect(await properties(input, masterMode, await apply(input, masterMode))).toEqual([]);
+  });
+
+  it("flags a layout's picture left in 전체", async () => {
+    const input = await deck();
+    const output = await edit(await apply(input, allSlides), LAYOUT1, putBack(layoutPicture));
+    expect(await quick(input, allSlides, output)).toContainEqual({
+      property: "covering-background-kept",
+      detail: `${LAYOUT1} #30`,
+    });
+  });
+
+  it("flags the picture of a layout no slide uses left in master mode", async () => {
+    const input = await deck();
+    const output = await edit(await apply(input, masterMode), LAYOUT2, putBack(unusedPicture));
+    expect(await quick(input, masterMode, output)).toContainEqual({
+      property: "covering-background-kept",
+      detail: `${LAYOUT2} #31`,
+    });
+  });
+
+  it("passes a kept master picture left untouched", async () => {
+    const input = await masterDeck();
+    expect(await properties(input, kept, await apply(input, kept))).toEqual([]);
+  });
+
+  it("flags a kept master picture deleted", async () => {
+    const input = await masterDeck();
+    const output = await edit(await apply(input, kept), MASTER, (xml) => xml.replace(masterPicture, ""));
+    expect(await quick(input, kept, output)).toContainEqual({ property: "element-missing", detail: `${MASTER} #20` });
+  });
+});
