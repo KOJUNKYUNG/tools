@@ -17,18 +17,22 @@ export interface PartReader {
   text(part: string): Promise<string | null>;
   /** The first part `part` relates to by this relationship type (the URI's last segment); null when none. */
   related(part: string, type: string): Promise<string | null>;
+  /** The parts `part`'s relationships target, by id; null for an external or unresolvable target. */
+  targets(part: string): Promise<ReadonlyMap<string, string | null>>;
 }
 
 /** Reads a deck loaded with JSZip. */
 export function zipPartReader(zip: JSZip): PartReader {
   const text = async (part: string) => (await zip.file(part)?.async("text")) ?? null;
+  const relationships = async (part: string) =>
+    parseRelationships((await text(relsPartOf(part))) ?? "", part.slice(0, part.lastIndexOf("/")));
   return {
     text,
     async related(part, type) {
-      const dir = part.slice(0, part.lastIndexOf("/"));
-      const rels = parseRelationships((await text(relsPartOf(part))) ?? "", dir);
+      const rels = await relationships(part);
       return rels.find((r) => r.type.endsWith(`/${type}`) && r.part !== null)?.part ?? null;
     },
+    targets: async (part) => new Map((await relationships(part)).map((r) => [r.id, r.part])),
   };
 }
 
@@ -37,6 +41,7 @@ export function packagePartReader(pkg: PptxPackage): PartReader {
   return {
     text: (part) => pkg.text(part),
     related: async (part, type) => (await pkg.relatedParts(part, type))[0] ?? null,
+    targets: async (part) => new Map((await pkg.relationships(part)).map((r) => [r.id, r.part])),
   };
 }
 

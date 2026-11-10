@@ -155,7 +155,18 @@ export interface TestLayout {
   pictures?: Record<string, string>;
 }
 
+/** Elements placed on the slide master: its background graphics, bottom first. */
+export interface TestMaster {
+  shapes: string[];
+  /** Relationship id → media file name, as on a slide (pptxgenjs's master takes rId1 and rId2). */
+  pictures?: Record<string, string>;
+  /** A `p:timing` element. */
+  timing?: string;
+}
+
 export interface TestDeckOptions {
+  /** Elements for the master's shape tree (pptxgenjs writes none there). */
+  master?: TestMaster;
   /**
    * The presentation's slide list (`p:sldIdLst`): the slides' file numbers in
    * the order PowerPoint shows them (`[2, 3, 1]` shows `slide2.xml` first);
@@ -204,7 +215,7 @@ async function addPictures(zip: JSZip, relsPath: string, pictures: Record<string
 export async function testDeck(
   slides: TestSlide[],
   layout?: TestLayout,
-  { slideList }: TestDeckOptions = {},
+  { slideList, master }: TestDeckOptions = {},
 ): Promise<Uint8Array> {
   const pptx = new PptxGenJS();
   for (let i = 0; i < slides.length; i++) pptx.addSlide();
@@ -233,6 +244,18 @@ export async function testDeck(
     const xml = await zip.file(layoutPath)!.async("text");
     zip.file(layoutPath, xml.replace(/<p:bg>[\s\S]*?<\/p:bg>/, layout.background));
     await addPictures(zip, "ppt/slideLayouts/_rels/slideLayout1.xml.rels", layout.pictures);
+  }
+  if (master) {
+    const masterPath = "ppt/slideMasters/slideMaster1.xml";
+    const xml = await zip.file(masterPath)!.async("text");
+    zip.file(
+      masterPath,
+      xml
+        .replace("</p:spTree>", `${master.shapes.join("")}</p:spTree>`)
+        // A master's timing comes before its header/footer settings.
+        .replace("<p:hf ", `${master.timing ?? ""}<p:hf `),
+    );
+    await addPictures(zip, "ppt/slideMasters/_rels/slideMaster1.xml.rels", master.pictures);
   }
   if (slideList) await writeSlideList(zip, slideList);
   return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });

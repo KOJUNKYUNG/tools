@@ -4,8 +4,12 @@
  * pure rule, shared by the preview analysis, the engine and the output check,
  * so what the preview promises is what the engine does.
  *
- * Walking the slide's top-level elements from the bottom, an element
- * qualifies when it
+ * A slide's stack (spec #163) is its background graphics, the master's then
+ * the layout's (CONTEXT.md → Background graphics: their top-level elements but
+ * placeholders and hidden ones, unless the slide or layout hides them), then
+ * the slide's own top-level elements.
+ *
+ * Walking the stack's elements from the bottom, an element qualifies when it
  * - holds no text (no non-empty text run anywhere in it),
  * - holds a picture: a picture element, a shape filled with a picture, or a
  *   group containing either (the picture's transparency does not matter;
@@ -14,10 +18,11 @@
  *   (`fills.ts`), or a group with such a member, and
  * - covers at least 90% of the slide's area with its bounds (their part on
  *   the slide; a group by its own bounds).
- * Qualifying elements form a run from the bottom, ending at the first that
- * does not. The run counts only when at least one top-level element lies
- * above it: a lone large picture is the slide's content (an image-to-pptx
- * sheet-music slide), not its background.
+ * Qualifying elements form one run from the bottom across the parts, ending at
+ * the first that does not. The slide's own elements in it count only when at
+ * least one element lies above the run: a lone large picture is the slide's
+ * content (an image-to-pptx sheet-music slide), not its background. A master
+ * or layout holds no content, so one there needs nothing above it.
  *
  * Hidden elements (`cNvPr hidden`, as the selection pane hides them) show
  * nothing, so the rule passes over them: they never qualify, never end the
@@ -33,8 +38,23 @@ import { fillChild, shownFill, type Colours, type ResolvedFill, type Swatch } fr
 import { animationCuts, cutSpans, type Span } from "./slideAnimations";
 import { child, findAll, parseXml, type XmlElement } from "./xmlTree";
 
-/** A covering background, as the span of the slide XML it takes up. */
+/** Which part of a slide's stack holds an element. */
+export type Holder = "master" | "layout" | "slide";
+
+/** One part's elements in a slide's stack, bottom first. */
+export interface StackLayer {
+  /** The part's name in the package. */
+  part: string;
+  holder: Holder;
+  /** Its elements on the slide: a slide's top-level elements, a master's or layout's background graphics. */
+  elements: XmlElement[];
+}
+
+/** A covering background, as the span of its part's XML it takes up. */
 export interface CoveringBackground extends Span {
+  /** The part that holds it, and which of the stack's parts that is. */
+  part: string;
+  holder: Holder;
   /** Shape ids (`cNvPr` ids) of the element and everything in it. */
   shapeIds: string[];
   /** Relationship ids of its pictures, in document order. */
@@ -52,9 +72,15 @@ const MEDIA = /(?:^|:)(?:videoFile|audioFile|quickTimeFile|wavAudioFile|media)$/
 /** One full turn in DrawingML's 1/60000 degree. */
 const TURN = 21600000;
 
-/** The slide's top-level elements, bottom of the stack first; null when it is not a slide. */
+/** The roots of the parts a slide's stack is made of. */
+const STACK_PARTS = new Set(["p:sld", "p:sldLayout", "p:sldMaster"]);
+
+/**
+ * The top-level elements of a slide, layout or master, bottom of the stack
+ * first; null for any other XML.
+ */
 export function topLevelElements(root: XmlElement | null): XmlElement[] | null {
-  if (root?.name !== "p:sld") return null;
+  if (!root || !STACK_PARTS.has(root.name)) return null;
   const spTree = child(child(root, "p:cSld"), "p:spTree");
   return spTree ? spTree.children.filter((c) => !NOT_ELEMENTS.has(c.name)) : null;
 }
@@ -71,6 +97,43 @@ function isHidden(el: XmlElement): boolean {
   const nv = el.children.find((c) => /^(?:[^:]+:)?nv\w*Pr$/.test(c.name));
   const hidden = nv?.children.find((c) => /^(?:[^:]+:)?cNvPr$/.test(c.name))?.attrs.hidden;
   return hidden === "1" || hidden === "true";
+}
+
+/** The element's `p:nvPr`, under whichever `nv*Pr` it has. */
+const nvPrOf = (el: XmlElement) =>
+  child(el.children.find((c) => /^(?:[^:]+:)?nv\w*Pr$/.test(c.name)), "p:nvPr");
+
+/** Whether the element is a placeholder: a frame for the slide to fill, never a background graphic. */
+const isPlaceholder = (el: XmlElement) => child(nvPrOf(el), "p:ph") !== undefined;
+
+/** A master's or layout's background graphics among its top-level elements. */
+const backgroundGraphics = (elements: XmlElement[]) =>
+  elements.filter((el) => !isPlaceholder(el) && !isHidden(el));
+
+/** Whether a slide or layout shows the background graphics under it ("Hide background graphics" off). */
+const showsBackgroundGraphics = (root: XmlElement) => !["0", "false"].includes(root.attrs.showMasterSp ?? "");
+
+/** A part of a slide's stack, parsed; an unreadable one has a null root. */
+export interface StackPart {
+  part: string;
+  root: XmlElement | null;
+}
+
+/**
+ * A slide's stack, bottom first: the master's background graphics, then the
+ * layout's, then the slide's own elements. A layout hiding background
+ * graphics drops the master's; a slide hiding them drops both.
+ */
+export function stackLayers(slide: StackPart, layout: StackPart | null, master: StackPart | null): StackLayer[] {
+  const layers: StackLayer[] = [];
+  const shows = (p: StackPart) => p.root !== null && showsBackgroundGraphics(p.root);
+  const graphics = (p: StackPart) => backgroundGraphics(topLevelElements(p.root) ?? []);
+  if (layout && shows(slide)) {
+    if (master && shows(layout)) layers.push({ part: master.part, holder: "master", elements: graphics(master) });
+    layers.push({ part: layout.part, holder: "layout", elements: graphics(layout) });
+  }
+  layers.push({ part: slide.part, holder: "slide", elements: topLevelElements(slide.root) ?? [] });
+  return layers;
 }
 
 /** Whether the element shows text: a text run with more than whitespace in it, outside hidden members. */
@@ -163,11 +226,11 @@ function covers(el: XmlElement, slide: SlideSize): boolean {
 export type MissReason = "text" | "transparent fill" | "no fill";
 
 /**
- * The rule's working on one slide, for the real-file coverage report: what it
- * found, and what it nearly found.
+ * The rule's working on one slide's stack (master, layout and slide), for the
+ * real-file coverage report: what it found, and what it nearly found.
  */
 export interface CoveringRun {
-  /** The qualifying elements from the bottom, before asking for something above them. */
+  /** The qualifying elements from the bottom, the slide's own included even with nothing above them. */
   qualifying: CoveringBackground[];
   /** The element that ended the run although it covers the slide, and why; null when none did. */
   missed: (Span & { reason: MissReason }) | null;
@@ -175,12 +238,14 @@ export interface CoveringRun {
   somethingAbove: boolean;
 }
 
-/** The rule's working on a slide's top-level `elements` (bottom first). */
-export function coveringRun(elements: XmlElement[], slide: SlideSize, colours: Colours): CoveringRun {
-  const shown = elements.filter((el) => !isHidden(el));
+/** The rule's working on a slide's stack (`stackLayers`, bottom first). */
+export function coveringRun(layers: readonly StackLayer[], slide: SlideSize, colours: Colours): CoveringRun {
+  const shown = layers.flatMap(({ part, holder, elements }) =>
+    elements.filter((el) => !isHidden(el)).map((el) => ({ el, part, holder })),
+  );
   const qualifying: CoveringBackground[] = [];
   let missed: CoveringRun["missed"] = null;
-  for (const el of shown) {
+  for (const { el, part, holder } of shown) {
     if (!covers(el, slide)) break;
     const [pictures, fills] = [picturesOf(el), fillsOf(el, colours)];
     const opaque = fills.filter((f) => f.opaque).map((f) => f.swatch);
@@ -195,25 +260,19 @@ export function coveringRun(elements: XmlElement[], slide: SlideSize, colours: C
       missed = { start: el.start, end: el.end, reason };
       break;
     }
-    qualifying.push({ start: el.start, end: el.end, shapeIds: shapeIdsIn(el), pictures, fills: opaque });
+    qualifying.push({ start: el.start, end: el.end, part, holder, shapeIds: shapeIdsIn(el), pictures, fills: opaque });
   }
   return { qualifying, missed, somethingAbove: qualifying.length < shown.length };
 }
 
 /**
- * The covering backgrounds of a slide's top-level `elements` (bottom first),
- * fills resolved against the slide's `colours`.
+ * The covering backgrounds of a slide's stack (bottom first), fills resolved
+ * against the slide's `colours`.
  */
-export function coveringIn(elements: XmlElement[], slide: SlideSize, colours: Colours): CoveringBackground[] {
-  const { qualifying, somethingAbove } = coveringRun(elements, slide, colours);
-  // Nothing above the run: the elements are the slide's content.
-  return somethingAbove ? qualifying : [];
-}
-
-/** The covering backgrounds of a slide, bottom first; none for XML that is not a slide. */
-export function findCoveringBackgrounds(slideXml: string, slide: SlideSize, colours: Colours): CoveringBackground[] {
-  const elements = topLevelElements(parseXml(slideXml));
-  return elements ? coveringIn(elements, slide, colours) : [];
+export function coveringIn(layers: readonly StackLayer[], slide: SlideSize, colours: Colours): CoveringBackground[] {
+  const { qualifying, somethingAbove } = coveringRun(layers, slide, colours);
+  // Nothing above the run: the slide's elements in it are its content.
+  return somethingAbove ? qualifying : qualifying.filter((c) => c.holder !== "slide");
 }
 
 /**
@@ -222,35 +281,29 @@ export function findCoveringBackgrounds(slideXml: string, slide: SlideSize, colo
  * name them, and of what their opaque fills show (`#rrggbb` or `fill`, never
  * a part name). The preview groups slides by it and the user keeps a group
  * by it, so the engine and the output check derive it the same way.
- * `partOf` resolves a relationship id of the slide to its part name.
+ * `partOf` resolves a relationship id of `part` (the part holding a covering
+ * background) to the picture's part name.
  */
 export function coveringGroupKey(
   covering: readonly CoveringBackground[],
-  partOf: (relId: string) => string | null | undefined,
+  partOf: (relId: string, part: string) => string | null | undefined,
 ): string {
   // OPC part names compare case-insensitively.
   const parts = covering.flatMap((c) => [
-    ...c.pictures.flatMap((id) => partOf(id)?.toLowerCase() ?? []),
+    ...c.pictures.flatMap((id) => partOf(id, c.part)?.toLowerCase() ?? []),
     ...c.fills,
   ]);
   return `covering:${[...new Set(parts)].sort().join("|")}`;
 }
 
 /**
- * The slide without its covering backgrounds or the animations that name
- * them, unless `keep` keeps them (they then stay untouched). Their
- * relationships stay: the caller drops those its part no longer names.
+ * A slide, layout or master without these covering backgrounds of it and the
+ * animations naming them. Their relationships stay: the caller drops those
+ * the part no longer names.
  */
-export function deleteCoveringBackgrounds(
-  slideXml: string,
-  slide: SlideSize,
-  colours: Colours,
-  keep: (covering: CoveringBackground[]) => boolean,
-): string {
-  const root = parseXml(slideXml);
-  const elements = topLevelElements(root);
-  const covering = elements ? coveringIn(elements, slide, colours) : [];
-  if (!root || covering.length === 0 || keep(covering)) return slideXml;
+export function withoutCovering(partXml: string, covering: readonly CoveringBackground[]): string {
+  const root = covering.length > 0 ? parseXml(partXml) : null;
+  if (!root) return partXml;
   const ids = new Set(covering.flatMap((c) => c.shapeIds));
-  return cutSpans(slideXml, [...covering, ...animationCuts(root, ids)]);
+  return cutSpans(partXml, [...covering, ...animationCuts(root, ids)]);
 }

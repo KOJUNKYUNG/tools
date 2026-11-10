@@ -14,16 +14,12 @@ import path from "node:path";
 import type { SlideSize } from "@/lib/image/slideImage";
 import { findRealFixtures, realFixtureDir } from "@/lib/output-check/realFixtures";
 import { openPptxPackage, type PptxPackage } from "@/lib/output-check/pptxPackage";
-import {
-  coveringGroupKey,
-  coveringRun,
-  topLevelElements,
-  type CoveringBackground,
-} from "@/lib/ppt/coveringBackgrounds";
+import { coveringRun, topLevelElements, type CoveringBackground, type Holder } from "@/lib/ppt/coveringBackgrounds";
 import { fillChild } from "@/lib/ppt/fills";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "@/lib/ppt/getSlideAspect";
 import { animationTargets } from "@/lib/ppt/slideAnimations";
 import { packagePartReader, slideColours } from "@/lib/ppt/slideColours";
+import { readSlideStacks } from "@/lib/ppt/slideStacks";
 import { child, parseXml, type XmlElement } from "@/lib/ppt/xmlTree";
 
 // Each list is every case of its kind, in report order; the summary marks
@@ -60,6 +56,10 @@ type NearMiss = (typeof NEAR_MISSES)[number];
 interface CoveringGroup {
   key: string;
   forms: Form[];
+  /** The parts holding them: "slide", or a master's or layout's file name. */
+  holders: string[];
+  /** Which parts of the stack those are. */
+  holderKinds: Holder[];
   slides: number[];
   animatedOn: number[];
 }
@@ -125,7 +125,8 @@ async function analyse(file: string): Promise<DeckReport> {
   if (!pkg) throw new Error(`not a readable deck: ${file}`);
   const presentation = await pkg.text("ppt/presentation.xml");
   const slide = (presentation && slideSizeFromXml(presentation)) || DEFAULT_SLIDE;
-  const coloursOf = slideColours(packagePartReader(pkg));
+  const reader = packagePartReader(pkg);
+  const coloursOf = slideColours(reader);
   const groups = new Map<string, CoveringGroup>();
   const report: DeckReport = {
     file: path.basename(file),
@@ -141,30 +142,36 @@ async function analyse(file: string): Promise<DeckReport> {
     rerun: pkg.parts.some((p) => p.startsWith("ppt/media/background_custom")),
   };
 
-  for (const [i, part] of pkg.slideParts.entries()) {
+  // The same stacks the tool reads: background graphics, then the slide's own elements.
+  const stacks = await readSlideStacks(reader, pkg.slideParts, slide);
+  for (const [i, stack] of stacks.entries()) {
     const n = i + 1;
-    const xml = (await pkg.text(part)) ?? "";
+    const xml = (await pkg.text(stack.part)) ?? "";
     const root = parseXml(xml);
     push(report.slideBackgrounds, backgroundKind(root) ?? "none", n);
-    const elements = topLevelElements(root);
-    if (!root || !elements) continue;
-    const { qualifying: run, missed, somethingAbove } = coveringRun(elements, slide, await coloursOf(part, xml));
+    if (!root || !topLevelElements(root)) continue;
+    const { qualifying, missed, somethingAbove } = coveringRun(stack.layers, slide, await coloursOf(stack.part, xml));
     if (missed) push(report.nearMisses, missed.reason, n);
-    if (run.length === 0) continue;
-    if (!somethingAbove) {
-      push(report.nearMisses, "nothing above", n);
-      continue;
-    }
-    const targets = new Map((await pkg.relationships(part)).map((r) => [r.id, r.part]));
-    const key = coveringGroupKey(run, (id) => targets.get(id));
-    const group = groups.get(key) ?? { key, forms: [], slides: [], animatedOn: [] };
+    // The slide's own elements in a run with nothing above are its content.
+    if (!somethingAbove && qualifying.some((c) => c.holder === "slide")) push(report.nearMisses, "nothing above", n);
+    const run = stack.covering;
+    if (run.length === 0 || stack.coveringKey === null) continue;
+    const key = stack.coveringKey;
+    const group = groups.get(key) ?? { key, forms: [], holders: [], holderKinds: [], slides: [], animatedOn: [] };
+    let animated = false;
     for (const c of run) {
-      const form = formOf(elements.find((e) => e.start === c.start), c);
+      const layer = stack.layers.find((l) => l.part === c.part);
+      const form = formOf(layer?.elements.find((e) => e.start === c.start), c);
       if (!group.forms.includes(form)) group.forms.push(form);
+      const holder = c.holder === "slide" ? "slide" : path.posix.basename(c.part);
+      if (!group.holders.includes(holder)) group.holders.push(holder);
+      if (!group.holderKinds.includes(c.holder)) group.holderKinds.push(c.holder);
+      const holderRoot = c.holder === "slide" ? root : parseXml((await pkg.text(c.part)) ?? "");
+      const targets = new Set(holderRoot ? animationTargets(holderRoot) : []);
+      if (c.shapeIds.some((id) => targets.has(id))) animated = true;
     }
     group.slides.push(n);
-    const animated = new Set(animationTargets(root));
-    if (run.some((c) => c.shapeIds.some((id) => animated.has(id)))) group.animatedOn.push(n);
+    if (animated) group.animatedOn.push(n);
     groups.set(key, group);
   }
 
@@ -210,7 +217,7 @@ function printDeck(d: DeckReport, tag: Tag | undefined) {
   line("slides", `${d.slideCount} · ${aspect(d.slide)}${d.rerun ? " · ppt-background output (re-run input)" : ""}`);
   if (d.covering.length === 0) line("covering", "none");
   for (const g of d.covering) {
-    line("covering", `${g.forms.join(" + ")}: slides ${slidesText(g.slides)}`);
+    line("covering", `${g.forms.join(" + ")} on ${g.holders.join(" + ")}: slides ${slidesText(g.slides)}`);
     line("", `  key ${g.key}`);
     if (g.animatedOn.length > 0) line("", `  animated on slides ${ranges(g.animatedOn)}`);
   }
@@ -223,6 +230,9 @@ function printDeck(d: DeckReport, tag: Tag | undefined) {
   }
 }
 
+/** Where a covering background can lie in a slide's stack, in report order. */
+const HOLDER_KINDS: Holder[] = ["slide", "master", "layout"];
+
 /** The cases a deck shows, as the summary counts them. */
 function casesOf(d: DeckReport): string[] {
   return [
@@ -230,6 +240,7 @@ function casesOf(d: DeckReport): string[] {
       ...(d.rerun ? ["input: ppt-background output"] : []),
       ...d.covering.flatMap((g) => g.forms.map((f) => `covering: ${f}`)),
       ...(d.covering.some((g) => g.animatedOn.length > 0) ? ["covering: animated"] : []),
+      ...d.covering.flatMap((g) => g.holderKinds.map((h) => `covering: on ${h}`)),
       ...[...d.nearMisses.keys()].map((r) => `near miss: ${r}`),
       ...[...d.slideBackgrounds.keys()].filter((k) => k !== "none").map((k) => `slide's own bg: ${k}`),
       ...[...d.layoutBackgrounds.keys()].map((k) => `layout's own bg: ${k}`),
@@ -239,7 +250,7 @@ function casesOf(d: DeckReport): string[] {
 
 const ALL_CASES = [
   "input: ppt-background output",
-  ...[...FORMS, "animated"].map((f) => `covering: ${f}`),
+  ...[...FORMS, "animated", ...HOLDER_KINDS.map((h) => `on ${h}`)].map((f) => `covering: ${f}`),
   ...NEAR_MISSES.map((r) => `near miss: ${r}`),
   ...SHOWN_KINDS.map((k) => `slide's own bg: ${k}`),
   ...SHOWN_KINDS.map((k) => `layout's own bg: ${k}`),

@@ -232,3 +232,23 @@ describe("extractCurrentBackgrounds numbers slides in presentation order", () =>
     }
   });
 });
+
+describe("extractCurrentBackgrounds finds covering backgrounds on the master", () => {
+  it("shows the master's full-slide picture as the current background of the slides under it", async () => {
+    const logo = picture(21, "rId11", { x: 8001000, y: 4343400, w: 914400, h: 571500 });
+    const deck = await testDeck(
+      [{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }],
+      undefined,
+      { master: { shapes: [picture(20, "rId10"), logo], pictures: { rId10: "master.png", rId11: "logo.png" } } },
+    );
+    const groups = await analyse(deck);
+
+    expect(groups.map(({ key, source, slideIndexes }) => ({ key, source, slideIndexes }))).toEqual([
+      { key: "covering:ppt/media/master.png", source: "covering", slideIndexes: [1, 2] },
+    ]);
+    const zip = await JSZip.loadAsync(deck);
+    expect(new Uint8Array(await groups[0].imageBlob!.arrayBuffer())).toEqual(
+      await zip.file("ppt/media/master.png")!.async("uint8array"),
+    );
+  });
+});

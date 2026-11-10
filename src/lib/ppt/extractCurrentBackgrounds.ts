@@ -1,7 +1,6 @@
 import JSZip from "jszip";
-import type { SlideSize } from "@/lib/image/slideImage";
 import { parseRelationships } from "@/lib/output-check/pptxPackage";
-import { coveringGroupKey, findCoveringBackgrounds } from "./coveringBackgrounds";
+import { readSlideStacks, type SlideStack } from "./slideStacks";
 import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { slideColours, zipPartReader, type PartReader } from "./slideColours";
@@ -74,25 +73,23 @@ async function relationshipTargets(zip: JSZip, partPath: string): Promise<Map<st
   return new Map((await relationshipsOf(zip, partPath)).map((r) => [r.id, r.part]));
 }
 
-/** The slide's covering backgrounds as its visible background; null when it has none. */
+/**
+ * The slide's covering backgrounds as its visible background, wherever in its
+ * stack they lie (a master's picture included); null when it has none.
+ */
 async function coveringBackground(
   zip: JSZip,
-  slidePath: string,
-  slideXml: string,
-  slide: SlideSize,
-  colours: Colours,
+  stack: SlideStack,
 ): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "swatch" | "coveringKey"> | null> {
-  const covering = findCoveringBackgrounds(slideXml, slide, colours);
-  if (covering.length === 0) return null;
-  const targets = await relationshipTargets(zip, slidePath);
-  const pictures = covering.flatMap((c) => c.pictures);
-  const thumbnail = pictures.flatMap((id) => targets.get(id) ?? [])[0] ?? null;
+  const { covering, coveringKey, coveringPictures } = stack;
+  if (covering.length === 0 || coveringKey === null) return null;
+  const thumbnail = coveringPictures[0] ?? null;
   return {
     imageBlob: thumbnail === null ? null : await mediaBlob(zip, thumbnail),
     imagePath: thumbnail,
-    // A fill under a covering picture is hidden by it: the picture shows.
-    ...(pictures.length === 0 && { swatch: covering[0].fills[0] }),
-    coveringKey: coveringGroupKey(covering, (id) => targets.get(id)),
+    // A fill under a covering background's picture is hidden by it: the picture shows.
+    ...(covering.every((c) => c.pictures.length === 0) && { swatch: covering[0].fills[0] }),
+    coveringKey,
   };
 }
 
@@ -134,6 +131,7 @@ export async function extractCurrentBackgrounds(
   const results: SlideBackground[] = [];
   const reader: PartReader = zipPartReader(zip);
   const coloursOf = slideColours(reader);
+  const stacks = await readSlideStacks(reader, slideFiles, slideSize);
 
   for (let i = 0; i < slideFiles.length; i++) {
     const slidePath = slideFiles[i];
@@ -147,13 +145,13 @@ export async function extractCurrentBackgrounds(
       imagePath: null,
     };
 
-    // The slide's colours resolve its layout's and master's backgrounds too: they show on it.
-    const colours = await coloursOf(slidePath, slideXml);
-    const covering = await coveringBackground(zip, slidePath, slideXml, slideSize, colours);
+    const covering = await coveringBackground(zip, stacks[i]);
     if (covering) {
       results.push({ ...bg, ...covering, source: "covering" });
       continue;
     }
+    // The slide's colours resolve its layout's and master's backgrounds too: they show on it.
+    const colours = await coloursOf(slidePath, slideXml);
 
     // Its own background, else the layout's, else the master's: the first
     // that declares one, whatever it shows.
