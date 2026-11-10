@@ -19,7 +19,9 @@
  * - covers at least 90% of the slide's area with its bounds (their part on
  *   the slide; a group by its own bounds).
  * Qualifying elements form one run from the bottom across the parts, ending at
- * the first that does not. The slide's own elements in it count only when at
+ * the first that does not; a background graphic under 90% of the slide (a
+ * logo) is passed over instead, as if hidden, so it never hides a slide's own
+ * covering background from the rule. The slide's own elements in it count only when at
  * least one element lies above the run: a lone large picture is the slide's
  * content (an image-to-pptx sheet-music slide), not its background. A master
  * or layout holds no content, so one there needs nothing above it.
@@ -240,8 +242,13 @@ export interface CoveringRun {
 
 /** The rule's working on a slide's stack (`stackLayers`, bottom first). */
 export function coveringRun(layers: readonly StackLayer[], slide: SlideSize, colours: Colours): CoveringRun {
+  // A background graphic not covering the slide (a logo) is passed over like
+  // a hidden one: it lies under all of the slide's elements, so it neither
+  // ends the run before a slide's own photo nor counts as lying above one.
   const shown = layers.flatMap(({ part, holder, elements }) =>
-    elements.filter((el) => !isHidden(el)).map((el) => ({ el, part, holder })),
+    elements
+      .filter((el) => !isHidden(el) && (holder === "slide" || covers(el, slide)))
+      .map((el) => ({ el, part, holder })),
   );
   const qualifying: CoveringBackground[] = [];
   let missed: CoveringRun["missed"] = null;

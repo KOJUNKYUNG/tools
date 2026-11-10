@@ -94,6 +94,38 @@ describe("changeBackground deletes a covering background on the master", () => {
     }
   });
 
+  it("still deletes a slide's own photo under its lyrics when the master carries a logo", async () => {
+    const deck = await testDeck(
+      [{ shapes: [picture(2, "rId10"), textBox(9, "1절")], pictures: { rId10: "photo.png" } }],
+      undefined,
+      { master: { shapes: [logo], pictures: { rId11: "logo.png" } } },
+    );
+    const zip = await runOn(deck, "all-slides");
+    expect(await text(zip, "ppt/slides/slide1.xml")).not.toContain('r:embed="rId10"');
+    expect(mediaParts(zip)).toEqual(["ppt/media/background_custom.jpeg", "ppt/media/logo.png"]);
+  });
+
+  it("deletes a master picture lying over a small logo, and keeps the logo", async () => {
+    const zip = await runOn(
+      await testDeck(slides, undefined, { master: { ...pictureAndLogo, shapes: [logo, masterPicture] } }),
+      "all-slides",
+    );
+    const master = await text(zip, MASTER);
+    expect(master).not.toContain(masterPicture);
+    expect(master).toContain(logo);
+  });
+
+  it("keeps a slide's lone picture, its content, when the master carries a logo", async () => {
+    const lone = picture(2, "rId10");
+    const zip = await runOn(
+      await testDeck([{ shapes: [lone], pictures: { rId10: "score.png" } }], undefined, {
+        master: { shapes: [logo], pictures: { rId11: "logo.png" } },
+      }),
+      "all-slides",
+    );
+    expect(await text(zip, "ppt/slides/slide1.xml")).toContain(lone);
+  });
+
   it("never takes a placeholder or a hidden element on the master for a covering background", async () => {
     const placeholder = picture(22, "rId10").replace("<p:nvPr/>", '<p:nvPr><p:ph type="pic" idx="10"/></p:nvPr>');
     const hidden = picture(23, "rId12").replace('name="Picture 23"', 'name="Picture 23" hidden="1"');
