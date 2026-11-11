@@ -17,6 +17,7 @@ import {
   type StackLayer,
   type StackPart,
 } from "./coveringBackgrounds";
+import type { Colours } from "./fills";
 import { layoutColours, slideColours, type PartReader } from "./slideColours";
 import { parseXml } from "./xmlTree";
 
@@ -42,6 +43,8 @@ export interface SlideStack extends LayoutStack {
   coveringPictures: string[];
   /** Its background graphics that show something (`graphicsShowing`), covering backgrounds included. */
   showing: GraphicRef[];
+  /** The colours its fills resolve against (`slideColours`). */
+  colours: Colours;
 }
 
 type Targets = ReadonlyMap<string, string | null>;
@@ -110,6 +113,7 @@ export async function readSlideStacks(
       covering,
       ...(await keyed(covering, targetsOf)),
       showing: graphicsShowing(layers, colours),
+      colours,
     });
   }
   return stacks;

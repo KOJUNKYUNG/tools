@@ -4,7 +4,7 @@ import { plannedSlide, type PlannedSlide } from "./coveringPlan";
 import { readSlideStacks, type SlideStack } from "./slideStacks";
 import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
-import { slideColours, zipPartReader, type PartReader } from "./slideColours";
+import { zipPartReader, type PartReader } from "./slideColours";
 import { noBackgroundSwatch } from "./themeBackground";
 import { child, parseXml } from "./xmlTree";
 import { slidesInOrder } from "./zipSlides";
@@ -136,14 +136,12 @@ export async function extractCurrentBackgrounds(
   const slideSize = (presXml && slideSizeFromXml(presXml)) || DEFAULT_SLIDE;
   const results: SlideBackground[] = [];
   const reader: PartReader = zipPartReader(zip);
-  const coloursOf = slideColours(reader);
   const stacks = await readSlideStacks(reader, slideFiles, slideSize);
 
   for (let i = 0; i < slideFiles.length; i++) {
     const slidePath = slideFiles[i];
-    const slideXml = await zip.file(slidePath)!.async("text");
     // The slide's colours resolve its layout's and master's backgrounds too: they show on it.
-    const colours = await coloursOf(slidePath, slideXml);
+    const { colours } = stacks[i];
 
     const bg: SlideBackground = {
       slideIndex: i + 1,

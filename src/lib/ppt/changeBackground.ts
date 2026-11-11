@@ -16,12 +16,11 @@ import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { zipPartReader } from "./slideColours";
 import { partsUnder } from "./slideOrder";
 import { readLayoutStacks, readSlideStacks } from "./slideStacks";
+import { NO_BACKGROUND_FILL } from "./themeBackground";
 import { slidesInOrder, zipParts } from "./zipSlides";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
 
-/** "No background": the theme's background colour, as PowerPoint fills a blank slide. */
-export const NO_BACKGROUND_FILL = '<a:solidFill><a:schemeClr val="bg1"/></a:solidFill>';
 
 /** The background the user picked. */
 export type NewBackground =

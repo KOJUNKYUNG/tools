@@ -124,8 +124,7 @@ export function SolidColourGrid({
         <Tile
           label={labels.none}
           title={labels.noneHint}
-          colour={noneColours[0]}
-          bands={noneColours}
+          colour={noneColours}
           none
           selected={value?.kind === "none"}
           disabled={locked}
@@ -150,7 +149,6 @@ function Tile({
   label,
   title,
   colour,
-  bands,
   none = false,
   selected,
   disabled,
@@ -159,10 +157,12 @@ function Tile({
 }: {
   label: string;
   title?: string;
-  /** The swatch's CSS colour (`#rrggbb`); null shows the picker glyph. */
-  colour: string | null;
-  /** Colours of equal diagonal bands across the swatch, lower left first; `colour` alone when fewer than two. */
-  bands?: readonly string[];
+  /**
+   * The swatch's CSS colour (`#rrggbb`), or several drawn as equal diagonal
+   * bands, lower left first ("no background" on a deck of several masters);
+   * null shows the picker glyph.
+   */
+  colour: string | readonly string[] | null;
   /** Crosses the swatch with a slash, Office's mark for "no fill". */
   none?: boolean;
   selected: boolean;
@@ -171,6 +171,7 @@ function Tile({
   /** Makes the tile a native colour input. */
   picker?: { value: string; onChange: (hex: string) => void };
 }) {
+  const shades = colour === null ? null : typeof colour === "string" ? [colour] : colour;
   const body = (
     <>
       {/* A hairline under the swatch keeps a light colour, or the empty
@@ -179,15 +180,11 @@ function Tile({
         <div
           className="flex size-full items-center justify-center"
           style={{
-            background: colour
-              ? none
-                ? `${slash(bands ?? [colour])}, ${diagonalBands(bands ?? [colour])}`
-                : colour
-              : "var(--surface-2)",
+            background: shades ? (none ? `${slash(shades)}, ${diagonalBands(shades)}` : diagonalBands(shades)) : "var(--surface-2)",
             color: "var(--ink-soft)",
           }}
         >
-          {colour === null && <PipetteIcon className="size-4" aria-hidden="true" />}
+          {shades === null && <PipetteIcon className="size-4" aria-hidden="true" />}
         </div>
       </div>
       <div className="px-2 py-1.5">
@@ -236,14 +233,17 @@ function Tile({
 
 /**
  * A thin diagonal line across the swatch, dark on light colours and light on
- * dark ones (judged by their mean brightness).
+ * dark ones, judged by the bands it runs through: the middle one, or the two
+ * it divides when their number is even.
  */
 function slash(colours: readonly string[]): string {
   const luma = (hex: string) => {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
     return 0.299 * r + 0.587 * g + 0.114 * b;
   };
-  const mean = colours.reduce((sum, hex) => sum + luma(hex), 0) / colours.length;
+  const half = colours.length / 2;
+  const crossed = colours.length % 2 === 1 ? [colours[Math.floor(half)]] : colours.slice(half - 1, half + 1);
+  const mean = crossed.reduce((sum, hex) => sum + luma(hex), 0) / crossed.length;
   const ink = mean > 140 ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.55)";
   return `linear-gradient(to top right, transparent calc(50% - 0.75px), ${ink} calc(50% - 0.75px), ${ink} calc(50% + 0.75px), transparent calc(50% + 0.75px))`;
 }

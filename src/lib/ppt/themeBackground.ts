@@ -1,7 +1,9 @@
-import { NO_BACKGROUND_FILL } from "./changeBackground";
 import type { SlideBackground } from "./extractCurrentBackgrounds";
 import { resolveFill, type Colours, type Swatch } from "./fills";
 import { parseXml } from "./xmlTree";
+
+/** "No background": the theme's background colour, as PowerPoint fills a blank slide. */
+export const NO_BACKGROUND_FILL = '<a:solidFill><a:schemeClr val="bg1"/></a:solidFill>';
 
 const NO_BACKGROUND = parseXml(NO_BACKGROUND_FILL) ?? undefined;
 
