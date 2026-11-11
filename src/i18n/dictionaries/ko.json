@@ -362,6 +362,24 @@
           "close": "닫기",
           "fullscreen": "전체 화면",
           "exitFullscreen": "전체 화면 끝내기"
+        },
+        "pieces": {
+          "open": "지울 요소 더 고르기…",
+          "openEmpty": "이 파일에는 더 고를 요소가 없습니다",
+          "summaryTemplate": "추가로 지울 요소 {n}종",
+          "title": "지울 요소 고르기",
+          "hint": "고른 요소는 변경하는 슬라이드에서 지워집니다. 하나를 고르면 같은 요소가 있는 모든 슬라이드에서 함께 골라집니다.",
+          "slideTemplate": "슬라이드 {n} / {total}",
+          "previous": "이전 슬라이드",
+          "next": "다음 슬라이드",
+          "empty": "이 슬라이드에는 고를 요소가 없습니다.",
+          "picture": "그림",
+          "colour": "색",
+          "shareTemplate": "슬라이드의 {pct}%",
+          "slidesTemplate": "{n}장에 있음",
+          "pickedTemplate": "{n}종 고름",
+          "clearAll": "모두 해제",
+          "done": "완료"
         }
       }
     },

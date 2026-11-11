@@ -14,11 +14,14 @@
  * deletes the covering backgrounds of every layout's stack (`layouts`) on the
  * same terms, so layouts no slide uses yet lose theirs too: slides added
  * later show the new background.
+ *
+ * The background pieces the user picks (CONTEXT.md → Background piece, by
+ * `pieceKey`) go from the changing slides that have them.
  */
 
 import type { BgMode } from "./changeBackground";
 import type { CoveringBackground, GraphicRef } from "./coveringBackgrounds";
-import type { SlideStack } from "./slideStacks";
+import type { BackgroundPiece, SlideStack } from "./slideStacks";
 
 export interface CoveringScope {
   mode: BgMode;
@@ -26,6 +29,8 @@ export interface CoveringScope {
   targetSlides?: readonly number[];
   /** Keys of the covering-background groups the user keeps (`coveringGroupKey`). */
   keptCovering?: readonly string[];
+  /** Keys of the background pieces the user picked (`pieceKey`); none by default. */
+  pickedPieces?: readonly string[];
 }
 
 /** What the plan reads of a slide's stack; the preview keeps only this much. */
@@ -37,6 +42,8 @@ export interface PlannedSlide {
   covering: readonly CoveringBackground[];
   coveringKey: string | null;
   showing: readonly GraphicRef[];
+  /** Its background pieces, bottom first. */
+  pieces: readonly BackgroundPiece[];
 }
 
 /** What the plan reads of a layout's stack. */
@@ -46,12 +53,13 @@ export interface PlannedLayout {
 }
 
 /** The stack of a slide, as the plan reads it. */
-export const plannedSlide = ({ part, layers, covering, coveringKey, showing }: SlideStack): PlannedSlide => ({
+export const plannedSlide = ({ part, layers, covering, coveringKey, showing, pieces }: SlideStack): PlannedSlide => ({
   part,
   layers: layers.map(({ part }) => ({ part })),
   covering,
   coveringKey,
   showing,
+  pieces,
 });
 
 export interface CoveringPlan {
@@ -62,6 +70,8 @@ export interface CoveringPlan {
    * many other background graphics showing something go with them.
    */
   hides: Map<string, number>;
+  /** The picked background pieces to delete, by the slide holding them, bottom first: on changing slides only. */
+  pieces: Map<string, BackgroundPiece[]>;
 }
 
 /**
@@ -70,7 +80,7 @@ export interface CoveringPlan {
  */
 export function coveringPlan(
   stacks: readonly PlannedSlide[],
-  { mode, targetSlides, keptCovering = [] }: CoveringScope,
+  { mode, targetSlides, keptCovering = [], pickedPieces = [] }: CoveringScope,
   layouts: readonly PlannedLayout[] = [],
 ): CoveringPlan {
   const kept = new Set(keptCovering);
@@ -91,9 +101,13 @@ export function coveringPlan(
     }
   };
   const hides = new Map<string, number>();
+  const picked = new Set(pickedPieces);
+  const pieces = new Map<string, BackgroundPiece[]>();
   stacks.forEach((s, i) => {
     if (!changing[i]) return;
     collect(s.covering);
+    const going = s.pieces.filter((p) => picked.has(p.key));
+    if (going.length > 0) pieces.set(s.part, going);
     if (s.covering.some((c) => c.holder !== "slide" && !everyShowingChanges(c.part))) {
       const isCovering = (g: GraphicRef) => s.covering.some((c) => c.part === g.part && c.start === g.start);
       hides.set(s.part, s.showing.filter((g) => !isCovering(g)).length);
@@ -104,5 +118,5 @@ export function coveringPlan(
   const deletions = new Map(
     [...byPart].map(([part, found]) => [part, [...found.values()].sort((a, b) => a.start - b.start)]),
   );
-  return { deletions, hides };
+  return { deletions, hides, pieces };
 }

@@ -9,6 +9,22 @@ import { noBackgroundSwatch } from "./themeBackground";
 import { child, parseXml } from "./xmlTree";
 import { slidesInOrder } from "./zipSlides";
 
+/** A background piece (CONTEXT.md → Background piece) as the picker lists it. */
+export interface PiecePreview {
+  /** What the user picks it by (`pieceKey`): picking it picks it on every slide that has it. */
+  key: string;
+  /** Its first picture part from the bottom, as a zip path (load it with `deckMedia`); null for a fill. */
+  imagePath: string | null;
+  /** What a piece without a picture shows: its first fill's colour, or the neutral `fill`. */
+  swatch: Swatch | null;
+  /** Where it lies, as fractions of the slide's width and height (may reach past the slide). */
+  box: { x: number; y: number; w: number; h: number };
+  /** The share of the slide's area it covers, 0…1. */
+  share: number;
+  /** How many slides have it. */
+  slideCount: number;
+}
+
 /**
  * A slide's visible background (CONTEXT.md): its covering backgrounds when it
  * has any, else its own background, its layout's or its master's.
@@ -37,6 +53,8 @@ export interface SlideBackground {
   stack: PlannedSlide;
   /** The colour "no background" would show on it (`noBackgroundSwatch`): its own master's, not the deck's first. */
   noBackground: Swatch;
+  /** Its background pieces, bottom first. */
+  pieces: PiecePreview[];
 }
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -123,6 +141,15 @@ async function ownBackground(
   return { imageBlob: null, imagePath: null, ...(shown && { swatch: shown.swatch }) };
 }
 
+/**
+ * The deck's media as blobs, by zip path, the deck read once on the first
+ * call: the picker loads a piece's picture only when its slide is shown.
+ */
+export function deckMedia(file: File): (path: string) => Promise<Blob | null> {
+  let zip: Promise<JSZip> | null = null;
+  return async (path) => mediaBlob(await (zip ??= file.arrayBuffer().then((b) => JSZip.loadAsync(b))), path);
+}
+
 export async function extractCurrentBackgrounds(
   file: File,
 ): Promise<SlideBackground[]> {
@@ -137,6 +164,10 @@ export async function extractCurrentBackgrounds(
   const results: SlideBackground[] = [];
   const reader: PartReader = zipPartReader(zip);
   const stacks = await readSlideStacks(reader, slideFiles, slideSize);
+  const slidesWith = new Map<string, number>();
+  for (const { pieces } of stacks) {
+    for (const key of new Set(pieces.map((p) => p.key))) slidesWith.set(key, (slidesWith.get(key) ?? 0) + 1);
+  }
 
   for (let i = 0; i < slideFiles.length; i++) {
     const slidePath = slideFiles[i];
@@ -151,6 +182,14 @@ export async function extractCurrentBackgrounds(
       imagePath: null,
       stack: plannedSlide(stacks[i]),
       noBackground: noBackgroundSwatch(colours),
+      pieces: stacks[i].pieces.map(({ key, pictureParts, fills, bounds, share }) => ({
+        key,
+        imagePath: pictureParts[0] ?? null,
+        swatch: pictureParts.length > 0 ? null : (fills[0] ?? null),
+        box: { x: bounds.x / slideSize.w, y: bounds.y / slideSize.h, w: bounds.w / slideSize.w, h: bounds.h / slideSize.h },
+        share,
+        slideCount: slidesWith.get(key) ?? 0,
+      })),
     };
 
     const covering = await coveringBackground(zip, stacks[i]);

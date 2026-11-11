@@ -46,6 +46,8 @@ export interface ChangeBackgroundOptions {
   targetSlides?: number[];
   /** Keys of the covering-background groups the user keeps (`coveringGroupKey`); none by default. */
   keptCovering?: readonly string[];
+  /** Keys of the background pieces the user picked (`pieceKey`): deleted from the slides that change; none by default. */
+  pickedPieces?: readonly string[];
   onProgress?: (pct: number) => void;
   /** The picture preparer; tests and Node stand one in for the canvas. */
   prepare?: PrepareSlideImage;
@@ -488,6 +490,7 @@ export async function changeBackground({
   mode,
   targetSlides,
   keptCovering = [],
+  pickedPieces = [],
   onProgress,
   prepare = prepareSlideImage,
 }: ChangeBackgroundOptions): Promise<Uint8Array> {
@@ -540,11 +543,17 @@ export async function changeBackground({
   // Planned on the input, before any part changes: deleting a master's
   // covering background would change what every slide's stack shows.
   const reader = zipPartReader(zip);
-  const { deletions, hides } = coveringPlan(
+  const plan = coveringPlan(
     await readSlideStacks(reader, slides, slideSize),
-    { mode, targetSlides, keptCovering },
+    { mode, targetSlides, keptCovering, pickedPieces },
     mode === "master" ? await readLayoutStacks(reader, partsUnder(parts, "ppt/slideLayouts"), slideSize) : [],
   );
+  const { hides } = plan;
+  // Picked pieces go with the covering backgrounds, in one cut per part.
+  const deletions = new Map(plan.deletions);
+  for (const [part, pieces] of plan.pieces) {
+    deletions.set(part, [...(deletions.get(part) ?? []), ...pieces].sort((a, b) => a.start - b.start));
+  }
   const replaced = new Set<string>();
   // Masters and layouts lose theirs first: the slides' own go as each slide is rewritten.
   const slideSet = new Set(slides);
@@ -601,6 +610,7 @@ export async function changeBackground({
           mode,
           targetSlides,
           keptCovering,
+          pickedPieces,
         },
         out,
         "quick",

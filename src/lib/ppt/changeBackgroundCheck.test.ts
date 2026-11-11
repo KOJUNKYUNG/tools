@@ -11,6 +11,7 @@ import { changeBackground } from "./changeBackground";
 import {
   clickAnimations,
   filledShape,
+  pictureShape,
   picture as pictureElement,
   solidBackground,
   solidFill,
@@ -63,6 +64,7 @@ async function apply(deck: Uint8Array, intent: Intent): Promise<Uint8Array> {
     mode: intent.mode,
     targetSlides: intent.targetSlides,
     keptCovering: intent.keptCovering,
+    pickedPieces: intent.pickedPieces,
     prepare: standInPrepare,
   });
 }
@@ -1079,5 +1081,41 @@ describe("checkPptBackground checks which slides hide background graphics", () =
       property: "background-graphics-hidden",
       detail: "ppt/slides/slide2.xml: hidden",
     });
+  });
+});
+
+describe("checkPptBackground checks the background pieces the user picked", () => {
+  const BAND = { x: 0, y: 0, w: 9144000, h: 1028700 };
+  const BLOB = { x: 6096000, y: 3429000, w: 3048000, h: 1714500 };
+  const blobPicture = "piece:picture:ppt/media/blob.png";
+  /** Two slides of a red band, a picture blob (animated) and the lyrics. */
+  const piecedDeck = () =>
+    testDeck(
+      [1, 2].map((n) => ({
+        shapes: [filledShape(3, solidFill("FF0000"), BAND), pictureShape(4, "rId11", BLOB), textBox(9, `${n}절`)],
+        pictures: { rId11: "blob.png" },
+        timing: clickAnimations([4, 9]),
+      })),
+    );
+  const picking: Intent = { source: newBgBytes, mode: "specific-slides", targetSlides: [1], pickedPieces: [blobPicture] };
+  const SLIDE1 = "ppt/slides/slide1.xml";
+
+  it("passes the engine's output", async () => {
+    const input = await piecedDeck();
+    expect(await properties(input, picking, await apply(input, picking))).toEqual([]);
+    const everywhere: Intent = { ...picking, mode: "all-slides", targetSlides: undefined };
+    expect(await properties(input, everywhere, await apply(input, everywhere))).toEqual([]);
+  });
+
+  it("flags a picked piece left on a changed slide", async () => {
+    const input = await piecedDeck();
+    const output = await apply(input, { ...picking, pickedPieces: [] });
+    expect(await quick(input, picking, output)).toContainEqual({ property: "piece-kept", detail: `${SLIDE1} #4` });
+  });
+
+  it("flags an unpicked piece deleted with the picked one", async () => {
+    const input = await piecedDeck();
+    const output = await apply(input, { ...picking, pickedPieces: [blobPicture, "piece:fill:#ff0000@0,0,9144000,1028700"] });
+    expect(await quick(input, picking, output)).toContainEqual({ property: "element-missing", detail: `${SLIDE1} #3` });
   });
 });

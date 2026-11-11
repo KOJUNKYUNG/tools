@@ -67,6 +67,8 @@ export interface CoveringBackground extends Span {
 
 /** The share of the slide's area an element must cover, as a fraction. */
 const COVER = { num: 9, den: 10 };
+/** The share of the slide's area a background piece must cover, as a fraction. */
+const PIECE = { num: 1, den: 20 };
 /** The shape tree's own children that are not elements on the slide. */
 const NOT_ELEMENTS = new Set(["p:nvGrpSpPr", "p:grpSpPr", "p:extLst"]);
 /** Media a picture element may play: such an element is not a picture. */
@@ -209,8 +211,16 @@ function fillsOf(el: XmlElement, colours: Colours, groupFill?: XmlElement): Reso
   }
 }
 
+/** An element's bounds (EMU): its top-left corner and size. */
+export interface Bounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 /** An element's bounds on the slide (EMU), after a quarter turn; null when unknown. */
-function boundsOf(el: XmlElement): { x: number; y: number; w: number; h: number } | null {
+function boundsOf(el: XmlElement): Bounds | null {
   const props = el.name === "p:grpSp" ? child(el, "p:grpSpPr") : child(el, "p:spPr");
   const xfrm = child(props, "a:xfrm");
   const [off, ext] = [child(xfrm, "a:off"), child(xfrm, "a:ext")];
@@ -223,13 +233,17 @@ function boundsOf(el: XmlElement): { x: number; y: number; w: number; h: number 
   return { x, y, w, h };
 }
 
+/** The area of `b` that lies on the slide (EMU²). */
+function areaOnSlide(b: Bounds, slide: SlideSize): number {
+  const across = Math.min(b.x + b.w, slide.w) - Math.max(b.x, 0);
+  const down = Math.min(b.y + b.h, slide.h) - Math.max(b.y, 0);
+  return across > 0 && down > 0 ? across * down : 0;
+}
+
 /** Whether the element's bounds cover at least 90% of the slide's area. */
 function covers(el: XmlElement, slide: SlideSize): boolean {
   const b = boundsOf(el);
-  if (!b) return false;
-  const across = Math.min(b.x + b.w, slide.w) - Math.max(b.x, 0);
-  const down = Math.min(b.y + b.h, slide.h) - Math.max(b.y, 0);
-  return across > 0 && down > 0 && across * down * COVER.den >= slide.w * slide.h * COVER.num;
+  return b !== null && areaOnSlide(b, slide) * COVER.den >= slide.w * slide.h * COVER.num;
 }
 
 /**
@@ -378,9 +392,64 @@ export function coveringGroupKey(
  * animations naming them. Their relationships stay: the caller drops those
  * the part no longer names.
  */
-export function withoutCovering(partXml: string, covering: readonly CoveringBackground[]): string {
+export function withoutCovering(partXml: string, covering: readonly (Span & { shapeIds: string[] })[]): string {
   const root = covering.length > 0 ? parseXml(partXml) : null;
   if (!root) return partXml;
   const ids = new Set(covering.flatMap((c) => c.shapeIds));
   return cutSpans(partXml, [...covering, ...animationCuts(root, ids)]);
+}
+
+/**
+ * A background piece (CONTEXT.md → Background piece): an element the user
+ * may pick to delete with the old background. Its `fills` are what its fills
+ * show, opaque or not.
+ */
+export interface Piece extends CoveringBackground {
+  /** Its bounds (EMU), as written. */
+  bounds: Bounds;
+  /** The share of the slide's area it covers, 0…1. */
+  share: number;
+}
+
+/**
+ * The background pieces of a slide's stack, bottom first: its own top-level
+ * elements that are not among its `covering` backgrounds, show no text, show
+ * a picture or a fill (opaque or not), and cover at least 5% of the slide
+ * with known bounds. A group is one piece; hidden elements are none.
+ */
+export function piecesIn(
+  layers: readonly StackLayer[],
+  slide: SlideSize,
+  colours: Colours,
+  covering: readonly CoveringBackground[],
+): Piece[] {
+  const isCovering = (part: string, el: XmlElement) => covering.some((c) => c.part === part && c.start === el.start);
+  return layers
+    .filter((l) => l.holder === "slide")
+    .flatMap(({ part, holder, elements }) =>
+      elements.flatMap((el): Piece[] => {
+        if (isHidden(el) || showsText(el) || isCovering(part, el)) return [];
+        const [pictures, fills] = [picturesOf(el), fillsOf(el, colours).map((f) => f.swatch)];
+        const bounds = boundsOf(el);
+        if ((pictures.length === 0 && fills.length === 0) || !bounds) return [];
+        const area = areaOnSlide(bounds, slide);
+        if (area * PIECE.den < slide.w * slide.h * PIECE.num) return [];
+        const { start, end } = el;
+        return [{ start, end, part, holder, shapeIds: shapeIdsIn(el), pictures, fills, bounds, share: area / (slide.w * slide.h) }];
+      }),
+    );
+}
+
+/**
+ * The key of a background piece, shared by the preview, the engine and the
+ * output check: the set of picture parts it shows (`partOf` resolves a
+ * relationship id of its part), or, with none, its fills with its position
+ * and size. Picking a key picks the piece on every slide that has it.
+ */
+export function pieceKey(piece: Piece, partOf: (relId: string, part: string) => string | null | undefined): string {
+  // OPC part names compare case-insensitively.
+  const parts = [...new Set(piece.pictures.flatMap((id) => partOf(id, piece.part)?.toLowerCase() ?? []))].sort();
+  if (parts.length > 0) return `piece:picture:${parts.join("|")}`;
+  const { x, y, w, h } = piece.bounds;
+  return `piece:fill:${piece.fills.join("|")}@${x},${y},${w},${h}`;
 }

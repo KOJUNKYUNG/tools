@@ -27,6 +27,7 @@ import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
 import { SelectedBackgroundFrame } from "./SelectedBackgroundFrame";
 import { CurrentBackgroundFrame } from "./CurrentBackgroundFrame";
+import { PiecePicker, type PiecePickerLabels } from "./PiecePicker";
 import { PreviewLightbox } from "@/components/common/PreviewLightbox";
 import { PptBackgroundResult } from "./PptBackgroundResult";
 import { PptConversionGuide, type ConversionMethodLabels } from "./PptConversionGuide";
@@ -136,6 +137,14 @@ export interface PptBackgroundToolLabels {
     exitFullscreen: string;
     close: string;
   };
+  /** The background-piece picker, its button under the current background and the picks' summary. */
+  pieces: PiecePickerLabels & {
+    open: string;
+    /** The button's title when the deck has no pieces. */
+    openEmpty: string;
+    /** "추가로 지울 요소 {n}종" */
+    summaryTemplate: string;
+  };
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
@@ -170,6 +179,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   /** Covering-background groups whose delete toggle is off: the engine keeps them. */
   const [keptCovering, setKeptCovering] = useState<Set<string>>(new Set());
   const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
+  /** Background pieces the user picked (`pieceKey`): deleted with the old background. None by default. */
+  const [pickedPieces, setPickedPieces] = useState<Set<string>>(new Set());
+  const [piecesOpen, setPiecesOpen] = useState(false);
   const [zoom, setZoom] = useState<null | "selected" | "current">(null);
   /** The zoom fills the screen: the filtered preview is drawn at the screen's size. */
   const [zoomFullscreen, setZoomFullscreen] = useState(false);
@@ -237,6 +249,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             ? [...selectedSlides].sort((a, b) => a - b)
             : undefined,
         keptCovering: [...keptCovering],
+        pickedPieces: [...pickedPieces],
         onProgress: shown,
         prepare: background.kind === "picture" && background.step ? slideImagePreparer(background.step) : undefined,
       });
@@ -275,6 +288,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setCheckedKeys(new Set());
       setKeptCovering(new Set());
       setSelectedSlides(new Set());
+      setPickedPieces(new Set());
+      setPiecesOpen(false);
       setZoom(null);
       setPptxFilesRaw(files);
     },
@@ -307,12 +322,16 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setCheckedKeys(new Set());
       setKeptCovering(new Set());
       setSelectedSlides(new Set());
+      setPickedPieces(new Set());
+      setPiecesOpen(false);
       return;
     }
     setCurIndex(0);
     setCheckedKeys(new Set());
     setKeptCovering(new Set());
     setSelectedSlides(new Set());
+    setPickedPieces(new Set());
+    setPiecesOpen(false);
     let cancelled = false;
 
     getSlideAspect(pptxFile).then((a) => {
@@ -350,6 +369,25 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   }, []);
 
   const totalSlides = currentBgs.length;
+  const hasPieces = currentBgs.some((s) => s.pieces.length > 0);
+  const onTogglePiece = useCallback((key: string) => {
+    setPickedPieces((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+  const closePieces = useCallback(() => setPiecesOpen(false), []);
+  const clearPieces = useCallback(() => setPickedPieces(new Set()), []);
+  /** A slide's current background, as its group's frame shows it. */
+  const backgroundOf = useCallback(
+    (slideIndex: number) => {
+      const g = groups.find((grp) => grp.slideIndexes.includes(slideIndex));
+      return { url: g ? (groupThumbUrls.get(g.key) ?? null) : null, swatch: g?.swatch };
+    },
+    [groups, groupThumbUrls],
+  );
 
   const slideRatio = slideAspect.ratio;
   /** The file the run would put in, shown while the zoom fills the screen. */
@@ -499,6 +537,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       // result show.
       onExecute={() => {
         setZoom(null);
+        setPiecesOpen(false);
         run();
       }}
       onAgain={handleTryAnother}
@@ -577,7 +616,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         // stability contract). Canon = pdf-watermark. The panes stay side by
         // side at every width: stacked, they outgrow the tray, and the landing
         // workspace does not scroll.
-        <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
+        <div className="relative flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
 
           {/* Two-pane workspace. */}
           <div
@@ -640,6 +679,24 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       swatchLabels={{ solid: labels.preview.solidSwatch, fill: labels.preview.fillSwatch }}
                       zoomLabel={labels.preview.zoom}
                       onZoom={() => setZoom("current")}
+                      footer={
+                        <div className="flex min-w-0 items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPiecesOpen(true)}
+                            disabled={!hasPieces}
+                            title={hasPieces ? undefined : labels.pieces.openEmpty}
+                            className="subtle-action shrink-0 rounded-[5px] px-2 py-1 font-body text-[10.5px]"
+                          >
+                            {labels.pieces.open}
+                          </button>
+                          {pickedPieces.size > 0 && (
+                            <span className="truncate font-body text-[10.5px]" style={{ color: "var(--ink-strong)" }}>
+                              {template(labels.pieces.summaryTemplate, { n: pickedPieces.size })}
+                            </span>
+                          )}
+                        </div>
+                      }
                     />
                   </div>
 
@@ -751,6 +808,20 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               )}
             </div>
           </div>
+
+          {piecesOpen && status === "idle" && pptxFile && (
+            <PiecePicker
+              slides={currentBgs}
+              picked={pickedPieces}
+              onToggle={onTogglePiece}
+              onClearAll={clearPieces}
+              onDone={closePieces}
+              file={pptxFile}
+              backgroundOf={backgroundOf}
+              aspect={aspectCss}
+              labels={labels.pieces}
+            />
+          )}
         </div>
       )}
     </div>

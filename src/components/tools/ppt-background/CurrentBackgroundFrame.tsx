@@ -1,6 +1,7 @@
 // src/components/tools/ppt-background/CurrentBackgroundFrame.tsx
 "use client";
 
+import type { ReactNode } from "react";
 import { template } from "@/lib/common/template";
 import type { BackgroundGroup } from "@/lib/ppt/groupBackgrounds";
 
@@ -28,12 +29,14 @@ interface CurrentBackgroundFrameProps {
   swatchLabels: { solid: string; fill: string };
   zoomLabel: string;
   onZoom: () => void;
+  /** A line under the delete toggle (the background-piece picker's button). */
+  footer?: ReactNode;
 }
 
 export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
   const {
     caption, groups, thumbUrls, index, onIndex, checkedKeys, onToggleCheck, keptCovering, onToggleDelete,
-    aspect, slideCountTemplate, emptyLabel, deleteLabel, deleteFillLabel, swatchLabels, zoomLabel, onZoom,
+    aspect, slideCountTemplate, emptyLabel, deleteLabel, deleteFillLabel, swatchLabels, zoomLabel, onZoom, footer,
   } = props;
   const group = groups[index];
   const url = group ? thumbUrls.get(group.key) ?? null : null;
@@ -175,6 +178,7 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
         />
         <span className="truncate">{toggleLabel}</span>
       </label>
+      {footer}
     </div>
   );
 }

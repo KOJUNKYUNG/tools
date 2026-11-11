@@ -362,6 +362,24 @@
           "close": "Close",
           "fullscreen": "Full screen",
           "exitFullscreen": "Exit full screen"
+        },
+        "pieces": {
+          "open": "Pick more to remove…",
+          "openEmpty": "Nothing else to pick in this file",
+          "summaryTemplate": "{n} more to remove",
+          "title": "Pick elements to remove",
+          "hint": "Picked elements are removed from the slides you change. Picking one picks it on every slide that has it.",
+          "slideTemplate": "Slide {n} / {total}",
+          "previous": "Previous slide",
+          "next": "Next slide",
+          "empty": "Nothing to pick on this slide.",
+          "picture": "Picture",
+          "colour": "Colour",
+          "shareTemplate": "{pct}% of the slide",
+          "slidesTemplate": "On {n} slides",
+          "pickedTemplate": "{n} picked",
+          "clearAll": "Clear all",
+          "done": "Done"
         }
       }
     },

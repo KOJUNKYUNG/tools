@@ -36,6 +36,8 @@ export interface PptBackgroundRequest {
   targetSlides?: number[];
   /** Keys of the covering-background groups the user keeps (`coveringGroupKey`). */
   keptCovering?: readonly string[];
+  /** Keys of the background pieces the user picked (`pieceKey`). */
+  pickedPieces?: readonly string[];
 }
 
 /**
@@ -86,6 +88,9 @@ export interface PptBackgroundRequest {
  *
  * - ⚡ `covering-background-kept`: a covering background the plan deletes is
  *   still there
+ * - ⚡ `piece-kept`: a background piece the user picked (spec #163) is still
+ *   on a changed slide (the plan's `pieces`, re-derived by the shared rule
+ *   and keys)
  * - ⚡ `element-missing`: another top-level element is gone
  * - ⚡ `animation-target-missing`: an animation or build entry names a shape
  *   the slide does not have (the deck would need repair)
@@ -173,7 +178,7 @@ export const checkPptBackground: OutputChecker<
   // The covering backgrounds the engine must have deleted, re-planned on the
   // input with the shared rule and plan (not the engine's own selection).
   const [reader, size] = [packagePartReader(before), await slideSize(before)];
-  const { deletions, hides } = coveringPlan(
+  const { deletions, hides, pieces } = coveringPlan(
     await readSlideStacks(reader, before.slideParts, size),
     request,
     request.mode === "master" ? await readLayoutStacks(reader, before.layoutParts, size) : [],
@@ -214,6 +219,7 @@ export const checkPptBackground: OutputChecker<
     after,
     [...coveringChecked, ...before.layoutParts, ...before.masterParts],
     deletions,
+    pieces,
   );
   violations.push(...covering.violations);
 
@@ -323,21 +329,24 @@ async function slideSize(pkg: PptxPackage): Promise<{ w: number; h: number }> {
 }
 
 /**
- * The covering-background properties of the given parts (slides, layouts,
- * masters), and the parts from which the engine must have deleted covering
- * backgrounds: those the plan (`deletions`) names.
+ * The covering-background and piece properties of the given parts (slides,
+ * layouts, masters), and the parts from which the engine must have deleted
+ * elements: those the plan names (`deletions`, `pieces`).
  */
 async function coveringViolations(
   before: PptxPackage,
   after: PptxPackage,
   targets: readonly string[],
   deletions: ReadonlyMap<string, readonly CoveringBackground[]>,
+  pieces: ReadonlyMap<string, readonly CoveringBackground[]>,
 ): Promise<{ violations: Violation[]; deletedOn: Set<string> }> {
   const violations: Violation[] = [];
   const deletedOn = new Set<string>();
   for (const part of targets) {
     const covering = new Set((deletions.get(part) ?? []).map((c) => c.start));
-    if (covering.size > 0) deletedOn.add(part);
+    const picked = new Set((pieces.get(part) ?? []).map((c) => c.start));
+    const going = (el: XmlElement) => covering.has(el.start) || picked.has(el.start);
+    if (covering.size > 0 || picked.size > 0) deletedOn.add(part);
     // A part stored as in the input lost nothing, and kept nothing it should not when nothing goes from it.
     else if (after.storedAsIn(before, part)) continue;
 
@@ -362,12 +371,14 @@ async function coveringViolations(
       return n > 0;
     };
     const detail = (el: XmlElement) => `${part} #${ownId(el) ?? el.name}`;
-    // Elements that stay first, so one equal to a covering background is never taken for it.
-    for (const el of inEls.filter((e) => !covering.has(e.start))) {
+    // Elements that stay first, so one equal to a covering background or a piece is never taken for it.
+    for (const el of inEls.filter((e) => !going(e))) {
       if (!match(el)) violations.push({ property: "element-missing", detail: detail(el) });
     }
-    for (const el of inEls.filter((e) => covering.has(e.start))) {
-      if (match(el)) violations.push({ property: "covering-background-kept", detail: detail(el) });
+    for (const el of inEls.filter(going)) {
+      if (match(el)) {
+        violations.push({ property: covering.has(el.start) ? "covering-background-kept" : "piece-kept", detail: detail(el) });
+      }
     }
 
     const missingTargets = (root: XmlElement, els: XmlElement[]) => {

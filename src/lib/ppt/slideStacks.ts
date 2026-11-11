@@ -11,9 +11,12 @@ import {
   coveringIn,
   graphicsShowing,
   layoutLayers,
+  pieceKey,
+  piecesIn,
   stackLayers,
   type CoveringBackground,
   type GraphicRef,
+  type Piece,
   type StackLayer,
   type StackPart,
 } from "./coveringBackgrounds";
@@ -33,6 +36,12 @@ export interface LayoutStack {
   coveringKey: string | null;
 }
 
+/** A background piece with its key (`pieceKey`) and its picture parts, bottom first. */
+export interface BackgroundPiece extends Piece {
+  key: string;
+  pictureParts: string[];
+}
+
 /** A slide's stack: its background graphics, then its own elements. */
 export interface SlideStack extends LayoutStack {
   /** The slide part. */
@@ -45,6 +54,8 @@ export interface SlideStack extends LayoutStack {
   showing: GraphicRef[];
   /** The colours its fills resolve against (`slideColours`). */
   colours: Colours;
+  /** Its background pieces (`piecesIn`), bottom first. */
+  pieces: BackgroundPiece[];
 }
 
 type Targets = ReadonlyMap<string, string | null>;
@@ -107,6 +118,12 @@ export async function readSlideStacks(
     );
     const colours = await coloursOf(part, xml);
     const covering = coveringIn(layers, slide, colours);
+    const pieces: BackgroundPiece[] = [];
+    for (const piece of piecesIn(layers, slide, colours, covering)) {
+      const targets = await targetsOf(piece.part);
+      const partOf = (relId: string) => targets.get(relId);
+      pieces.push({ ...piece, key: pieceKey(piece, partOf), pictureParts: piece.pictures.flatMap((id) => partOf(id) ?? []) });
+    }
     stacks.push({
       part,
       layers,
@@ -114,6 +131,7 @@ export async function readSlideStacks(
       ...(await keyed(covering, targetsOf)),
       showing: graphicsShowing(layers, colours),
       colours,
+      pieces,
     });
   }
   return stacks;
