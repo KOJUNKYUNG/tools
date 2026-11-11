@@ -923,3 +923,161 @@ describe("checkPptBackground checks master mode", () => {
     expect(await properties(input, allSlides, output)).toEqual(["non-target-unchanged"]);
   });
 });
+
+describe("checkPptBackground checks covering backgrounds on the master", () => {
+  const MASTER = "ppt/slideMasters/slideMaster1.xml";
+  const masterPicture = pictureElement(20, "rId10");
+  const logo = pictureElement(21, "rId11", { x: 8001000, y: 4343400, w: 914400, h: 571500 });
+  /** Lyrics slides under a master carrying a full-slide picture and a logo. */
+  const masterDeck = () =>
+    testDeck([{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }], undefined, {
+      master: { shapes: [masterPicture, logo], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+  const editMaster = (deck: Uint8Array, edit: (xml: string) => string) =>
+    mutate(deck, async (zip) => {
+      zip.file(MASTER, edit(await zip.file(MASTER)!.async("text")));
+    });
+
+  it("passes the engine's output, the master rewritten", async () => {
+    const input = await masterDeck();
+    const output = await apply(input, allSlides);
+    expect(await properties(input, allSlides, output)).toEqual([]);
+  });
+
+  it("flags the master picture left on the master", async () => {
+    const input = await masterDeck();
+    const output = await editMaster(await apply(input, allSlides), (xml) =>
+      xml.replace(logo, `${masterPicture}${logo}`),
+    );
+    expect(await quick(input, allSlides, output)).toContainEqual({
+      property: "covering-background-kept",
+      detail: `${MASTER} #20`,
+    });
+  });
+
+  it("flags the master's logo removed", async () => {
+    const input = await masterDeck();
+    const output = await editMaster(await apply(input, allSlides), (xml) => xml.replace(logo, ""));
+    expect(await quick(input, allSlides, output)).toContainEqual({
+      property: "element-missing",
+      detail: `${MASTER} #21`,
+    });
+  });
+});
+
+describe("checkPptBackground checks covering backgrounds on layouts, in master mode and when kept", () => {
+  const MASTER = "ppt/slideMasters/slideMaster1.xml";
+  const LAYOUT1 = "ppt/slideLayouts/slideLayout1.xml";
+  const LAYOUT2 = "ppt/slideLayouts/slideLayout2.xml";
+  const masterPicture = pictureElement(20, "rId10");
+  const logo = pictureElement(21, "rId11", { x: 8001000, y: 4343400, w: 914400, h: 571500 });
+  const layoutPicture = pictureElement(30, "rId10");
+  const unusedPicture = pictureElement(31, "rId10");
+  const masterMode: Intent = { source: newBgBytes, mode: "master" };
+  const kept: Intent = { ...allSlides, keptCovering: ["covering:ppt/media/master.png"] };
+  /** Lyrics slides under a master picture and logo, a layout picture, and a layout no slide uses with its own picture. */
+  const deck = () =>
+    testDeck(
+      [{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }],
+      { shapes: [layoutPicture], pictures: { rId10: "layout.png" } },
+      {
+        master: { shapes: [masterPicture, logo], pictures: { rId10: "master.png", rId11: "logo.png" } },
+        unusedLayouts: [{ shapes: [unusedPicture], pictures: { rId10: "unused.png" } }],
+      },
+    );
+  const masterDeck = () =>
+    testDeck([{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }], undefined, {
+      master: { shapes: [masterPicture, logo], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+  const edit = (output: Uint8Array, part: string, change: (xml: string) => string) =>
+    mutate(output, async (zip) => {
+      zip.file(part, change(await zip.file(part)!.async("text")));
+    });
+  /** Put `element` back first in the part's shape tree. */
+  const putBack = (element: string) => (xml: string) =>
+    xml.replace(/(<p:spTree>[\s\S]*?<\/p:grpSpPr>)/, `$1${element}`);
+
+  it("passes the engine's output in 전체 and in master mode", async () => {
+    const input = await deck();
+    expect(await properties(input, allSlides, await apply(input, allSlides))).toEqual([]);
+    expect(await properties(input, masterMode, await apply(input, masterMode))).toEqual([]);
+  });
+
+  it("flags a layout's picture left in 전체", async () => {
+    const input = await deck();
+    const output = await edit(await apply(input, allSlides), LAYOUT1, putBack(layoutPicture));
+    expect(await quick(input, allSlides, output)).toContainEqual({
+      property: "covering-background-kept",
+      detail: `${LAYOUT1} #30`,
+    });
+  });
+
+  it("flags the picture of a layout no slide uses left in master mode", async () => {
+    const input = await deck();
+    const output = await edit(await apply(input, masterMode), LAYOUT2, putBack(unusedPicture));
+    expect(await quick(input, masterMode, output)).toContainEqual({
+      property: "covering-background-kept",
+      detail: `${LAYOUT2} #31`,
+    });
+  });
+
+  it("passes a kept master picture left untouched", async () => {
+    const input = await masterDeck();
+    expect(await properties(input, kept, await apply(input, kept))).toEqual([]);
+  });
+
+  it("flags a kept master picture deleted", async () => {
+    const input = await masterDeck();
+    const output = await edit(await apply(input, kept), MASTER, (xml) => xml.replace(masterPicture, ""));
+    expect(await quick(input, kept, output)).toContainEqual({ property: "element-missing", detail: `${MASTER} #20` });
+  });
+});
+
+describe("checkPptBackground checks which slides hide background graphics", () => {
+  const masterPicture = pictureElement(20, "rId10");
+  const logo = pictureElement(21, "rId11", { x: 8001000, y: 4343400, w: 914400, h: 571500 });
+  const chosen: Intent = { source: newBgBytes, mode: "specific-slides", targetSlides: [1] };
+  const deck = () =>
+    testDeck([{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }], undefined, {
+      master: { shapes: [masterPicture, logo], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+  const editSlide = (output: Uint8Array, n: number, change: (xml: string) => string) =>
+    mutate(output, async (zip) => {
+      const part = `ppt/slides/slide${n}.xml`;
+      zip.file(part, change(await zip.file(part)!.async("text")));
+    });
+
+  it("passes the engine's output", async () => {
+    const input = await deck();
+    expect(await properties(input, chosen, await apply(input, chosen))).toEqual([]);
+  });
+
+  it("flags a chosen slide that does not hide them", async () => {
+    const input = await deck();
+    const output = await editSlide(await apply(input, chosen), 1, (xml) => xml.replace(' showMasterSp="0"', ""));
+    expect(await quick(input, chosen, output)).toContainEqual({
+      property: "background-graphics-hidden",
+      detail: "ppt/slides/slide1.xml: not hidden",
+    });
+  });
+
+  it("flags a slide that lost the flag it had in the input", async () => {
+    const input = await testDeck([{ shapes: [textBox(9, "1절")], hidesBackgroundGraphics: true }, { shapes: [textBox(9, "2절")] }], undefined, {
+      master: { shapes: [masterPicture, logo], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+    const output = await editSlide(await apply(input, allSlides), 1, (xml) => xml.replace(' showMasterSp="0"', ""));
+    expect(await quick(input, allSlides, output)).toContainEqual({
+      property: "background-graphics-hidden",
+      detail: "ppt/slides/slide1.xml: not hidden",
+    });
+  });
+
+  it("flags a slide hiding them though the plan does not", async () => {
+    const input = await deck();
+    const output = await editSlide(await apply(input, allSlides), 2, (xml) => xml.replace("<p:sld ", '<p:sld showMasterSp="0" '));
+    expect(await quick(input, allSlides, output)).toContainEqual({
+      property: "background-graphics-hidden",
+      detail: "ppt/slides/slide2.xml: hidden",
+    });
+  });
+});

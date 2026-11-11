@@ -1,3 +1,4 @@
+import { partsUnder, slideOrder } from "@/lib/ppt/slideOrder";
 import type { Violation } from "./core";
 import { xmlWellFormedError } from "./xmlWellFormed";
 import { indexZip, openZip, storedIdentically, type ZipReader } from "./zipReader";
@@ -26,11 +27,11 @@ import { indexZip, openZip, storedIdentically, type ZipReader } from "./zipReade
 export interface PptxPackage {
   /** Every file part, as named in the zip. */
   parts: string[];
-  /** `ppt/slides/*.xml`, in slide order (trailing number of the file name). */
+  /** `ppt/slides/*.xml`, in presentation order (`slideOrder`). */
   slideParts: string[];
-  /** `ppt/slideMasters/*.xml`, same ordering. */
+  /** `ppt/slideMasters/*.xml`, by the trailing number of the file name. */
   masterParts: string[];
-  /** `ppt/slideLayouts/*.xml`, same ordering. */
+  /** `ppt/slideLayouts/*.xml`, by the trailing number of the file name. */
   layoutParts: string[];
   /** Raw bytes of a part (null when absent or unreadable). */
   read(part: string): Promise<Uint8Array | null>;
@@ -87,16 +88,6 @@ const RELS_PART = /^(?:(.*)\/)?_rels\/([^/]*)\.rels$/;
 const TAG_ATTRS = /([\w:]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 const ATTR_VALUES = /=\s*(?:"([^"]*)"|'([^']*)')/g;
 const IMAGE_REL_TYPE = /\/relationships\/image$/;
-
-function ordinal(path: string): number {
-  const m = path.match(/(\d+)\.xml$/);
-  return m ? parseInt(m[1], 10) : 0;
-}
-
-function partsIn(parts: string[], dir: string): string[] {
-  const pattern = new RegExp(`^${dir}/[^/]+\\.xml$`);
-  return parts.filter((p) => pattern.test(p)).sort((a, b) => ordinal(a) - ordinal(b));
-}
 
 function attrs(tag: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -215,11 +206,17 @@ export async function openPptxPackage(bytes: Uint8Array): Promise<PptxPackage | 
     return m[1] ? `${m[1]}/${m[2]}` : m[2];
   };
 
+  const presentation = byLowerName.get("ppt/presentation.xml") ?? "ppt/presentation.xml";
+  const [presentationXml, presentationRels] = await Promise.all([
+    text(presentation),
+    relationshipsOf(relsPartOf(presentation)),
+  ]);
+
   const pkg: PptxPackage = {
     parts,
-    slideParts: partsIn(parts, "ppt/slides"),
-    masterParts: partsIn(parts, "ppt/slideMasters"),
-    layoutParts: partsIn(parts, "ppt/slideLayouts"),
+    slideParts: slideOrder(partsUnder(parts, "ppt/slides"), presentationXml, presentationRels),
+    masterParts: partsUnder(parts, "ppt/slideMasters"),
+    layoutParts: partsUnder(parts, "ppt/slideLayouts"),
 
     read(part) {
       return zip.bytes(part);

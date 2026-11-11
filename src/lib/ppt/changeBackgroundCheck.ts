@@ -4,19 +4,13 @@ import { openPptxPackage, relsPartOf, type PptxPackage } from "@/lib/output-chec
 import { pngAlphaUsed } from "@/lib/output-check/pngAlpha";
 import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { CropRect } from "@/lib/image/maxFitCrop";
-import type { SlideSize } from "@/lib/image/slideImage";
 import type { BgMode } from "./changeBackground";
 import { DEFAULT_SLIDE } from "./getSlideAspect";
-import {
-  coveringGroupKey,
-  coveringIn,
-  shapeIdsIn,
-  topLevelElements,
-  type CoveringBackground,
-} from "./coveringBackgrounds";
-import type { Colours } from "./fills";
+import { shapeIdsIn, topLevelElements, type CoveringBackground } from "./coveringBackgrounds";
+import { coveringPlan } from "./coveringPlan";
 import { animationTargets } from "./slideAnimations";
-import { packagePartReader, slideColours, type ColoursOf } from "./slideColours";
+import { packagePartReader } from "./slideColours";
+import { readLayoutStacks, readSlideStacks } from "./slideStacks";
 import { child, firstElementNamed, parseXml, type XmlElement } from "./xmlTree";
 
 /** The background the user asked for, as the checker re-derives it. */
@@ -77,18 +71,27 @@ export interface PptBackgroundRequest {
  *   backgrounds deleted are held by the element properties below)
  *
  * Covering backgrounds (spec #105), on each target slide (every slide in
- * master mode), re-detected on the input with the shared rule, picture and
- * fill forms alike (fills resolved through the input's theme). The rule is
- * the spec: these prove the engine applied it, not that it is right (the
- * regression set covers the rule itself). Elements are matched by their XML text: the
- * engine copies the ones it keeps verbatim, while shape ids may repeat. The
- * covering backgrounds of a group the user keeps (#109) count as other
- * elements: they must stay.
+ * master mode) and on every master and layout (spec #163: their background
+ * graphics show on the slides), re-detected on the input with the shared
+ * rule over each slide's stack and re-planned with the shared plan
+ * (`coveringPlan`; in master mode over every layout's stack too, used
+ * or not), picture and fill forms alike (fills resolved through
+ * the input's theme). The rule and plan are the spec: these prove the engine
+ * applied them, not that they are right (the regression set covers the rule
+ * itself). Elements are matched by their XML text: the engine copies the
+ * ones it keeps verbatim, while shape ids may repeat. The covering
+ * backgrounds of a group the user keeps (#109) count as other elements: they
+ * must stay. `non-target-unchanged` allows the masters and layouts the plan
+ * deletes from.
  *
- * - ⚡ `covering-background-kept`: a covering background is still there
+ * - ⚡ `covering-background-kept`: a covering background the plan deletes is
+ *   still there
  * - ⚡ `element-missing`: another top-level element is gone
  * - ⚡ `animation-target-missing`: an animation or build entry names a shape
  *   the slide does not have (the deck would need repair)
+ * - ⚡ `background-graphics-hidden`: a slide hides its background graphics
+ *   (`showMasterSp`) though the plan does not hide them there and the input
+ *   did not, or does not though the plan does or the input did
  *
  * The prepared picture (spec #98), re-derived from the source picture, the
  * crop and the input's slide size, never from the engine's numbers (a solid
@@ -106,8 +109,8 @@ export interface PptBackgroundRequest {
  *
  * Structural defects the input already had are not the tool's doing and are
  * not reported: the user's deck opened before, so blocking it would be a
- * false positive. Slide N means the N-th slide part by file number, the
- * order the engine and the slide picker use.
+ * false positive. Slide N means the N-th slide in presentation order
+ * (`slideOrder`), the order the engine and the slide picker use.
  */
 export const checkPptBackground: OutputChecker<
   Uint8Array,
@@ -167,11 +170,25 @@ export const checkPptBackground: OutputChecker<
     }
   }
 
+  // The covering backgrounds the engine must have deleted, re-planned on the
+  // input with the shared rule and plan (not the engine's own selection).
+  const [reader, size] = [packagePartReader(before), await slideSize(before)];
+  const { deletions, hides } = coveringPlan(
+    await readSlideStacks(reader, before.slideParts, size),
+    request,
+    request.mode === "master" ? await readLayoutStacks(reader, before.layoutParts, size) : [],
+  );
   // Master mode also rewrites every slide (covering backgrounds deleted, own
-  // background cleared) and every layout (own background cleared).
+  // background cleared) and every layout (own background cleared); any mode
+  // rewrites the masters and layouts the plan deletes from.
   const coveringChecked = request.mode === "master" ? before.slideParts : targets;
-  const rewritten =
-    request.mode === "master" ? [...targets, ...coveringChecked, ...before.layoutParts] : targets;
+  const slideSet = new Set(before.slideParts);
+  const rewritten = [
+    ...new Set([
+      ...(request.mode === "master" ? [...targets, ...coveringChecked, ...before.layoutParts] : targets),
+      ...[...deletions.keys()].filter((p) => !slideSet.has(p)),
+    ]),
+  ];
 
   if (request.mode === "master") {
     for (const part of [...after.slideParts, ...after.layoutParts]) {
@@ -181,9 +198,23 @@ export const checkPptBackground: OutputChecker<
     }
   }
 
-  const keptGroups = new Set(request.keptCovering ?? []);
-  const coloursOf = slideColours(packagePartReader(before));
-  const covering = await coveringViolations(before, after, coveringChecked, await slideSize(before), keptGroups, coloursOf);
+  for (const part of after.slideParts) {
+    const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
+    if (outXml === null) continue;
+    // Hidden where the plan hides them, and where the input already did: a flag the deck had stays.
+    const wanted = hides.has(part) || hidesBackgroundGraphics(inXml ?? "");
+    if (hidesBackgroundGraphics(outXml) !== wanted) {
+      violations.push({ property: "background-graphics-hidden", detail: `${part}: ${wanted ? "not hidden" : "hidden"}` });
+    }
+  }
+
+  // Every master and layout too: their background graphics show on the slides.
+  const covering = await coveringViolations(
+    before,
+    after,
+    [...coveringChecked, ...before.layoutParts, ...before.masterParts],
+    deletions,
+  );
   violations.push(...covering.violations);
 
   const kept = await after.unusedRelationships(rewritten);
@@ -228,7 +259,9 @@ export const checkPptBackground: OutputChecker<
       for (const part of [...before.layoutParts, ...before.slideParts].filter((p) => !covering.deletedOn.has(p))) {
         const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
         if (inXml === null || outXml === null) continue;
-        if (outXml !== inXml.replace(OWN_BACKGROUND, "")) {
+        // A slide the plan hides background graphics on carries the flag besides.
+        const expected = inXml.replace(OWN_BACKGROUND, "");
+        if (hides.has(part) ? withoutHideFlag(outXml) !== withoutHideFlag(expected) : outXml !== expected) {
           violations.push({ property: "only-background-cleared", detail: part });
         }
       }
@@ -249,6 +282,20 @@ export const checkPptBackground: OutputChecker<
 
   return violations;
 };
+
+/** A slide's root start tag. */
+const SLIDE_ROOT = /<p:sld(?=[\s>/])[^>]*>/;
+/** The "Hide background graphics" attribute on a root start tag. */
+const HIDE_FLAG = /\sshowMasterSp\s*=\s*(?:"([^"]*)"|'([^']*)')/;
+
+/** Whether a slide hides its background graphics ("Hide background graphics", `showMasterSp` off). */
+function hidesBackgroundGraphics(slideXml: string): boolean {
+  const flag = slideXml.match(SLIDE_ROOT)?.[0].match(HIDE_FLAG);
+  return flag !== null && flag !== undefined && ["0", "false"].includes(flag[1] ?? flag[2]);
+}
+
+/** The slide without its "Hide background graphics" attribute. */
+const withoutHideFlag = (slideXml: string) => slideXml.replace(SLIDE_ROOT, (tag) => tag.replace(HIDE_FLAG, ""));
 
 /** A part's own background, as the part declares it. */
 const OWN_BACKGROUND = /<p:bg[\s>][\s\S]*?<\/p:bg>/;
@@ -276,38 +323,24 @@ async function slideSize(pkg: PptxPackage): Promise<{ w: number; h: number }> {
 }
 
 /**
- * The covering backgrounds the engine must delete from an input slide, given
- * its top-level elements and colours: none when the user keeps their group.
- */
-async function deletedCovering(
-  before: PptxPackage,
-  part: string,
-  elements: XmlElement[],
-  slide: SlideSize,
-  colours: Colours,
-  keptGroups: ReadonlySet<string>,
-): Promise<CoveringBackground[]> {
-  const covering = coveringIn(elements, slide, colours);
-  if (covering.length === 0 || keptGroups.size === 0) return covering;
-  const targets = new Map((await before.relationships(part)).map((r) => [r.id, r.part]));
-  return keptGroups.has(coveringGroupKey(covering, (id) => targets.get(id))) ? [] : covering;
-}
-
-/**
- * The covering-background properties of the given slides, and the slides on
- * which the engine must have deleted covering backgrounds.
+ * The covering-background properties of the given parts (slides, layouts,
+ * masters), and the parts from which the engine must have deleted covering
+ * backgrounds: those the plan (`deletions`) names.
  */
 async function coveringViolations(
   before: PptxPackage,
   after: PptxPackage,
   targets: readonly string[],
-  slide: SlideSize,
-  keptGroups: ReadonlySet<string>,
-  coloursOf: ColoursOf,
+  deletions: ReadonlyMap<string, readonly CoveringBackground[]>,
 ): Promise<{ violations: Violation[]; deletedOn: Set<string> }> {
   const violations: Violation[] = [];
   const deletedOn = new Set<string>();
   for (const part of targets) {
+    const covering = new Set((deletions.get(part) ?? []).map((c) => c.start));
+    if (covering.size > 0) deletedOn.add(part);
+    // A part stored as in the input lost nothing, and kept nothing it should not when nothing goes from it.
+    else if (after.storedAsIn(before, part)) continue;
+
     const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
     // Unreadable or malformed parts are structural defects, reported above.
     if (inXml === null || outXml === null) continue;
@@ -315,9 +348,6 @@ async function coveringViolations(
     const [inEls, outEls] = [topLevelElements(inRoot), topLevelElements(outRoot)];
     if (!inRoot || !outRoot || !inEls || !outEls) continue;
 
-    const colours = await coloursOf(part, inXml);
-    const covering = new Set((await deletedCovering(before, part, inEls, slide, colours, keptGroups)).map((c) => c.start));
-    if (covering.size > 0) deletedOn.add(part);
     /** How many of the output's top-level elements have each XML text, not yet matched. */
     const unmatched = new Map<string, number>();
     for (const el of outEls) {

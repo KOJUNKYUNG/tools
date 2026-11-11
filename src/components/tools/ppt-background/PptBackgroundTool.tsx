@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ToolHeader } from "@/components/common/ToolHeader";
 import { FileUpload } from "@/components/common/FileUpload";
 import { uploadLimitFor } from "@/lib/constants";
@@ -13,7 +13,9 @@ import {
   type SlideBackground,
 } from "@/lib/ppt/extractCurrentBackgrounds";
 import { getSlideAspect, type SlideAspect } from "@/lib/ppt/getSlideAspect";
+import { coveringPlan } from "@/lib/ppt/coveringPlan";
 import { groupBackgrounds, type BackgroundGroup } from "@/lib/ppt/groupBackgrounds";
+import { noBackgroundColours } from "@/lib/ppt/themeBackground";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
@@ -28,12 +30,15 @@ import { CurrentBackgroundFrame } from "./CurrentBackgroundFrame";
 import { PreviewLightbox } from "@/components/common/PreviewLightbox";
 import { PptBackgroundResult } from "./PptBackgroundResult";
 import { PptConversionGuide, type ConversionMethodLabels } from "./PptConversionGuide";
-import { themeBackground } from "@/lib/ppt/themeBackground";
 import { useBackgroundEditor } from "@/components/background-editor/useBackgroundEditor";
 import { useActualBackground } from "@/components/background-editor/useActualBackground";
 import { BackgroundEditor, type BackgroundEditorLabels } from "@/components/background-editor/BackgroundEditor";
 import type { RecipeEditLabels } from "@/components/background-editor/RecipeEditControls";
-import type { SolidColourLabels } from "@/components/background-editor/SolidColourGrid";
+import type { NoneColours, SolidColourLabels } from "@/components/background-editor/SolidColourGrid";
+import { diagonalBands } from "@/components/background-editor/diagonalBands";
+
+/** What "no background" shows until the deck is read, or where its colour cannot be resolved: the default theme's. */
+const UNREAD_NONE = "#ffffff";
 
 const PPTX_ACCEPT = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
@@ -57,6 +62,8 @@ export interface PptBackgroundToolLabels {
     specificSelectAll: string;
     specificClear: string;
     specificHint: string;
+    /** The apply scope hides background graphics on some slides, taking a logo or more with them. */
+    hidesGraphicsNotice: string;
   };
   thumbnails: {
     heading: string;
@@ -150,8 +157,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [guideOpen, setGuideOpen] = useState(false);
   const [mode, setMode] = useState<BgMode>("all-slides");
   const [currentBgs, setCurrentBgs] = useState<SlideBackground[]>([]);
-  /** The colour "no background" shows on the loaded deck. */
-  const [themeBg, setThemeBg] = useState<string | null>(null);
 
   // Redesigned workspace state.
   const [slideAspect, setSlideAspect] = useState<SlideAspect>({
@@ -294,7 +299,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   useEffect(() => {
     if (!pptxFile) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- the deck's derived state is cleared with the deck; the loaded branch fills it from async reads
-      setThemeBg(null);
       setCurrentBgs([]);
       setGroups([]);
       groupThumbUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -314,13 +318,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     getSlideAspect(pptxFile).then((a) => {
       if (!cancelled) setSlideAspect(a);
     });
-    setThemeBg(null);
-    themeBackground(pptxFile)
-      .then((swatch) => {
-        if (!cancelled) setThemeBg(swatch === "fill" ? null : swatch);
-      })
-      .catch(() => {});
-
     extractCurrentBackgrounds(pptxFile)
       .then((bgs) => {
         if (cancelled) return;
@@ -372,8 +369,17 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     slide,
     prepare: prepareActual,
   });
-  // "No background" shows the deck's theme colour; white until it is read.
-  const noneColour = themeBg ?? "#ffffff";
+  // "No background" shows each slide's theme colour (its master's): the
+  // gallery tile every distinct one, the preview the group shown's (bands
+  // when its slides' masters differ). White until the deck is read, or where
+  // a colour cannot be resolved.
+  const noneColours = useMemo((): NoneColours => {
+    const [first = UNREAD_NONE, ...rest] = noBackgroundColours(currentBgs);
+    return [first, ...rest];
+  }, [currentBgs]);
+  const currentGroup = groups[curIndex];
+  const groupNone = currentGroup?.noBackgroundColours ?? [];
+  const noneColour = diagonalBands(groupNone.length > 0 ? groupNone : [UNREAD_NONE]);
   // A solid colour as its fill: with its colour effects.
   const fillColour = !fill ? null : solidColour ? filteredColour(filters, solidColour) : noneColour;
   const canRun =
@@ -383,6 +389,18 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     // A HEIC still converting would replace the picture under the run.
     !normalizing &&
     status === "idle";
+
+  // Whether the apply scope hides background graphics on some slides and
+  // takes others that show something (a logo) with them: the engine's own
+  // plan, so the notice promises what the run does.
+  const hidesOtherGraphics = useMemo(() => {
+    if (currentBgs.length === 0) return false;
+    const { hides } = coveringPlan(
+      currentBgs.map((b) => b.stack),
+      { mode, targetSlides: mode === "specific-slides" ? [...selectedSlides] : undefined, keptCovering: [...keptCovering] },
+    );
+    return [...hides.values()].some((n) => n > 0);
+  }, [currentBgs, mode, selectedSlides, keptCovering]);
 
   // ───────── Bidirectional check ↔ range binding ─────────
   // Checking a current-background group selects every slide that uses it and
@@ -437,7 +455,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
   // Zoom source: the selected background (a filtered colour, at its
   // picture's size) or the current group's thumb.
-  const currentGroup = groups[curIndex];
   const currentThumbUrl = currentGroup ? groupThumbUrls.get(currentGroup.key) ?? null : null;
   const filledColour = (() => {
     if (!solidColour || !filterPreview) return null;
@@ -574,7 +591,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 // While a run uses the background (running, done or failed)
                 // it is shown locked; `다시 하기` goes back to edit it.
                 locked={status !== "idle"}
-                noneColour={noneColour}
+                noneColours={noneColours}
                 labels={labels.editor}
               />
             </div>
@@ -626,17 +643,27 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                     />
                   </div>
 
-                  {/* Blur notice: its two lines are always reserved, so it
-                      appears and goes without moving anything. */}
-                  <p
-                    className="mt-2 line-clamp-2 min-h-[2.7em] font-body text-[10.5px] leading-[1.35]"
-                    style={{
-                      color: "var(--ink-soft)",
-                      visibility: crop && belowFullHd(crop, slide) ? "visible" : "hidden",
-                    }}
+                  {/* Notices: their two lines are always reserved, so they
+                      appear and go without moving anything. The blur notice
+                      gives up its second line to the hidden-graphics one. */}
+                  <div
+                    className="mt-2 min-h-[2.7em] font-body text-[10.5px] leading-[1.35]"
+                    style={{ color: "var(--ink-soft)" }}
                   >
-                    {labels.background.blurNotice}
-                  </p>
+                    {crop && belowFullHd(crop, slide) && (
+                      <p
+                        className={hidesOtherGraphics ? "line-clamp-1" : "line-clamp-2"}
+                        title={labels.background.blurNotice}
+                      >
+                        {labels.background.blurNotice}
+                      </p>
+                    )}
+                    {hidesOtherGraphics && (
+                      <p className="line-clamp-1" title={labels.mode.hidesGraphicsNotice}>
+                        {labels.mode.hidesGraphicsNotice}
+                      </p>
+                    )}
+                  </div>
 
                   {/* Apply-scope block, pinned to bottom */}
                   <div className="mt-auto pt-2">

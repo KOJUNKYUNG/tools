@@ -4,11 +4,12 @@ import { useEffect, useRef } from "react";
 import { PipetteIcon } from "lucide-react";
 import { galleryTileClass, galleryTileStyle, TileSelectionMark } from "@/components/ppt/GalleryTile";
 import type { FillBackground } from "@/lib/ppt/changeBackground";
+import { diagonalBands } from "./diagonalBands";
 
 /**
  * The preset colours, in grid order: white through the light colours, then
- * the dark colours, the most saturated first, down to black. [임시] list: the
- * user settles it.
+ * the dark colours, the most saturated first, down to black. Settled as
+ * shipped (2026-11-11).
  */
 export const SOLID_PRESETS = [
   { id: "white", rgb: "FFFFFF" },
@@ -23,6 +24,13 @@ export const SOLID_PRESETS = [
   { id: "black", rgb: "000000" },
 ] as const;
 
+/**
+ * The colours (`#rrggbb`) the "no background" tile shows: one, or diagonal
+ * bands of equal width, one per colour, when the deck's slides show
+ * different ones.
+ */
+export type NoneColours = readonly [string, ...string[]];
+
 export type SolidPresetId = (typeof SOLID_PRESETS)[number]["id"];
 
 export interface SolidColourLabels {
@@ -36,8 +44,8 @@ interface SolidColourGridProps {
   value: FillBackground | null;
   /** `fromCustom`: picked with "직접 선택", which then shows as the pick even for a preset's colour. */
   onSelect: (fill: FillBackground, fromCustom: boolean) => void;
-  /** The colour the "no background" tile shows (`#rrggbb`); null leaves the tile out. */
-  noneColour: string | null;
+  /** What the "no background" tile shows; null leaves the tile out. */
+  noneColours: NoneColours | null;
   /** The last colour picked with "직접 선택", as six hex digits. */
   custom: string | null;
   /** The current pick came from "직접 선택". */
@@ -57,7 +65,7 @@ interface SolidColourGridProps {
 export function SolidColourGrid({
   value,
   onSelect,
-  noneColour,
+  noneColours,
   custom,
   customPicked,
   onCustom,
@@ -112,11 +120,11 @@ export function SolidColourGrid({
           },
         }}
       />
-      {noneColour !== null && (
+      {noneColours !== null && (
         <Tile
           label={labels.none}
           title={labels.noneHint}
-          colour={noneColour}
+          colour={noneColours}
           none
           selected={value?.kind === "none"}
           disabled={locked}
@@ -149,8 +157,12 @@ function Tile({
 }: {
   label: string;
   title?: string;
-  /** The swatch's CSS colour (`#rrggbb`); null shows the picker glyph. */
-  colour: string | null;
+  /**
+   * The swatch's CSS colour (`#rrggbb`), or several drawn as equal diagonal
+   * bands, lower left first ("no background" on a deck of several masters);
+   * null shows the picker glyph.
+   */
+  colour: string | readonly string[] | null;
   /** Crosses the swatch with a slash, Office's mark for "no fill". */
   none?: boolean;
   selected: boolean;
@@ -159,6 +171,7 @@ function Tile({
   /** Makes the tile a native colour input. */
   picker?: { value: string; onChange: (hex: string) => void };
 }) {
+  const shades = colour === null ? null : typeof colour === "string" ? [colour] : colour;
   const body = (
     <>
       {/* A hairline under the swatch keeps a light colour, or the empty
@@ -167,15 +180,11 @@ function Tile({
         <div
           className="flex size-full items-center justify-center"
           style={{
-            background: colour
-              ? none
-                ? `${slash(colour)}, ${colour}`
-                : colour
-              : "var(--surface-2)",
+            background: shades ? (none ? `${slash(shades)}, ${diagonalBands(shades)}` : diagonalBands(shades)) : "var(--surface-2)",
             color: "var(--ink-soft)",
           }}
         >
-          {colour === null && <PipetteIcon className="size-4" aria-hidden="true" />}
+          {shades === null && <PipetteIcon className="size-4" aria-hidden="true" />}
         </div>
       </div>
       <div className="px-2 py-1.5">
@@ -222,9 +231,19 @@ function Tile({
   );
 }
 
-/** A thin diagonal line across the swatch, dark on a light colour and light on a dark one. */
-function slash(hex: string): string {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  const ink = 0.299 * r + 0.587 * g + 0.114 * b > 140 ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.55)";
+/**
+ * A thin diagonal line across the swatch, dark on light colours and light on
+ * dark ones, judged by the bands it runs through: the middle one, or the two
+ * it divides when their number is even.
+ */
+function slash(colours: readonly string[]): string {
+  const luma = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+  };
+  const half = colours.length / 2;
+  const crossed = colours.length % 2 === 1 ? [colours[Math.floor(half)]] : colours.slice(half - 1, half + 1);
+  const mean = crossed.reduce((sum, hex) => sum + luma(hex), 0) / crossed.length;
+  const ink = mean > 140 ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.55)";
   return `linear-gradient(to top right, transparent calc(50% - 0.75px), ${ink} calc(50% - 0.75px), ${ink} calc(50% + 0.75px), transparent calc(50% + 0.75px))`;
 }

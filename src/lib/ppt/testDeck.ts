@@ -147,12 +147,136 @@ export interface TestSlide {
   timing?: string;
   /** Its own `p:bg` (e.g. `solidBackground`); none when absent. */
   background?: string;
+  /** PowerPoint's "Hide background graphics" (`showMasterSp="0"`). */
+  hidesBackgroundGraphics?: boolean;
 }
 
-/** The deck's one layout: its own background (pptxgenjs writes a theme reference when absent). */
+/** A layout: its own background (pptxgenjs writes a theme reference when absent) and background graphics. */
 export interface TestLayout {
-  background: string;
+  background?: string;
+  /** Elements for its shape tree, bottom first (pptxgenjs writes none there). */
+  shapes?: string[];
   pictures?: Record<string, string>;
+  /** PowerPoint's "Hide background graphics": the master's do not show on it. */
+  hidesBackgroundGraphics?: boolean;
+}
+
+/** Elements placed on the slide master: its background graphics, bottom first. */
+export interface TestMaster {
+  shapes: string[];
+  /** Relationship id → media file name, as on a slide (pptxgenjs's master takes rId1 and rId2). */
+  pictures?: Record<string, string>;
+  /** A `p:timing` element. */
+  timing?: string;
+}
+
+export interface TestDeckOptions {
+  /** Elements for the master's shape tree (pptxgenjs writes none there). */
+  master?: TestMaster;
+  /**
+   * The presentation's slide list (`p:sldIdLst`): the slides' file numbers in
+   * the order PowerPoint shows them (`[2, 3, 1]` shows `slide2.xml` first);
+   * `"missing"` drops the list, `"dangling"` names a relationship that does
+   * not exist. File order when absent.
+   */
+  slideList?: readonly number[] | "missing" | "dangling";
+  /** Layouts under the master that no slide uses (`slideLayout2.xml` on), in order. */
+  unusedLayouts?: readonly TestLayout[];
+  /**
+   * More masters (`slideMaster2.xml` on), in order, each with its own theme
+   * and one layout, which the slides with these file numbers use. Each
+   * theme's light colour (`lt1`, what "no background" shows under the default
+   * colour map) is `lightColour` (hex RGB).
+   */
+  extraMasters?: readonly TestExtraMaster[];
+}
+
+export interface TestExtraMaster {
+  lightColour: string;
+  slides: readonly number[];
+}
+
+/**
+ * Write `master` as master part `n` (2 on): a copy of the deck's master,
+ * theme and first layout (as layout part `layoutNumber`), before either is
+ * edited.
+ */
+async function writeExtraMaster(zip: JSZip, { lightColour, slides }: TestExtraMaster, n: number, layoutNumber: number) {
+  const text = (part: string) => zip.file(part)!.async("text");
+  const rel = (id: string, type: string, target: string) =>
+    `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${type}" Target="${target}"/>`;
+  const rels = (...entries: string[]) =>
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${entries.join("")}</Relationships>`;
+  const master = `slideMaster${n}.xml`;
+  const theme = `theme${n}.xml`;
+  const layout = `slideLayout${layoutNumber}.xml`;
+  // Master and layout ids share one space across the deck, above the first master's.
+  const masterId = 2147484000 + 2 * n;
+
+  zip.file(
+    `ppt/theme/${theme}`,
+    (await text("ppt/theme/theme1.xml")).replace(/<a:lt1>[\s\S]*?<\/a:lt1>/, `<a:lt1><a:srgbClr val="${lightColour}"/></a:lt1>`),
+  );
+  zip.file(
+    `ppt/slideMasters/${master}`,
+    (await text("ppt/slideMasters/slideMaster1.xml")).replace(
+      /<p:sldLayoutIdLst>[\s\S]*?<\/p:sldLayoutIdLst>/,
+      `<p:sldLayoutIdLst><p:sldLayoutId id="${masterId + 1}" r:id="rId1"/></p:sldLayoutIdLst>`,
+    ),
+  );
+  zip.file(
+    `ppt/slideMasters/_rels/${master}.rels`,
+    rels(rel("rId1", "slideLayout", `../slideLayouts/${layout}`), rel("rId2", "theme", `../theme/${theme}`)),
+  );
+  zip.file(`ppt/slideLayouts/${layout}`, await text("ppt/slideLayouts/slideLayout1.xml"));
+  zip.file(`ppt/slideLayouts/_rels/${layout}.rels`, rels(rel("rId1", "slideMaster", `../slideMasters/${master}`)));
+  for (const slide of slides) {
+    const part = `ppt/slides/_rels/slide${slide}.xml.rels`;
+    zip.file(part, (await text(part)).replace("../slideLayouts/slideLayout1.xml", `../slideLayouts/${layout}`));
+  }
+
+  const relId = `rIdMaster${n}`;
+  const presentation = "ppt/presentation.xml";
+  zip.file(
+    presentation,
+    (await text(presentation)).replace("</p:sldMasterIdLst>", `<p:sldMasterId id="${masterId}" r:id="${relId}"/></p:sldMasterIdLst>`),
+  );
+  const presentationRels = "ppt/_rels/presentation.xml.rels";
+  zip.file(
+    presentationRels,
+    (await text(presentationRels)).replace("</Relationships>", `${rel(relId, "slideMaster", `slideMasters/${master}`)}</Relationships>`),
+  );
+  const override = (part: string, type: string) =>
+    `<Override PartName="/${part}" ContentType="application/vnd.openxmlformats-officedocument.${type}+xml"/>`;
+  const types = await text("[Content_Types].xml");
+  // pptxgenjs already declares a `slideMaster2.xml` it does not write.
+  zip.file(
+    "[Content_Types].xml",
+    types.replace(
+      "</Types>",
+      (types.includes(`/ppt/slideMasters/${master}`) ? "" : override(`ppt/slideMasters/${master}`, "presentationml.slideMaster")) +
+        override(`ppt/theme/${theme}`, "theme") +
+        override(`ppt/slideLayouts/${layout}`, "presentationml.slideLayout") +
+        "</Types>",
+    ),
+  );
+}
+
+/** Rewrite the presentation's slide list as `slideList` asks. */
+async function writeSlideList(zip: JSZip, slideList: NonNullable<TestDeckOptions["slideList"]>) {
+  const part = "ppt/presentation.xml";
+  const xml = await zip.file(part)!.async("text");
+  const list = /<p:sldIdLst>([\s\S]*?)<\/p:sldIdLst>/;
+  // pptxgenjs writes one entry per slide, in file order.
+  const entries = xml.match(list)![1].match(/<p:sldId\b[^>]*\/>/g)!;
+  const rewritten =
+    slideList === "missing"
+      ? ""
+      : slideList === "dangling"
+        ? `<p:sldIdLst>${entries.map((e, i) => (i === 0 ? e.replace(/r:id="[^"]*"/, 'r:id="rId999"') : e)).join("")}</p:sldIdLst>`
+        : `<p:sldIdLst>${slideList.map((n) => entries[n - 1]).join("")}</p:sldIdLst>`;
+  zip.file(part, xml.replace(list, rewritten));
 }
 
 /** A small, distinct PNG for each media name. */
@@ -174,9 +298,29 @@ async function addPictures(zip: JSZip, relsPath: string, pictures: Record<string
   zip.file(relsPath, relsXml.replace("</Relationships>", `${rels.join("")}</Relationships>`));
 }
 
+/** Set the root's "Hide background graphics" (`showMasterSp="0"`). */
+const hidingBackgroundGraphics = (xml: string, root: string) => xml.replace(`<${root} `, `<${root} showMasterSp="0" `);
+
+/** Write `layout` into the layout part `n` (`slideLayout{n}.xml`). */
+async function writeLayout(zip: JSZip, n: number, layout: TestLayout) {
+  const layoutPath = `ppt/slideLayouts/slideLayout${n}.xml`;
+  let xml = await zip.file(layoutPath)!.async("text");
+  if (layout.background !== undefined) xml = xml.replace(/<p:bg>[\s\S]*?<\/p:bg>/, layout.background);
+  if (layout.shapes) xml = xml.replace("</p:spTree>", `${layout.shapes.join("")}</p:spTree>`);
+  if (layout.hidesBackgroundGraphics) xml = hidingBackgroundGraphics(xml, "p:sldLayout");
+  zip.file(layoutPath, xml);
+  await addPictures(zip, `ppt/slideLayouts/_rels/slideLayout${n}.xml.rels`, layout.pictures);
+}
+
 /** A 16:9 deck with these slides, in order, and optionally its layout's own background. */
-export async function testDeck(slides: TestSlide[], layout?: TestLayout): Promise<Uint8Array> {
+export async function testDeck(
+  slides: TestSlide[],
+  layout?: TestLayout,
+  { slideList, master, unusedLayouts = [], extraMasters = [] }: TestDeckOptions = {},
+): Promise<Uint8Array> {
   const pptx = new PptxGenJS();
+  // Each defined master is written as one more layout under the deck's one master.
+  unusedLayouts.forEach((_, i) => pptx.defineSlideMaster({ title: `UNUSED_${i + 1}` }));
   for (let i = 0; i < slides.length; i++) pptx.addSlide();
   // write() returns a union over every outputType; "uint8array" yields this one.
   const zip = await JSZip.loadAsync((await pptx.write({ outputType: "uint8array" })) as Uint8Array);
@@ -189,20 +333,30 @@ export async function testDeck(slides: TestSlide[], layout?: TestLayout): Promis
       `<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
       `<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>` +
       `${slide.shapes.join("")}</p:spTree>`;
-    zip.file(
-      slidePath,
-      xml
-        .replace(/<p:spTree>[\s\S]*<\/p:spTree>/, `${slide.background ?? ""}${spTree}`)
-        .replace("</p:sld>", `${slide.timing ?? ""}</p:sld>`),
-    );
+    const written = xml
+      .replace(/<p:spTree>[\s\S]*<\/p:spTree>/, `${slide.background ?? ""}${spTree}`)
+      .replace("</p:sld>", `${slide.timing ?? ""}</p:sld>`);
+    zip.file(slidePath, slide.hidesBackgroundGraphics ? hidingBackgroundGraphics(written, "p:sld") : written);
     await addPictures(zip, relsPath, slide.pictures);
   }
 
-  if (layout) {
-    const layoutPath = "ppt/slideLayouts/slideLayout1.xml";
-    const xml = await zip.file(layoutPath)!.async("text");
-    zip.file(layoutPath, xml.replace(/<p:bg>[\s\S]*?<\/p:bg>/, layout.background));
-    await addPictures(zip, "ppt/slideLayouts/_rels/slideLayout1.xml.rels", layout.pictures);
+  for (const [i, extra] of extraMasters.entries()) {
+    await writeExtraMaster(zip, extra, i + 2, unusedLayouts.length + i + 2);
   }
+  if (layout) await writeLayout(zip, 1, layout);
+  for (const [i, unused] of unusedLayouts.entries()) await writeLayout(zip, i + 2, unused);
+  if (master) {
+    const masterPath = "ppt/slideMasters/slideMaster1.xml";
+    const xml = await zip.file(masterPath)!.async("text");
+    zip.file(
+      masterPath,
+      xml
+        .replace("</p:spTree>", `${master.shapes.join("")}</p:spTree>`)
+        // A master's timing comes before its header/footer settings.
+        .replace("<p:hf ", `${master.timing ?? ""}<p:hf `),
+    );
+    await addPictures(zip, "ppt/slideMasters/_rels/slideMaster1.xml.rels", master.pictures);
+  }
+  if (slideList) await writeSlideList(zip, slideList);
   return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 }

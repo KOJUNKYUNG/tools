@@ -1,17 +1,20 @@
 import JSZip from "jszip";
-import type { SlideSize } from "@/lib/image/slideImage";
 import { parseRelationships } from "@/lib/output-check/pptxPackage";
-import { coveringGroupKey, findCoveringBackgrounds } from "./coveringBackgrounds";
+import { plannedSlide, type PlannedSlide } from "./coveringPlan";
+import { readSlideStacks, type SlideStack } from "./slideStacks";
 import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
-import { slideColours, zipPartReader, type PartReader } from "./slideColours";
+import { zipPartReader, type PartReader } from "./slideColours";
+import { noBackgroundSwatch } from "./themeBackground";
 import { child, parseXml } from "./xmlTree";
+import { slidesInOrder } from "./zipSlides";
 
 /**
  * A slide's visible background (CONTEXT.md): its covering backgrounds when it
  * has any, else its own background, its layout's or its master's.
  */
 export interface SlideBackground {
+  /** 1-based, in presentation order: the number the user picks the slide by. */
   slideIndex: number;
   slideName: string;
   imageBlob: Blob | null;
@@ -30,6 +33,10 @@ export interface SlideBackground {
   swatch?: Swatch;
   /** For covering backgrounds: their group's key (`coveringGroupKey`), what the user keeps a group by. */
   coveringKey?: string;
+  /** Its stack as the shared plan (`coveringPlan`) reads it: what the preview promises for the apply scope. */
+  stack: PlannedSlide;
+  /** The colour "no background" would show on it (`noBackgroundSwatch`): its own master's, not the deck's first. */
+  noBackground: Swatch;
 }
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -72,25 +79,23 @@ async function relationshipTargets(zip: JSZip, partPath: string): Promise<Map<st
   return new Map((await relationshipsOf(zip, partPath)).map((r) => [r.id, r.part]));
 }
 
-/** The slide's covering backgrounds as its visible background; null when it has none. */
+/**
+ * The slide's covering backgrounds as its visible background, wherever in its
+ * stack they lie (a master's picture included); null when it has none.
+ */
 async function coveringBackground(
   zip: JSZip,
-  slidePath: string,
-  slideXml: string,
-  slide: SlideSize,
-  colours: Colours,
+  stack: SlideStack,
 ): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "swatch" | "coveringKey"> | null> {
-  const covering = findCoveringBackgrounds(slideXml, slide, colours);
-  if (covering.length === 0) return null;
-  const targets = await relationshipTargets(zip, slidePath);
-  const pictures = covering.flatMap((c) => c.pictures);
-  const thumbnail = pictures.flatMap((id) => targets.get(id) ?? [])[0] ?? null;
+  const { covering, coveringKey, coveringPictures } = stack;
+  if (covering.length === 0 || coveringKey === null) return null;
+  const thumbnail = coveringPictures[0] ?? null;
   return {
     imageBlob: thumbnail === null ? null : await mediaBlob(zip, thumbnail),
     imagePath: thumbnail,
-    // A fill under a covering picture is hidden by it: the picture shows.
-    ...(pictures.length === 0 && { swatch: covering[0].fills[0] }),
-    coveringKey: coveringGroupKey(covering, (id) => targets.get(id)),
+    // A fill under a covering background's picture is hidden by it: the picture shows.
+    ...(covering.every((c) => c.pictures.length === 0) && { swatch: covering[0].fills[0] }),
+    coveringKey,
   };
 }
 
@@ -124,41 +129,31 @@ export async function extractCurrentBackgrounds(
   const arrayBuffer = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
 
-  const slideFiles: string[] = [];
-  zip.forEach((path) => {
-    if (/^ppt\/slides\/slide\d+\.xml$/.test(path)) {
-      slideFiles.push(path);
-    }
-  });
-
-  slideFiles.sort((a, b) => {
-    const numA = parseInt(a.match(/slide(\d+)/)?.[1] ?? "0");
-    const numB = parseInt(b.match(/slide(\d+)/)?.[1] ?? "0");
-    return numA - numB;
-  });
+  // Numbered as PowerPoint shows them: the engine reads the user's slide numbers in this order.
+  const slideFiles = await slidesInOrder(zip);
 
   const presXml = await zip.file("ppt/presentation.xml")?.async("text");
   const slideSize = (presXml && slideSizeFromXml(presXml)) || DEFAULT_SLIDE;
   const results: SlideBackground[] = [];
   const reader: PartReader = zipPartReader(zip);
-  const coloursOf = slideColours(reader);
+  const stacks = await readSlideStacks(reader, slideFiles, slideSize);
 
   for (let i = 0; i < slideFiles.length; i++) {
     const slidePath = slideFiles[i];
-    const slideXml = await zip.file(slidePath)!.async("text");
-    const slideNum = parseInt(slidePath.match(/slide(\d+)/)?.[1] ?? `${i + 1}`);
+    // The slide's colours resolve its layout's and master's backgrounds too: they show on it.
+    const { colours } = stacks[i];
 
     const bg: SlideBackground = {
       slideIndex: i + 1,
-      slideName: `슬라이드 ${slideNum}`,
+      slideName: `슬라이드 ${i + 1}`,
       imageBlob: null,
       source: "none",
       imagePath: null,
+      stack: plannedSlide(stacks[i]),
+      noBackground: noBackgroundSwatch(colours),
     };
 
-    // The slide's colours resolve its layout's and master's backgrounds too: they show on it.
-    const colours = await coloursOf(slidePath, slideXml);
-    const covering = await coveringBackground(zip, slidePath, slideXml, slideSize, colours);
+    const covering = await coveringBackground(zip, stacks[i]);
     if (covering) {
       results.push({ ...bg, ...covering, source: "covering" });
       continue;

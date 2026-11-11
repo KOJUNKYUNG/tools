@@ -776,7 +776,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
                 editor={editor}
                 locked={status !== "idle"}
                 // A new deck has no theme background for "no background" to mean.
-                noneColour={null}
+                noneColours={null}
                 labels={labels.editor}
               />
             </div>

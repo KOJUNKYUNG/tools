@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
-import { parseRelationships } from "@/lib/output-check/pptxPackage";
+import { relsPartOf } from "@/lib/output-check/pptxPackage";
 import { zipCompressionMethods } from "@/lib/output-check/zipReader";
 import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
@@ -10,18 +10,17 @@ import {
   type SlideSize,
 } from "@/lib/image/slideImage";
 import { checkPptBackground, type RequestedBackground } from "./changeBackgroundCheck";
-import {
-  coveringGroupKey,
-  deleteCoveringBackgrounds,
-  type CoveringBackground,
-} from "./coveringBackgrounds";
+import { withoutCovering, type CoveringBackground } from "./coveringBackgrounds";
+import { coveringPlan } from "./coveringPlan";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
-import { slideColours, zipPartReader, type ColoursOf } from "./slideColours";
+import { zipPartReader } from "./slideColours";
+import { partsUnder } from "./slideOrder";
+import { readLayoutStacks, readSlideStacks } from "./slideStacks";
+import { NO_BACKGROUND_FILL } from "./themeBackground";
+import { slidesInOrder, zipParts } from "./zipSlides";
 
 export type BgMode = "all-slides" | "master" | "specific-slides";
 
-/** "No background": the theme's background colour, as PowerPoint fills a blank slide. */
-export const NO_BACKGROUND_FILL = '<a:solidFill><a:schemeClr val="bg1"/></a:solidFill>';
 
 /** The background the user picked. */
 export type NewBackground =
@@ -251,16 +250,6 @@ function ensureNamespaces(xml: string): string {
   return result;
 }
 
-/**
- * Extract the trailing integer from a slide-like filename
- * (e.g. "ppt/slides/slide12.xml" → 12, "ppt/slideMasters/slideMaster3.xml" → 3).
- * Falls back to 0 if no match — sorted-stable for non-conforming names.
- */
-export function slideOrdinal(path: string): number {
-  const m = path.match(/(\d+)\.xml$/);
-  return m ? parseInt(m[1], 10) : 0;
-}
-
 /** What a part's own background becomes. */
 type PartBackground =
   /** The picture at this media target. */
@@ -273,41 +262,64 @@ type PartBackground =
 interface GroupChange {
   background: PartBackground;
   onEach?: (done: number, total: number) => void;
-  /** 1-based whitelist over the slide order (sorted by trailing integer in the
-   *  filename — matches extractCurrentBackgrounds). Undefined = all. */
+  /** 1-based whitelist over the parts' order (for slides, presentation order,
+   *  as the preview numbers them). Undefined = all. */
   targetIndices1Based?: ReadonlySet<number>;
-  /** The slide's size and each slide's colours, to delete covering backgrounds on each part; none for masters and layouts. */
-  slideSize?: SlideSize;
-  coloursOf?: ColoursOf;
-  /** Keys of the covering-background groups left in place. */
-  keptCovering?: ReadonlySet<string>;
+  /** The covering backgrounds the plan deletes, by part (`coveringPlan`); none from parts it does not name. */
+  deletions?: ReadonlyMap<string, readonly CoveringBackground[]>;
+  /** The slides the plan hides background graphics on (`coveringPlan`). */
+  hides?: ReadonlyMap<string, number>;
+}
+
+/** A slide's root start tag. */
+const SLIDE_ROOT = /<p:sld(?=[\s>/])[^>]*>/;
+
+/** The slide with "Hide background graphics" on (`showMasterSp="0"` on its root). */
+function hidingBackgroundGraphics(slideXml: string): string {
+  return slideXml.replace(SLIDE_ROOT, (tag) =>
+    /\sshowMasterSp\s*=/.test(tag)
+      ? tag.replace(/\sshowMasterSp\s*=\s*(?:"[^"]*"|'[^']*')/, ' showMasterSp="0"')
+      : tag.replace(/^<p:sld/, '<p:sld showMasterSp="0"'),
+  );
+}
+
+/** The ids of `relsXml`'s relationships that `before` names and `after` no longer does. */
+const droppedIds = (relsXml: string | null, before: string, after: string) =>
+  before === after ? [] : relIds(relsXml ?? "").filter((id) => namesRelId(before, id) && !namesRelId(after, id));
+
+/**
+ * Delete the plan's covering backgrounds from a master or layout, with the
+ * animations naming them and every relationship only they named; returns the
+ * parts those relationships pointed at.
+ */
+async function deleteFromPart(zip: JSZip, part: string, covering: readonly CoveringBackground[]): Promise<Set<string>> {
+  const replaced = new Set<string>();
+  const before = await zip.file(part)!.async("text");
+  const after = withoutCovering(before, covering);
+  const relsPath = relsPartOf(part);
+  let relsXml = (await zip.file(relsPath)?.async("text")) ?? null;
+  for (const id of droppedIds(relsXml, before, after)) {
+    // Non-null: droppedIds lists only ids read from the part's `.rels`, so it exists.
+    const removed = removeRelationship(relsXml!, id, part.slice(0, part.lastIndexOf("/")));
+    relsXml = removed.xml;
+    if (removed.target) replaced.add(removed.target);
+  }
+  if (relsXml !== null) zip.file(relsPath, relsXml);
+  zip.file(part, after);
+  return replaced;
 }
 
 /**
- * The internal targets of a `.rels` part's relationships, by id, as zip part
- * names, resolved as the preview resolves them so both derive the same
- * covering-group keys.
+ * Change the background of each of `slideFiles` (slides, layouts or masters,
+ * in order); returns the parts the replaced backgrounds pointed at.
  */
-function relTargets(relsXml: string | null, sourceDir: string): Map<string, string | null> {
-  return new Map(parseRelationships(relsXml ?? "", sourceDir).map((r) => [r.id, r.part]));
-}
-
-/** Change the background of each part in `dir`; returns the parts the replaced backgrounds pointed at. */
 async function processSlideGroup(
   zip: JSZip,
-  dir: string,
-  { background, onEach, targetIndices1Based, slideSize, coloursOf, keptCovering }: GroupChange,
+  slideFiles: readonly string[],
+  { background, onEach, targetIndices1Based, deletions, hides }: GroupChange,
 ): Promise<Set<string>> {
   /** Parts the replaced backgrounds pointed at, to delete once unreferenced. */
   const replaced = new Set<string>();
-  const pattern = new RegExp(`^${dir}/[^/]+\\.xml$`);
-  const slideFiles: string[] = [];
-
-  zip.forEach((path) => {
-    if (pattern.test(path)) slideFiles.push(path);
-  });
-
-  slideFiles.sort((a, b) => slideOrdinal(a) - slideOrdinal(b));
 
   const filtered = targetIndices1Based
     ? slideFiles
@@ -318,28 +330,19 @@ async function processSlideGroup(
 
   for (let i = 0; i < filtered.length; i++) {
     const slidePath = filtered[i];
-    const slideFileName = slidePath.split("/").pop()!;
+    const dir = slidePath.slice(0, slidePath.lastIndexOf("/"));
     let slideXml = await zip.file(slidePath)!.async("text");
-    const relsPath = `${dir}/_rels/${slideFileName}.rels`;
+    const relsPath = relsPartOf(slidePath);
     const relsFile = zip.file(relsPath);
     let relsXml = relsFile ? await relsFile.async("text") : null;
 
     // Deleted covering backgrounds lose their relationships below, with the
     // replaced background's: every one only they named, whatever its type
     // (the picture, an HD photo layer, a hyperlink).
-    let deletedIds: string[] = [];
-    if (slideSize && coloursOf) {
-      const kept = (covering: CoveringBackground[]) => {
-        if (!keptCovering?.size) return false;
-        const targets = relTargets(relsXml, dir);
-        return keptCovering.has(coveringGroupKey(covering, (id) => targets.get(id)));
-      };
-      const before = slideXml;
-      slideXml = deleteCoveringBackgrounds(slideXml, slideSize, await coloursOf(slidePath, slideXml), kept);
-      if (slideXml !== before) {
-        deletedIds = relIds(relsXml ?? "").filter((id) => namesRelId(before, id) && !namesRelId(slideXml, id));
-      }
-    }
+    const before = slideXml;
+    slideXml = withoutCovering(slideXml, deletions?.get(slidePath) ?? []);
+    const deletedIds = droppedIds(relsXml, before, slideXml);
+    if (hides?.has(slidePath)) slideXml = hidingBackgroundGraphics(slideXml);
 
     const oldIds = [...backgroundValues(slideXml), ...deletedIds];
     let relId: string | undefined;
@@ -493,7 +496,9 @@ export async function changeBackground({
   if (background.kind === "colour" && !/^[0-9A-F]{6}$/i.test(background.rgb)) {
     throw new Error(`not a solid colour: ${background.rgb}`);
   }
-  const kept = new Set(keptCovering);
+  if (mode === "specific-slides" && !targetSlides?.length) {
+    throw new Error("적용할 슬라이드를 선택해 주세요.");
+  }
   const arrayBuffer = await pptxFile.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
 
@@ -530,39 +535,39 @@ export async function changeBackground({
     requested = background;
   }
   const progress = (done: number, total: number) => onProgress?.(Math.round((done / total) * 100));
-  // Read lazily: rewriting backgrounds changes no theme or colour map.
-  const coloursOf = slideColours(zipPartReader(zip));
-  let replaced: Set<string>;
+  const slides = await slidesInOrder(zip);
+  const parts = zipParts(zip);
+  // Planned on the input, before any part changes: deleting a master's
+  // covering background would change what every slide's stack shows.
+  const reader = zipPartReader(zip);
+  const { deletions, hides } = coveringPlan(
+    await readSlideStacks(reader, slides, slideSize),
+    { mode, targetSlides, keptCovering },
+    mode === "master" ? await readLayoutStacks(reader, partsUnder(parts, "ppt/slideLayouts"), slideSize) : [],
+  );
+  const replaced = new Set<string>();
+  // Masters and layouts lose theirs first: the slides' own go as each slide is rewritten.
+  const slideSet = new Set(slides);
+  for (const [part, covering] of deletions) {
+    if (!slideSet.has(part)) for (const t of await deleteFromPart(zip, part, covering)) replaced.add(t);
+  }
+  const rewrite = async (parts: readonly string[], change: GroupChange) => {
+    for (const t of await processSlideGroup(zip, parts, change)) replaced.add(t);
+  };
   if (mode === "master") {
     // The master shows the new background; everything above it that would
     // hide it goes, so it shows on every slide, like "all slides", and on
     // slides added later.
-    replaced = new Set([
-      ...(await processSlideGroup(zip, "ppt/slideMasters", { background: partBackground })),
-      ...(await processSlideGroup(zip, "ppt/slideLayouts", { background: "clear" })),
-      ...(await processSlideGroup(zip, "ppt/slides", {
-        background: "clear",
-        onEach: progress,
-        slideSize,
-        coloursOf,
-        keptCovering: kept,
-      })),
-    ]);
+    await rewrite(partsUnder(parts, "ppt/slideMasters"), { background: partBackground });
+    await rewrite(partsUnder(parts, "ppt/slideLayouts"), { background: "clear" });
+    await rewrite(slides, { background: "clear", onEach: progress, deletions, hides });
   } else {
-    let whitelist: Set<number> | undefined;
-    if (mode === "specific-slides") {
-      if (!targetSlides || targetSlides.length === 0) {
-        throw new Error("적용할 슬라이드를 선택해 주세요.");
-      }
-      whitelist = new Set(targetSlides);
-    }
-    replaced = await processSlideGroup(zip, "ppt/slides", {
+    await rewrite(slides, {
       background: partBackground,
       onEach: progress,
-      targetIndices1Based: whitelist,
-      slideSize,
-      coloursOf,
-      keptCovering: kept,
+      targetIndices1Based: mode === "specific-slides" ? new Set(targetSlides) : undefined,
+      deletions,
+      hides,
     });
   }
 

@@ -12,7 +12,7 @@ import {
   type GalleryImage,
 } from "@/lib/gallery/types";
 import type { FillBackground } from "@/lib/ppt/changeBackground";
-import { SolidColourGrid, type SolidColourLabels } from "./SolidColourGrid";
+import { SolidColourGrid, type NoneColours, type SolidColourLabels } from "./SolidColourGrid";
 import { EditArea, type EditAreaProps } from "./EditArea";
 import { CornerSpinner } from "@/components/common/CornerSpinner";
 import { LiveCanvas, type LivePicture } from "@/components/image/LiveCanvas";
@@ -68,8 +68,8 @@ interface BackgroundPickerProps {
   /** The picked solid colour or "no background". */
   fill: FillBackground | null;
   onFillSelect: (fill: FillBackground) => void;
-  /** The colour the "no background" tile shows (`#rrggbb`); null leaves the tile out. */
-  noneColour: string | null;
+  /** What the "no background" tile shows (`NoneColours`); null leaves the tile out. */
+  noneColours: NoneColours | null;
   /** A run is using the picked fill: the "단색" tab shows it and nothing responds. */
   fillLocked: boolean;
   /** The edit area under the colours, while a solid colour (not "no background") is picked. */
@@ -85,7 +85,7 @@ export function BackgroundPicker({
   frame = null,
   fill,
   onFillSelect,
-  noneColour,
+  noneColours,
   fillLocked,
   fillEdit = null,
   labels,
@@ -247,7 +247,7 @@ export function BackgroundPicker({
                   setCustomPicked(fromCustom);
                   onFillSelect(next);
                 }}
-                noneColour={noneColour}
+                noneColours={noneColours}
                 custom={custom}
                 customPicked={customPicked}
                 onCustom={setCustom}

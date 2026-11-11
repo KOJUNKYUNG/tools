@@ -17,18 +17,22 @@ export interface PartReader {
   text(part: string): Promise<string | null>;
   /** The first part `part` relates to by this relationship type (the URI's last segment); null when none. */
   related(part: string, type: string): Promise<string | null>;
+  /** The parts `part`'s relationships target, by id; null for an external or unresolvable target. */
+  targets(part: string): Promise<ReadonlyMap<string, string | null>>;
 }
 
 /** Reads a deck loaded with JSZip. */
 export function zipPartReader(zip: JSZip): PartReader {
   const text = async (part: string) => (await zip.file(part)?.async("text")) ?? null;
+  const relationships = async (part: string) =>
+    parseRelationships((await text(relsPartOf(part))) ?? "", part.slice(0, part.lastIndexOf("/")));
   return {
     text,
     async related(part, type) {
-      const dir = part.slice(0, part.lastIndexOf("/"));
-      const rels = parseRelationships((await text(relsPartOf(part))) ?? "", dir);
+      const rels = await relationships(part);
       return rels.find((r) => r.type.endsWith(`/${type}`) && r.part !== null)?.part ?? null;
     },
+    targets: async (part) => new Map((await relationships(part)).map((r) => [r.id, r.part])),
   };
 }
 
@@ -37,6 +41,7 @@ export function packagePartReader(pkg: PptxPackage): PartReader {
   return {
     text: (part) => pkg.text(part),
     related: async (part, type) => (await pkg.relatedParts(part, type))[0] ?? null,
+    targets: async (part) => new Map((await pkg.relationships(part)).map((r) => [r.id, r.part])),
   };
 }
 
@@ -46,18 +51,26 @@ export function packagePartReader(pkg: PptxPackage): PartReader {
  * against what it has.
  */
 export function slideColours(reader: PartReader): ColoursOf {
-  const ofMaster = once(async (path) => {
-    const theme = await reader.related(path, "theme");
-    return masterColours(theme && (await reader.text(theme)), await reader.text(path));
-  });
-  const ofLayout = once(async (path) => {
-    const master = await reader.related(path, "slideMaster");
-    return withOverride(master ? await ofMaster(master) : NO_COLOURS, await reader.text(path));
-  });
+  const ofLayout = layoutColours(reader);
   return async (slidePath, slideXml) => {
     const layout = await reader.related(slidePath, "slideLayout");
     return withOverride(layout ? await ofLayout(layout) : NO_COLOURS, slideXml);
   };
+}
+
+/**
+ * The colours of a layout given its part: its master's theme and colour map,
+ * overridden by its own; each layout and master is read once.
+ */
+export function layoutColours(reader: PartReader): (layoutPath: string) => Promise<Colours> {
+  const ofMaster = once(async (path) => {
+    const theme = await reader.related(path, "theme");
+    return masterColours(theme && (await reader.text(theme)), await reader.text(path));
+  });
+  return once(async (path) => {
+    const master = await reader.related(path, "slideMaster");
+    return withOverride(master ? await ofMaster(master) : NO_COLOURS, await reader.text(path));
+  });
 }
 
 /** `colours` computed once per part path. */

@@ -1,4 +1,5 @@
 import type { SlideBackground } from "./extractCurrentBackgrounds";
+import { noBackgroundColours } from "./themeBackground";
 
 export interface BackgroundGroup {
   /**
@@ -15,6 +16,12 @@ export interface BackgroundGroup {
   swatch?: SlideBackground["swatch"];
   /** 1-based slide indexes sharing this background, in first-seen order. */
   slideIndexes: number[];
+  /**
+   * What "no background" turns the group's slides into (`noBackgroundColours`):
+   * one colour, or several when its slides belong to masters whose colours
+   * differ, though they look the same today.
+   */
+  noBackgroundColours: `#${string}`[];
 }
 
 /**
@@ -25,21 +32,20 @@ export interface BackgroundGroup {
  * First-seen order preserved.
  */
 export function groupBackgrounds(bgs: SlideBackground[]): BackgroundGroup[] {
-  const byKey = new Map<string, BackgroundGroup>();
+  const byKey = new Map<string, { first: SlideBackground; slides: SlideBackground[] }>();
   for (const b of bgs) {
     const key = b.coveringKey ?? b.imagePath ?? (b.swatch ? `colour:${b.swatch}` : "none");
     const existing = byKey.get(key);
-    if (existing) {
-      existing.slideIndexes.push(b.slideIndex);
-    } else {
-      byKey.set(key, {
-        key,
-        source: b.source,
-        imageBlob: b.imageBlob,
-        ...(b.swatch && { swatch: b.swatch }),
-        slideIndexes: [b.slideIndex],
-      });
-    }
+    if (existing) existing.slides.push(b);
+    else byKey.set(key, { first: b, slides: [b] });
   }
-  return [...byKey.values()];
+  return [...byKey].map(([key, { first, slides }]) => ({
+    key,
+    source: first.source,
+    imageBlob: first.imageBlob,
+    ...(first.swatch && { swatch: first.swatch }),
+    slideIndexes: slides.map((s) => s.slideIndex),
+    noBackgroundColours: noBackgroundColours(slides),
+  }));
 }
+

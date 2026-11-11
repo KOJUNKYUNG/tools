@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { extractCurrentBackgrounds } from "./extractCurrentBackgrounds";
+import { coveringPlan } from "./coveringPlan";
 import { groupBackgrounds } from "./groupBackgrounds";
 import {
   filledShape,
@@ -199,5 +200,159 @@ describe("extractCurrentBackgrounds finds inherited backgrounds", () => {
       }),
     );
     expect(fromMaster.map((g) => [g.key, g.source])).toEqual([["ppt/media/master.png", "master"]]);
+  });
+});
+
+describe("extractCurrentBackgrounds numbers slides in presentation order", () => {
+  const RED = "C0392B";
+  const GREEN = "1E8449";
+  const BLUE = "2E86C1";
+  /** slide1.xml red, slide2.xml green, slide3.xml blue, each with its own background. */
+  const slides = [RED, GREEN, BLUE].map((rgb) => ({ shapes: [textBox(9, "가사")], background: solidBackground(rgb) }));
+
+  async function numbered(deck: Uint8Array) {
+    const backgrounds = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
+    return backgrounds.map((b) => [b.slideIndex, b.slideName, b.swatch]);
+  }
+
+  it("lists the slides as PowerPoint shows them, numbered in that order", async () => {
+    expect(await numbered(await testDeck(slides, undefined, { slideList: [2, 3, 1] }))).toEqual([
+      [1, "슬라이드 1", "#1e8449"],
+      [2, "슬라이드 2", "#2e86c1"],
+      [3, "슬라이드 3", "#c0392b"],
+    ]);
+  });
+
+  it("lists them in file order when the slide list is missing or names no slide", async () => {
+    for (const slideList of ["missing", "dangling"] as const) {
+      expect(await numbered(await testDeck(slides, undefined, { slideList }))).toEqual([
+        [1, "슬라이드 1", "#c0392b"],
+        [2, "슬라이드 2", "#1e8449"],
+        [3, "슬라이드 3", "#2e86c1"],
+      ]);
+    }
+  });
+});
+
+describe("extractCurrentBackgrounds finds covering backgrounds on the master", () => {
+  it("shows the master's full-slide picture as the current background of the slides under it", async () => {
+    const logo = picture(21, "rId11", { x: 8001000, y: 4343400, w: 914400, h: 571500 });
+    const deck = await testDeck(
+      [{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }],
+      undefined,
+      { master: { shapes: [picture(20, "rId10"), logo], pictures: { rId10: "master.png", rId11: "logo.png" } } },
+    );
+    const groups = await analyse(deck);
+
+    expect(groups.map(({ key, source, slideIndexes }) => ({ key, source, slideIndexes }))).toEqual([
+      { key: "covering:ppt/media/master.png", source: "covering", slideIndexes: [1, 2] },
+    ]);
+    const zip = await JSZip.loadAsync(deck);
+    expect(new Uint8Array(await groups[0].imageBlob!.arrayBuffer())).toEqual(
+      await zip.file("ppt/media/master.png")!.async("uint8array"),
+    );
+  });
+});
+
+describe("extractCurrentBackgrounds reads background graphics as the deck shows them", () => {
+  const masterPicture = { shapes: [picture(20, "rId10")], pictures: { rId10: "master.png" } };
+
+  it("groups every slide showing the master picture as one covering background the user can keep", async () => {
+    const groups = await analyse(
+      await testDeck([{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }, { shapes: [textBox(9, "3절")] }], undefined, {
+        master: masterPicture,
+      }),
+    );
+    // A covering-background key is what the "변경하면 이 그림 지우기" toggle keeps a group by.
+    expect(groups.map(({ key, source, slideIndexes }) => ({ key, source, slideIndexes }))).toEqual([
+      { key: "covering:ppt/media/master.png", source: "covering", slideIndexes: [1, 2, 3] },
+    ]);
+  });
+
+  it("finds a layout's full-slide picture the same way", async () => {
+    const groups = await analyse(
+      await testDeck([{ shapes: [textBox(9, "1절")] }], { shapes: [picture(30, "rId10")], pictures: { rId10: "layout.png" } }),
+    );
+    expect(groups.map(({ key, source }) => ({ key, source }))).toEqual([
+      { key: "covering:ppt/media/layout.png", source: "covering" },
+    ]);
+  });
+
+  it("shows a slide hiding background graphics its own visible background", async () => {
+    const groups = await analyse(
+      await testDeck(
+        [
+          { shapes: [textBox(9, "1절")] },
+          { shapes: [textBox(9, "2절")], background: solidBackground("1F2A44"), hidesBackgroundGraphics: true },
+        ],
+        undefined,
+        { master: masterPicture },
+      ),
+    );
+    expect(groups.map(({ key, source, slideIndexes }) => ({ key, source, slideIndexes }))).toEqual([
+      { key: "covering:ppt/media/master.png", source: "covering", slideIndexes: [1] },
+      { key: "colour:#1f2a44", source: "slide", slideIndexes: [2] },
+    ]);
+  });
+
+  it("does not count the master picture under a layout hiding background graphics", async () => {
+    const groups = await analyse(
+      await testDeck([{ shapes: [textBox(9, "1절")] }], { hidesBackgroundGraphics: true }, { master: masterPicture }),
+    );
+    expect(groups.map((g) => g.source)).not.toContain("covering");
+  });
+});
+
+describe("extractCurrentBackgrounds tells how many background graphics hiding takes with it", () => {
+  const masterPicture = picture(20, "rId10");
+  const slides = [{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }, { shapes: [textBox(9, "3절")] }];
+  const CORNER = { x: 8001000, y: 4343400, w: 914400, h: 571500 };
+  /** What hiding background graphics takes with it on each chosen slide, by slide part. */
+  async function hiddenWith(deck: Uint8Array, targetSlides: number[], keptCovering: string[] = []) {
+    const bgs = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
+    return coveringPlan(
+      bgs.map((b) => b.stack),
+      { mode: "specific-slides", targetSlides, keptCovering },
+    ).hides;
+  }
+
+  it("counts a visible logo on the master", async () => {
+    const deck = await testDeck(slides, undefined, {
+      master: { shapes: [masterPicture, picture(21, "rId11", CORNER)], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+    expect(await hiddenWith(deck, [1, 2])).toEqual(
+      new Map([
+        ["ppt/slides/slide1.xml", 1],
+        ["ppt/slides/slide2.xml", 1],
+      ]),
+    );
+  });
+
+  it("does not count an empty shape with no fill or line", async () => {
+    const deck = await testDeck(slides, { shapes: [filledShape(40, "<a:noFill/>", CORNER)] }, {
+      master: { shapes: [masterPicture], pictures: { rId10: "master.png" } },
+    });
+    expect(await hiddenWith(deck, [2])).toEqual(new Map([["ppt/slides/slide2.xml", 0]]));
+  });
+
+  it("counts a layout's shape that shows text, a fill or a line", async () => {
+    const line = filledShape(42, "<a:noFill/>", CORNER).replace(
+      "<a:noFill/></p:spPr>",
+      `<a:noFill/><a:ln w="9525">${solidFill("000000")}</a:ln></p:spPr>`,
+    );
+    const deck = await testDeck(
+      slides,
+      { shapes: [textBox(40, "3/19", CORNER), filledShape(41, solidFill("FF0000", 50000), CORNER), line] },
+      { master: { shapes: [masterPicture], pictures: { rId10: "master.png" } } },
+    );
+    expect(await hiddenWith(deck, [3])).toEqual(new Map([["ppt/slides/slide3.xml", 3]]));
+  });
+
+  it("hides nothing on a kept group, or when every slide showing the picture changes", async () => {
+    const deck = await testDeck(slides, undefined, {
+      master: { shapes: [masterPicture, picture(21, "rId11", CORNER)], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+    expect(await hiddenWith(deck, [1], ["covering:ppt/media/master.png"])).toEqual(new Map());
+    expect(await hiddenWith(deck, [1, 2, 3])).toEqual(new Map());
   });
 });

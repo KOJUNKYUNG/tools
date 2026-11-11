@@ -163,7 +163,10 @@ fill, often a plain rectangle laid under everything; a shape without its own
 fill takes the one its style reference names in the theme). Elements qualify
 upwards from the bottom while consecutive ones do, and only with at least one
 element above them (a master or layout holds no content, so one there needs
-none). Hidden elements show nothing and are passed over. A slide
+none). Hidden elements show nothing and are passed over, and so are
+background graphics under 90% of the slide (a logo): they lie under all of the
+slide's own elements, so a master logo never stops a slide's own photo from
+being found (decided 2026-11-11, after #165). A slide
 whose only element is one large picture holds content (a sheet-music slide
 from image-to-pptx, a lyrics image); a translucent overlay that darkens a
 photo for legible lyrics, a filled box holding text, a large element higher in
