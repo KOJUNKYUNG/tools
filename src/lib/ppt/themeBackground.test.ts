@@ -64,7 +64,7 @@ describe("each slide's 'no background' colour", () => {
   });
 
   it("is each slide's own master's on a deck of two masters, covered slides too", async () => {
-    const file = await deck({}, { secondMaster: { lightColour: "1F2A44", slides: [2, 3] } }, [
+    const file = await deck({}, { extraMasters: [{ lightColour: "1F2A44", slides: [2, 3] }] }, [
       { shapes: [lyrics] },
       { shapes: [lyrics] },
       // Under a covering background too: the slide shows it once the covering background goes.
@@ -76,7 +76,7 @@ describe("each slide's 'no background' colour", () => {
 
 describe("the 'no background' preview", () => {
   const twoMasters = () =>
-    deck({}, { secondMaster: { lightColour: "1F2A44", slides: [2, 4] } }, [
+    deck({}, { extraMasters: [{ lightColour: "1F2A44", slides: [2, 4] }] }, [
       { shapes: [lyrics] },
       { shapes: [filledShape(2, solidFill("6B1E2E")), lyrics] },
       { shapes: [filledShape(2, solidFill("6B1E2E")), lyrics] },
@@ -94,8 +94,25 @@ describe("the 'no background' preview", () => {
     ]);
   });
 
-  it("tiles the gallery with the first two distinct colours in slide order", async () => {
+  it("tiles the gallery with every distinct colour, in slide order, however many masters", async () => {
     expect(noBackgroundColours(await extractCurrentBackgrounds(await twoMasters()))).toEqual(["#ffffff", "#1f2a44"]);
+    const fourMasters = await deck(
+      {},
+      {
+        extraMasters: [
+          { lightColour: "1F2A44", slides: [2] },
+          { lightColour: "F5F0E6", slides: [3, 5] },
+          { lightColour: "6B1E2E", slides: [4] },
+        ],
+      },
+      [1, 2, 3, 4, 5, 6].map(() => ({ shapes: [lyrics] })),
+    );
+    expect(noBackgroundColours(await extractCurrentBackgrounds(fourMasters))).toEqual([
+      "#ffffff",
+      "#1f2a44",
+      "#f5f0e6",
+      "#6b1e2e",
+    ]);
   });
 
   it("tiles a one-master deck with its one colour, as before", async () => {

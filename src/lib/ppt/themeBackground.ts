@@ -15,11 +15,11 @@ export function noBackgroundSwatch(colours: Colours): Swatch {
 }
 
 /**
- * The colours the gallery's "no background" tile shows: the first two
- * distinct ones in slide order, one on a deck whose slides all show the same,
- * none when no slide's resolves.
+ * The colours the gallery's "no background" tile shows, so the user can
+ * foresee what it turns the deck into: every distinct one, in slide order
+ * (one on a deck whose slides all show the same, one per master on a deck
+ * whose masters differ); none when no slide's resolves.
  */
-export function noBackgroundColours(bgs: readonly SlideBackground[]): [] | [`#${string}`] | [`#${string}`, `#${string}`] {
-  const [first, second] = [...new Set(bgs.map((b) => b.noBackground).filter((s) => s !== "fill"))];
-  return first === undefined ? [] : second === undefined ? [first] : [first, second];
+export function noBackgroundColours(bgs: readonly SlideBackground[]): `#${string}`[] {
+  return [...new Set(bgs.map((b) => b.noBackground).filter((s) => s !== "fill"))];
 }

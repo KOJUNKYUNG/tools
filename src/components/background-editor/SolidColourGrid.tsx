@@ -24,10 +24,11 @@ export const SOLID_PRESETS = [
 ] as const;
 
 /**
- * The colours (`#rrggbb`) the "no background" tile shows: one, or two split
- * diagonally along its slash when the deck's slides show different ones.
+ * The colours (`#rrggbb`) the "no background" tile shows: one, or diagonal
+ * bands of equal width, one per colour, when the deck's slides show
+ * different ones.
  */
-export type NoneColours = readonly [string, string?];
+export type NoneColours = readonly [string, ...string[]];
 
 export type SolidPresetId = (typeof SOLID_PRESETS)[number]["id"];
 
@@ -123,7 +124,7 @@ export function SolidColourGrid({
           label={labels.none}
           title={labels.noneHint}
           colour={noneColours[0]}
-          secondColour={noneColours[1]}
+          bands={noneColours}
           none
           selected={value?.kind === "none"}
           disabled={locked}
@@ -148,7 +149,7 @@ function Tile({
   label,
   title,
   colour,
-  secondColour,
+  bands,
   none = false,
   selected,
   disabled,
@@ -159,8 +160,8 @@ function Tile({
   title?: string;
   /** The swatch's CSS colour (`#rrggbb`); null shows the picker glyph. */
   colour: string | null;
-  /** A second colour: the swatch splits diagonally, `colour` below the slash and this above. */
-  secondColour?: string;
+  /** Colours of equal diagonal bands across the swatch, lower left first; `colour` alone when fewer than two. */
+  bands?: readonly string[];
   /** Crosses the swatch with a slash, Office's mark for "no fill". */
   none?: boolean;
   selected: boolean;
@@ -179,7 +180,7 @@ function Tile({
           style={{
             background: colour
               ? none
-                ? `${slash(colour)}, ${secondColour ? halves(colour, secondColour) : colour}`
+                ? `${slash(bands ?? [colour])}, ${diagonalBands(bands ?? [colour])}`
                 : colour
               : "var(--surface-2)",
             color: "var(--ink-soft)",
@@ -232,14 +233,26 @@ function Tile({
   );
 }
 
-/** Two colours meeting on the slash's diagonal: `first` on the lower left, `second` on the upper right. */
-function halves(first: string, second: string): string {
-  return `linear-gradient(to top right, ${first} 50%, ${second} 50%)`;
+/**
+ * Equal bands parallel to the slash, lower left first; one colour fills the
+ * swatch. Two meet on the slash itself.
+ */
+function diagonalBands(colours: readonly string[]): string {
+  if (colours.length < 2) return colours[0];
+  const stop = (i: number) => `${((i / colours.length) * 100).toFixed(3)}%`;
+  return `linear-gradient(to top right, ${colours.map((c, i) => `${c} ${stop(i)} ${stop(i + 1)}`).join(", ")})`;
 }
 
-/** A thin diagonal line across the swatch, dark on a light colour and light on a dark one. */
-function slash(hex: string): string {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-  const ink = 0.299 * r + 0.587 * g + 0.114 * b > 140 ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.55)";
+/**
+ * A thin diagonal line across the swatch, dark on light colours and light on
+ * dark ones (judged by their mean brightness).
+ */
+function slash(colours: readonly string[]): string {
+  const luma = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+  };
+  const mean = colours.reduce((sum, hex) => sum + luma(hex), 0) / colours.length;
+  const ink = mean > 140 ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.55)";
   return `linear-gradient(to top right, transparent calc(50% - 0.75px), ${ink} calc(50% - 0.75px), ${ink} calc(50% + 0.75px), transparent calc(50% + 0.75px))`;
 }

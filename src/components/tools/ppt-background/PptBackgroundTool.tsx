@@ -369,11 +369,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     prepare: prepareActual,
   });
   // "No background" shows each slide's theme colour (its master's): the
-  // gallery tile the deck's first two, the preview the group shown's. White
+  // gallery tile every distinct one, the preview the group shown's. White
   // until the deck is read, or where a colour cannot be resolved.
   const noneColours = useMemo((): NoneColours => {
-    const [first = UNREAD_NONE, second] = noBackgroundColours(currentBgs);
-    return [first, second];
+    const [first = UNREAD_NONE, ...rest] = noBackgroundColours(currentBgs);
+    return [first, ...rest];
   }, [currentBgs]);
   const currentGroup = groups[curIndex];
   const groupNone = currentGroup?.noBackground;

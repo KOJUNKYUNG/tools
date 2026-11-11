@@ -183,60 +183,69 @@ export interface TestDeckOptions {
   /** Layouts under the master that no slide uses (`slideLayout2.xml` on), in order. */
   unusedLayouts?: readonly TestLayout[];
   /**
-   * A second master (`slideMaster2.xml`) with its own theme and one layout,
-   * which the slides with these file numbers use. Its theme's light colour
-   * (`lt1`, what "no background" shows under the default colour map) is
-   * `lightColour` (hex RGB).
+   * More masters (`slideMaster2.xml` on), in order, each with its own theme
+   * and one layout, which the slides with these file numbers use. Each
+   * theme's light colour (`lt1`, what "no background" shows under the default
+   * colour map) is `lightColour` (hex RGB).
    */
-  secondMaster?: { lightColour: string; slides: readonly number[] };
+  extraMasters?: readonly TestExtraMaster[];
 }
 
-/** Write `secondMaster` as a copy of the deck's master, theme and first layout, before either is edited. */
-async function writeSecondMaster(
-  zip: JSZip,
-  { lightColour, slides }: NonNullable<TestDeckOptions["secondMaster"]>,
-  layoutNumber: number,
-) {
+export interface TestExtraMaster {
+  lightColour: string;
+  slides: readonly number[];
+}
+
+/**
+ * Write `master` as master part `n` (2 on): a copy of the deck's master,
+ * theme and first layout (as layout part `layoutNumber`), before either is
+ * edited.
+ */
+async function writeExtraMaster(zip: JSZip, { lightColour, slides }: TestExtraMaster, n: number, layoutNumber: number) {
   const text = (part: string) => zip.file(part)!.async("text");
   const rel = (id: string, type: string, target: string) =>
     `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${type}" Target="${target}"/>`;
   const rels = (...entries: string[]) =>
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${entries.join("")}</Relationships>`;
+  const master = `slideMaster${n}.xml`;
+  const theme = `theme${n}.xml`;
   const layout = `slideLayout${layoutNumber}.xml`;
+  // Master and layout ids share one space across the deck, above the first master's.
+  const masterId = 2147484000 + 2 * n;
 
   zip.file(
-    "ppt/theme/theme2.xml",
+    `ppt/theme/${theme}`,
     (await text("ppt/theme/theme1.xml")).replace(/<a:lt1>[\s\S]*?<\/a:lt1>/, `<a:lt1><a:srgbClr val="${lightColour}"/></a:lt1>`),
   );
   zip.file(
-    "ppt/slideMasters/slideMaster2.xml",
+    `ppt/slideMasters/${master}`,
     (await text("ppt/slideMasters/slideMaster1.xml")).replace(
       /<p:sldLayoutIdLst>[\s\S]*?<\/p:sldLayoutIdLst>/,
-      // Master and layout ids share one space across the deck.
-      '<p:sldLayoutIdLst><p:sldLayoutId id="2147483690" r:id="rId1"/></p:sldLayoutIdLst>',
+      `<p:sldLayoutIdLst><p:sldLayoutId id="${masterId + 1}" r:id="rId1"/></p:sldLayoutIdLst>`,
     ),
   );
   zip.file(
-    "ppt/slideMasters/_rels/slideMaster2.xml.rels",
-    rels(rel("rId1", "slideLayout", `../slideLayouts/${layout}`), rel("rId2", "theme", "../theme/theme2.xml")),
+    `ppt/slideMasters/_rels/${master}.rels`,
+    rels(rel("rId1", "slideLayout", `../slideLayouts/${layout}`), rel("rId2", "theme", `../theme/${theme}`)),
   );
   zip.file(`ppt/slideLayouts/${layout}`, await text("ppt/slideLayouts/slideLayout1.xml"));
-  zip.file(`ppt/slideLayouts/_rels/${layout}.rels`, rels(rel("rId1", "slideMaster", "../slideMasters/slideMaster2.xml")));
-  for (const n of slides) {
-    const part = `ppt/slides/_rels/slide${n}.xml.rels`;
+  zip.file(`ppt/slideLayouts/_rels/${layout}.rels`, rels(rel("rId1", "slideMaster", `../slideMasters/${master}`)));
+  for (const slide of slides) {
+    const part = `ppt/slides/_rels/slide${slide}.xml.rels`;
     zip.file(part, (await text(part)).replace("../slideLayouts/slideLayout1.xml", `../slideLayouts/${layout}`));
   }
 
+  const relId = `rIdMaster${n}`;
   const presentation = "ppt/presentation.xml";
   zip.file(
     presentation,
-    (await text(presentation)).replace("</p:sldMasterIdLst>", '<p:sldMasterId id="2147483689" r:id="rId99"/></p:sldMasterIdLst>'),
+    (await text(presentation)).replace("</p:sldMasterIdLst>", `<p:sldMasterId id="${masterId}" r:id="${relId}"/></p:sldMasterIdLst>`),
   );
   const presentationRels = "ppt/_rels/presentation.xml.rels";
   zip.file(
     presentationRels,
-    (await text(presentationRels)).replace("</Relationships>", `${rel("rId99", "slideMaster", "slideMasters/slideMaster2.xml")}</Relationships>`),
+    (await text(presentationRels)).replace("</Relationships>", `${rel(relId, "slideMaster", `slideMasters/${master}`)}</Relationships>`),
   );
   const override = (part: string, type: string) =>
     `<Override PartName="/${part}" ContentType="application/vnd.openxmlformats-officedocument.${type}+xml"/>`;
@@ -246,8 +255,8 @@ async function writeSecondMaster(
     "[Content_Types].xml",
     types.replace(
       "</Types>",
-      (types.includes("/ppt/slideMasters/slideMaster2.xml") ? "" : override("ppt/slideMasters/slideMaster2.xml", "presentationml.slideMaster")) +
-        override("ppt/theme/theme2.xml", "theme") +
+      (types.includes(`/ppt/slideMasters/${master}`) ? "" : override(`ppt/slideMasters/${master}`, "presentationml.slideMaster")) +
+        override(`ppt/theme/${theme}`, "theme") +
         override(`ppt/slideLayouts/${layout}`, "presentationml.slideLayout") +
         "</Types>",
     ),
@@ -307,7 +316,7 @@ async function writeLayout(zip: JSZip, n: number, layout: TestLayout) {
 export async function testDeck(
   slides: TestSlide[],
   layout?: TestLayout,
-  { slideList, master, unusedLayouts = [], secondMaster }: TestDeckOptions = {},
+  { slideList, master, unusedLayouts = [], extraMasters = [] }: TestDeckOptions = {},
 ): Promise<Uint8Array> {
   const pptx = new PptxGenJS();
   // Each defined master is written as one more layout under the deck's one master.
@@ -331,7 +340,9 @@ export async function testDeck(
     await addPictures(zip, relsPath, slide.pictures);
   }
 
-  if (secondMaster) await writeSecondMaster(zip, secondMaster, unusedLayouts.length + 2);
+  for (const [i, extra] of extraMasters.entries()) {
+    await writeExtraMaster(zip, extra, i + 2, unusedLayouts.length + i + 2);
+  }
   if (layout) await writeLayout(zip, 1, layout);
   for (const [i, unused] of unusedLayouts.entries()) await writeLayout(zip, i + 2, unused);
   if (master) {
