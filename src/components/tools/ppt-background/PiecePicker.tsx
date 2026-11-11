@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { template } from "@/lib/common/template";
 import { deckMedia, type SlideBackground } from "@/lib/ppt/extractCurrentBackgrounds";
 import type { Swatch } from "@/lib/ppt/fills";
+import { swatchFill } from "./swatchFill";
 
 export interface PiecePickerLabels {
   title: string;
@@ -42,10 +43,6 @@ interface PiecePickerProps {
   aspect: string;
   labels: PiecePickerLabels;
 }
-
-/** A neutral hatch for a gradient, a pattern or an unresolved colour, as the current-background frame shows it. */
-const HATCH = "repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--border) 6px 7px)";
-const swatchFill = (swatch: Swatch) => (swatch === "fill" ? HATCH : swatch);
 
 /**
  * The background-piece picker (spec #163): over the workspace card, a pager

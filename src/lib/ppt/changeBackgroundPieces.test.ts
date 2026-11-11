@@ -2,7 +2,7 @@ import JSZip from "jszip";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { headerOnlyImage, standInPrepare } from "@/lib/image/slideImageStandIn";
 import { changeBackground, type BgMode } from "./changeBackground";
-import { clickAnimations, filledShape, picture, pictureShape, solidFill, testDeck, textBox, type Box } from "./testDeck";
+import { BAND, BLOB, clickAnimations, filledShape, picture, pictureShape, solidFill, testDeck, textBox } from "./testDeck";
 import { parseXml, type XmlElement } from "./xmlTree";
 
 /** A phone photo's header: 4032 × 3024, upright. */
@@ -68,10 +68,6 @@ async function contents(zip: JSZip): Promise<Record<string, string>> {
   return out;
 }
 
-/** A band across the top (20% of the slide). */
-const BAND: Box = { x: 0, y: 0, w: 9144000, h: 1028700 };
-/** A blob in the corner (11% of the slide). */
-const BLOB: Box = { x: 6096000, y: 3429000, w: 3048000, h: 1714500 };
 const RED_BAND = "piece:fill:#ff0000@0,0,9144000,1028700";
 const BLOB_PICTURE = "piece:picture:ppt/media/blob.png";
 

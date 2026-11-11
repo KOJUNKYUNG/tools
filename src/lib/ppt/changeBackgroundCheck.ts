@@ -6,7 +6,7 @@ import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import type { BgMode } from "./changeBackground";
 import { DEFAULT_SLIDE } from "./getSlideAspect";
-import { shapeIdsIn, topLevelElements, type CoveringBackground } from "./coveringBackgrounds";
+import { shapeIdsIn, topLevelElements, type StackElement } from "./coveringBackgrounds";
 import { coveringPlan } from "./coveringPlan";
 import { animationTargets } from "./slideAnimations";
 import { packagePartReader } from "./slideColours";
@@ -337,8 +337,8 @@ async function coveringViolations(
   before: PptxPackage,
   after: PptxPackage,
   targets: readonly string[],
-  deletions: ReadonlyMap<string, readonly CoveringBackground[]>,
-  pieces: ReadonlyMap<string, readonly CoveringBackground[]>,
+  deletions: ReadonlyMap<string, readonly StackElement[]>,
+  pieces: ReadonlyMap<string, readonly StackElement[]>,
 ): Promise<{ violations: Violation[]; deletedOn: Set<string> }> {
   const violations: Violation[] = [];
   const deletedOn = new Set<string>();

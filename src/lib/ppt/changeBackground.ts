@@ -10,7 +10,7 @@ import {
   type SlideSize,
 } from "@/lib/image/slideImage";
 import { checkPptBackground, type RequestedBackground } from "./changeBackgroundCheck";
-import { withoutCovering, type CoveringBackground } from "./coveringBackgrounds";
+import { withoutElements, type StackElement } from "./coveringBackgrounds";
 import { coveringPlan } from "./coveringPlan";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { zipPartReader } from "./slideColours";
@@ -267,8 +267,8 @@ interface GroupChange {
   /** 1-based whitelist over the parts' order (for slides, presentation order,
    *  as the preview numbers them). Undefined = all. */
   targetIndices1Based?: ReadonlySet<number>;
-  /** The covering backgrounds the plan deletes, by part (`coveringPlan`); none from parts it does not name. */
-  deletions?: ReadonlyMap<string, readonly CoveringBackground[]>;
+  /** The covering backgrounds and picked pieces the plan deletes, by part (`coveringPlan`); none from parts it does not name. */
+  deletions?: ReadonlyMap<string, readonly StackElement[]>;
   /** The slides the plan hides background graphics on (`coveringPlan`). */
   hides?: ReadonlyMap<string, number>;
 }
@@ -294,10 +294,10 @@ const droppedIds = (relsXml: string | null, before: string, after: string) =>
  * animations naming them and every relationship only they named; returns the
  * parts those relationships pointed at.
  */
-async function deleteFromPart(zip: JSZip, part: string, covering: readonly CoveringBackground[]): Promise<Set<string>> {
+async function deleteFromPart(zip: JSZip, part: string, covering: readonly StackElement[]): Promise<Set<string>> {
   const replaced = new Set<string>();
   const before = await zip.file(part)!.async("text");
-  const after = withoutCovering(before, covering);
+  const after = withoutElements(before, covering);
   const relsPath = relsPartOf(part);
   let relsXml = (await zip.file(relsPath)?.async("text")) ?? null;
   for (const id of droppedIds(relsXml, before, after)) {
@@ -342,7 +342,7 @@ async function processSlideGroup(
     // replaced background's: every one only they named, whatever its type
     // (the picture, an HD photo layer, a hyperlink).
     const before = slideXml;
-    slideXml = withoutCovering(slideXml, deletions?.get(slidePath) ?? []);
+    slideXml = withoutElements(slideXml, deletions?.get(slidePath) ?? []);
     const deletedIds = droppedIds(relsXml, before, slideXml);
     if (hides?.has(slidePath)) slideXml = hidingBackgroundGraphics(slideXml);
 
@@ -550,7 +550,7 @@ export async function changeBackground({
   );
   const { hides } = plan;
   // Picked pieces go with the covering backgrounds, in one cut per part.
-  const deletions = new Map(plan.deletions);
+  const deletions = new Map<string, StackElement[]>(plan.deletions);
   for (const [part, pieces] of plan.pieces) {
     deletions.set(part, [...(deletions.get(part) ?? []), ...pieces].sort((a, b) => a.start - b.start));
   }

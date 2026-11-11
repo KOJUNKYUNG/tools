@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractCurrentBackgrounds } from "./extractCurrentBackgrounds";
-import { filledShape, group, picture, pictureShape, solidFill, testDeck, textBox, type Box } from "./testDeck";
+import { BAND, BLOB, filledShape, group, picture, pictureShape, solidFill, testDeck, textBox, type Box } from "./testDeck";
 
 /** Each slide's background pieces, as the picker lists them. */
 async function piecesOf(deck: Uint8Array) {
@@ -8,10 +8,6 @@ async function piecesOf(deck: Uint8Array) {
   return slides.map((s) => s.pieces.map(({ key, imagePath, swatch, slideCount }) => ({ key, imagePath, swatch, slideCount })));
 }
 
-/** A band across the top: a fifth of the slide's height, its full width (20% of the slide). */
-const BAND: Box = { x: 0, y: 0, w: 9144000, h: 1028700 };
-/** A blob in the corner: a third of each side (11% of the slide). */
-const BLOB: Box = { x: 6096000, y: 3429000, w: 3048000, h: 1714500 };
 /** An icon: a fifth of each side (4% of the slide). */
 const ICON: Box = { x: 100000, y: 100000, w: 1828800, h: 1028700 };
 

@@ -20,6 +20,10 @@ export interface Box {
 export const FULL: Box = { x: 0, y: 0, w: SLIDE.w, h: SLIDE.h };
 /** A lyrics box in the middle of the slide. */
 export const LYRICS_BOX: Box = { x: 914400, y: 914400, w: 3657600, h: 914400 };
+/** A band across the top: a fifth of the slide's height, its full width (20% of the slide), a background piece. */
+export const BAND: Box = { x: 0, y: 0, w: 9144000, h: 1028700 };
+/** A blob in the corner: a third of each side (11% of the slide), a background piece. */
+export const BLOB: Box = { x: 6096000, y: 3429000, w: 3048000, h: 1714500 };
 
 const xfrm = ({ x, y, w, h }: Box, rot = 0) =>
   `<a:xfrm${rot ? ` rot="${rot}"` : ""}><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm>`;

@@ -9,6 +9,8 @@ import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { changeBackground } from "./changeBackground";
 import {
+  BAND,
+  BLOB,
   clickAnimations,
   filledShape,
   pictureShape,
@@ -1085,8 +1087,6 @@ describe("checkPptBackground checks which slides hide background graphics", () =
 });
 
 describe("checkPptBackground checks the background pieces the user picked", () => {
-  const BAND = { x: 0, y: 0, w: 9144000, h: 1028700 };
-  const BLOB = { x: 6096000, y: 3429000, w: 3048000, h: 1714500 };
   const blobPicture = "piece:picture:ppt/media/blob.png";
   /** Two slides of a red band, a picture blob (animated) and the lyrics. */
   const piecedDeck = () =>

@@ -4,6 +4,7 @@
 import type { ReactNode } from "react";
 import { template } from "@/lib/common/template";
 import type { BackgroundGroup } from "@/lib/ppt/groupBackgrounds";
+import { swatchFill } from "./swatchFill";
 
 interface CurrentBackgroundFrameProps {
   caption: string;
@@ -67,12 +68,7 @@ export function CurrentBackgroundFrame(props: CurrentBackgroundFrameProps) {
                  sits above the slide count (below). */
               <div
                 className="size-full"
-                style={{
-                  background:
-                    swatch === "fill"
-                      ? "repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--border) 6px 7px)"
-                      : swatch,
-                }}
+                style={{ background: swatchFill(swatch) }}
               />
             ) : (
               <div className="flex h-full items-center justify-center font-body text-[10.5px]" style={{ color: "var(--ink-soft)" }}>

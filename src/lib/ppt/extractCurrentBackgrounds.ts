@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { parseRelationships } from "@/lib/output-check/pptxPackage";
+import type { Bounds } from "./coveringBackgrounds";
 import { plannedSlide, type PlannedSlide } from "./coveringPlan";
 import { readSlideStacks, type SlideStack } from "./slideStacks";
 import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
@@ -18,7 +19,7 @@ export interface PiecePreview {
   /** What a piece without a picture shows: its first fill's colour, or the neutral `fill`. */
   swatch: Swatch | null;
   /** Where it lies, as fractions of the slide's width and height (may reach past the slide). */
-  box: { x: number; y: number; w: number; h: number };
+  box: Bounds;
   /** The share of the slide's area it covers, 0…1. */
   share: number;
   /** How many slides have it. */

@@ -16,7 +16,7 @@ import {
   stackLayers,
   type CoveringBackground,
   type GraphicRef,
-  type Piece,
+  type PieceElement,
   type StackLayer,
   type StackPart,
 } from "./coveringBackgrounds";
@@ -37,7 +37,7 @@ export interface LayoutStack {
 }
 
 /** A background piece with its key (`pieceKey`) and its picture parts, bottom first. */
-export interface BackgroundPiece extends Piece {
+export interface BackgroundPiece extends PieceElement {
   key: string;
   pictureParts: string[];
 }
@@ -121,8 +121,8 @@ export async function readSlideStacks(
     const pieces: BackgroundPiece[] = [];
     for (const piece of piecesIn(layers, slide, colours, covering)) {
       const targets = await targetsOf(piece.part);
-      const partOf = (relId: string) => targets.get(relId);
-      pieces.push({ ...piece, key: pieceKey(piece, partOf), pictureParts: piece.pictures.flatMap((id) => partOf(id) ?? []) });
+      const pictureParts = piece.pictures.flatMap((id) => targets.get(id) ?? []);
+      pieces.push({ ...piece, key: pieceKey(piece, pictureParts), pictureParts });
     }
     stacks.push({
       part,

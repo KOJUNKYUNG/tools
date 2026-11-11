@@ -52,8 +52,12 @@ export interface StackLayer {
   elements: XmlElement[];
 }
 
-/** A covering background, as the span of its part's XML it takes up. */
-export interface CoveringBackground extends Span {
+/**
+ * A top-level element of a slide's stack that ppt-background may delete (a
+ * covering background, a background piece), as the span of its part's XML it
+ * takes up.
+ */
+export interface StackElement extends Span {
   /** The part that holds it, and which of the stack's parts that is. */
   part: string;
   holder: Holder;
@@ -61,9 +65,12 @@ export interface CoveringBackground extends Span {
   shapeIds: string[];
   /** Relationship ids of its pictures, in document order. */
   pictures: string[];
-  /** What its opaque fills show (a shape's, or a group's members'), in document order. */
+  /** What its fills show (a shape's, or a group's members'), in document order. */
   fills: Swatch[];
 }
+
+/** A covering background; its `fills` are its opaque ones only. */
+export type CoveringBackground = StackElement;
 
 /** The share of the slide's area an element must cover, as a fraction. */
 const COVER = { num: 9, den: 10 };
@@ -388,23 +395,23 @@ export function coveringGroupKey(
 }
 
 /**
- * A slide, layout or master without these covering backgrounds of it and the
- * animations naming them. Their relationships stay: the caller drops those
- * the part no longer names.
+ * A slide, layout or master without these elements of it (covering
+ * backgrounds, background pieces) and the animations naming them. Their
+ * relationships stay: the caller drops those the part no longer names.
  */
-export function withoutCovering(partXml: string, covering: readonly (Span & { shapeIds: string[] })[]): string {
-  const root = covering.length > 0 ? parseXml(partXml) : null;
+export function withoutElements(partXml: string, elements: readonly StackElement[]): string {
+  const root = elements.length > 0 ? parseXml(partXml) : null;
   if (!root) return partXml;
-  const ids = new Set(covering.flatMap((c) => c.shapeIds));
-  return cutSpans(partXml, [...covering, ...animationCuts(root, ids)]);
+  const ids = new Set(elements.flatMap((c) => c.shapeIds));
+  return cutSpans(partXml, [...elements, ...animationCuts(root, ids)]);
 }
 
 /**
- * A background piece (CONTEXT.md → Background piece): an element the user
- * may pick to delete with the old background. Its `fills` are what its fills
- * show, opaque or not.
+ * A background piece (CONTEXT.md → Background piece) as the rule finds it,
+ * before its key: an element the user may pick to delete with the old
+ * background. Its `fills` are all of them, opaque or not.
  */
-export interface Piece extends CoveringBackground {
+export interface PieceElement extends StackElement {
   /** Its bounds (EMU), as written. */
   bounds: Bounds;
   /** The share of the slide's area it covers, 0…1. */
@@ -422,12 +429,12 @@ export function piecesIn(
   slide: SlideSize,
   colours: Colours,
   covering: readonly CoveringBackground[],
-): Piece[] {
+): PieceElement[] {
   const isCovering = (part: string, el: XmlElement) => covering.some((c) => c.part === part && c.start === el.start);
   return layers
     .filter((l) => l.holder === "slide")
     .flatMap(({ part, holder, elements }) =>
-      elements.flatMap((el): Piece[] => {
+      elements.flatMap((el): PieceElement[] => {
         if (isHidden(el) || showsText(el) || isCovering(part, el)) return [];
         const [pictures, fills] = [picturesOf(el), fillsOf(el, colours).map((f) => f.swatch)];
         const bounds = boundsOf(el);
@@ -442,13 +449,13 @@ export function piecesIn(
 
 /**
  * The key of a background piece, shared by the preview, the engine and the
- * output check: the set of picture parts it shows (`partOf` resolves a
- * relationship id of its part), or, with none, its fills with its position
- * and size. Picking a key picks the piece on every slide that has it.
+ * output check: the set of picture parts it shows (`pictureParts`, its
+ * pictures resolved from its part), or, with none, its fills with its
+ * position and size. Picking a key picks the piece on every slide that has it.
  */
-export function pieceKey(piece: Piece, partOf: (relId: string, part: string) => string | null | undefined): string {
+export function pieceKey(piece: PieceElement, pictureParts: readonly string[]): string {
   // OPC part names compare case-insensitively.
-  const parts = [...new Set(piece.pictures.flatMap((id) => partOf(id, piece.part)?.toLowerCase() ?? []))].sort();
+  const parts = [...new Set(pictureParts.map((p) => p.toLowerCase()))].sort();
   if (parts.length > 0) return `piece:picture:${parts.join("|")}`;
   const { x, y, w, h } = piece.bounds;
   return `piece:fill:${piece.fills.join("|")}@${x},${y},${w},${h}`;
