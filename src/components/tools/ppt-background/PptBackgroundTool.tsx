@@ -35,6 +35,7 @@ import { useActualBackground } from "@/components/background-editor/useActualBac
 import { BackgroundEditor, type BackgroundEditorLabels } from "@/components/background-editor/BackgroundEditor";
 import type { RecipeEditLabels } from "@/components/background-editor/RecipeEditControls";
 import type { NoneColours, SolidColourLabels } from "@/components/background-editor/SolidColourGrid";
+import { diagonalBands } from "@/components/background-editor/diagonalBands";
 
 /** What "no background" shows until the deck is read, or where its colour cannot be resolved: the default theme's. */
 const UNREAD_NONE = "#ffffff";
@@ -369,15 +370,16 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     prepare: prepareActual,
   });
   // "No background" shows each slide's theme colour (its master's): the
-  // gallery tile every distinct one, the preview the group shown's. White
-  // until the deck is read, or where a colour cannot be resolved.
+  // gallery tile every distinct one, the preview the group shown's (bands
+  // when its slides' masters differ). White until the deck is read, or where
+  // a colour cannot be resolved.
   const noneColours = useMemo((): NoneColours => {
     const [first = UNREAD_NONE, ...rest] = noBackgroundColours(currentBgs);
     return [first, ...rest];
   }, [currentBgs]);
   const currentGroup = groups[curIndex];
-  const groupNone = currentGroup?.noBackground;
-  const noneColour = groupNone && groupNone !== "fill" ? groupNone : UNREAD_NONE;
+  const groupNone = currentGroup?.noBackgroundColours ?? [];
+  const noneColour = diagonalBands(groupNone.length > 0 ? groupNone : [UNREAD_NONE]);
   // A solid colour as its fill: with its colour effects.
   const fillColour = !fill ? null : solidColour ? filteredColour(filters, solidColour) : noneColour;
   const canRun =

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { PipetteIcon } from "lucide-react";
 import { galleryTileClass, galleryTileStyle, TileSelectionMark } from "@/components/ppt/GalleryTile";
 import type { FillBackground } from "@/lib/ppt/changeBackground";
+import { diagonalBands } from "./diagonalBands";
 
 /**
  * The preset colours, in grid order: white through the light colours, then
@@ -231,16 +232,6 @@ function Tile({
       {body}
     </button>
   );
-}
-
-/**
- * Equal bands parallel to the slash, lower left first; one colour fills the
- * swatch. Two meet on the slash itself.
- */
-function diagonalBands(colours: readonly string[]): string {
-  if (colours.length < 2) return colours[0];
-  const stop = (i: number) => `${((i / colours.length) * 100).toFixed(3)}%`;
-  return `linear-gradient(to top right, ${colours.map((c, i) => `${c} ${stop(i)} ${stop(i + 1)}`).join(", ")})`;
 }
 
 /**

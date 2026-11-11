@@ -25,7 +25,7 @@ interface SelectedBackgroundFrameProps {
   filtered?: LivePicture | null;
   /** Opens the frame over the picture again. */
   onSelect?: () => void;
-  /** A picked solid colour (CSS), shown in place of a picture. */
+  /** A picked solid colour as a CSS background (a colour, or "no background"'s diagonal bands), shown in place of a picture. */
   colour?: string | null;
   /** A note over the colour, e.g. that it is the theme's. */
   colourNote?: string;

@@ -83,14 +83,14 @@ describe("the 'no background' preview", () => {
       { shapes: [lyrics] },
     ]);
 
-  it("takes the colour of the current-background group shown", async () => {
+  it("takes the colours of the current-background group shown", async () => {
     const groups = groupBackgrounds(await extractCurrentBackgrounds(await twoMasters()));
-    expect(groups.map(({ slideIndexes, noBackground }) => ({ slideIndexes, noBackground }))).toEqual([
+    expect(groups.map(({ slideIndexes, noBackgroundColours }) => ({ slideIndexes, noBackgroundColours }))).toEqual([
       // The first master's layout shows white; the second master's, its own light colour.
-      { slideIndexes: [1], noBackground: "#ffffff" },
-      // A group across masters takes its first slide's.
-      { slideIndexes: [2, 3], noBackground: "#1f2a44" },
-      { slideIndexes: [4], noBackground: "#1f2a44" },
+      { slideIndexes: [1], noBackgroundColours: ["#ffffff"] },
+      // A group across masters shows each of its slides' colours, in slide order.
+      { slideIndexes: [2, 3], noBackgroundColours: ["#1f2a44", "#ffffff"] },
+      { slideIndexes: [4], noBackgroundColours: ["#1f2a44"] },
     ]);
   });
 
