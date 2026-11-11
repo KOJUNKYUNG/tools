@@ -283,6 +283,65 @@ export function coveringRun(layers: readonly StackLayer[], slide: SlideSize, col
   return { qualifying, missed, somethingAbove: qualifying.length < shown.length };
 }
 
+/** A background graphic, by the part holding it and where its XML starts. */
+export interface GraphicRef {
+  part: string;
+  start: number;
+}
+
+/**
+ * Whether a line shows: the element's own `a:ln` with a fill other than none,
+ * or, with no line fill of its own, the line style its style reference names
+ * (index 0 is no line).
+ */
+function showsLine(props: XmlElement | undefined, style: XmlElement | undefined): boolean {
+  const own = fillChild(child(props, "a:ln"));
+  if (own) return own.name !== "a:noFill";
+  return Number(child(style, "a:lnRef")?.attrs.idx ?? 0) > 0;
+}
+
+/**
+ * Whether a background graphic shows something: text, a picture, a fill
+ * (opaque or not) or a line. An empty shape with no fill and no line shows
+ * nothing; any element other than a shape, connector or group (a picture, a
+ * table, a chart, ink) is taken to show something.
+ */
+function showsSomething(el: XmlElement, colours: Colours): boolean {
+  if (isHidden(el)) return false;
+  switch (el.name) {
+    case "p:sp":
+      return (
+        showsText(el) ||
+        picturesOf(el).length > 0 ||
+        fillsOf(el, colours).length > 0 ||
+        showsLine(child(el, "p:spPr"), child(el, "p:style"))
+      );
+    case "p:cxnSp":
+      return showsLine(child(el, "p:spPr"), child(el, "p:style"));
+    case "p:grpSp":
+      return el.children.some((c) => showsSomething(c, colours));
+    case "p:nvGrpSpPr":
+    case "p:grpSpPr":
+    case "p:extLst":
+      return false;
+    default:
+      return true;
+  }
+}
+
+/**
+ * The background graphics of a slide's stack (its master's and layout's
+ * elements) that show something, bottom first: what hiding background
+ * graphics on the slide takes away.
+ */
+export function graphicsShowing(layers: readonly StackLayer[], colours: Colours): GraphicRef[] {
+  return layers
+    .filter((l) => l.holder !== "slide")
+    .flatMap(({ part, elements }) =>
+      elements.filter((el) => showsSomething(el, colours)).map((el) => ({ part, start: el.start })),
+    );
+}
+
 /**
  * The covering backgrounds of a slide's stack (bottom first), fills resolved
  * against the slide's `colours`.

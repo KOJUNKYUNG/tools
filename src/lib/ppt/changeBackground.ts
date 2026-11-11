@@ -11,7 +11,7 @@ import {
 } from "@/lib/image/slideImage";
 import { checkPptBackground, type RequestedBackground } from "./changeBackgroundCheck";
 import { withoutCovering, type CoveringBackground } from "./coveringBackgrounds";
-import { coveringDeletions } from "./coveringPlan";
+import { coveringPlan } from "./coveringPlan";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { zipPartReader } from "./slideColours";
 import { partsUnder } from "./slideOrder";
@@ -266,8 +266,22 @@ interface GroupChange {
   /** 1-based whitelist over the parts' order (for slides, presentation order,
    *  as the preview numbers them). Undefined = all. */
   targetIndices1Based?: ReadonlySet<number>;
-  /** The covering backgrounds the plan deletes, by part (`coveringDeletions`); none from parts it does not name. */
+  /** The covering backgrounds the plan deletes, by part (`coveringPlan`); none from parts it does not name. */
   deletions?: ReadonlyMap<string, readonly CoveringBackground[]>;
+  /** The slides the plan hides background graphics on (`coveringPlan`). */
+  hides?: ReadonlyMap<string, number>;
+}
+
+/** A slide's root start tag. */
+const SLIDE_ROOT = /<p:sld(?=[\s>/])[^>]*>/;
+
+/** The slide with "Hide background graphics" on (`showMasterSp="0"` on its root). */
+function hidingBackgroundGraphics(slideXml: string): string {
+  return slideXml.replace(SLIDE_ROOT, (tag) =>
+    /\sshowMasterSp\s*=/.test(tag)
+      ? tag.replace(/\sshowMasterSp\s*=\s*(?:"[^"]*"|'[^']*')/, ' showMasterSp="0"')
+      : tag.replace(/^<p:sld/, '<p:sld showMasterSp="0"'),
+  );
 }
 
 /** The ids of `relsXml`'s relationships that `before` names and `after` no longer does. */
@@ -303,7 +317,7 @@ async function deleteFromPart(zip: JSZip, part: string, covering: readonly Cover
 async function processSlideGroup(
   zip: JSZip,
   slideFiles: readonly string[],
-  { background, onEach, targetIndices1Based, deletions }: GroupChange,
+  { background, onEach, targetIndices1Based, deletions, hides }: GroupChange,
 ): Promise<Set<string>> {
   /** Parts the replaced backgrounds pointed at, to delete once unreferenced. */
   const replaced = new Set<string>();
@@ -329,6 +343,7 @@ async function processSlideGroup(
     const before = slideXml;
     slideXml = withoutCovering(slideXml, deletions?.get(slidePath) ?? []);
     const deletedIds = droppedIds(relsXml, before, slideXml);
+    if (hides?.has(slidePath)) slideXml = hidingBackgroundGraphics(slideXml);
 
     const oldIds = [...backgroundValues(slideXml), ...deletedIds];
     let relId: string | undefined;
@@ -526,7 +541,7 @@ export async function changeBackground({
   // Planned on the input, before any part changes: deleting a master's
   // covering background would change what every slide's stack shows.
   const reader = zipPartReader(zip);
-  const deletions = coveringDeletions(
+  const { deletions, hides } = coveringPlan(
     await readSlideStacks(reader, slides, slideSize),
     { mode, targetSlides, keptCovering },
     mode === "master" ? await readLayoutStacks(reader, partsUnder(parts, "ppt/slideLayouts"), slideSize) : [],
@@ -546,13 +561,14 @@ export async function changeBackground({
     // slides added later.
     await rewrite(partsUnder(parts, "ppt/slideMasters"), { background: partBackground });
     await rewrite(partsUnder(parts, "ppt/slideLayouts"), { background: "clear" });
-    await rewrite(slides, { background: "clear", onEach: progress, deletions });
+    await rewrite(slides, { background: "clear", onEach: progress, deletions, hides });
   } else {
     await rewrite(slides, {
       background: partBackground,
       onEach: progress,
       targetIndices1Based: mode === "specific-slides" ? new Set(targetSlides) : undefined,
       deletions,
+      hides,
     });
   }
 

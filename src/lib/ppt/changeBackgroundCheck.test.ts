@@ -1032,3 +1032,52 @@ describe("checkPptBackground checks covering backgrounds on layouts, in master m
     expect(await quick(input, kept, output)).toContainEqual({ property: "element-missing", detail: `${MASTER} #20` });
   });
 });
+
+describe("checkPptBackground checks which slides hide background graphics", () => {
+  const masterPicture = pictureElement(20, "rId10");
+  const logo = pictureElement(21, "rId11", { x: 8001000, y: 4343400, w: 914400, h: 571500 });
+  const chosen: Intent = { source: newBgBytes, mode: "specific-slides", targetSlides: [1] };
+  const deck = () =>
+    testDeck([{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }], undefined, {
+      master: { shapes: [masterPicture, logo], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+  const editSlide = (output: Uint8Array, n: number, change: (xml: string) => string) =>
+    mutate(output, async (zip) => {
+      const part = `ppt/slides/slide${n}.xml`;
+      zip.file(part, change(await zip.file(part)!.async("text")));
+    });
+
+  it("passes the engine's output", async () => {
+    const input = await deck();
+    expect(await properties(input, chosen, await apply(input, chosen))).toEqual([]);
+  });
+
+  it("flags a chosen slide that does not hide them", async () => {
+    const input = await deck();
+    const output = await editSlide(await apply(input, chosen), 1, (xml) => xml.replace(' showMasterSp="0"', ""));
+    expect(await quick(input, chosen, output)).toContainEqual({
+      property: "background-graphics-hidden",
+      detail: "ppt/slides/slide1.xml: not hidden",
+    });
+  });
+
+  it("flags a slide that lost the flag it had in the input", async () => {
+    const input = await testDeck([{ shapes: [textBox(9, "1절")], hidesBackgroundGraphics: true }, { shapes: [textBox(9, "2절")] }], undefined, {
+      master: { shapes: [masterPicture, logo], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+    const output = await editSlide(await apply(input, allSlides), 1, (xml) => xml.replace(' showMasterSp="0"', ""));
+    expect(await quick(input, allSlides, output)).toContainEqual({
+      property: "background-graphics-hidden",
+      detail: "ppt/slides/slide1.xml: not hidden",
+    });
+  });
+
+  it("flags a slide hiding them though the plan does not", async () => {
+    const input = await deck();
+    const output = await editSlide(await apply(input, allSlides), 2, (xml) => xml.replace("<p:sld ", '<p:sld showMasterSp="0" '));
+    expect(await quick(input, allSlides, output)).toContainEqual({
+      property: "background-graphics-hidden",
+      detail: "ppt/slides/slide2.xml: hidden",
+    });
+  });
+});

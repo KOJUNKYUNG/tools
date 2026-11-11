@@ -225,3 +225,48 @@ describe("changeBackground keeps a kept group's picture on a layout no slide use
     expect(await text(zip, "ppt/slideLayouts/slideLayout2.xml")).toContain(keptPicture);
   });
 });
+
+describe("changeBackground hides background graphics on chosen slides only", () => {
+  const SLIDE = (n: number) => `ppt/slides/slide${n}.xml`;
+  const hides = async (zip: JSZip, n: number) => /<p:sld\b[^>]*\bshowMasterSp="0"/.test(await text(zip, SLIDE(n)));
+
+  it("hides them on exactly the chosen slides showing the master picture, and leaves the master and the others", async () => {
+    const deck = await testDeck(slides, undefined, { master: pictureAndLogo });
+    const [input, zip] = await Promise.all([JSZip.loadAsync(deck), runOn(deck, "specific-slides", [1, 3])]);
+
+    expect([await hides(zip, 1), await hides(zip, 2), await hides(zip, 3)]).toEqual([true, false, true]);
+    for (const part of [MASTER, MASTER_RELS, LAYOUT, SLIDE(2)]) expect(await unchanged(input, zip, part)).toBe(true);
+    expect(await text(zip, SLIDE(1))).toMatch(/<p:bg><p:bgPr><a:blipFill/);
+  });
+
+  it("hides them on chosen slides showing a layout's picture", async () => {
+    const deck = await testDeck(slides, { shapes: [picture(30, "rId10")], pictures: { rId10: "layout.png" } });
+    const [input, zip] = await Promise.all([JSZip.loadAsync(deck), runOn(deck, "specific-slides", [2])]);
+    expect([await hides(zip, 1), await hides(zip, 2), await hides(zip, 3)]).toEqual([false, true, false]);
+    expect(await unchanged(input, zip, LAYOUT)).toBe(true);
+  });
+
+  it("never hides them on a slide of a kept group", async () => {
+    const deck = await testDeck(slides, undefined, { master: pictureAndLogo });
+    const zip = await runOn(deck, "specific-slides", [1, 2], ["covering:ppt/media/master.png"]);
+    for (const n of [1, 2, 3]) expect(await hides(zip, n)).toBe(false);
+  });
+
+  it("never hides them on a slide that does not show a covering background there", async () => {
+    const deck = await testDeck(slides, undefined, { master: { shapes: [logo], pictures: { rId11: "logo.png" } } });
+    const zip = await runOn(deck, "specific-slides", [1]);
+    for (const n of [1, 2, 3]) expect(await hides(zip, n)).toBe(false);
+  });
+
+  it("still deletes a chosen slide's own photo when it hides the master picture", async () => {
+    const deck = await testDeck(
+      [{ shapes: [picture(2, "rId10"), textBox(9, "1절")], pictures: { rId10: "photo.png" } }, lyrics("2절")],
+      undefined,
+      { master: pictureAndLogo },
+    );
+    const zip = await runOn(deck, "specific-slides", [1]);
+    expect(await hides(zip, 1)).toBe(true);
+    expect(await text(zip, SLIDE(1))).not.toContain('r:embed="rId10"');
+    expect(mediaParts(zip)).not.toContain("ppt/media/photo.png");
+  });
+});

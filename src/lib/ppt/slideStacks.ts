@@ -9,9 +9,11 @@ import type { SlideSize } from "@/lib/image/slideImage";
 import {
   coveringGroupKey,
   coveringIn,
+  graphicsShowing,
   layoutLayers,
   stackLayers,
   type CoveringBackground,
+  type GraphicRef,
   type StackLayer,
   type StackPart,
 } from "./coveringBackgrounds";
@@ -38,6 +40,8 @@ export interface SlideStack extends LayoutStack {
   covering: CoveringBackground[];
   /** Their picture parts, bottom first, each resolved from the part holding it. */
   coveringPictures: string[];
+  /** Its background graphics that show something (`graphicsShowing`), covering backgrounds included. */
+  showing: GraphicRef[];
 }
 
 type Targets = ReadonlyMap<string, string | null>;
@@ -98,8 +102,15 @@ export async function readSlideStacks(
       layoutPart ? await parsedPart(layoutPart) : null,
       masterPart ? await parsedPart(masterPart) : null,
     );
-    const covering = coveringIn(layers, slide, await coloursOf(part, xml));
-    stacks.push({ part, layers, covering, ...(await keyed(covering, targetsOf)) });
+    const colours = await coloursOf(part, xml);
+    const covering = coveringIn(layers, slide, colours);
+    stacks.push({
+      part,
+      layers,
+      covering,
+      ...(await keyed(covering, targetsOf)),
+      showing: graphicsShowing(layers, colours),
+    });
   }
   return stacks;
 }

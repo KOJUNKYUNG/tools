@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ToolHeader } from "@/components/common/ToolHeader";
 import { FileUpload } from "@/components/common/FileUpload";
 import { uploadLimitFor } from "@/lib/constants";
@@ -13,6 +13,7 @@ import {
   type SlideBackground,
 } from "@/lib/ppt/extractCurrentBackgrounds";
 import { getSlideAspect, type SlideAspect } from "@/lib/ppt/getSlideAspect";
+import { coveringPlan } from "@/lib/ppt/coveringPlan";
 import { groupBackgrounds, type BackgroundGroup } from "@/lib/ppt/groupBackgrounds";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
@@ -57,6 +58,8 @@ export interface PptBackgroundToolLabels {
     specificSelectAll: string;
     specificClear: string;
     specificHint: string;
+    /** The apply scope hides background graphics on some slides, taking a logo or more with them. */
+    hidesGraphicsNotice: string;
   };
   thumbnails: {
     heading: string;
@@ -384,6 +387,18 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     !normalizing &&
     status === "idle";
 
+  // Whether the apply scope hides background graphics on some slides and
+  // takes others that show something (a logo) with them: the engine's own
+  // plan, so the notice promises what the run does.
+  const hidesOtherGraphics = useMemo(() => {
+    if (currentBgs.length === 0) return false;
+    const { hides } = coveringPlan(
+      currentBgs.map((b) => b.stack),
+      { mode, targetSlides: mode === "specific-slides" ? [...selectedSlides] : undefined, keptCovering: [...keptCovering] },
+    );
+    return [...hides.values()].some((n) => n > 0);
+  }, [currentBgs, mode, selectedSlides, keptCovering]);
+
   // ───────── Bidirectional check ↔ range binding ─────────
   // Checking a current-background group selects every slide that uses it and
   // switches the scope to "선택"; the PageRangeSelector then shows that range
@@ -626,17 +641,27 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                     />
                   </div>
 
-                  {/* Blur notice: its two lines are always reserved, so it
-                      appears and goes without moving anything. */}
-                  <p
-                    className="mt-2 line-clamp-2 min-h-[2.7em] font-body text-[10.5px] leading-[1.35]"
-                    style={{
-                      color: "var(--ink-soft)",
-                      visibility: crop && belowFullHd(crop, slide) ? "visible" : "hidden",
-                    }}
+                  {/* Notices: their two lines are always reserved, so they
+                      appear and go without moving anything. The blur notice
+                      gives up its second line to the hidden-graphics one. */}
+                  <div
+                    className="mt-2 min-h-[2.7em] font-body text-[10.5px] leading-[1.35]"
+                    style={{ color: "var(--ink-soft)" }}
                   >
-                    {labels.background.blurNotice}
-                  </p>
+                    {crop && belowFullHd(crop, slide) && (
+                      <p
+                        className={hidesOtherGraphics ? "line-clamp-1" : "line-clamp-2"}
+                        title={labels.background.blurNotice}
+                      >
+                        {labels.background.blurNotice}
+                      </p>
+                    )}
+                    {hidesOtherGraphics && (
+                      <p className="line-clamp-1" title={labels.mode.hidesGraphicsNotice}>
+                        {labels.mode.hidesGraphicsNotice}
+                      </p>
+                    )}
+                  </div>
 
                   {/* Apply-scope block, pinned to bottom */}
                   <div className="mt-auto pt-2">

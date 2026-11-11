@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { parseRelationships } from "@/lib/output-check/pptxPackage";
+import { plannedSlide, type PlannedSlide } from "./coveringPlan";
 import { readSlideStacks, type SlideStack } from "./slideStacks";
 import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
@@ -31,6 +32,8 @@ export interface SlideBackground {
   swatch?: Swatch;
   /** For covering backgrounds: their group's key (`coveringGroupKey`), what the user keeps a group by. */
   coveringKey?: string;
+  /** Its stack as the shared plan (`coveringPlan`) reads it: what the preview promises for the apply scope. */
+  stack: PlannedSlide;
 }
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -143,6 +146,7 @@ export async function extractCurrentBackgrounds(
       imageBlob: null,
       source: "none",
       imagePath: null,
+      stack: plannedSlide(stacks[i]),
     };
 
     const covering = await coveringBackground(zip, stacks[i]);

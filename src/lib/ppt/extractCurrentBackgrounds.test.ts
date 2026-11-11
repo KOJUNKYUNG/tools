@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { extractCurrentBackgrounds } from "./extractCurrentBackgrounds";
+import { coveringPlan } from "./coveringPlan";
 import { groupBackgrounds } from "./groupBackgrounds";
 import {
   filledShape,
@@ -299,5 +300,59 @@ describe("extractCurrentBackgrounds reads background graphics as the deck shows 
       await testDeck([{ shapes: [textBox(9, "1절")] }], { hidesBackgroundGraphics: true }, { master: masterPicture }),
     );
     expect(groups.map((g) => g.source)).not.toContain("covering");
+  });
+});
+
+describe("extractCurrentBackgrounds tells how many background graphics hiding takes with it", () => {
+  const masterPicture = picture(20, "rId10");
+  const slides = [{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }, { shapes: [textBox(9, "3절")] }];
+  const CORNER = { x: 8001000, y: 4343400, w: 914400, h: 571500 };
+  /** What hiding background graphics takes with it on each chosen slide, by slide part. */
+  async function hiddenWith(deck: Uint8Array, targetSlides: number[], keptCovering: string[] = []) {
+    const bgs = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
+    return coveringPlan(
+      bgs.map((b) => b.stack),
+      { mode: "specific-slides", targetSlides, keptCovering },
+    ).hides;
+  }
+
+  it("counts a visible logo on the master", async () => {
+    const deck = await testDeck(slides, undefined, {
+      master: { shapes: [masterPicture, picture(21, "rId11", CORNER)], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+    expect(await hiddenWith(deck, [1, 2])).toEqual(
+      new Map([
+        ["ppt/slides/slide1.xml", 1],
+        ["ppt/slides/slide2.xml", 1],
+      ]),
+    );
+  });
+
+  it("does not count an empty shape with no fill or line", async () => {
+    const deck = await testDeck(slides, { shapes: [filledShape(40, "<a:noFill/>", CORNER)] }, {
+      master: { shapes: [masterPicture], pictures: { rId10: "master.png" } },
+    });
+    expect(await hiddenWith(deck, [2])).toEqual(new Map([["ppt/slides/slide2.xml", 0]]));
+  });
+
+  it("counts a layout's shape that shows text, a fill or a line", async () => {
+    const line = filledShape(42, "<a:noFill/>", CORNER).replace(
+      "<a:noFill/></p:spPr>",
+      `<a:noFill/><a:ln w="9525">${solidFill("000000")}</a:ln></p:spPr>`,
+    );
+    const deck = await testDeck(
+      slides,
+      { shapes: [textBox(40, "3/19", CORNER), filledShape(41, solidFill("FF0000", 50000), CORNER), line] },
+      { master: { shapes: [masterPicture], pictures: { rId10: "master.png" } } },
+    );
+    expect(await hiddenWith(deck, [3])).toEqual(new Map([["ppt/slides/slide3.xml", 3]]));
+  });
+
+  it("hides nothing on a kept group, or when every slide showing the picture changes", async () => {
+    const deck = await testDeck(slides, undefined, {
+      master: { shapes: [masterPicture, picture(21, "rId11", CORNER)], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+    expect(await hiddenWith(deck, [1], ["covering:ppt/media/master.png"])).toEqual(new Map());
+    expect(await hiddenWith(deck, [1, 2, 3])).toEqual(new Map());
   });
 });

@@ -7,7 +7,7 @@ import type { CropRect } from "@/lib/image/maxFitCrop";
 import type { BgMode } from "./changeBackground";
 import { DEFAULT_SLIDE } from "./getSlideAspect";
 import { shapeIdsIn, topLevelElements, type CoveringBackground } from "./coveringBackgrounds";
-import { coveringDeletions } from "./coveringPlan";
+import { coveringPlan } from "./coveringPlan";
 import { animationTargets } from "./slideAnimations";
 import { packagePartReader } from "./slideColours";
 import { readLayoutStacks, readSlideStacks } from "./slideStacks";
@@ -74,7 +74,7 @@ export interface PptBackgroundRequest {
  * master mode) and on every master and layout (spec #163: their background
  * graphics show on the slides), re-detected on the input with the shared
  * rule over each slide's stack and re-planned with the shared plan
- * (`coveringDeletions`; in master mode over every layout's stack too, used
+ * (`coveringPlan`; in master mode over every layout's stack too, used
  * or not), picture and fill forms alike (fills resolved through
  * the input's theme). The rule and plan are the spec: these prove the engine
  * applied them, not that they are right (the regression set covers the rule
@@ -89,6 +89,9 @@ export interface PptBackgroundRequest {
  * - ⚡ `element-missing`: another top-level element is gone
  * - ⚡ `animation-target-missing`: an animation or build entry names a shape
  *   the slide does not have (the deck would need repair)
+ * - ⚡ `background-graphics-hidden`: a slide hides its background graphics
+ *   (`showMasterSp`) though the plan does not hide them there and the input
+ *   did not, or does not though the plan does or the input did
  *
  * The prepared picture (spec #98), re-derived from the source picture, the
  * crop and the input's slide size, never from the engine's numbers (a solid
@@ -170,7 +173,7 @@ export const checkPptBackground: OutputChecker<
   // The covering backgrounds the engine must have deleted, re-planned on the
   // input with the shared rule and plan (not the engine's own selection).
   const [reader, size] = [packagePartReader(before), await slideSize(before)];
-  const deletions = coveringDeletions(
+  const { deletions, hides } = coveringPlan(
     await readSlideStacks(reader, before.slideParts, size),
     request,
     request.mode === "master" ? await readLayoutStacks(reader, before.layoutParts, size) : [],
@@ -192,6 +195,16 @@ export const checkPptBackground: OutputChecker<
       if (OWN_BACKGROUND.test((await after.text(part)) ?? "")) {
         violations.push({ property: "own-background-kept", detail: part });
       }
+    }
+  }
+
+  for (const part of after.slideParts) {
+    const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
+    if (outXml === null) continue;
+    // Hidden where the plan hides them, and where the input already did: a flag the deck had stays.
+    const wanted = hides.has(part) || hidesBackgroundGraphics(inXml ?? "");
+    if (hidesBackgroundGraphics(outXml) !== wanted) {
+      violations.push({ property: "background-graphics-hidden", detail: `${part}: ${wanted ? "not hidden" : "hidden"}` });
     }
   }
 
@@ -246,7 +259,9 @@ export const checkPptBackground: OutputChecker<
       for (const part of [...before.layoutParts, ...before.slideParts].filter((p) => !covering.deletedOn.has(p))) {
         const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
         if (inXml === null || outXml === null) continue;
-        if (outXml !== inXml.replace(OWN_BACKGROUND, "")) {
+        // A slide the plan hides background graphics on carries the flag besides.
+        const expected = inXml.replace(OWN_BACKGROUND, "");
+        if (hides.has(part) ? withoutHideFlag(outXml) !== withoutHideFlag(expected) : outXml !== expected) {
           violations.push({ property: "only-background-cleared", detail: part });
         }
       }
@@ -267,6 +282,20 @@ export const checkPptBackground: OutputChecker<
 
   return violations;
 };
+
+/** A slide's root start tag. */
+const SLIDE_ROOT = /<p:sld(?=[\s>/])[^>]*>/;
+/** The "Hide background graphics" attribute on a root start tag. */
+const HIDE_FLAG = /\sshowMasterSp\s*=\s*(?:"([^"]*)"|'([^']*)')/;
+
+/** Whether a slide hides its background graphics ("Hide background graphics", `showMasterSp` off). */
+function hidesBackgroundGraphics(slideXml: string): boolean {
+  const flag = slideXml.match(SLIDE_ROOT)?.[0].match(HIDE_FLAG);
+  return flag !== null && flag !== undefined && ["0", "false"].includes(flag[1] ?? flag[2]);
+}
+
+/** The slide without its "Hide background graphics" attribute. */
+const withoutHideFlag = (slideXml: string) => slideXml.replace(SLIDE_ROOT, (tag) => tag.replace(HIDE_FLAG, ""));
 
 /** A part's own background, as the part declares it. */
 const OWN_BACKGROUND = /<p:bg[\s>][\s\S]*?<\/p:bg>/;

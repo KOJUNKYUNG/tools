@@ -148,6 +148,7 @@
           "optionMaster": "Master",
           "optionSpecific": "Select",
           "masterNote": "Clears each slide's own background and sets the new one on the master, so slides you add later get it too.",
+          "hidesGraphicsNotice": "On the chosen slides, other background graphics (a logo, slide numbers) are hidden too.",
           "specificInput": "e.g. 1, 3, 5-7",
           "specificSelectAll": "All",
           "specificClear": "Reset",
