@@ -23,6 +23,12 @@ export const SOLID_PRESETS = [
   { id: "black", rgb: "000000" },
 ] as const;
 
+/**
+ * The colours (`#rrggbb`) the "no background" tile shows: one, or two split
+ * diagonally along its slash when the deck's slides show different ones.
+ */
+export type NoneColours = readonly [string, string?];
+
 export type SolidPresetId = (typeof SOLID_PRESETS)[number]["id"];
 
 export interface SolidColourLabels {
@@ -36,8 +42,8 @@ interface SolidColourGridProps {
   value: FillBackground | null;
   /** `fromCustom`: picked with "직접 선택", which then shows as the pick even for a preset's colour. */
   onSelect: (fill: FillBackground, fromCustom: boolean) => void;
-  /** The colour the "no background" tile shows (`#rrggbb`); null leaves the tile out. */
-  noneColour: string | null;
+  /** What the "no background" tile shows; null leaves the tile out. */
+  noneColours: NoneColours | null;
   /** The last colour picked with "직접 선택", as six hex digits. */
   custom: string | null;
   /** The current pick came from "직접 선택". */
@@ -57,7 +63,7 @@ interface SolidColourGridProps {
 export function SolidColourGrid({
   value,
   onSelect,
-  noneColour,
+  noneColours,
   custom,
   customPicked,
   onCustom,
@@ -112,11 +118,12 @@ export function SolidColourGrid({
           },
         }}
       />
-      {noneColour !== null && (
+      {noneColours !== null && (
         <Tile
           label={labels.none}
           title={labels.noneHint}
-          colour={noneColour}
+          colour={noneColours[0]}
+          secondColour={noneColours[1]}
           none
           selected={value?.kind === "none"}
           disabled={locked}
@@ -141,6 +148,7 @@ function Tile({
   label,
   title,
   colour,
+  secondColour,
   none = false,
   selected,
   disabled,
@@ -151,6 +159,8 @@ function Tile({
   title?: string;
   /** The swatch's CSS colour (`#rrggbb`); null shows the picker glyph. */
   colour: string | null;
+  /** A second colour: the swatch splits diagonally, `colour` below the slash and this above. */
+  secondColour?: string;
   /** Crosses the swatch with a slash, Office's mark for "no fill". */
   none?: boolean;
   selected: boolean;
@@ -169,7 +179,7 @@ function Tile({
           style={{
             background: colour
               ? none
-                ? `${slash(colour)}, ${colour}`
+                ? `${slash(colour)}, ${secondColour ? halves(colour, secondColour) : colour}`
                 : colour
               : "var(--surface-2)",
             color: "var(--ink-soft)",
@@ -220,6 +230,11 @@ function Tile({
       {body}
     </button>
   );
+}
+
+/** Two colours meeting on the slash's diagonal: `first` on the lower left, `second` on the upper right. */
+function halves(first: string, second: string): string {
+  return `linear-gradient(to top right, ${first} 50%, ${second} 50%)`;
 }
 
 /** A thin diagonal line across the swatch, dark on a light colour and light on a dark one. */

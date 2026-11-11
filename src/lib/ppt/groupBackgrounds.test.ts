@@ -4,7 +4,7 @@ import type { SlideBackground } from "./extractCurrentBackgrounds";
 
 function bg(i: number, path: string | null, source: SlideBackground["source"]): SlideBackground {
   const stack = { part: `ppt/slides/slide${i}.xml`, layers: [], covering: [], coveringKey: null, showing: [] };
-  return { slideIndex: i, slideName: `슬라이드 ${i}`, imageBlob: null, source, imagePath: path, stack };
+  return { slideIndex: i, slideName: `슬라이드 ${i}`, imageBlob: null, source, imagePath: path, stack, noBackground: "#ffffff" };
 }
 
 describe("groupBackgrounds", () => {

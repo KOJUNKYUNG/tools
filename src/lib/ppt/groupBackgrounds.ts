@@ -15,6 +15,8 @@ export interface BackgroundGroup {
   swatch?: SlideBackground["swatch"];
   /** 1-based slide indexes sharing this background, in first-seen order. */
   slideIndexes: number[];
+  /** What "no background" would show on the group (first slide in the group): the preview's colour for it. */
+  noBackground: SlideBackground["noBackground"];
 }
 
 /**
@@ -38,8 +40,10 @@ export function groupBackgrounds(bgs: SlideBackground[]): BackgroundGroup[] {
         imageBlob: b.imageBlob,
         ...(b.swatch && { swatch: b.swatch }),
         slideIndexes: [b.slideIndex],
+        noBackground: b.noBackground,
       });
     }
   }
   return [...byKey.values()];
 }
+

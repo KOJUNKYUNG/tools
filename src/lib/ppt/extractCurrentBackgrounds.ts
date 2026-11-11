@@ -5,6 +5,7 @@ import { readSlideStacks, type SlideStack } from "./slideStacks";
 import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { slideColours, zipPartReader, type PartReader } from "./slideColours";
+import { noBackgroundSwatch } from "./themeBackground";
 import { child, parseXml } from "./xmlTree";
 import { slidesInOrder } from "./zipSlides";
 
@@ -34,6 +35,8 @@ export interface SlideBackground {
   coveringKey?: string;
   /** Its stack as the shared plan (`coveringPlan`) reads it: what the preview promises for the apply scope. */
   stack: PlannedSlide;
+  /** The colour "no background" would show on it (`noBackgroundSwatch`): its own master's, not the deck's first. */
+  noBackground: Swatch;
 }
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -139,6 +142,8 @@ export async function extractCurrentBackgrounds(
   for (let i = 0; i < slideFiles.length; i++) {
     const slidePath = slideFiles[i];
     const slideXml = await zip.file(slidePath)!.async("text");
+    // The slide's colours resolve its layout's and master's backgrounds too: they show on it.
+    const colours = await coloursOf(slidePath, slideXml);
 
     const bg: SlideBackground = {
       slideIndex: i + 1,
@@ -147,6 +152,7 @@ export async function extractCurrentBackgrounds(
       source: "none",
       imagePath: null,
       stack: plannedSlide(stacks[i]),
+      noBackground: noBackgroundSwatch(colours),
     };
 
     const covering = await coveringBackground(zip, stacks[i]);
@@ -154,8 +160,6 @@ export async function extractCurrentBackgrounds(
       results.push({ ...bg, ...covering, source: "covering" });
       continue;
     }
-    // The slide's colours resolve its layout's and master's backgrounds too: they show on it.
-    const colours = await coloursOf(slidePath, slideXml);
 
     // Its own background, else the layout's, else the master's: the first
     // that declares one, whatever it shows.

@@ -7,6 +7,7 @@ import type { EditGroup } from "./EditArea";
 import { FilterControls, filterSummary, type FilterLabels } from "./FilterControls";
 import { RecipeEditControls, type RecipeEditLabels } from "./RecipeEditControls";
 import type { BackgroundEditorState } from "./useBackgroundEditor";
+import type { NoneColours } from "./SolidColourGrid";
 
 export type BackgroundEditorLabels = BackgroundPickerLabels & {
   /** The recipe edit under the frame of a Paper gallery item. */
@@ -23,8 +24,8 @@ interface BackgroundEditorProps {
    * back to edit them.
    */
   locked: boolean;
-  /** The colour the "no background" tile shows (`#rrggbb`); null leaves the tile out. */
-  noneColour: string | null;
+  /** What the "no background" tile shows (`NoneColours`); null leaves the tile out. */
+  noneColours: NoneColours | null;
   labels: BackgroundEditorLabels;
 }
 
@@ -35,7 +36,7 @@ interface BackgroundEditorProps {
  * for the filter set). Its state lives in `useBackgroundEditor`, which the
  * tool holds, so the tool's run and preview read the same pick.
  */
-export function BackgroundEditor({ editor, locked, noneColour, labels }: BackgroundEditorProps) {
+export function BackgroundEditor({ editor, locked, noneColours, labels }: BackgroundEditorProps) {
   const {
     slideRatio,
     bgFile,
@@ -149,7 +150,7 @@ export function BackgroundEditor({ editor, locked, noneColour, labels }: Backgro
       }
       fill={fill}
       onFillSelect={editor.selectFill}
-      noneColour={noneColour}
+      noneColours={noneColours}
       fillLocked={!!fill && locked}
       fillEdit={
         // "No background" is the theme's colour by definition: no effects.

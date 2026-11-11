@@ -15,6 +15,7 @@ import {
 import { getSlideAspect, type SlideAspect } from "@/lib/ppt/getSlideAspect";
 import { coveringPlan } from "@/lib/ppt/coveringPlan";
 import { groupBackgrounds, type BackgroundGroup } from "@/lib/ppt/groupBackgrounds";
+import { noBackgroundColours } from "@/lib/ppt/themeBackground";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { template } from "@/lib/common/template";
@@ -29,12 +30,14 @@ import { CurrentBackgroundFrame } from "./CurrentBackgroundFrame";
 import { PreviewLightbox } from "@/components/common/PreviewLightbox";
 import { PptBackgroundResult } from "./PptBackgroundResult";
 import { PptConversionGuide, type ConversionMethodLabels } from "./PptConversionGuide";
-import { themeBackground } from "@/lib/ppt/themeBackground";
 import { useBackgroundEditor } from "@/components/background-editor/useBackgroundEditor";
 import { useActualBackground } from "@/components/background-editor/useActualBackground";
 import { BackgroundEditor, type BackgroundEditorLabels } from "@/components/background-editor/BackgroundEditor";
 import type { RecipeEditLabels } from "@/components/background-editor/RecipeEditControls";
-import type { SolidColourLabels } from "@/components/background-editor/SolidColourGrid";
+import type { NoneColours, SolidColourLabels } from "@/components/background-editor/SolidColourGrid";
+
+/** What "no background" shows until the deck is read, or where its colour cannot be resolved: the default theme's. */
+const UNREAD_NONE = "#ffffff";
 
 const PPTX_ACCEPT = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
@@ -153,8 +156,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [guideOpen, setGuideOpen] = useState(false);
   const [mode, setMode] = useState<BgMode>("all-slides");
   const [currentBgs, setCurrentBgs] = useState<SlideBackground[]>([]);
-  /** The colour "no background" shows on the loaded deck. */
-  const [themeBg, setThemeBg] = useState<string | null>(null);
 
   // Redesigned workspace state.
   const [slideAspect, setSlideAspect] = useState<SlideAspect>({
@@ -297,7 +298,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   useEffect(() => {
     if (!pptxFile) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- the deck's derived state is cleared with the deck; the loaded branch fills it from async reads
-      setThemeBg(null);
       setCurrentBgs([]);
       setGroups([]);
       groupThumbUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -317,13 +317,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     getSlideAspect(pptxFile).then((a) => {
       if (!cancelled) setSlideAspect(a);
     });
-    setThemeBg(null);
-    themeBackground(pptxFile)
-      .then((swatch) => {
-        if (!cancelled) setThemeBg(swatch === "fill" ? null : swatch);
-      })
-      .catch(() => {});
-
     extractCurrentBackgrounds(pptxFile)
       .then((bgs) => {
         if (cancelled) return;
@@ -375,8 +368,16 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     slide,
     prepare: prepareActual,
   });
-  // "No background" shows the deck's theme colour; white until it is read.
-  const noneColour = themeBg ?? "#ffffff";
+  // "No background" shows each slide's theme colour (its master's): the
+  // gallery tile the deck's first two, the preview the group shown's. White
+  // until the deck is read, or where a colour cannot be resolved.
+  const noneColours = useMemo((): NoneColours => {
+    const [first = UNREAD_NONE, second] = noBackgroundColours(currentBgs);
+    return [first, second];
+  }, [currentBgs]);
+  const currentGroup = groups[curIndex];
+  const groupNone = currentGroup?.noBackground;
+  const noneColour = groupNone && groupNone !== "fill" ? groupNone : UNREAD_NONE;
   // A solid colour as its fill: with its colour effects.
   const fillColour = !fill ? null : solidColour ? filteredColour(filters, solidColour) : noneColour;
   const canRun =
@@ -452,7 +453,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
   // Zoom source: the selected background (a filtered colour, at its
   // picture's size) or the current group's thumb.
-  const currentGroup = groups[curIndex];
   const currentThumbUrl = currentGroup ? groupThumbUrls.get(currentGroup.key) ?? null : null;
   const filledColour = (() => {
     if (!solidColour || !filterPreview) return null;
@@ -589,7 +589,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                 // While a run uses the background (running, done or failed)
                 // it is shown locked; `다시 하기` goes back to edit it.
                 locked={status !== "idle"}
-                noneColour={noneColour}
+                noneColours={noneColours}
                 labels={labels.editor}
               />
             </div>
