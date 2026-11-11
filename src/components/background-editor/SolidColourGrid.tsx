@@ -7,8 +7,8 @@ import type { FillBackground } from "@/lib/ppt/changeBackground";
 
 /**
  * The preset colours, in grid order: white through the light colours, then
- * the dark colours, the most saturated first, down to black. [임시] list: the
- * user settles it.
+ * the dark colours, the most saturated first, down to black. Settled as
+ * shipped (2026-11-11).
  */
 export const SOLID_PRESETS = [
   { id: "white", rgb: "FFFFFF" },

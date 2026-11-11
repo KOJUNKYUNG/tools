@@ -58,7 +58,7 @@ export interface OfferedFilters {
 }
 
 // Ranges set at the spec-end visual QA (2026-10-31); saturation, contrast
-// and the colour overlay [임시] until their own look.
+// and the colour overlay settled as shipped (2026-11-11).
 /** 0 to 5% of the width; arrows step 0.1%, since 1% already blurs strongly. */
 const BLUR: SliderRange = { min: 0, max: 0.05, step: 0.001, shown: { times: 100, suffix: "%" }, arrowStep: 0.1 };
 /** −100% (grey) to +100%. */
@@ -134,7 +134,7 @@ export const NO_FILTERS: FilterSet = {
   paperStrength: 1,
   paperSettings: {},
   overlay: 0,
-  // [임시] until the visual QA: a deep blue, visible on light and dark pictures.
+  // A deep blue, visible on light and dark pictures.
   overlayColour: "#1f3c88",
   veil: 0,
   grain: 0,
