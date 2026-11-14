@@ -70,7 +70,12 @@ export interface StackElement extends Span {
 }
 
 /** A covering background; its `fills` are its opaque ones only. */
-export type CoveringBackground = StackElement;
+export interface CoveringBackground extends StackElement {
+  /** Its bounds on the slide (EMU), after a quarter turn. */
+  bounds: Bounds;
+  /** The share of the slide's area it covers, 0…1. */
+  share: number;
+}
 
 /** The share of the slide's area an element must cover, as a fraction. */
 const COVER = { num: 9, den: 10 };
@@ -339,7 +344,10 @@ export function coveringRun(layers: readonly StackLayer[], slide: SlideSize, col
       missed = { start: el.start, end: el.end, reason };
       break;
     }
-    qualifying.push({ start: el.start, end: el.end, part, holder, shapeIds: shapeIdsIn(el), pictures, fills: opaque });
+    // It covers the slide, so its bounds are known.
+    const bounds = boundsOf(el)!;
+    const share = areaOnSlide(bounds, slide) / (slide.w * slide.h);
+    qualifying.push({ start: el.start, end: el.end, part, holder, shapeIds: shapeIdsIn(el), pictures, fills: opaque, bounds, share });
   }
   return { qualifying, missed, somethingAbove: qualifying.length < shown.length };
 }

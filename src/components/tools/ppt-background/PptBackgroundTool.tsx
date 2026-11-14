@@ -368,6 +368,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     [currentBgs, mode, selectedSlides],
   );
   const hasPickable = scopeSlides.some((s) => s.coveringKey !== undefined || s.pieces.length > 0);
+  /** The picked pieces the slides in scope have: only those go, so only those are counted and cleared. */
+  const pickedInScope = useMemo(() => {
+    const inScope = new Set(scopeSlides.flatMap((s) => s.pieces.map((p) => p.key)));
+    return [...pickedPieces].filter((key) => inScope.has(key));
+  }, [scopeSlides, pickedPieces]);
   const onTogglePiece = useCallback((key: string) => {
     setPickedPieces((prev) => {
       const next = new Set(prev);
@@ -377,7 +382,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     });
   }, []);
   const closePieces = useCallback(() => setPiecesOpen(false), []);
-  const clearPieces = useCallback(() => setPickedPieces(new Set()), []);
+  const clearPieces = useCallback(
+    () => setPickedPieces((prev) => new Set([...prev].filter((key) => !pickedInScope.includes(key)))),
+    [pickedInScope],
+  );
   /** A slide's current background, as its group's frame shows it. */
   const backgroundOf = useCallback(
     (slideIndex: number) => {
@@ -753,9 +761,9 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       >
                         {labels.pieces.open}
                       </button>
-                      {pickedPieces.size > 0 && (
+                      {pickedInScope.length > 0 && (
                         <span className="truncate font-body text-[10.5px]" style={{ color: "var(--ink-strong)" }}>
-                          {template(labels.pieces.summaryTemplate, { n: pickedPieces.size })}
+                          {template(labels.pieces.summaryTemplate, { n: pickedInScope.length })}
                         </span>
                       )}
                     </div>
@@ -807,6 +815,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               slides={scopeSlides}
               totalSlides={totalSlides}
               picked={pickedPieces}
+              pickedInScope={pickedInScope.length}
               onToggle={onTogglePiece}
               kept={keptCovering}
               onToggleCovering={onToggleCovering}

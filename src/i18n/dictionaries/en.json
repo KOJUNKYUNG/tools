@@ -371,7 +371,6 @@
           "previous": "Previous slide",
           "next": "Next slide",
           "empty": "Nothing to pick on this slide.",
-          "covering": "Background",
           "picture": "Picture",
           "colour": "Colour",
           "shareTemplate": "{pct}% of the slide",

@@ -5,6 +5,7 @@ import { plannedSlide, type PlannedSlide } from "./coveringPlan";
 import { readSlideStacks, type SlideStack } from "./slideStacks";
 import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
+import type { SlideSize } from "@/lib/image/slideImage";
 import { zipPartReader, type PartReader } from "./slideColours";
 import { noBackgroundSwatch } from "./themeBackground";
 import { child, parseXml } from "./xmlTree";
@@ -50,6 +51,12 @@ export interface SlideBackground {
   swatch?: Swatch;
   /** For covering backgrounds: their group's key (`coveringGroupKey`), what the user keeps a group by. */
   coveringKey?: string;
+  /**
+   * For covering backgrounds: where the one shown lies (the thumbnail's, or
+   * the bottom one without a picture), as fractions of the slide's width and
+   * height, and the share of the slide it covers.
+   */
+  coveringPlace?: { box: Bounds; share: number };
   /** Its stack as the shared plan (`coveringPlan`) reads it: what the preview promises for the apply scope. */
   stack: PlannedSlide;
   /** The colour "no background" would show on it (`noBackgroundSwatch`): its own master's, not the deck's first. */
@@ -98,6 +105,9 @@ async function relationshipTargets(zip: JSZip, partPath: string): Promise<Map<st
   return new Map((await relationshipsOf(zip, partPath)).map((r) => [r.id, r.part]));
 }
 
+/** Bounds as fractions of the slide's width and height. */
+const fractionOf = (b: Bounds, slide: SlideSize): Bounds => ({ x: b.x / slide.w, y: b.y / slide.h, w: b.w / slide.w, h: b.h / slide.h });
+
 /**
  * The slide's covering backgrounds as its visible background, wherever in its
  * stack they lie (a master's picture included); null when it has none.
@@ -105,11 +115,14 @@ async function relationshipTargets(zip: JSZip, partPath: string): Promise<Map<st
 async function coveringBackground(
   zip: JSZip,
   stack: SlideStack,
-): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "swatch" | "coveringKey"> | null> {
+  slide: SlideSize,
+): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "swatch" | "coveringKey" | "coveringPlace"> | null> {
   const { covering, coveringKey, coveringPictures } = stack;
   if (covering.length === 0 || coveringKey === null) return null;
   const thumbnail = coveringPictures[0] ?? null;
+  const shown = covering.find((c) => c.pictures.length > 0) ?? covering[0];
   return {
+    coveringPlace: { box: fractionOf(shown.bounds, slide), share: shown.share },
     imageBlob: thumbnail === null ? null : await mediaBlob(zip, thumbnail),
     imagePath: thumbnail,
     // A fill under a covering background's picture is hidden by it: the picture shows.
@@ -183,13 +196,13 @@ export async function extractCurrentBackgrounds(
         key,
         imagePath: pictureParts[0] ?? null,
         swatch: pictureParts.length > 0 ? null : (fills[0] ?? null),
-        box: { x: bounds.x / slideSize.w, y: bounds.y / slideSize.h, w: bounds.w / slideSize.w, h: bounds.h / slideSize.h },
+        box: fractionOf(bounds, slideSize),
         rotation: rot / 60000,
         share,
       })),
     };
 
-    const covering = await coveringBackground(zip, stacks[i]);
+    const covering = await coveringBackground(zip, stacks[i], slideSize);
     if (covering) {
       results.push({ ...bg, ...covering, source: "covering" });
       continue;

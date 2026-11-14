@@ -15,8 +15,7 @@ export interface PiecePickerLabels {
   previous: string;
   next: string;
   empty: string;
-  /** What a row shows: the slide's covering background, a picture, or a colour. */
-  covering: string;
+  /** What a row shows: a picture, or a colour. */
   picture: string;
   colour: string;
   /** "슬라이드의 {pct}%" */
@@ -27,7 +26,7 @@ export interface PiecePickerLabels {
   slidesTemplate: string;
   /** "이 슬라이드에만 있음" */
   onlyHere: string;
-  /** "{n}종 고름" */
+  /** "{n}종 고름": the picked pieces on the slides in scope. */
   pickedTemplate: string;
   clearAll: string;
   done: string;
@@ -40,6 +39,8 @@ interface PiecePickerProps {
   totalSlides: number;
   /** Keys of the picked pieces (`pieceKey`). */
   picked: ReadonlySet<string>;
+  /** How many picked pieces the slides in scope have: those that go. */
+  pickedInScope: number;
   onToggle: (key: string) => void;
   /** Keys of the covering-background groups the user keeps (`coveringGroupKey`): unticked here. */
   kept: ReadonlySet<string>;
@@ -120,8 +121,9 @@ function MiniMap({ box, rotation, aspect }: { box: { x: number; y: number; w: nu
  * What can go with the old background (spec #163), over the workspace card:
  * a pager through the slides in the apply scope on the left, the shown
  * slide's covering background and pieces on the right, bottom of its stack
- * first. Its covering background starts ticked (unticking keeps it, sheet
- * music the rule caught); pieces start unticked. Each row shows its picture
+ * first, each named a picture or a colour. Its covering background starts
+ * ticked (unticking keeps it, sheet music the rule caught); pieces start
+ * unticked. Each row shows its picture
  * or colour, where it lies, its size and which slides in scope have it.
  * Ticking one ticks it on every slide that has it.
  */
@@ -129,6 +131,7 @@ export function PiecePicker({
   slides,
   totalSlides,
   picked,
+  pickedInScope,
   onToggle,
   kept,
   onToggleCovering,
@@ -245,7 +248,7 @@ export function PiecePicker({
     </span>
   );
 
-  const coveringKey = slide?.coveringKey;
+  const { coveringKey, coveringPlace } = slide ?? {};
   const empty = !coveringKey && pieces.length === 0;
 
   return (
@@ -315,14 +318,15 @@ export function PiecePicker({
           )}
           {slide &&
             coveringKey &&
+            coveringPlace &&
             row(
               `${slide.slideIndex}:covering`,
               !kept.has(coveringKey),
               () => onToggleCovering(coveringKey),
               thumb(background.url, background.swatch, "cover"),
-              <MiniMap box={{ x: 0, y: 0, w: 1, h: 1 }} rotation={0} aspect={aspect} />,
-              labels.covering,
-              where(coveringSlides.get(coveringKey)),
+              <MiniMap box={coveringPlace.box} rotation={0} aspect={aspect} />,
+              slide.imagePath ? labels.picture : labels.colour,
+              where(coveringSlides.get(coveringKey), template(labels.shareTemplate, { pct: Math.round(coveringPlace.share * 100) })),
             )}
           {pieces.map((piece, i) =>
             // By place in the stack: a slide may show the same piece twice (one picture placed twice).
@@ -341,12 +345,12 @@ export function PiecePicker({
 
       <div className="flex shrink-0 items-center gap-2 border-t pt-2" style={{ borderColor: "var(--hairline)" }}>
         <span className="min-w-0 flex-1 truncate font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
-          {template(labels.pickedTemplate, { n: picked.size })}
+          {template(labels.pickedTemplate, { n: pickedInScope })}
         </span>
         <button
           type="button"
           onClick={onClearAll}
-          disabled={picked.size === 0}
+          disabled={pickedInScope === 0}
           className="subtle-action rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
         >
           {labels.clearAll}

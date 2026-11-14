@@ -144,4 +144,25 @@ describe("extractCurrentBackgrounds lists each slide's background pieces", () =>
       "fill",
     ]);
   });
+
+  it("gives a slide's covering background its place and size, as the picker shows it beside the pieces", async () => {
+    // 95% of the slide's height, from the top.
+    const TALL = { x: 0, y: 0, w: 9144000, h: 4886325 };
+    const deck = await testDeck([
+      { shapes: [picture(2, "rId10"), lyrics], pictures: { rId10: "old.png" } },
+      { shapes: [filledShape(2, solidFill("1F2D3A"), TALL), picture(3, "rId10"), lyrics], pictures: { rId10: "old.png" } },
+      { shapes: [lyrics] },
+    ]);
+    const slides = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
+    expect(slides.map((s) => s.coveringPlace)).toEqual([
+      { box: { x: 0, y: 0, w: 1, h: 1 }, share: 1 },
+      // The picture is the one shown, over the colour.
+      { box: { x: 0, y: 0, w: 1, h: 1 }, share: 1 },
+      undefined,
+    ]);
+    const coloured = await extractCurrentBackgrounds(
+      new File([new Uint8Array(await testDeck([{ shapes: [filledShape(2, solidFill("1F2D3A"), TALL), lyrics] }]))], "deck.pptx"),
+    );
+    expect(coloured[0].coveringPlace).toEqual({ box: { x: 0, y: 0, w: 1, h: 0.95 }, share: 0.95 });
+  });
 });
