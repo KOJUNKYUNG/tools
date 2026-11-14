@@ -23,5 +23,6 @@ export function noBackgroundSwatch(colours: Colours): Swatch {
  * whose masters differ); none when no slide's resolves.
  */
 export function noBackgroundColours(bgs: readonly SlideBackground[]): `#${string}`[] {
-  return [...new Set(bgs.map((b) => b.noBackground).filter((s) => s !== "fill"))];
+  // Its fill is a solid colour: a resolved one is `#rrggbb`.
+  return [...new Set(bgs.map((b) => b.noBackground).filter((s): s is `#${string}` => s.startsWith("#")))];
 }

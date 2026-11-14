@@ -108,7 +108,7 @@ describe("changeBackground deletes the background pieces the user picked", () =>
     expect(mediaParts(zip)).toEqual(["ppt/media/background_custom.jpeg", "ppt/media/blob.png"]);
   });
 
-  it("deletes picked pieces in master mode, and none from a slide whose covering group is kept", async () => {
+  it("deletes picked pieces in master mode, from a slide whose covering group is kept too", async () => {
     const deck = await testDeck([
       { shapes: [filledShape(3, solidFill("FF0000"), BAND), textBox(9, "1절")] },
       {
@@ -119,7 +119,8 @@ describe("changeBackground deletes the background pieces the user picked", () =>
     const zip = await run(deck, { mode: "master", keptCovering: ["covering:ppt/media/old.png"], pickedPieces: [RED_BAND] });
 
     expect(await topLevelIds(zip, 1)).toEqual(["9"]);
-    expect(await topLevelIds(zip, 2)).toEqual(["2", "3", "9"]);
+    // The kept picture stays over the new background; the picked band goes.
+    expect(await topLevelIds(zip, 2)).toEqual(["2", "9"]);
   });
 
   it("changes nothing more than today when nothing is picked", async () => {

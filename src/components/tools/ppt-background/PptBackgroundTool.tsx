@@ -118,16 +118,9 @@ export interface PptBackgroundToolLabels {
     selectedEmpty: string;
     currentEmpty: string;
     /**
-     * The toggle under a covering-background group: delete its picture on
-     * apply.
-     */
-    coveringDelete: string;
-    /**
-     * The same toggle under a covering background without a picture, and the
-     * names of colour swatches: a solid colour, and any other fill (a
+     * The names of colour swatches: a solid colour, and any other fill (a
      * gradient, a pattern or a colour that could not be resolved).
      */
-    coveringDeleteFill: string;
     solidSwatch: string;
     fillSwatch: string;
     slideCountTemplate: string;
@@ -137,10 +130,10 @@ export interface PptBackgroundToolLabels {
     exitFullscreen: string;
     close: string;
   };
-  /** The background-piece picker, its button under the current background and the picks' summary. */
+  /** The picker of what goes with the old background, its button under the apply scope and the picks' summary. */
   pieces: PiecePickerLabels & {
     open: string;
-    /** The button's title when the deck has no pieces. */
+    /** The button's title when the slides in scope have nothing to pick. */
     openEmpty: string;
     /** "추가로 지울 요소 {n}종" */
     summaryTemplate: string;
@@ -176,7 +169,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [groupThumbUrls, setGroupThumbUrls] = useState<Map<string, string>>(new Map());
   const [curIndex, setCurIndex] = useState(0);
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
-  /** Covering-background groups whose delete toggle is off: the engine keeps them. */
+  /** Covering-background groups unticked in the picker: they stay over the new background. */
   const [keptCovering, setKeptCovering] = useState<Set<string>>(new Set());
   const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
   /** Background pieces the user picked (`pieceKey`): deleted with the old background. None by default. */
@@ -369,7 +362,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   }, []);
 
   const totalSlides = currentBgs.length;
-  const hasPieces = currentBgs.some((s) => s.pieces.length > 0);
+  /** The slides the apply scope takes: the picker lists theirs only. */
+  const scopeSlides = useMemo(
+    () => (mode === "specific-slides" ? currentBgs.filter((s) => selectedSlides.has(s.slideIndex)) : currentBgs),
+    [currentBgs, mode, selectedSlides],
+  );
+  const hasPickable = scopeSlides.some((s) => s.coveringKey !== undefined || s.pieces.length > 0);
   const onTogglePiece = useCallback((key: string) => {
     setPickedPieces((prev) => {
       const next = new Set(prev);
@@ -460,7 +458,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     [checkedKeys, groups],
   );
 
-  const onToggleDelete = useCallback((key: string) => {
+  const onToggleCovering = useCallback((key: string) => {
     setKeptCovering((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -669,34 +667,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       onIndex={setCurIndex}
                       checkedKeys={checkedKeys}
                       onToggleCheck={onToggleCheck}
-                      keptCovering={keptCovering}
-                      onToggleDelete={onToggleDelete}
                       aspect={aspectCss}
                       slideCountTemplate={labels.preview.slideCountTemplate}
                       emptyLabel={labels.preview.currentEmpty}
-                      deleteLabel={labels.preview.coveringDelete}
-                      deleteFillLabel={labels.preview.coveringDeleteFill}
                       swatchLabels={{ solid: labels.preview.solidSwatch, fill: labels.preview.fillSwatch }}
                       zoomLabel={labels.preview.zoom}
                       onZoom={() => setZoom("current")}
-                      footer={
-                        <div className="flex min-w-0 items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setPiecesOpen(true)}
-                            disabled={!hasPieces}
-                            title={hasPieces ? undefined : labels.pieces.openEmpty}
-                            className="subtle-action shrink-0 rounded-[5px] px-2 py-1 font-body text-[10.5px]"
-                          >
-                            {labels.pieces.open}
-                          </button>
-                          {pickedPieces.size > 0 && (
-                            <span className="truncate font-body text-[10.5px]" style={{ color: "var(--ink-strong)" }}>
-                              {template(labels.pieces.summaryTemplate, { n: pickedPieces.size })}
-                            </span>
-                          )}
-                        </div>
-                      }
                     />
                   </div>
 
@@ -766,6 +742,23 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                         optionSpecific: labels.mode.optionSpecific,
                       }}
                     />
+                    {/* What goes with the old background: picked over the slides in scope. */}
+                    <div className="mt-2 flex min-w-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPiecesOpen(true)}
+                        disabled={!hasPickable}
+                        title={hasPickable ? undefined : labels.pieces.openEmpty}
+                        className="subtle-action shrink-0 rounded-[5px] px-2 py-1 font-body text-[10.5px]"
+                      >
+                        {labels.pieces.open}
+                      </button>
+                      {pickedPieces.size > 0 && (
+                        <span className="truncate font-body text-[10.5px]" style={{ color: "var(--ink-strong)" }}>
+                          {template(labels.pieces.summaryTemplate, { n: pickedPieces.size })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </>
               ) : status === "done" ? (
@@ -811,9 +804,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
           {piecesOpen && status === "idle" && pptxFile && (
             <PiecePicker
-              slides={currentBgs}
+              slides={scopeSlides}
+              totalSlides={totalSlides}
               picked={pickedPieces}
               onToggle={onTogglePiece}
+              kept={keptCovering}
+              onToggleCovering={onToggleCovering}
               onClearAll={clearPieces}
               onDone={closePieces}
               file={pptxFile}

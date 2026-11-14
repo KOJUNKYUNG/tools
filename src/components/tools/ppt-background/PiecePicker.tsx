@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { serializeRange } from "@/lib/common/pageRange";
 import { template } from "@/lib/common/template";
 import { deckMedia, type SlideBackground } from "@/lib/ppt/extractCurrentBackgrounds";
 import type { Swatch } from "@/lib/ppt/fills";
@@ -14,13 +15,18 @@ export interface PiecePickerLabels {
   previous: string;
   next: string;
   empty: string;
-  /** What a piece shows: a picture, or a colour. */
+  /** What a row shows: the slide's covering background, a picture, or a colour. */
+  covering: string;
   picture: string;
   colour: string;
   /** "슬라이드의 {pct}%" */
   shareTemplate: string;
-  /** "{n}장에 있음" */
+  /** "슬라이드 {list}": the slides in scope that have it, e.g. "1, 3-16". */
+  slidesListTemplate: string;
+  /** "{n}장에 있음": the same, when the list does not fit. */
   slidesTemplate: string;
+  /** "이 슬라이드에만 있음" */
+  onlyHere: string;
   /** "{n}종 고름" */
   pickedTemplate: string;
   clearAll: string;
@@ -28,11 +34,16 @@ export interface PiecePickerLabels {
 }
 
 interface PiecePickerProps {
-  /** Every slide, in presentation order, with its background pieces. */
+  /** The slides in the apply scope, in presentation order, with their background pieces. */
   slides: readonly SlideBackground[];
+  /** How many slides the deck has. */
+  totalSlides: number;
   /** Keys of the picked pieces (`pieceKey`). */
   picked: ReadonlySet<string>;
   onToggle: (key: string) => void;
+  /** Keys of the covering-background groups the user keeps (`coveringGroupKey`): unticked here. */
+  kept: ReadonlySet<string>;
+  onToggleCovering: (key: string) => void;
   onClearAll: () => void;
   onDone: () => void;
   /** The deck: a piece's picture is read from it when its slide is shown. */
@@ -44,17 +55,83 @@ interface PiecePickerProps {
   labels: PiecePickerLabels;
 }
 
+/** The slides among `slides` that have each key, by key. */
+function slidesByKey(slides: readonly SlideBackground[], keysOf: (s: SlideBackground) => readonly string[]) {
+  const found = new Map<string, Set<number>>();
+  for (const s of slides) {
+    for (const key of keysOf(s)) found.set(key, (found.get(key) ?? new Set()).add(s.slideIndex));
+  }
+  return found;
+}
+
 /**
- * The background-piece picker (spec #163): over the workspace card, a pager
- * through the slides on the left and the shown slide's pieces on the right,
- * bottom of its stack first, each with its picture or colour, where it lies,
- * its size and how many slides have it. Ticking a piece picks it on every
- * slide that has it.
+ * `full` when it fits on one line in the space it is given, else `short`:
+ * measured on an invisible copy, again whenever the space changes.
+ */
+function FitText({ full, short }: { full: string; short: string }) {
+  const box = useRef<HTMLSpanElement>(null);
+  const measure = useRef<HTMLSpanElement>(null);
+  const [fits, setFits] = useState(true);
+  useLayoutEffect(() => {
+    const [outer, copy] = [box.current, measure.current];
+    if (!outer || !copy) return;
+    const check = () => setFits(copy.offsetWidth <= outer.clientWidth);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(outer);
+    return () => observer.disconnect();
+  }, [full]);
+  return (
+    <span ref={box} className="relative block min-w-0 truncate" style={{ color: "var(--ink-soft)" }} title={full}>
+      <span ref={measure} aria-hidden className="invisible absolute left-0 top-0 whitespace-nowrap">
+        {full}
+      </span>
+      {fits ? full : short}
+    </span>
+  );
+}
+
+/** Where it lies on the slide: its box, turned, hatched over a small slide. */
+function MiniMap({ box, rotation, aspect }: { box: { x: number; y: number; w: number; h: number }; rotation: number; aspect: string }) {
+  return (
+    <span
+      className="relative block w-12 shrink-0 overflow-hidden rounded-[3px] border"
+      style={{ borderColor: "var(--border)", background: "var(--surface-2)", aspectRatio: aspect }}
+      aria-hidden
+    >
+      <span
+        className="absolute block"
+        style={{
+          left: `${box.x * 100}%`,
+          top: `${box.y * 100}%`,
+          width: `${box.w * 100}%`,
+          height: `${box.h * 100}%`,
+          transform: rotation ? `rotate(${rotation}deg)` : undefined,
+          border: "1px solid color-mix(in oklch, var(--ink-strong) 55%, transparent)",
+          background:
+            "repeating-linear-gradient(135deg, color-mix(in oklch, var(--ink-strong) 35%, transparent) 0 1px, transparent 1px 3px)",
+        }}
+      />
+    </span>
+  );
+}
+
+/**
+ * What can go with the old background (spec #163), over the workspace card:
+ * a pager through the slides in the apply scope on the left, the shown
+ * slide's covering background and pieces on the right, bottom of its stack
+ * first. Its covering background starts ticked (unticking keeps it, sheet
+ * music the rule caught); pieces start unticked. Each row shows its picture
+ * or colour, where it lies, its size and which slides in scope have it.
+ * Ticking one ticks it on every slide that has it.
  */
 export function PiecePicker({
   slides,
+  totalSlides,
   picked,
   onToggle,
+  kept,
+  onToggleCovering,
   onClearAll,
   onDone,
   file,
@@ -62,10 +139,14 @@ export function PiecePicker({
   aspect,
   labels,
 }: PiecePickerProps) {
-  // Opens on the first slide that has pieces.
-  const [index, setIndex] = useState(() => Math.max(0, slides.findIndex((s) => s.pieces.length > 0)));
+  // Opens on the first slide with anything to pick.
+  const [index, setIndex] = useState(() =>
+    Math.max(0, slides.findIndex((s) => s.coveringKey !== undefined || s.pieces.length > 0)),
+  );
   const slide = slides[index];
   const pieces = useMemo(() => slide?.pieces ?? [], [slide]);
+  const pieceSlides = useMemo(() => slidesByKey(slides, (s) => s.pieces.map((p) => p.key)), [slides]);
+  const coveringSlides = useMemo(() => slidesByKey(slides, (s) => (s.coveringKey ? [s.coveringKey] : [])), [slides]);
   // The deck is read once, on the first picture.
   const [loadMedia] = useState(() => deckMedia(file));
 
@@ -109,6 +190,64 @@ export function PiecePicker({
   const page = (step: number) => setIndex((i) => (i + step + slides.length) % slides.length);
   const background = slide ? backgroundOf(slide.slideIndex) : { url: null };
 
+  /** Which slides in scope have it: listed when they fit, counted when not, or this slide alone. */
+  const where = (found: ReadonlySet<number> | undefined, share?: string) => {
+    const on = found ?? new Set<number>();
+    const lead = share ? `${share} · ` : "";
+    if (on.size <= 1) {
+      return (
+        <span className="block truncate" style={{ color: "var(--ink-soft)" }}>
+          {lead}
+          {labels.onlyHere}
+        </span>
+      );
+    }
+    return (
+      <FitText
+        full={lead + template(labels.slidesListTemplate, { list: serializeRange(new Set(on)) })}
+        short={lead + template(labels.slidesTemplate, { n: on.size })}
+      />
+    );
+  };
+
+  const row = (key: string, on: boolean, toggle: () => void, thumb: ReactNode, map: ReactNode, name: string, line: ReactNode) => (
+    <li key={key}>
+      <label
+        className="flex cursor-pointer items-center gap-2.5 rounded-[6px] border px-2 py-1.5"
+        style={{ borderColor: on ? "var(--emphasis)" : "var(--border)", background: on ? "var(--surface-2)" : "var(--surface)" }}
+      >
+        <input
+          type="checkbox"
+          className="size-3.5 shrink-0"
+          checked={on}
+          onChange={toggle}
+          style={{ accentColor: "var(--emphasis)" }}
+        />
+        {thumb}
+        {map}
+        <span className="flex min-w-0 flex-1 flex-col font-body text-[11px] leading-[1.35]">
+          <span style={{ color: "var(--ink-strong)" }}>{name}</span>
+          {line}
+        </span>
+      </label>
+    </li>
+  );
+  /** Its picture or colour. */
+  const thumb = (url: string | null | undefined, swatch: Swatch | null | undefined, fit: "contain" | "cover") => (
+    <span
+      className="block h-8 w-12 shrink-0 overflow-hidden rounded-[4px] border"
+      style={{ borderColor: "var(--border)", background: !url && swatch ? swatchFill(swatch) : "var(--surface-2)" }}
+    >
+      {url && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={url} alt="" className={`size-full ${fit === "cover" ? "object-cover" : "object-contain"}`} />
+      )}
+    </span>
+  );
+
+  const coveringKey = slide?.coveringKey;
+  const empty = !coveringKey && pieces.length === 0;
+
   return (
     <div
       role="dialog"
@@ -134,17 +273,19 @@ export function PiecePicker({
               type="button"
               onClick={() => page(-1)}
               aria-label={labels.previous}
+              disabled={slides.length < 2}
               className="subtle-action flex size-6 items-center justify-center rounded-[5px] font-body text-[12px]"
             >
               ‹
             </button>
             <span className="min-w-0 flex-1 text-center font-body text-[11.5px] tabular-nums" style={{ color: "var(--ink-strong)" }}>
-              {template(labels.slideTemplate, { n: slide?.slideIndex ?? 0, total: slides.length })}
+              {template(labels.slideTemplate, { n: slide?.slideIndex ?? 0, total: totalSlides })}
             </span>
             <button
               type="button"
               onClick={() => page(1)}
               aria-label={labels.next}
+              disabled={slides.length < 2}
               className="subtle-action flex size-6 items-center justify-center rounded-[5px] font-body text-[12px]"
             >
               ›
@@ -165,70 +306,36 @@ export function PiecePicker({
           </div>
         </div>
 
-        {/* Right: the slide's pieces, bottom of the stack first. */}
+        {/* Right: the slide's covering background, then its pieces, bottom of the stack first. */}
         <ul className="flex min-h-0 flex-col gap-1.5 overflow-y-auto pr-1">
-          {pieces.length === 0 && (
+          {empty && (
             <li className="py-6 text-center font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
               {labels.empty}
             </li>
           )}
-          {pieces.map((piece, i) => {
-            const url = piece.imagePath ? urls.get(piece.imagePath) : undefined;
-            const on = picked.has(piece.key);
-            return (
-              // By place in the stack: a slide may show the same piece twice (one picture placed twice).
-              <li key={`${slide.slideIndex}:${i}`}>
-                <label
-                  className="flex cursor-pointer items-center gap-2.5 rounded-[6px] border px-2 py-1.5"
-                  style={{ borderColor: on ? "var(--emphasis)" : "var(--border)", background: on ? "var(--surface-2)" : "var(--surface)" }}
-                >
-                  <input
-                    type="checkbox"
-                    className="size-3.5 shrink-0"
-                    checked={on}
-                    onChange={() => onToggle(piece.key)}
-                    style={{ accentColor: "var(--emphasis)" }}
-                  />
-                  {/* Its picture or colour. */}
-                  <span
-                    className="block h-8 w-12 shrink-0 overflow-hidden rounded-[4px] border"
-                    style={{ borderColor: "var(--border)", background: piece.swatch ? swatchFill(piece.swatch) : "var(--surface-2)" }}
-                  >
-                    {url && (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={url} alt="" className="size-full object-contain" />
-                    )}
-                  </span>
-                  {/* Where it lies on the slide. */}
-                  <span
-                    className="relative block w-12 shrink-0 overflow-hidden rounded-[3px] border"
-                    style={{ borderColor: "var(--border)", background: "var(--surface-2)", aspectRatio: aspect }}
-                    aria-hidden
-                  >
-                    <span
-                      className="absolute block rounded-[1px]"
-                      style={{
-                        left: `${piece.box.x * 100}%`,
-                        top: `${piece.box.y * 100}%`,
-                        width: `${piece.box.w * 100}%`,
-                        height: `${piece.box.h * 100}%`,
-                        background: "var(--ink-strong)",
-                        opacity: 0.55,
-                      }}
-                    />
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col font-body text-[11px] leading-[1.35]">
-                    <span style={{ color: "var(--ink-strong)" }}>{piece.imagePath ? labels.picture : labels.colour}</span>
-                    <span className="truncate" style={{ color: "var(--ink-soft)" }}>
-                      {template(labels.shareTemplate, { pct: Math.round(piece.share * 100) })}
-                      {" · "}
-                      {template(labels.slidesTemplate, { n: piece.slideCount })}
-                    </span>
-                  </span>
-                </label>
-              </li>
-            );
-          })}
+          {slide &&
+            coveringKey &&
+            row(
+              `${slide.slideIndex}:covering`,
+              !kept.has(coveringKey),
+              () => onToggleCovering(coveringKey),
+              thumb(background.url, background.swatch, "cover"),
+              <MiniMap box={{ x: 0, y: 0, w: 1, h: 1 }} rotation={0} aspect={aspect} />,
+              labels.covering,
+              where(coveringSlides.get(coveringKey)),
+            )}
+          {pieces.map((piece, i) =>
+            // By place in the stack: a slide may show the same piece twice (one picture placed twice).
+            row(
+              `${slide.slideIndex}:${i}`,
+              picked.has(piece.key),
+              () => onToggle(piece.key),
+              thumb(piece.imagePath ? urls.get(piece.imagePath) : null, piece.swatch, "contain"),
+              <MiniMap box={piece.box} rotation={piece.rotation} aspect={aspect} />,
+              piece.imagePath ? labels.picture : labels.colour,
+              where(pieceSlides.get(piece.key), template(labels.shareTemplate, { pct: Math.round(piece.share * 100) })),
+            ),
+          )}
         </ul>
       </div>
 

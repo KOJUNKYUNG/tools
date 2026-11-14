@@ -240,6 +240,46 @@ function boundsOf(el: XmlElement): Bounds | null {
   return { x, y, w, h };
 }
 
+/** An element's box as written (EMU) and its turn about the box's centre (1/60000°, 0 up to a full turn); null when unknown. */
+function placementOf(el: XmlElement): { box: Bounds; rot: number } | null {
+  const props = el.name === "p:grpSp" ? child(el, "p:grpSpPr") : child(el, "p:spPr");
+  const xfrm = child(props, "a:xfrm");
+  const [off, ext] = [child(xfrm, "a:off"), child(xfrm, "a:ext")];
+  const [x, y, w, h, turn] = [off?.attrs.x, off?.attrs.y, ext?.attrs.cx, ext?.attrs.cy, xfrm?.attrs.rot ?? 0].map(Number);
+  if (![x, y, w, h, turn].every(Number.isFinite) || w <= 0 || h <= 0) return null;
+  return { box: { x, y, w, h }, rot: ((turn % TURN) + TURN) % TURN };
+}
+
+/**
+ * The area of a box turned by `rot` about its centre that lies on the slide
+ * (EMU²): its corners clipped to the slide, one edge at a time.
+ */
+function turnedAreaOnSlide({ x, y, w, h }: Bounds, rot: number, slide: SlideSize): number {
+  const a = (rot / TURN) * 2 * Math.PI;
+  const [cx, cy, cos, sin] = [x + w / 2, y + h / 2, Math.cos(a), Math.sin(a)];
+  let poly = [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([dx, dy]) => [
+    cx + dx * cos - dy * sin,
+    cy + dx * sin + dy * cos,
+  ]);
+  // Each slide edge as the coordinate it bounds, its limit and which side is inside.
+  const edges: [number, number, 1 | -1][] = [[0, 0, 1], [0, slide.w, -1], [1, 0, 1], [1, slide.h, -1]];
+  for (const [axis, limit, side] of edges) {
+    const inside = (p: number[]) => (p[axis] - limit) * side >= 0;
+    const next: number[][] = [];
+    poly.forEach((p, i) => {
+      const q = poly[(i + 1) % poly.length];
+      if (inside(p)) next.push(p);
+      if (inside(p) !== inside(q)) {
+        const t = (limit - p[axis]) / (q[axis] - p[axis]);
+        next.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]);
+      }
+    });
+    poly = next;
+  }
+  // Shoelace.
+  return Math.abs(poly.reduce((sum, p, i) => sum + p[0] * poly[(i + 1) % poly.length][1] - poly[(i + 1) % poly.length][0] * p[1], 0)) / 2;
+}
+
 /** The area of `b` that lies on the slide (EMU²). */
 function areaOnSlide(b: Bounds, slide: SlideSize): number {
   const across = Math.min(b.x + b.w, slide.w) - Math.max(b.x, 0);
@@ -412,8 +452,10 @@ export function withoutElements(partXml: string, elements: readonly StackElement
  * background. Its `fills` are all of them, opaque or not.
  */
 export interface PieceElement extends StackElement {
-  /** Its bounds (EMU), as written. */
+  /** Its box (EMU), as written: before its turn. */
   bounds: Bounds;
+  /** Its turn about the box's centre, clockwise (1/60000°, 0 up to a full turn). */
+  rot: number;
   /** The share of the slide's area it covers, 0…1. */
   share: number;
 }
@@ -422,7 +464,8 @@ export interface PieceElement extends StackElement {
  * The background pieces of a slide's stack, bottom first: its own top-level
  * elements that are not among its `covering` backgrounds, show no text, show
  * a picture or a fill (opaque or not), and cover at least 5% of the slide
- * with known bounds. A group is one piece; hidden elements are none.
+ * with known bounds, turned at any angle. A group is one piece; hidden
+ * elements are none.
  */
 export function piecesIn(
   layers: readonly StackLayer[],
@@ -437,12 +480,13 @@ export function piecesIn(
       elements.flatMap((el): PieceElement[] => {
         if (isHidden(el) || showsText(el) || isCovering(part, el)) return [];
         const [pictures, fills] = [picturesOf(el), fillsOf(el, colours).map((f) => f.swatch)];
-        const bounds = boundsOf(el);
-        if ((pictures.length === 0 && fills.length === 0) || !bounds) return [];
-        const area = areaOnSlide(bounds, slide);
+        const placed = placementOf(el);
+        if ((pictures.length === 0 && fills.length === 0) || !placed) return [];
+        const area = turnedAreaOnSlide(placed.box, placed.rot, slide);
         if (area * PIECE.den < slide.w * slide.h * PIECE.num) return [];
         const { start, end } = el;
-        return [{ start, end, part, holder, shapeIds: shapeIdsIn(el), pictures, fills, bounds, share: area / (slide.w * slide.h) }];
+        const share = area / (slide.w * slide.h);
+        return [{ start, end, part, holder, shapeIds: shapeIdsIn(el), pictures, fills, bounds: placed.box, rot: placed.rot, share }];
       }),
     );
 }
@@ -451,12 +495,13 @@ export function piecesIn(
  * The key of a background piece, shared by the preview, the engine and the
  * output check: the set of picture parts it shows (`pictureParts`, its
  * pictures resolved from its part), or, with none, its fills with its
- * position and size. Picking a key picks the piece on every slide that has it.
+ * position, size and turn. Picking a key picks the piece on every slide that
+ * has it.
  */
 export function pieceKey(piece: PieceElement, pictureParts: readonly string[]): string {
   // OPC part names compare case-insensitively.
   const parts = [...new Set(pictureParts.map((p) => p.toLowerCase()))].sort();
   if (parts.length > 0) return `piece:picture:${parts.join("|")}`;
   const { x, y, w, h } = piece.bounds;
-  return `piece:fill:${piece.fills.join("|")}@${x},${y},${w},${h}`;
+  return `piece:fill:${piece.fills.join("|")}@${x},${y},${w},${h}${piece.rot ? `,r${piece.rot}` : ""}`;
 }

@@ -96,7 +96,7 @@ describe("extractCurrentBackgrounds shows fills as colour swatches", () => {
       { key: "colour:#1f2d3a", source: "slide", swatch: "#1f2d3a", slideIndexes: [1] },
       { key: "colour:#4472c4", source: "slide", swatch: "#4472c4", slideIndexes: [2, 3] },
       { key: "colour:#d9d9d9", source: "slide", swatch: "#d9d9d9", slideIndexes: [4] },
-      { key: "colour:fill", source: "slide", swatch: "fill", slideIndexes: [5] },
+      { key: "colour:linear-gradient(180deg, #ffffff 0%, #000000 100%)", source: "slide", swatch: "linear-gradient(180deg, #ffffff 0%, #000000 100%)", slideIndexes: [5] },
       { key: "colour:#ffffff", source: "layout", swatch: "#ffffff", slideIndexes: [6] },
     ]);
     expect(groups.every((g) => g.imageBlob === null)).toBe(true);
@@ -115,7 +115,7 @@ describe("extractCurrentBackgrounds shows fills as colour swatches", () => {
     expect(groups.map(({ key, source, swatch, slideIndexes }) => ({ key, source, swatch, slideIndexes }))).toEqual([
       { key: "covering:#1f2d3a", source: "covering", swatch: "#1f2d3a", slideIndexes: [1, 2] },
       { key: "covering:#4472c4", source: "covering", swatch: "#4472c4", slideIndexes: [3] },
-      { key: "covering:fill", source: "covering", swatch: "fill", slideIndexes: [4] },
+      { key: "covering:linear-gradient(180deg, #ffffff 0%, #000000 100%)", source: "covering", swatch: "linear-gradient(180deg, #ffffff 0%, #000000 100%)", slideIndexes: [4] },
     ]);
   });
 });

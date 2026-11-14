@@ -18,12 +18,12 @@ export interface PiecePreview {
   imagePath: string | null;
   /** What a piece without a picture shows: its first fill's colour, or the neutral `fill`. */
   swatch: Swatch | null;
-  /** Where it lies, as fractions of the slide's width and height (may reach past the slide). */
+  /** Its box before its turn, as fractions of the slide's width and height (may reach past the slide). */
   box: Bounds;
+  /** Its turn about the box's centre, clockwise, in degrees. */
+  rotation: number;
   /** The share of the slide's area it covers, 0…1. */
   share: number;
-  /** How many slides have it. */
-  slideCount: number;
 }
 
 /**
@@ -165,10 +165,6 @@ export async function extractCurrentBackgrounds(
   const results: SlideBackground[] = [];
   const reader: PartReader = zipPartReader(zip);
   const stacks = await readSlideStacks(reader, slideFiles, slideSize);
-  const slidesWith = new Map<string, number>();
-  for (const { pieces } of stacks) {
-    for (const key of new Set(pieces.map((p) => p.key))) slidesWith.set(key, (slidesWith.get(key) ?? 0) + 1);
-  }
 
   for (let i = 0; i < slideFiles.length; i++) {
     const slidePath = slideFiles[i];
@@ -183,13 +179,13 @@ export async function extractCurrentBackgrounds(
       imagePath: null,
       stack: plannedSlide(stacks[i]),
       noBackground: noBackgroundSwatch(colours),
-      pieces: stacks[i].pieces.map(({ key, pictureParts, fills, bounds, share }) => ({
+      pieces: stacks[i].pieces.map(({ key, pictureParts, fills, bounds, rot, share }) => ({
         key,
         imagePath: pictureParts[0] ?? null,
         swatch: pictureParts.length > 0 ? null : (fills[0] ?? null),
         box: { x: bounds.x / slideSize.w, y: bounds.y / slideSize.h, w: bounds.w / slideSize.w, h: bounds.h / slideSize.h },
+        rotation: rot / 60000,
         share,
-        slideCount: slidesWith.get(key) ?? 0,
       })),
     };
 

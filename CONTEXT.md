@@ -175,8 +175,9 @@ the slide) is content too. Decks exported from design
 tools often carry one as a picture-filled shape or a group, and a picture may
 be mostly transparent (soft colour blobs), so a picture's transparency does
 not tell it from content. ppt-background deletes covering backgrounds on the
-slides it changes unless the user keeps one (sheet music caught by the rule);
-the user keeps the original file. One in the master or a layout is deleted
+slides it changes unless the user keeps one by unticking it in the list of
+what goes (sheet music caught by the rule), which leaves it over the new
+background; the user keeps the original file. One in the master or a layout is deleted
 there when every slide showing it changes (master mode always); when only some
 do, those slides hide their background graphics instead, and ppt-background
 says so when other background graphics that show something go with it.
@@ -189,14 +190,16 @@ An element the user picks in ppt-background to be deleted with the old
 background, when the rule leaves part of it behind: a background built from
 several smaller elements (colour blobs, a band, a frame), none of which covers
 90% of the slide. Any element without text that shows something and takes at
-least 5% of the slide can be picked, wherever it lies in the slide's stack,
-background graphics included; smaller ones (icons, lines) cannot. A group is
-one piece, as the slide's selection pane shows it. None is
-picked by default, so the tool behaves as the rule says unless the user asks
-for more. Picking one picks the same element (the same picture, or the same
-fill at the same place and size) on every slide that has it, and it goes from
-the slides that change, as a covering background would (one in the background
-graphics follows the same rule).
+least 5% of the slide (turned at any angle) can be picked, wherever it lies
+in the slide's stack, background graphics included; smaller ones (icons,
+lines) cannot. A group is one piece, as the slide's selection pane shows it.
+The user picks pieces in the same list as the covering backgrounds, over the
+slides in the apply scope: covering backgrounds start ticked, pieces
+unticked, so the tool behaves as the rule says unless the user asks for
+more. Picking one picks the same element (the same picture, or the same
+fill at the same place, size and turn) on every slide that has it, and it
+goes from every slide in scope, whether or not the slide keeps its covering
+background (one in the background graphics follows the same rule).
 _Avoid_: "decoration" (a piece may be content the user wants gone); "covering
 background" for a piece (the rule never finds it).
 

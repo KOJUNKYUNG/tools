@@ -4,11 +4,13 @@
  * plan, shared by the engine and the output check, so the check holds the
  * engine to it, and by the preview, so it promises what the engine does.
  *
- * A slide changes when the apply scope takes it (every slide in master mode)
- * and the user does not keep its covering-background group. A changing
- * slide's own covering backgrounds go from it. One on its master or layout
- * goes from that part when every slide showing the part changes: deleting it
- * there changes them all. When only some of them change, those hide their
+ * Every slide the apply scope takes (every slide in master mode) gets the new
+ * background. Its covering backgrounds go too, unless the user keeps their
+ * group (unticks it in the picker): kept ones stay over the new background.
+ * A slide clears when it is in scope and keeps nothing. A clearing slide's
+ * own covering backgrounds go from it. One on its master or layout goes from
+ * that part when every slide showing the part clears: deleting it there
+ * clears them all. When only some of them clear, those hide their
  * background graphics instead (PowerPoint's "Hide background graphics"),
  * which takes every other background graphic on them too. Master mode also
  * deletes the covering backgrounds of every layout's stack (`layouts`) on the
@@ -16,7 +18,8 @@
  * later show the new background.
  *
  * The background pieces the user picks (CONTEXT.md → Background piece, by
- * `pieceKey`) go from the changing slides that have them.
+ * `pieceKey`) go from every slide in scope that has them, kept covering
+ * backgrounds or not.
  */
 
 import type { BgMode } from "./changeBackground";
@@ -70,7 +73,7 @@ export interface CoveringPlan {
    * many other background graphics showing something go with them.
    */
   hides: Map<string, number>;
-  /** The picked background pieces to delete, by the slide holding them, bottom first: on changing slides only. */
+  /** The picked background pieces to delete, by the slide holding them, bottom first: on slides in scope only. */
   pieces: Map<string, BackgroundPiece[]>;
 }
 
@@ -85,16 +88,15 @@ export function coveringPlan(
 ): CoveringPlan {
   const kept = new Set(keptCovering);
   const isKept = (s: PlannedLayout) => s.coveringKey !== null && kept.has(s.coveringKey);
-  const changing = stacks.map(
-    (s, i) => (mode !== "specific-slides" || (targetSlides?.includes(i + 1) ?? false)) && !isKept(s),
-  );
-  const everyShowingChanges = (part: string) =>
-    stacks.every((s, i) => changing[i] || !s.layers.some((l) => l.part === part));
+  const inScope = stacks.map((_, i) => mode !== "specific-slides" || (targetSlides?.includes(i + 1) ?? false));
+  const clearing = stacks.map((s, i) => inScope[i] && !isKept(s));
+  const everyShowingClears = (part: string) =>
+    stacks.every((s, i) => clearing[i] || !s.layers.some((l) => l.part === part));
 
   const byPart = new Map<string, Map<number, CoveringBackground>>();
   const collect = (covering: readonly CoveringBackground[]) => {
     for (const c of covering) {
-      if (c.holder !== "slide" && !everyShowingChanges(c.part)) continue;
+      if (c.holder !== "slide" && !everyShowingClears(c.part)) continue;
       const inPart = byPart.get(c.part) ?? new Map<number, CoveringBackground>();
       inPart.set(c.start, c);
       byPart.set(c.part, inPart);
@@ -104,11 +106,12 @@ export function coveringPlan(
   const picked = new Set(pickedPieces);
   const pieces = new Map<string, BackgroundPiece[]>();
   stacks.forEach((s, i) => {
-    if (!changing[i]) return;
-    collect(s.covering);
+    if (!inScope[i]) return;
     const going = s.pieces.filter((p) => picked.has(p.key));
     if (going.length > 0) pieces.set(s.part, going);
-    if (s.covering.some((c) => c.holder !== "slide" && !everyShowingChanges(c.part))) {
+    if (!clearing[i]) return;
+    collect(s.covering);
+    if (s.covering.some((c) => c.holder !== "slide" && !everyShowingClears(c.part))) {
       const isCovering = (g: GraphicRef) => s.covering.some((c) => c.part === g.part && c.start === g.start);
       hides.set(s.part, s.showing.filter((g) => !isCovering(g)).length);
     }

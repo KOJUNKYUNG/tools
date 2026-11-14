@@ -89,7 +89,7 @@ export interface PptBackgroundRequest {
  * - ⚡ `covering-background-kept`: a covering background the plan deletes is
  *   still there
  * - ⚡ `piece-kept`: a background piece the user picked (spec #163) is still
- *   on a changed slide (the plan's `pieces`, re-derived by the shared rule
+ *   on a slide in scope (the plan's `pieces`, re-derived by the shared rule
  *   and keys)
  * - ⚡ `element-missing`: another top-level element is gone
  * - ⚡ `animation-target-missing`: an animation or build entry names a shape
