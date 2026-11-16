@@ -1130,3 +1130,46 @@ describe("checkPptBackground checks the background pieces the user picked", () =
     expect(await quick(input, picking, output)).toContainEqual({ property: "element-missing", detail: `${SLIDE1} #3` });
   });
 });
+
+describe("checkPptBackground checks the background graphics copied onto slides hiding them", () => {
+  const masterPicture = pictureElement(20, "rId10");
+  const logo = pictureElement(21, "rId11", { x: 8001000, y: 4343400, w: 914400, h: 571500 });
+  const deck = () =>
+    testDeck([{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }], undefined, {
+      master: { shapes: [masterPicture, logo], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+  const keepingLogo: Intent = {
+    source: newBgBytes,
+    mode: "specific-slides",
+    targetSlides: [1],
+    keptGraphics: ["graphic:ppt/slidemasters/slidemaster1.xml#21"],
+  };
+  const SLIDE1 = "ppt/slides/slide1.xml";
+  const editSlide = (output: Uint8Array, change: (xml: string) => string) =>
+    mutate(output, async (zip) => {
+      zip.file(SLIDE1, change(await zip.file(SLIDE1)!.async("text")));
+    });
+
+  it("passes the engine's output, the kept logo copied onto the chosen slide", async () => {
+    const input = await deck();
+    expect(await properties(input, keepingLogo, await apply(input, keepingLogo))).toEqual([]);
+  });
+
+  it("flags a slide hiding its background graphics without the kept logo's copy", async () => {
+    const input = await deck();
+    const output = await editSlide(await apply(input, keepingLogo), (xml) => xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/, ""));
+    expect(await quick(input, keepingLogo, output)).toContainEqual({
+      property: "kept-graphic-missing",
+      detail: `${SLIDE1}: ppt/slideMasters/slideMaster1.xml #21`,
+    });
+  });
+
+  it("flags a copy showing another picture", async () => {
+    const input = await deck();
+    const output = await mutate(await apply(input, keepingLogo), async (zip) => {
+      const rels = "ppt/slides/_rels/slide1.xml.rels";
+      zip.file(rels, (await zip.file(rels)!.async("text")).replace("../media/logo.png", "../media/master.png"));
+    });
+    expect((await quick(input, keepingLogo, output)).map((v) => v.property)).toContain("kept-graphic-missing");
+  });
+});

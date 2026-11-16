@@ -12,6 +12,7 @@ import {
 import { checkPptBackground, type RequestedBackground } from "./changeBackgroundCheck";
 import { withoutElements, type StackElement } from "./coveringBackgrounds";
 import { coveringPlan } from "./coveringPlan";
+import { readCopies, withCopies, type GraphicCopy } from "./copyGraphics";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { zipPartReader } from "./slideColours";
 import { partsUnder } from "./slideOrder";
@@ -273,6 +274,8 @@ interface GroupChange {
   deletions?: ReadonlyMap<string, readonly StackElement[]>;
   /** The slides the plan hides background graphics on (`coveringPlan`). */
   hides?: ReadonlyMap<string, readonly StackElement[]>;
+  /** The background graphics that stay on those slides, read from the input: laid under each one's own elements. */
+  copies?: ReadonlyMap<string, readonly GraphicCopy[]>;
 }
 
 /** A slide's root start tag. */
@@ -320,7 +323,7 @@ async function deleteFromPart(zip: JSZip, part: string, covering: readonly Stack
 async function processSlideGroup(
   zip: JSZip,
   slideFiles: readonly string[],
-  { background, onEach, targetIndices1Based, deletions, hides }: GroupChange,
+  { background, onEach, targetIndices1Based, deletions, hides, copies }: GroupChange,
 ): Promise<Set<string>> {
   /** Parts the replaced backgrounds pointed at, to delete once unreferenced. */
   const replaced = new Set<string>();
@@ -347,6 +350,7 @@ async function processSlideGroup(
     slideXml = withoutElements(slideXml, deletions?.get(slidePath) ?? []);
     const deletedIds = droppedIds(relsXml, before, slideXml);
     if (hides?.has(slidePath)) slideXml = hidingBackgroundGraphics(slideXml);
+    ({ slideXml, relsXml } = withCopies(slidePath, slideXml, relsXml, copies?.get(slidePath) ?? []));
 
     const oldIds = [...backgroundValues(slideXml), ...deletedIds];
     let relId: string | undefined;
@@ -382,6 +386,37 @@ async function processSlideGroup(
     onEach?.(i + 1, filtered.length);
   }
   return replaced;
+}
+
+/**
+ * The background graphics that stay on each slide hiding them (the plan's
+ * `hides`), read from the input before any master or layout loses an element.
+ */
+async function copiesToLay(
+  zip: JSZip,
+  hides: ReadonlyMap<string, readonly StackElement[]>,
+): Promise<Map<string, GraphicCopy[]>> {
+  const read = new Map<string, Promise<{ xml: string; rels: string | null }>>();
+  const partOf = (part: string) => {
+    let found = read.get(part);
+    if (!found) {
+      found = Promise.all([zip.file(part)!.async("text"), zip.file(relsPartOf(part))?.async("text") ?? null]).then(
+        ([xml, rels]) => ({ xml, rels }),
+      );
+      read.set(part, found);
+    }
+    return found;
+  };
+  const copies = new Map<string, GraphicCopy[]>();
+  for (const [slide, staying] of hides) {
+    const laid: GraphicCopy[] = [];
+    for (const e of staying) {
+      const { xml, rels } = await partOf(e.part);
+      laid.push(...readCopies(e.part, xml, rels, [e]));
+    }
+    if (laid.length > 0) copies.set(slide, laid);
+  }
+  return copies;
 }
 
 /**
@@ -557,6 +592,7 @@ export async function changeBackground({
   for (const [part, pieces] of plan.pieces) {
     deletions.set(part, [...(deletions.get(part) ?? []), ...pieces].sort((a, b) => a.start - b.start));
   }
+  const copies = await copiesToLay(zip, hides);
   const replaced = new Set<string>();
   // Masters and layouts lose theirs first: the slides' own go as each slide is rewritten.
   const slideSet = new Set(slides);
@@ -572,7 +608,7 @@ export async function changeBackground({
     // slides added later.
     await rewrite(partsUnder(parts, "ppt/slideMasters"), { background: partBackground });
     await rewrite(partsUnder(parts, "ppt/slideLayouts"), { background: "clear" });
-    await rewrite(slides, { background: "clear", onEach: progress, deletions, hides });
+    await rewrite(slides, { background: "clear", onEach: progress, deletions, hides, copies });
   } else {
     await rewrite(slides, {
       background: partBackground,
@@ -580,6 +616,7 @@ export async function changeBackground({
       targetIndices1Based: mode === "specific-slides" ? new Set(targetSlides) : undefined,
       deletions,
       hides,
+      copies,
     });
   }
 

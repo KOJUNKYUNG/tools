@@ -304,3 +304,51 @@ describe("changeBackground deletes the master's background graphics by default",
     expect(await text(zip, LAYOUT_RELS)).not.toContain("band.png");
   });
 });
+
+describe("changeBackground copies the background graphics that stay onto slides hiding them", () => {
+  const churchName = textBox(22, "○○교회", { x: 0, y: 4600000, w: 3000000, h: 400000 });
+  const KEEP = ["graphic:ppt/slidemasters/slidemaster1.xml#21", "graphic:ppt/slidemasters/slidemaster1.xml#22"];
+  const deck = () =>
+    testDeck(slides, undefined, {
+      master: { shapes: [masterPicture, logo, churchName], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+  /** The slide's top-level elements, bottom first, as XML. */
+  async function elements(zip: JSZip, n: number): Promise<string[]> {
+    const xml = await text(zip, `ppt/slides/slide${n}.xml`);
+    const tree = xml.match(/<p:spTree>[\s\S]*<\/p:spTree>/)![0];
+    return [...tree.matchAll(/<p:(?:sp|pic)>[\s\S]*?<\/p:(?:sp|pic)>/g)].map((m) => m[0]);
+  }
+  /** An element's XML without its shape id and relationship ids: what a copy keeps of it. */
+  const shape = (xml: string) => xml.replace(/ id="\d+"/, ' id="#"').replace(/r:embed="[^"]*"/g, 'r:embed="#"');
+
+  it("puts the kept logo and name under the chosen slide's own elements, the master untouched", async () => {
+    const input = await deck();
+    const [before, zip] = await Promise.all([JSZip.loadAsync(input), runOn(input, "specific-slides", [2], undefined, KEEP)]);
+
+    expect(/<p:sld [^>]*showMasterSp="0"/.test(await text(zip, "ppt/slides/slide2.xml"))).toBe(true);
+    const [copiedLogo, copiedName, lyricsBox] = await elements(zip, 2);
+    expect(shape(copiedLogo)).toBe(shape(logo));
+    expect(shape(copiedName)).toBe(shape(churchName));
+    expect(lyricsBox).toContain("2절");
+    // Fresh shape ids, unique on the slide; the logo's picture related from the slide.
+    const ids = (await text(zip, "ppt/slides/slide2.xml")).match(/<p:cNvPr id="\d+"/g)!;
+    expect(new Set(ids).size).toBe(ids.length);
+    const relId = copiedLogo.match(/r:embed="([^"]+)"/)![1];
+    expect(await text(zip, "ppt/slides/_rels/slide2.xml.rels")).toMatch(new RegExp(`Id="${relId}"[^>]*Target="../media/logo.png"`));
+    for (const part of [MASTER, MASTER_RELS, "ppt/slides/slide1.xml", "ppt/slides/slide3.xml"]) {
+      expect(await unchanged(before, zip, part)).toBe(true);
+    }
+  });
+
+  it("copies a kept master picture back onto a slide hiding the logo that goes", async () => {
+    const zip = await runOn(await deck(), "specific-slides", [1], ["covering:ppt/media/master.png"]);
+    const [copied, lyricsBox] = await elements(zip, 1);
+    expect(shape(copied)).toBe(shape(masterPicture));
+    expect(lyricsBox).toContain("1절");
+  });
+
+  it("copies nothing when everything on the master goes", async () => {
+    const zip = await runOn(await deck(), "specific-slides", [2]);
+    expect((await elements(zip, 2)).length).toBe(1);
+  });
+});
