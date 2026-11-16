@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { parseRelationships } from "@/lib/output-check/pptxPackage";
-import type { Bounds } from "./coveringBackgrounds";
+import type { Bounds, GraphicKind } from "./coveringBackgrounds";
 import { plannedSlide, type PlannedSlide } from "./coveringPlan";
 import { readSlideStacks, type SlideStack } from "./slideStacks";
 import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
@@ -25,8 +25,19 @@ export interface PiecePreview {
   rotation: number;
   /** The share of the slide's area it covers, 0…1. */
   share: number;
-  /** Whether it is a background graphic (on the master or a layout), not the slide's own. */
-  backgroundGraphic: boolean;
+}
+
+/** A background graphic (CONTEXT.md → Background graphics) as the picker lists it: it goes unless the user keeps it. */
+export interface GraphicPreview {
+  /** What the user keeps it by (`graphicKey`): keeping it keeps it on every slide that shows it. */
+  key: string;
+  kind: GraphicKind;
+  /** Its first picture part from the bottom, as a zip path (load it with `deckMedia`); null without one. */
+  imagePath: string | null;
+  /** What it shows without a picture: its first fill's colour; null for none. */
+  swatch: Swatch | null;
+  /** Its box before its turn, as fractions of the slide, its turn in degrees and its share of the slide; null when unknown. */
+  place: { box: Bounds; rotation: number; share: number } | null;
   /** Whether it lies under the slide's covering background, so does not show today. */
   underCovering: boolean;
 }
@@ -67,6 +78,8 @@ export interface SlideBackground {
   noBackground: Swatch;
   /** Its background pieces, bottom first. */
   pieces: PiecePreview[];
+  /** Its background graphics, bottom first: on its master and layout, under its own elements. */
+  graphics: GraphicPreview[];
 }
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -196,14 +209,20 @@ export async function extractCurrentBackgrounds(
       imagePath: null,
       stack: plannedSlide(stacks[i]),
       noBackground: noBackgroundSwatch(colours),
-      pieces: stacks[i].pieces.map(({ key, pictureParts, fills, bounds, rot, share, holder, underCovering }) => ({
+      pieces: stacks[i].pieces.map(({ key, pictureParts, fills, bounds, rot, share }) => ({
         key,
         imagePath: pictureParts[0] ?? null,
         swatch: pictureParts.length > 0 ? null : (fills[0] ?? null),
         box: fractionOf(bounds, slideSize),
         rotation: rot / 60000,
         share,
-        backgroundGraphic: holder !== "slide",
+      })),
+      graphics: stacks[i].graphics.map(({ key, kind, pictureParts, fills, area, underCovering }) => ({
+        key,
+        kind,
+        imagePath: pictureParts[0] ?? null,
+        swatch: pictureParts.length > 0 ? null : (fills[0] ?? null),
+        place: area && { box: fractionOf(area.box, slideSize), rotation: area.rot / 60000, share: area.share },
         underCovering,
       })),
     };

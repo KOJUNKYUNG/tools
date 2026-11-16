@@ -29,6 +29,7 @@ async function runOn(
   mode: BgMode,
   targetSlides?: number[],
   keptCovering?: readonly string[],
+  keptGraphics?: readonly string[],
 ): Promise<JSZip> {
   const output = await changeBackground({
     pptxFile: new File([new Uint8Array(deck)], "deck.pptx"),
@@ -36,6 +37,7 @@ async function runOn(
     mode,
     targetSlides,
     keptCovering,
+    keptGraphics,
     prepare: standInPrepare,
   });
   return JSZip.loadAsync(output);
@@ -62,6 +64,8 @@ const mediaParts = (zip: JSZip) =>
 const LOGO_BOX = { x: 8001000, y: 4343400, w: 914400, h: 571500 };
 const masterPicture = picture(20, "rId10");
 const logo = picture(21, "rId11", LOGO_BOX);
+/** The user keeps the master's logo (it goes by default, as a background graphic). */
+const KEEP_LOGO = ["graphic:ppt/slidemasters/slidemaster1.xml#21"];
 /** The worship deck's master: a full-slide picture under a logo. */
 const pictureAndLogo: TestMaster = {
   shapes: [masterPicture, logo],
@@ -71,8 +75,8 @@ const lyrics = (verse: string): TestSlide => ({ shapes: [textBox(9, verse)] });
 const slides = [lyrics("1절"), lyrics("2절"), lyrics("3절")];
 
 describe("changeBackground deletes a covering background on the master", () => {
-  it("deletes the master picture in 전체, keeps the logo, and every slide carries the new background", async () => {
-    const zip = await runOn(await testDeck(slides, undefined, { master: pictureAndLogo }), "all-slides");
+  it("deletes the master picture in 전체, keeps a kept logo, and every slide carries the new background", async () => {
+    const zip = await runOn(await testDeck(slides, undefined, { master: pictureAndLogo }), "all-slides", undefined, undefined, KEEP_LOGO);
 
     const master = await text(zip, MASTER);
     expect(master).not.toContain(masterPicture);
@@ -86,7 +90,10 @@ describe("changeBackground deletes a covering background on the master", () => {
 
   it("does the same when the chosen slides are every slide showing it", async () => {
     const deck = await testDeck(slides, undefined, { master: pictureAndLogo });
-    const [all, chosen] = await Promise.all([runOn(deck, "all-slides"), runOn(deck, "specific-slides", [1, 2, 3])]);
+    const [all, chosen] = await Promise.all([
+      runOn(deck, "all-slides", undefined, undefined, KEEP_LOGO),
+      runOn(deck, "specific-slides", [1, 2, 3], undefined, KEEP_LOGO),
+    ]);
     expect(await text(chosen, MASTER)).toBe(await text(all, MASTER));
     expect(await text(chosen, MASTER_RELS)).toBe(await text(all, MASTER_RELS));
     expect(mediaParts(chosen)).toEqual(mediaParts(all));
@@ -100,9 +107,9 @@ describe("changeBackground deletes a covering background on the master", () => {
     expect(await text(zip, MASTER)).not.toContain("<p:timing>");
   });
 
-  it("leaves a master with only a logo byte-identical", async () => {
+  it("leaves a master with only a kept logo byte-identical", async () => {
     const deck = await testDeck(slides, undefined, { master: { shapes: [logo], pictures: { rId11: "logo.png" } } });
-    const [input, zip] = await Promise.all([JSZip.loadAsync(deck), runOn(deck, "all-slides")]);
+    const [input, zip] = await Promise.all([JSZip.loadAsync(deck), runOn(deck, "all-slides", undefined, undefined, KEEP_LOGO)]);
     for (const part of [MASTER, MASTER_RELS]) {
       expect(await zip.file(part)!.async("uint8array")).toEqual(await input.file(part)!.async("uint8array"));
     }
@@ -114,15 +121,18 @@ describe("changeBackground deletes a covering background on the master", () => {
       undefined,
       { master: { shapes: [logo], pictures: { rId11: "logo.png" } } },
     );
-    const zip = await runOn(deck, "all-slides");
+    const zip = await runOn(deck, "all-slides", undefined, undefined, KEEP_LOGO);
     expect(await text(zip, "ppt/slides/slide1.xml")).not.toContain('r:embed="rId10"');
     expect(mediaParts(zip)).toEqual(["ppt/media/background_custom.jpeg", "ppt/media/logo.png"]);
   });
 
-  it("deletes a master picture lying over a small logo, and keeps the logo", async () => {
+  it("deletes a master picture lying over a small logo, and keeps a kept logo", async () => {
     const zip = await runOn(
       await testDeck(slides, undefined, { master: { ...pictureAndLogo, shapes: [logo, masterPicture] } }),
       "all-slides",
+      undefined,
+      undefined,
+      KEEP_LOGO,
     );
     const master = await text(zip, MASTER);
     expect(master).not.toContain(masterPicture);
@@ -146,7 +156,7 @@ describe("changeBackground deletes a covering background on the master", () => {
     const deck = await testDeck(slides, undefined, {
       master: { shapes: [placeholder, hidden, logo], pictures: { rId10: "master.png", rId11: "logo.png", rId12: "hidden.png" } },
     });
-    const [input, zip] = await Promise.all([JSZip.loadAsync(deck), runOn(deck, "all-slides")]);
+    const [input, zip] = await Promise.all([JSZip.loadAsync(deck), runOn(deck, "all-slides", undefined, undefined, KEEP_LOGO)]);
     expect(await text(zip, MASTER)).toBe(await text(input, MASTER));
   });
 });
@@ -163,13 +173,13 @@ describe("changeBackground deletes covering backgrounds on layouts, in master mo
     expect(mediaParts(zip)).toEqual(["ppt/media/background_custom.jpeg"]);
   });
 
-  it("deletes the master's and every layout's covering backgrounds in master mode, keeping the logo", async () => {
+  it("deletes the master's and every layout's covering backgrounds in master mode, keeping a kept logo", async () => {
     const unusedPicture = picture(31, "rId10");
     const deck = await testDeck(slides, pictureLayout, {
       master: pictureAndLogo,
       unusedLayouts: [{ shapes: [unusedPicture], pictures: { rId10: "unused.png" } }],
     });
-    const zip = await runOn(deck, "master");
+    const zip = await runOn(deck, "master", undefined, undefined, KEEP_LOGO);
 
     const master = await text(zip, MASTER);
     expect(master).not.toContain(masterPicture);
@@ -191,7 +201,7 @@ describe("changeBackground deletes covering backgrounds on layouts, in master mo
     const deck = await testDeck([lyrics("1절"), lyrics("2절"), { ...lyrics("3절"), hidesBackgroundGraphics: true }], undefined, {
       master: pictureAndLogo,
     });
-    const [input, zip] = await Promise.all([JSZip.loadAsync(deck), runOn(deck, "specific-slides", [1, 2])]);
+    const [input, zip] = await Promise.all([JSZip.loadAsync(deck), runOn(deck, "specific-slides", [1, 2], undefined, KEEP_LOGO)]);
     expect(await text(zip, MASTER)).not.toContain(masterPicture);
     expect(await text(zip, MASTER)).toContain(logo);
     expect(await unchanged(input, zip, "ppt/slides/slide3.xml")).toBe(true);
@@ -207,7 +217,7 @@ describe("changeBackground deletes covering backgrounds on layouts, in master mo
     const deck = await testDeck(slides, undefined, { master: pictureAndLogo });
     const [input, zip] = await Promise.all([
       JSZip.loadAsync(deck),
-      runOn(deck, "all-slides", undefined, ["covering:ppt/media/master.png"]),
+      runOn(deck, "all-slides", undefined, ["covering:ppt/media/master.png"], KEEP_LOGO),
     ]);
     for (const part of [MASTER, MASTER_RELS, LAYOUT, LAYOUT_RELS]) expect(await unchanged(input, zip, part)).toBe(true);
     expect(mediaParts(zip)).toContain("ppt/media/master.png");
@@ -246,15 +256,15 @@ describe("changeBackground hides background graphics on chosen slides only", () 
     expect(await unchanged(input, zip, LAYOUT)).toBe(true);
   });
 
-  it("never hides them on a slide of a kept group", async () => {
+  it("never hides them on a slide of a kept group keeping the logo", async () => {
     const deck = await testDeck(slides, undefined, { master: pictureAndLogo });
-    const zip = await runOn(deck, "specific-slides", [1, 2], ["covering:ppt/media/master.png"]);
+    const zip = await runOn(deck, "specific-slides", [1, 2], ["covering:ppt/media/master.png"], KEEP_LOGO);
     for (const n of [1, 2, 3]) expect(await hides(zip, n)).toBe(false);
   });
 
-  it("never hides them on a slide that does not show a covering background there", async () => {
+  it("never hides them on a slide whose master shows only a kept logo", async () => {
     const deck = await testDeck(slides, undefined, { master: { shapes: [logo], pictures: { rId11: "logo.png" } } });
-    const zip = await runOn(deck, "specific-slides", [1]);
+    const zip = await runOn(deck, "specific-slides", [1], undefined, KEEP_LOGO);
     for (const n of [1, 2, 3]) expect(await hides(zip, n)).toBe(false);
   });
 
@@ -268,5 +278,29 @@ describe("changeBackground hides background graphics on chosen slides only", () 
     expect(await hides(zip, 1)).toBe(true);
     expect(await text(zip, SLIDE(1))).not.toContain('r:embed="rId10"');
     expect(mediaParts(zip)).not.toContain("ppt/media/photo.png");
+  });
+});
+
+describe("changeBackground deletes the master's background graphics by default", () => {
+  it("deletes the logo from the master in 전체 and in master mode, with its picture", async () => {
+    const deck = await testDeck(slides, undefined, { master: pictureAndLogo });
+    for (const mode of ["all-slides", "master"] as const) {
+      const zip = await runOn(deck, mode);
+      const master = await text(zip, MASTER);
+      expect(master).not.toContain(masterPicture);
+      expect(master).not.toContain(logo);
+      expect(mediaParts(zip)).toEqual(["ppt/media/background_custom.jpeg"]);
+    }
+  });
+
+  it("deletes a layout's text box and picture, and keeps the one the user keeps", async () => {
+    const date = textBox(40, "2026.11.17", LOGO_BOX);
+    const band = picture(41, "rId10", { x: 0, y: 0, w: 9144000, h: 1028700 });
+    const deck = await testDeck(slides, { shapes: [date, band], pictures: { rId10: "band.png" } });
+    const zip = await runOn(deck, "all-slides", undefined, undefined, ["graphic:ppt/slidelayouts/slidelayout1.xml#40"]);
+    const layout = await text(zip, LAYOUT);
+    expect(layout).toContain(date);
+    expect(layout).not.toContain(band);
+    expect(await text(zip, LAYOUT_RELS)).not.toContain("band.png");
   });
 });

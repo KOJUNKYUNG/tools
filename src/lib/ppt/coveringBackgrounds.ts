@@ -466,20 +466,23 @@ export interface PieceElement extends StackElement {
   rot: number;
   /** The share of the slide's area it covers, 0…1. */
   share: number;
-  /**
-   * Whether it lies under the slide's top covering background (a background
-   * graphic under the slide's own photo): it does not show today.
-   */
-  underCovering: boolean;
+}
+
+/** Whether a textless element shows enough of the slide to be a piece: its turned box covers at least 5% of it. */
+function pieceArea(el: XmlElement, slide: SlideSize): { box: Bounds; rot: number; share: number } | null {
+  const placed = placementOf(el);
+  if (!placed) return null;
+  const share = turnedAreaOnSlide(placed.box, placed.rot, slide) / (slide.w * slide.h);
+  return { ...placed, share };
 }
 
 /**
- * The background pieces of a slide's stack, bottom first: the top-level
- * elements of the slide and its background graphics (the master's and the
- * layout's) that are not among its `covering` backgrounds, show no text,
- * show a picture or a fill (opaque or not), and cover at least 5% of the
- * slide with known bounds, turned at any angle. A group is one piece; hidden
- * elements are none.
+ * The background pieces of a slide's stack, bottom first: the slide's own
+ * top-level elements that are not among its `covering` backgrounds, show no
+ * text, show a picture or a fill (opaque or not), and cover at least 5% of
+ * the slide with known bounds, turned at any angle. A group is one piece;
+ * hidden elements are none. Background graphics are listed apart
+ * (`graphicsIn`).
  */
 export function piecesIn(
   layers: readonly StackLayer[],
@@ -488,55 +491,104 @@ export function piecesIn(
   covering: readonly CoveringBackground[],
 ): PieceElement[] {
   const isCovering = (part: string, el: XmlElement) => covering.some((c) => c.part === part && c.start === el.start);
-  /** Where an element lies in the stack: its layer, then its place in that part. */
-  const layerOf = (part: string) => layers.findIndex((l) => l.part === part);
-  const top = covering.at(-1);
-  const isUnder = (part: string, el: XmlElement) =>
-    top !== undefined && (layerOf(part) < layerOf(top.part) || (part === top.part && el.start < top.start));
-  return layers.flatMap(({ part, holder, elements }) =>
-    elements.flatMap((el): PieceElement[] => {
-      if (isHidden(el) || showsText(el) || isCovering(part, el)) return [];
-      const [pictures, fills] = [picturesOf(el), fillsOf(el, colours).map((f) => f.swatch)];
-      const placed = placementOf(el);
-      if ((pictures.length === 0 && fills.length === 0) || !placed) return [];
-      const area = turnedAreaOnSlide(placed.box, placed.rot, slide);
-      if (area * PIECE.den < slide.w * slide.h * PIECE.num) return [];
-      const { start, end } = el;
-      const share = area / (slide.w * slide.h);
-      return [
-        {
-          start,
-          end,
-          part,
-          holder,
-          shapeIds: shapeIdsIn(el),
-          pictures,
-          fills,
-          bounds: placed.box,
-          rot: placed.rot,
-          share,
-          underCovering: isUnder(part, el),
-        },
-      ];
-    }),
-  );
+  return layers
+    .filter((l) => l.holder === "slide")
+    .flatMap(({ part, holder, elements }) =>
+      elements.flatMap((el): PieceElement[] => {
+        if (isHidden(el) || showsText(el) || isCovering(part, el)) return [];
+        const [pictures, fills] = [picturesOf(el), fillsOf(el, colours).map((f) => f.swatch)];
+        const area = pieceArea(el, slide);
+        if ((pictures.length === 0 && fills.length === 0) || !area) return [];
+        if (area.share * PIECE.den < PIECE.num) return [];
+        const { start, end } = el;
+        const { box, rot, share } = area;
+        return [{ start, end, part, holder, shapeIds: shapeIdsIn(el), pictures, fills, bounds: box, rot, share }];
+      }),
+    );
 }
 
 /**
  * The key of a background piece, shared by the preview, the engine and the
  * output check: the set of picture parts it shows (`pictureParts`, its
  * pictures resolved from its part), or, with none, its fills with its
- * position, size and turn; for a background graphic, then `#` and the part
- * holding it (the master or layout it is deleted from). Picking a key picks
- * the piece on every slide that has it.
+ * position, size and turn. Picking a key picks the piece on every slide that
+ * has it.
  */
 export function pieceKey(piece: PieceElement, pictureParts: readonly string[]): string {
   // OPC part names compare case-insensitively.
   const parts = [...new Set(pictureParts.map((p) => p.toLowerCase()))].sort();
+  if (parts.length > 0) return `piece:picture:${parts.join("|")}`;
   const { x, y, w, h } = piece.bounds;
-  const shown =
-    parts.length > 0
-      ? `piece:picture:${parts.join("|")}`
-      : `piece:fill:${piece.fills.join("|")}@${x},${y},${w},${h}${piece.rot ? `,r${piece.rot}` : ""}`;
-  return piece.holder === "slide" ? shown : `${shown}#${piece.part.toLowerCase()}`;
+  return `piece:fill:${piece.fills.join("|")}@${x},${y},${w},${h}${piece.rot ? `,r${piece.rot}` : ""}`;
+}
+
+/** What a background graphic shows, for its row: text first, then a picture, a fill, or something else (a line, a table). */
+export type GraphicKind = "text" | "picture" | "fill" | "other";
+
+/**
+ * A background graphic (CONTEXT.md → Background graphics) as the picker lists
+ * it: an element of the slide's master or layout that shows something and is
+ * not one of its covering backgrounds. It goes with the old background unless
+ * the user keeps it. Its `fills` are all of them, opaque or not.
+ */
+export interface GraphicElement extends StackElement {
+  kind: GraphicKind;
+  /** Its box (EMU) before its turn, its turn and its share of the slide; null when its bounds are unknown. */
+  area: { box: Bounds; rot: number; share: number } | null;
+  /** Whether it lies under the slide's top covering background (under the slide's own photo): it does not show today. */
+  underCovering: boolean;
+}
+
+/**
+ * The background graphics of a slide's stack that show something (text, a
+ * picture, a fill or a line), bottom first, but its `covering` backgrounds:
+ * whatever their size, since they go by default and the user keeps a logo by
+ * unticking it. A group is one graphic.
+ */
+export function graphicsIn(
+  layers: readonly StackLayer[],
+  slide: SlideSize,
+  colours: Colours,
+  covering: readonly CoveringBackground[],
+): GraphicElement[] {
+  const isCovering = (part: string, el: XmlElement) => covering.some((c) => c.part === part && c.start === el.start);
+  /** Where an element lies in the stack: its layer, then its place in that part. */
+  const layerOf = (part: string) => layers.findIndex((l) => l.part === part);
+  const top = covering.at(-1);
+  const isUnder = (part: string, el: XmlElement) =>
+    top !== undefined && (layerOf(part) < layerOf(top.part) || (part === top.part && el.start < top.start));
+  return layers
+    .filter((l) => l.holder !== "slide")
+    .flatMap(({ part, holder, elements }) =>
+      elements.flatMap((el): GraphicElement[] => {
+        if (!showsSomething(el, colours) || isCovering(part, el)) return [];
+        const [pictures, fills] = [picturesOf(el), fillsOf(el, colours).map((f) => f.swatch)];
+        const kind: GraphicKind = showsText(el) ? "text" : pictures.length > 0 ? "picture" : fills.length > 0 ? "fill" : "other";
+        const { start, end } = el;
+        return [
+          {
+            start,
+            end,
+            part,
+            holder,
+            shapeIds: shapeIdsIn(el),
+            pictures,
+            fills,
+            kind,
+            area: pieceArea(el, slide),
+            underCovering: isUnder(part, el),
+          },
+        ];
+      }),
+    );
+}
+
+/**
+ * The key of a background graphic, shared by the preview, the engine and the
+ * output check: the part holding it and its own shape id. Every slide showing
+ * that part shows it, so keeping it keeps it on all of them.
+ */
+export function graphicKey({ part, shapeIds, start }: Pick<GraphicElement, "part" | "shapeIds" | "start">): string {
+  // OPC part names compare case-insensitively.
+  return `graphic:${part.toLowerCase()}#${shapeIds[0] ?? `@${start}`}`;
 }

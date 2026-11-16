@@ -1,34 +1,34 @@
 /**
- * Which covering backgrounds ppt-background deletes, and from which part, and
+ * What ppt-background deletes with the old background, from which part, and
  * which slides hide their background graphics instead (spec #163). One pure
  * plan, shared by the engine and the output check, so the check holds the
  * engine to it, and by the preview, so it promises what the engine does.
  *
  * Every slide the apply scope takes (every slide in master mode) gets the new
- * background. Its covering backgrounds go too, unless the user keeps their
- * group (unticks it in the picker): kept ones stay over the new background.
- * A slide clears when it is in scope and keeps nothing. A clearing slide's
- * own covering backgrounds go from it. One on its master or layout goes from
- * that part when every slide showing the part clears: deleting it there
- * clears them all. When only some of them clear, those hide their
- * background graphics instead (PowerPoint's "Hide background graphics"),
- * which takes every other background graphic on them too. Master mode also
- * deletes the covering backgrounds of every layout's stack (`layouts`) on the
- * same terms, so layouts no slide uses yet lose theirs too: slides added
- * later show the new background.
+ * background, and with the old one goes:
+ * - its covering backgrounds, unless the user keeps their group (unticks it
+ *   in the picker): kept ones stay over the new background. A slide clears
+ *   when it is in scope and keeps nothing;
+ * - its background graphics (CONTEXT.md → Background graphics: the master's
+ *   and layout's elements count as the old background), unless the user
+ *   keeps one (`graphicKey`);
+ * - the background pieces the user picks (CONTEXT.md → Background piece, by
+ *   `pieceKey`), kept covering backgrounds or not.
  *
- * The background pieces the user picks (CONTEXT.md → Background piece, by
- * `pieceKey`) go from every slide in scope that has them, kept covering
- * backgrounds or not. One among the background graphics (on the master or a
- * layout) follows the covering backgrounds' rule over the slides in scope: it
- * goes from its part when every slide showing it is in scope (always in
- * master mode), else the slides in scope showing it hide their background
- * graphics.
+ * A slide's own elements go from it. One on its master or layout goes from
+ * that part when it goes on every slide showing the part (always in master
+ * mode). When it goes on only some of them, those hide their background
+ * graphics instead (PowerPoint's "Hide background graphics"). That hides all
+ * of them at once, so the ones that stay on the slide (kept graphics, a kept
+ * covering background) are copied onto it, under its own elements. Master
+ * mode also deletes the covering backgrounds of every layout's stack
+ * (`layouts`) on the same terms, so layouts no slide uses yet lose theirs too:
+ * slides added later show the new background.
  */
 
 import type { BgMode } from "./changeBackground";
-import type { CoveringBackground, GraphicRef } from "./coveringBackgrounds";
-import type { BackgroundPiece, SlideStack } from "./slideStacks";
+import type { CoveringBackground, StackElement } from "./coveringBackgrounds";
+import type { BackgroundGraphic, BackgroundPiece, SlideStack } from "./slideStacks";
 
 export interface CoveringScope {
   mode: BgMode;
@@ -38,6 +38,8 @@ export interface CoveringScope {
   keptCovering?: readonly string[];
   /** Keys of the background pieces the user picked (`pieceKey`); none by default. */
   pickedPieces?: readonly string[];
+  /** Keys of the background graphics the user keeps (`graphicKey`); none by default: they go. */
+  keptGraphics?: readonly string[];
 }
 
 /** What the plan reads of a slide's stack; the preview keeps only this much. */
@@ -48,9 +50,10 @@ export interface PlannedSlide {
   layers: readonly { part: string }[];
   covering: readonly CoveringBackground[];
   coveringKey: string | null;
-  showing: readonly GraphicRef[];
   /** Its background pieces, bottom first. */
   pieces: readonly BackgroundPiece[];
+  /** Its background graphics but its covering backgrounds, bottom first. */
+  graphics: readonly BackgroundGraphic[];
 }
 
 /** What the plan reads of a layout's stack. */
@@ -60,30 +63,43 @@ export interface PlannedLayout {
 }
 
 /** The stack of a slide, as the plan reads it. */
-export const plannedSlide = ({ part, layers, covering, coveringKey, showing, pieces }: SlideStack): PlannedSlide => ({
+export const plannedSlide = ({ part, layers, covering, coveringKey, pieces, graphics }: SlideStack): PlannedSlide => ({
   part,
   layers: layers.map(({ part }) => ({ part })),
   covering,
   coveringKey,
-  showing,
   pieces,
+  graphics,
 });
 
 export interface CoveringPlan {
   /** The covering backgrounds to delete, by the part holding them (slides, layouts, masters), bottom first. */
   deletions: Map<string, CoveringBackground[]>;
   /**
-   * The slides that hide their background graphics, by part, each with how
-   * many other background graphics showing something go with them.
+   * The slides that hide their background graphics, by part, each with the
+   * background graphics that stay on it, bottom of the stack first: copied
+   * onto it.
    */
-  hides: Map<string, number>;
+  hides: Map<string, StackElement[]>;
   /**
-   * The picked background pieces to delete, by the part holding them, bottom
-   * first: a slide's own from the slides in scope, a background graphic from
-   * its master or layout when every slide showing it is in scope.
+   * The background pieces and graphics to delete, by the part holding them,
+   * bottom first: picked pieces from the slides in scope, background graphics
+   * from their master or layout.
    */
-  pieces: Map<string, BackgroundPiece[]>;
+  pieces: Map<string, StackElement[]>;
 }
+
+/** Elements by the part holding them, each once (by where it starts). */
+type ByPart<T> = Map<string, Map<number, T>>;
+
+function addTo<T extends StackElement>(into: ByPart<T>, e: T): void {
+  const inPart = into.get(e.part) ?? new Map<number, T>();
+  inPart.set(e.start, e);
+  into.set(e.part, inPart);
+}
+
+const bottomFirst = <T extends StackElement>(byPart: ByPart<T>): Map<string, T[]> =>
+  new Map([...byPart].map(([part, found]) => [part, [...found.values()].sort((a, b) => a.start - b.start)]));
 
 /**
  * The plan for `stacks` (every slide's, in presentation order) under
@@ -91,7 +107,7 @@ export interface CoveringPlan {
  */
 export function coveringPlan(
   stacks: readonly PlannedSlide[],
-  { mode, targetSlides, keptCovering = [], pickedPieces = [] }: CoveringScope,
+  { mode, targetSlides, keptCovering = [], pickedPieces = [], keptGraphics = [] }: CoveringScope,
   layouts: readonly PlannedLayout[] = [],
 ): CoveringPlan {
   const kept = new Set(keptCovering);
@@ -101,56 +117,34 @@ export function coveringPlan(
   /** Whether every slide showing `part` (the master or layout holding an element) is among `slides`. */
   const everyShowing = (part: string, slides: readonly boolean[]) =>
     stacks.every((s, i) => slides[i] || !s.layers.some((l) => l.part === part));
-  const everyShowingClears = (part: string) => everyShowing(part, clearing);
+  const keptGraphic = new Set(keptGraphics);
+  const goes = (g: BackgroundGraphic) => !keptGraphic.has(g.key);
 
-  const byPart = new Map<string, Map<number, CoveringBackground>>();
-  const collect = (covering: readonly CoveringBackground[]) => {
-    for (const c of covering) {
-      if (c.holder !== "slide" && !everyShowingClears(c.part)) continue;
-      const inPart = byPart.get(c.part) ?? new Map<number, CoveringBackground>();
-      inPart.set(c.start, c);
-      byPart.set(c.part, inPart);
-    }
+  const covering: ByPart<CoveringBackground> = new Map();
+  const collect = (found: readonly CoveringBackground[]) => {
+    for (const c of found) if (c.holder === "slide" || everyShowing(c.part, clearing)) addTo(covering, c);
   };
-  /** A picked background graphic some slide out of scope shows: it stays in its part, hidden on the slides in scope. */
-  const hiddenNotDeleted = (p: BackgroundPiece) => p.holder !== "slide" && !everyShowing(p.part, inScope);
-
-  const hides = new Map<string, number>();
   const picked = new Set(pickedPieces);
-  const piecesByPart = new Map<string, Map<number, BackgroundPiece>>();
+  const pieces: ByPart<StackElement> = new Map();
+  const hides = new Map<string, StackElement[]>();
   stacks.forEach((s, i) => {
     if (!inScope[i]) return;
-    const going = s.pieces.filter((p) => picked.has(p.key));
-    for (const p of going.filter((p) => !hiddenNotDeleted(p))) {
-      const inPart = piecesByPart.get(p.part) ?? new Map<number, BackgroundPiece>();
-      inPart.set(p.start, p);
-      piecesByPart.set(p.part, inPart);
-    }
-    const hiddenForPiece = going.some(hiddenNotDeleted);
+    for (const p of s.pieces) if (picked.has(p.key)) addTo(pieces, p);
+    const graphicsGoing = s.graphics.filter(goes);
+    for (const g of graphicsGoing) if (everyShowing(g.part, inScope)) addTo(pieces, g);
     if (clearing[i]) collect(s.covering);
-    const hiddenForCovering =
-      clearing[i] && s.covering.some((c) => c.holder !== "slide" && !everyShowingClears(c.part));
-    if (hiddenForCovering || hiddenForPiece) {
-      // What the slide loses anyway does not count: its covering backgrounds when it clears, and its picked pieces.
-      const gone = [...(clearing[i] ? s.covering : []), ...going];
-      const isGone = (g: GraphicRef) => gone.some((e) => e.part === g.part && e.start === g.start);
-      hides.set(s.part, s.showing.filter((g) => !isGone(g)).length);
-    }
+    const coveringGraphics = s.covering.filter((c) => c.holder !== "slide");
+    // Something going here stays in its part for another slide showing it: only hiding takes it away here.
+    const hidden =
+      graphicsGoing.some((g) => !everyShowing(g.part, inScope)) ||
+      (clearing[i] && coveringGraphics.some((c) => !everyShowing(c.part, clearing)));
+    if (!hidden) return;
+    // Hiding takes every background graphic: what stays on the slide comes back as copies.
+    const place = (e: StackElement) => s.layers.findIndex((l) => l.part === e.part);
+    const staying = [...s.graphics.filter((g) => !goes(g)), ...(clearing[i] ? [] : coveringGraphics)];
+    hides.set(s.part, staying.sort((a, b) => place(a) - place(b) || a.start - b.start));
   });
   // A layout showing a kept group, one no slide uses yet included, keeps it too.
   if (mode === "master") for (const l of layouts) if (!isKept(l)) collect(l.covering);
-  const bottomFirst = <T extends { start: number }>(byStart: Map<string, Map<number, T>>) =>
-    new Map([...byStart].map(([part, found]) => [part, [...found.values()].sort((a, b) => a.start - b.start)]));
-  return { deletions: bottomFirst(byPart), hides, pieces: bottomFirst(piecesByPart) };
-}
-
-/**
- * Whether the picked background graphics (pieces on the master or a layout)
- * make some slide in scope hide its background graphics, taking others that
- * show something (a logo) with them: the picker's notice. Hiding the
- * covering backgrounds alone already asks for is not counted.
- */
-export function picksHideOtherGraphics(stacks: readonly PlannedSlide[], scope: CoveringScope): boolean {
-  const hiddenWithoutPicks = coveringPlan(stacks, { ...scope, pickedPieces: [] }).hides;
-  return [...coveringPlan(stacks, scope).hides].some(([part, others]) => others > 0 && !hiddenWithoutPicks.has(part));
+  return { deletions: bottomFirst(covering), hides, pieces: bottomFirst(pieces) };
 }

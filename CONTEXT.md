@@ -146,7 +146,17 @@ frames for the slide to fill), unless the slide or its layout hides them
 (PowerPoint's "Hide background graphics", 배경 그래픽 숨기기). A logo, a
 decorative band or a full-slide picture placed on the master are background
 graphics. Hiding them on a slide hides all of them at once; PowerPoint has no
-way to hide one.
+way to hide one. ppt-background counts them as part of the old background:
+every one that shows something (text, a picture, a fill or a line, whatever
+its size) is listed with the covering backgrounds and goes by default, and
+the user keeps one (a logo, the church's name) by unticking it, on every
+slide showing it (decided 2026-11-17, reversing PR 1's "a logo on the master
+stays"). One goes from its master or layout when it goes on every slide
+showing it (always in 전체 and master mode). When only some of those slides
+change, they hide their background graphics instead, and the ones that stay
+on them (kept ones, a kept covering background) are copied onto each of
+those slides, under its own elements, so a kept logo stays exactly where it
+was; a copy no longer follows later edits to the master.
 _Avoid_: "master shapes" (the layout's count too).
 
 ### Covering background
@@ -179,27 +189,26 @@ slides it changes unless the user keeps one by unticking it in the list of
 what goes (sheet music caught by the rule), which leaves it over the new
 background; the user keeps the original file. One in the master or a layout is deleted
 there when every slide showing it changes (master mode always); when only some
-do, those slides hide their background graphics instead, and ppt-background
-says so when other background graphics that show something go with it.
-Background graphics that are not covering backgrounds (a logo) stay.
+do, those slides hide their background graphics instead, and the background
+graphics that stay are copied onto them (see Background graphics).
 _Avoid_: "covering picture" (it need not be a picture); "individual
 background" — that is a slide's own background.
 
 ### Background piece
-An element the user picks in ppt-background to be deleted with the old
-background, when the rule leaves part of it behind: a background built from
-several smaller elements (colour blobs, a band, a frame), none of which covers
-90% of the slide. Any element without text that shows something and takes at
-least 5% of the slide (turned at any angle) can be picked, wherever it lies
-in the slide's stack, background graphics included; smaller ones (icons,
-lines) cannot. A group is one piece, as the slide's selection pane shows it.
-The user picks pieces in the same list as the covering backgrounds, over the
-slides in the apply scope: covering backgrounds start ticked, pieces
-unticked, so the tool behaves as the rule says unless the user asks for
-more. Picking one picks the same element (the same picture, or the same
-fill at the same place, size and turn) on every slide that has it, and it
-goes from every slide in scope, whether or not the slide keeps its covering
-background (one in the background graphics follows the same rule).
+An element of the slide itself the user picks in ppt-background to be
+deleted with the old background, when the rule leaves part of it behind: a
+background built from several smaller elements (colour blobs, a band, a
+frame), none of which covers 90% of the slide. Any of the slide's own
+elements without text that shows something and takes at least 5% of the
+slide (turned at any angle) can be picked; smaller ones (icons, lines)
+cannot. A group is one piece, as the slide's selection pane shows it.
+Background graphics are not pieces: they go by default. The user picks
+pieces in the same list as the covering backgrounds and background graphics,
+over the slides in the apply scope: those start ticked, pieces unticked.
+Picking one picks the same element (the same picture, or the same fill at
+the same place, size and turn) on every slide that has it, and it goes from
+every slide in scope, whether or not the slide keeps its covering
+background.
 _Avoid_: "decoration" (a piece may be content the user wants gone); "covering
 background" for a piece (the rule never finds it).
 

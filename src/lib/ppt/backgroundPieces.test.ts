@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { picksHideOtherGraphics, type CoveringScope } from "./coveringPlan";
 import { extractCurrentBackgrounds } from "./extractCurrentBackgrounds";
 import { BAND, BLOB, filledShape, gradientFill, group, picture, pictureShape, solidFill, testDeck, textBox, type Box } from "./testDeck";
 
@@ -146,72 +145,54 @@ describe("extractCurrentBackgrounds lists each slide's background pieces", () =>
     ]);
   });
 
-  it("lists the master's and layout's pieces as background graphics, keyed by the part holding them", async () => {
-    const deck = await testDeck(
-      [
-        { shapes: [pictureShape(4, "rId11", BLOB), lyrics], pictures: { rId11: "blob.png" } },
-        // A slide hiding its background graphics shows none of them.
-        { shapes: [lyrics], hidesBackgroundGraphics: true },
-      ],
-      { shapes: [filledShape(30, solidFill("FF0000"), BAND)] },
-      { master: { shapes: [pictureShape(20, "rId10", BLOB)], pictures: { rId10: "blob.png" } } },
-    );
-    const slides = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
-    expect(slides.map((s) => s.pieces.map(({ key, backgroundGraphic }) => ({ key, backgroundGraphic })))).toEqual([
-      [
-        // The same picture on the master and on the slide: two pieces, picked apart.
-        { key: "piece:picture:ppt/media/blob.png#ppt/slidemasters/slidemaster1.xml", backgroundGraphic: true },
-        { key: "piece:fill:#ff0000@0,0,9144000,1028700#ppt/slidelayouts/slidelayout1.xml", backgroundGraphic: true },
-        { key: "piece:picture:ppt/media/blob.png", backgroundGraphic: false },
-      ],
-      [],
-    ]);
-  });
+  describe("lists each slide's background graphics, which go by default", () => {
+    const logo = picture(21, "rId11", ICON);
+    const churchName = textBox(22, "○○교회", { x: 0, y: 4600000, w: 3000000, h: 400000 });
+    const emptyFrame = filledShape(23, "<a:noFill/>", BAND);
 
-  it("marks the background graphics lying under a slide's covering background", async () => {
-    const deck = await testDeck(
-      [{ shapes: [picture(2, "rId10"), filledShape(3, solidFill("00FF00"), BLOB), lyrics], pictures: { rId10: "old.png" } }],
-      undefined,
-      { master: { shapes: [filledShape(20, solidFill("FF0000"), BAND)] } },
-    );
-    const [slide] = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
-    expect(slide.source).toBe("covering");
-    expect(slide.pieces.map(({ swatch, underCovering }) => ({ swatch, underCovering }))).toEqual([
-      // The master's band lies under the slide's photo: it does not show today.
-      { swatch: "#ff0000", underCovering: true },
-      { swatch: "#00ff00", underCovering: false },
-    ]);
-  });
-
-  describe("tells the picker when a picked background graphic hides others", () => {
-    const BLOB_KEY = "piece:picture:ppt/media/mblob.png#ppt/slidemasters/slidemaster1.xml";
-    const logo = picture(21, "rId11", { x: 8001000, y: 4343400, w: 914400, h: 571500 });
-    /** Two lyrics slides under a master carrying `shapes`: a picture blob, a logo, a full-slide picture. */
-    const notice = async (shapes: string[], scope: CoveringScope) => {
-      const deck = await testDeck([{ shapes: [lyrics] }, { shapes: [lyrics] }], undefined, {
-        master: { shapes, pictures: { rId10: "mblob.png", rId11: "logo.png", rId12: "master.png" } },
-      });
-      const slides = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
-      return picksHideOtherGraphics(
-        slides.map((s) => s.stack),
-        scope,
+    it("lists every master and layout element showing something, small ones and text included", async () => {
+      const deck = await testDeck(
+        [
+          { shapes: [pictureShape(4, "rId11", BLOB), lyrics], pictures: { rId11: "blob.png" } },
+          // A slide hiding its background graphics shows none of them.
+          { shapes: [lyrics], hidesBackgroundGraphics: true },
+        ],
+        { shapes: [filledShape(30, solidFill("FF0000"), BAND)] },
+        { master: { shapes: [pictureShape(20, "rId10", BLOB), logo, churchName, emptyFrame], pictures: { rId10: "blob.png", rId11: "logo.png" } } },
       );
-    };
-    const blob = pictureShape(20, "rId10", BLOB);
-    const chosen: CoveringScope = { mode: "specific-slides", targetSlides: [1], pickedPieces: [BLOB_KEY] };
-
-    it("when the chosen slides hide a logo with it", async () => {
-      expect(await notice([blob, logo], chosen)).toBe(true);
+      const slides = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
+      expect(slides.map((s) => s.graphics.map(({ key, kind, imagePath, swatch }) => ({ key, kind, imagePath, swatch })))).toEqual([
+        [
+          { key: "graphic:ppt/slidemasters/slidemaster1.xml#20", kind: "picture", imagePath: "ppt/media/blob.png", swatch: null },
+          { key: "graphic:ppt/slidemasters/slidemaster1.xml#21", kind: "picture", imagePath: "ppt/media/logo.png", swatch: null },
+          { key: "graphic:ppt/slidemasters/slidemaster1.xml#22", kind: "text", imagePath: null, swatch: null },
+          { key: "graphic:ppt/slidelayouts/slidelayout1.xml#30", kind: "fill", imagePath: null, swatch: "#ff0000" },
+        ],
+        [],
+      ]);
+      // The slide's own picture stays a piece, picked apart from the master's.
+      expect(slides[0].pieces.map((p) => p.key)).toEqual(["piece:picture:ppt/media/blob.png"]);
     });
 
-    it("not when it goes from the master, nothing else shows, or nothing is picked", async () => {
-      expect(await notice([blob, logo], { mode: "all-slides", pickedPieces: [BLOB_KEY] })).toBe(false);
-      expect(await notice([blob], chosen)).toBe(false);
-      expect(await notice([blob, logo], { ...chosen, pickedPieces: [] })).toBe(false);
+    it("leaves out a covering background on the master: its own row keeps it", async () => {
+      const deck = await testDeck([{ shapes: [lyrics] }], undefined, {
+        master: { shapes: [picture(20, "rId10"), logo], pictures: { rId10: "master.png", rId11: "logo.png" } },
+      });
+      const [slide] = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
+      expect(slide.source).toBe("covering");
+      expect(slide.graphics.map((g) => g.key)).toEqual(["graphic:ppt/slidemasters/slidemaster1.xml#21"]);
     });
 
-    it("not when the master picture already hides them on those slides", async () => {
-      expect(await notice([picture(22, "rId12"), blob, logo], chosen)).toBe(false);
+    it("marks the background graphics lying under a slide's covering background", async () => {
+      const deck = await testDeck(
+        [{ shapes: [picture(2, "rId10"), lyrics], pictures: { rId10: "old.png" } }],
+        undefined,
+        { master: { shapes: [filledShape(20, solidFill("FF0000"), BAND)] } },
+      );
+      const [slide] = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
+      expect(slide.source).toBe("covering");
+      // The master's band lies under the slide's photo: it does not show today.
+      expect(slide.graphics.map((g) => g.underCovering)).toEqual([true]);
     });
   });
 

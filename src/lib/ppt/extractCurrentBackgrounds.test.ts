@@ -303,39 +303,43 @@ describe("extractCurrentBackgrounds reads background graphics as the deck shows 
   });
 });
 
-describe("extractCurrentBackgrounds tells how many background graphics hiding takes with it", () => {
+describe("extractCurrentBackgrounds tells which background graphics a hiding slide gets back as copies", () => {
   const masterPicture = picture(20, "rId10");
   const slides = [{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }, { shapes: [textBox(9, "3절")] }];
   const CORNER = { x: 8001000, y: 4343400, w: 914400, h: 571500 };
-  /** What hiding background graphics takes with it on each chosen slide, by slide part. */
-  async function hiddenWith(deck: Uint8Array, targetSlides: number[], keptCovering: string[] = []) {
+  const LOGO = "graphic:ppt/slidemasters/slidemaster1.xml#21";
+  /** The slides in scope that hide their background graphics, each with the shape ids copied back onto it. */
+  async function copiesOn(deck: Uint8Array, targetSlides: number[], kept: { covering?: string[]; graphics?: string[] } = {}) {
     const bgs = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
-    return coveringPlan(
+    const { hides } = coveringPlan(
       bgs.map((b) => b.stack),
-      { mode: "specific-slides", targetSlides, keptCovering },
-    ).hides;
+      { mode: "specific-slides", targetSlides, keptCovering: kept.covering, keptGraphics: kept.graphics },
+    );
+    return new Map([...hides].map(([part, copies]) => [part, copies.map((c) => c.shapeIds[0])]));
   }
+  const pictureAndLogo = {
+    master: { shapes: [masterPicture, picture(21, "rId11", CORNER)], pictures: { rId10: "master.png", rId11: "logo.png" } },
+  };
 
-  it("counts a visible logo on the master", async () => {
-    const deck = await testDeck(slides, undefined, {
-      master: { shapes: [masterPicture, picture(21, "rId11", CORNER)], pictures: { rId10: "master.png", rId11: "logo.png" } },
-    });
-    expect(await hiddenWith(deck, [1, 2])).toEqual(
+  it("copies nothing back when everything on the master goes, and the kept logo when it stays", async () => {
+    const deck = await testDeck(slides, undefined, pictureAndLogo);
+    expect(await copiesOn(deck, [1, 2])).toEqual(
       new Map([
-        ["ppt/slides/slide1.xml", 1],
-        ["ppt/slides/slide2.xml", 1],
+        ["ppt/slides/slide1.xml", []],
+        ["ppt/slides/slide2.xml", []],
       ]),
     );
+    expect(await copiesOn(deck, [2], { graphics: [LOGO] })).toEqual(new Map([["ppt/slides/slide2.xml", ["21"]]]));
   });
 
-  it("does not count an empty shape with no fill or line", async () => {
+  it("never copies an empty shape with no fill or line: it shows nothing", async () => {
     const deck = await testDeck(slides, { shapes: [filledShape(40, "<a:noFill/>", CORNER)] }, {
       master: { shapes: [masterPicture], pictures: { rId10: "master.png" } },
     });
-    expect(await hiddenWith(deck, [2])).toEqual(new Map([["ppt/slides/slide2.xml", 0]]));
+    expect(await copiesOn(deck, [2])).toEqual(new Map([["ppt/slides/slide2.xml", []]]));
   });
 
-  it("counts a layout's shape that shows text, a fill or a line", async () => {
+  it("copies a layout's kept shapes showing text, a fill or a line, bottom first", async () => {
     const line = filledShape(42, "<a:noFill/>", CORNER).replace(
       "<a:noFill/></p:spPr>",
       `<a:noFill/><a:ln w="9525">${solidFill("000000")}</a:ln></p:spPr>`,
@@ -345,14 +349,22 @@ describe("extractCurrentBackgrounds tells how many background graphics hiding ta
       { shapes: [textBox(40, "3/19", CORNER), filledShape(41, solidFill("FF0000", 50000), CORNER), line] },
       { master: { shapes: [masterPicture], pictures: { rId10: "master.png" } } },
     );
-    expect(await hiddenWith(deck, [3])).toEqual(new Map([["ppt/slides/slide3.xml", 3]]));
+    const layout = (id: number) => `graphic:ppt/slidelayouts/slidelayout1.xml#${id}`;
+    expect(await copiesOn(deck, [3], { graphics: [layout(42), layout(40)] })).toEqual(
+      new Map([["ppt/slides/slide3.xml", ["40", "42"]]]),
+    );
   });
 
-  it("hides nothing on a kept group, or when every slide showing the picture changes", async () => {
-    const deck = await testDeck(slides, undefined, {
-      master: { shapes: [masterPicture, picture(21, "rId11", CORNER)], pictures: { rId10: "master.png", rId11: "logo.png" } },
-    });
-    expect(await hiddenWith(deck, [1], ["covering:ppt/media/master.png"])).toEqual(new Map());
-    expect(await hiddenWith(deck, [1, 2, 3])).toEqual(new Map());
+  it("copies a kept master picture back onto a slide hiding the logo that goes", async () => {
+    const deck = await testDeck(slides, undefined, pictureAndLogo);
+    expect(await copiesOn(deck, [1], { covering: ["covering:ppt/media/master.png"] })).toEqual(
+      new Map([["ppt/slides/slide1.xml", ["20"]]]),
+    );
+  });
+
+  it("hides nothing when every slide showing the master changes", async () => {
+    const deck = await testDeck(slides, undefined, pictureAndLogo);
+    expect(await copiesOn(deck, [1, 2, 3])).toEqual(new Map());
+    expect(await copiesOn(deck, [1], { covering: ["covering:ppt/media/master.png"], graphics: [LOGO] })).toEqual(new Map());
   });
 });

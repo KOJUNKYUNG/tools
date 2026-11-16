@@ -123,66 +123,18 @@ describe("changeBackground deletes the background pieces the user picked", () =>
     expect(await topLevelIds(zip, 2)).toEqual(["2", "9"]);
   });
 
-  describe("a piece among the background graphics", () => {
+  it("keeps an unpicked picture on a slide when the same picture goes from the master", async () => {
     const MASTER = "ppt/slideMasters/slideMaster1.xml";
-    const MASTER_BLOB = "piece:picture:ppt/media/mblob.png#ppt/slidemasters/slidemaster1.xml";
     const masterBlob = pictureShape(20, "rId10", BLOB);
-    const logo = picture(21, "rId11", { x: 8001000, y: 4343400, w: 914400, h: 571500 });
-    /** Two lyrics slides under a master with a picture blob (animated) and a logo. */
-    const graphicsDeck = () =>
-      testDeck([1, 2].map((n) => ({ shapes: [textBox(9, `${n}절`)] })), undefined, {
-        master: {
-          shapes: [masterBlob, logo],
-          pictures: { rId10: "mblob.png", rId11: "logo.png" },
-          timing: clickAnimations([20]),
-        },
-      });
-    const hides = async (zip: JSZip, n: number) => /<p:sld [^>]*showMasterSp="0"/.test(await slideXml(zip, n));
-
-    it.each<Run>([{ mode: "all-slides" }, { mode: "master" }, { mode: "specific-slides", targetSlides: [1, 2] }])(
-      "is deleted from the master when every slide showing it changes (%o)",
-      async (scope) => {
-        const zip = await run(await graphicsDeck(), { ...scope, pickedPieces: [MASTER_BLOB] });
-        const master = await zip.file(MASTER)!.async("text");
-        expect(master).not.toContain(masterBlob);
-        expect(master).toContain(logo);
-        expect(master).not.toContain('spid="20"');
-        expect(await zip.file("ppt/slideMasters/_rels/slideMaster1.xml.rels")!.async("text")).not.toContain("mblob.png");
-        expect(mediaParts(zip)).not.toContain("ppt/media/mblob.png");
-        expect([await hides(zip, 1), await hides(zip, 2)]).toEqual([false, false]);
-      },
+    const deck = await testDeck(
+      [{ shapes: [pictureShape(4, "rId11", BLOB), textBox(9, "1절")], pictures: { rId11: "mblob.png" } }],
+      undefined,
+      { master: { shapes: [masterBlob], pictures: { rId10: "mblob.png" } } },
     );
-
-    it("hides background graphics on the chosen slides when other slides show it", async () => {
-      const deck = await graphicsDeck();
-      const input = await JSZip.loadAsync(deck);
-      const zip = await run(deck, { mode: "specific-slides", targetSlides: [2], pickedPieces: [MASTER_BLOB] });
-      expect(await zip.file(MASTER)!.async("text")).toBe(await input.file(MASTER)!.async("text"));
-      expect([await hides(zip, 1), await hides(zip, 2)]).toEqual([false, true]);
-      expect(await slideXml(zip, 1)).toBe(await input.file("ppt/slides/slide1.xml")!.async("text"));
-    });
-
-    it("is deleted from the layout holding it, keyed by that layout", async () => {
-      const LAYOUT = "ppt/slideLayouts/slideLayout1.xml";
-      const band = filledShape(30, solidFill("FF0000"), BAND);
-      const deck = await testDeck([1, 2].map((n) => ({ shapes: [textBox(9, `${n}절`)] })), { shapes: [band] });
-      const zip = await run(deck, { pickedPieces: [`${RED_BAND}#ppt/slidelayouts/slidelayout1.xml`] });
-      expect(await zip.file(LAYOUT)!.async("text")).not.toContain(band);
-      // The same band's key on a slide picks nothing here.
-      const kept = await run(deck, { pickedPieces: [RED_BAND] });
-      expect(await kept.file(LAYOUT)!.async("text")).toContain(band);
-    });
-
-    it("is not taken for the same picture placed on a slide", async () => {
-      const deck = await testDeck(
-        [{ shapes: [pictureShape(4, "rId11", BLOB), textBox(9, "1절")], pictures: { rId11: "mblob.png" } }],
-        undefined,
-        { master: { shapes: [masterBlob], pictures: { rId10: "mblob.png" } } },
-      );
-      const zip = await run(deck, { pickedPieces: [MASTER_BLOB] });
-      expect(await zip.file(MASTER)!.async("text")).not.toContain(masterBlob);
-      expect(await topLevelIds(zip, 1)).toEqual(["4", "9"]);
-    });
+    const zip = await run(deck);
+    expect(await zip.file(MASTER)!.async("text")).not.toContain(masterBlob);
+    expect(await topLevelIds(zip, 1)).toEqual(["4", "9"]);
+    expect(mediaParts(zip)).toContain("ppt/media/mblob.png");
   });
 
   it("changes nothing more than today when nothing is picked", async () => {

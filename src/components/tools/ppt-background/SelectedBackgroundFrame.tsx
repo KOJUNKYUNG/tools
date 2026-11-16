@@ -33,6 +33,48 @@ interface SelectedBackgroundFrameProps {
   busyLabel?: string | null;
 }
 
+/** The new background as a picture: the cropped pick, its live edit and its filters, laid over one another. */
+export function PictureLayers({
+  previewUrl,
+  alt,
+  crop,
+  sourceSize,
+  live = null,
+  filtered = null,
+}: {
+  previewUrl: string;
+  alt: string;
+  crop: CropRect | null;
+  sourceSize?: ImageDims;
+  live?: LivePicture | null;
+  filtered?: LivePicture | null;
+}) {
+  return (
+    <>
+      {crop ? (
+        <CroppedImage src={previewUrl} alt={alt} crop={crop} sourceSize={sourceSize} className="pointer-events-none size-full" />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={previewUrl} alt={alt} className="pointer-events-none size-full object-cover" />
+      )}
+      {live && sourceSize ? (
+        <LiveCanvas live={live} crop={crop} sourceSize={sourceSize} className="pointer-events-none absolute inset-0 size-full" />
+      ) : null}
+      {filtered ? <FinishedCanvas live={filtered} className="pointer-events-none absolute inset-0 size-full" /> : null}
+    </>
+  );
+}
+
+/** The new background as a colour (a solid one, or "no background"'s bands), with its filters over it. */
+export function ColourLayers({ colour, filtered = null }: { colour: string; filtered?: LivePicture | null }) {
+  return (
+    <>
+      <div aria-hidden className="absolute inset-0" style={{ background: colour }} />
+      {filtered ? <FinishedCanvas live={filtered} className="pointer-events-none absolute inset-0 size-full" /> : null}
+    </>
+  );
+}
+
 export function SelectedBackgroundFrame({
   caption,
   previewUrl,
@@ -87,16 +129,7 @@ export function SelectedBackgroundFrame({
             {onSelect ? (
               <button type="button" onClick={onSelect} aria-label={caption} className="absolute inset-0" />
             ) : null}
-            {crop ? (
-              <CroppedImage src={previewUrl} alt={caption} crop={crop} sourceSize={sourceSize} className="pointer-events-none size-full" />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={previewUrl} alt={caption} className="pointer-events-none size-full object-cover" />
-            )}
-            {live && sourceSize ? (
-              <LiveCanvas live={live} crop={crop} sourceSize={sourceSize} className="pointer-events-none absolute inset-0 size-full" />
-            ) : null}
-            {filtered ? <FinishedCanvas live={filtered} className="pointer-events-none absolute inset-0 size-full" /> : null}
+            <PictureLayers previewUrl={previewUrl} alt={caption} crop={crop} sourceSize={sourceSize} live={live} filtered={filtered} />
             {/* Top left: the zoom button takes the top right on hover. */}
             {busyLabel ? <CornerSpinner label={busyLabel} className="left-1.5 top-1.5" /> : null}
             <ZoomButton label={zoomLabel} onZoom={onZoom} />

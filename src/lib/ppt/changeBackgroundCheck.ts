@@ -38,6 +38,8 @@ export interface PptBackgroundRequest {
   keptCovering?: readonly string[];
   /** Keys of the background pieces the user picked (`pieceKey`). */
   pickedPieces?: readonly string[];
+  /** Keys of the background graphics the user keeps (`graphicKey`). */
+  keptGraphics?: readonly string[];
 }
 
 /**

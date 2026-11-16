@@ -48,6 +48,8 @@ export interface ChangeBackgroundOptions {
   keptCovering?: readonly string[];
   /** Keys of the background pieces the user picked (`pieceKey`): deleted from the slides that change; none by default. */
   pickedPieces?: readonly string[];
+  /** Keys of the background graphics the user keeps (`graphicKey`); none by default: they go with the old background. */
+  keptGraphics?: readonly string[];
   onProgress?: (pct: number) => void;
   /** The picture preparer; tests and Node stand one in for the canvas. */
   prepare?: PrepareSlideImage;
@@ -270,7 +272,7 @@ interface GroupChange {
   /** The covering backgrounds and picked pieces the plan deletes, by part (`coveringPlan`); none from parts it does not name. */
   deletions?: ReadonlyMap<string, readonly StackElement[]>;
   /** The slides the plan hides background graphics on (`coveringPlan`). */
-  hides?: ReadonlyMap<string, number>;
+  hides?: ReadonlyMap<string, readonly StackElement[]>;
 }
 
 /** A slide's root start tag. */
@@ -491,6 +493,7 @@ export async function changeBackground({
   targetSlides,
   keptCovering = [],
   pickedPieces = [],
+  keptGraphics = [],
   onProgress,
   prepare = prepareSlideImage,
 }: ChangeBackgroundOptions): Promise<Uint8Array> {
@@ -545,11 +548,11 @@ export async function changeBackground({
   const reader = zipPartReader(zip);
   const plan = coveringPlan(
     await readSlideStacks(reader, slides, slideSize),
-    { mode, targetSlides, keptCovering, pickedPieces },
+    { mode, targetSlides, keptCovering, pickedPieces, keptGraphics },
     mode === "master" ? await readLayoutStacks(reader, partsUnder(parts, "ppt/slideLayouts"), slideSize) : [],
   );
   const { hides } = plan;
-  // Picked pieces go with the covering backgrounds, in one cut per part.
+  // Picked pieces and background graphics go with the covering backgrounds, in one cut per part.
   const deletions = new Map<string, StackElement[]>(plan.deletions);
   for (const [part, pieces] of plan.pieces) {
     deletions.set(part, [...(deletions.get(part) ?? []), ...pieces].sort((a, b) => a.start - b.start));
@@ -611,6 +614,7 @@ export async function changeBackground({
           targetSlides,
           keptCovering,
           pickedPieces,
+          keptGraphics,
         },
         out,
         "quick",

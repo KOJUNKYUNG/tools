@@ -13,7 +13,6 @@ import {
   type SlideBackground,
 } from "@/lib/ppt/extractCurrentBackgrounds";
 import { getSlideAspect, type SlideAspect } from "@/lib/ppt/getSlideAspect";
-import { coveringPlan, picksHideOtherGraphics } from "@/lib/ppt/coveringPlan";
 import { groupBackgrounds, type BackgroundGroup } from "@/lib/ppt/groupBackgrounds";
 import { noBackgroundColours } from "@/lib/ppt/themeBackground";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
@@ -25,7 +24,7 @@ import { filteredColour } from "@/lib/image/filterSet";
 import type { RunPicture } from "@/lib/background/resolveBackground";
 import type { Dictionary } from "@/i18n/config";
 import { ModeSelector } from "./ModeSelector";
-import { SelectedBackgroundFrame } from "./SelectedBackgroundFrame";
+import { ColourLayers, PictureLayers, SelectedBackgroundFrame } from "./SelectedBackgroundFrame";
 import { CurrentBackgroundFrame } from "./CurrentBackgroundFrame";
 import { PiecePicker, type PiecePickerLabels } from "./PiecePicker";
 import { PreviewLightbox } from "@/components/common/PreviewLightbox";
@@ -63,8 +62,6 @@ export interface PptBackgroundToolLabels {
     specificSelectAll: string;
     specificClear: string;
     specificHint: string;
-    /** The apply scope hides background graphics on some slides, taking a logo or more with them. */
-    hidesGraphicsNotice: string;
   };
   thumbnails: {
     heading: string;
@@ -174,6 +171,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
   /** Background pieces the user picked (`pieceKey`): deleted with the old background. None by default. */
   const [pickedPieces, setPickedPieces] = useState<Set<string>>(new Set());
+  /** Background graphics the user keeps (`graphicKey`): they go with the old background by default. */
+  const [keptGraphics, setKeptGraphics] = useState<Set<string>>(new Set());
   const [piecesOpen, setPiecesOpen] = useState(false);
   const [zoom, setZoom] = useState<null | "selected" | "current">(null);
   /** The zoom fills the screen: the filtered preview is drawn at the screen's size. */
@@ -243,6 +242,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
             : undefined,
         keptCovering: [...keptCovering],
         pickedPieces: [...pickedPieces],
+        keptGraphics: [...keptGraphics],
         onProgress: shown,
         prepare: background.kind === "picture" && background.step ? slideImagePreparer(background.step) : undefined,
       });
@@ -282,6 +282,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setKeptCovering(new Set());
       setSelectedSlides(new Set());
       setPickedPieces(new Set());
+      setKeptGraphics(new Set());
       setPiecesOpen(false);
       setZoom(null);
       setPptxFilesRaw(files);
@@ -316,6 +317,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       setKeptCovering(new Set());
       setSelectedSlides(new Set());
       setPickedPieces(new Set());
+      setKeptGraphics(new Set());
       setPiecesOpen(false);
       return;
     }
@@ -324,6 +326,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     setKeptCovering(new Set());
     setSelectedSlides(new Set());
     setPickedPieces(new Set());
+    setKeptGraphics(new Set());
     setPiecesOpen(false);
     let cancelled = false;
 
@@ -368,7 +371,20 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     [currentBgs, mode, selectedSlides],
   );
   const scopeSlideNumbers = useMemo(() => new Set(scopeSlides.map((s) => s.slideIndex)), [scopeSlides]);
-  const hasPickable = scopeSlides.some((s) => s.coveringKey !== undefined || s.pieces.length > 0);
+  const hasPickable = scopeSlides.some((s) => s.coveringKey !== undefined || s.pieces.length > 0 || s.graphics.length > 0);
+  /** The background graphics going on the slides in scope: every one the user does not keep. */
+  const graphicsGoing = useMemo(() => {
+    const inScope = new Set(scopeSlides.flatMap((s) => s.graphics.map((g) => g.key)));
+    return [...inScope].filter((key) => !keptGraphics.has(key)).length;
+  }, [scopeSlides, keptGraphics]);
+  const onToggleGraphic = useCallback((key: string) => {
+    setKeptGraphics((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
   /** The picked pieces the slides in scope have: only those go, so only those are counted and cleared. */
   const pickedInScope = useMemo(() => {
     const inScope = new Set(scopeSlides.flatMap((s) => s.pieces.map((p) => p.key)));
@@ -427,6 +443,14 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   const noneColour = diagonalBands(groupNone.length > 0 ? groupNone : [UNREAD_NONE]);
   // A solid colour as its fill: with its colour effects.
   const fillColour = !fill ? null : solidColour ? filteredColour(filters, solidColour) : noneColour;
+  // The new background as the picker's sketch draws it, the frame's layers over the whole slide; none until one is picked.
+  const newBackgroundView = fillColour ? (
+    <ColourLayers colour={fillColour} filtered={filterPreview} />
+  ) : bgPreviewUrl ? (
+    <div aria-hidden className="absolute inset-0">
+      <PictureLayers previewUrl={bgPreviewUrl} alt="" crop={crop} sourceSize={pickSize} live={editLive} filtered={filterPreview} />
+    </div>
+  ) : null;
   const canRun =
     !!pptxFile &&
     (!!bgFile || !!fill) &&
@@ -434,27 +458,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     // A HEIC still converting would replace the picture under the run.
     !normalizing &&
     status === "idle";
-
-  // The run's choices as the engine's own plan reads them, so the notices promise what the run does.
-  const planScope = useMemo(
-    () => ({
-      mode,
-      targetSlides: mode === "specific-slides" ? [...selectedSlides] : undefined,
-      keptCovering: [...keptCovering],
-      pickedPieces: [...pickedPieces],
-    }),
-    [mode, selectedSlides, keptCovering, pickedPieces],
-  );
-  const stacks = useMemo(() => currentBgs.map((b) => b.stack), [currentBgs]);
-  // Whether the run hides background graphics on some slides and takes others
-  // that show something (a logo) with them, for its covering backgrounds or
-  // the picked pieces: the workspace's notice.
-  const hidesOtherGraphics = useMemo(
-    () => [...coveringPlan(stacks, planScope).hides.values()].some((n) => n > 0),
-    [stacks, planScope],
-  );
-  // The picker's own notice: the picked background graphics are why.
-  const picksHideGraphics = useMemo(() => picksHideOtherGraphics(stacks, planScope), [stacks, planScope]);
 
   // ───────── Bidirectional check ↔ range binding ─────────
   // Checking a current-background group selects every slide that uses it and
@@ -694,24 +697,15 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                     />
                   </div>
 
-                  {/* Notices: their two lines are always reserved, so they
-                      appear and go without moving anything. The blur notice
-                      gives up its second line to the hidden-graphics one. */}
+                  {/* The blur notice: its two lines are always reserved, so it
+                      appears and goes without moving anything. */}
                   <div
                     className="mt-2 min-h-[2.7em] font-body text-[10.5px] leading-[1.35]"
                     style={{ color: "var(--ink-soft)" }}
                   >
                     {crop && belowFullHd(crop, slide) && (
-                      <p
-                        className={hidesOtherGraphics ? "line-clamp-1" : "line-clamp-2"}
-                        title={labels.background.blurNotice}
-                      >
+                      <p className="line-clamp-2" title={labels.background.blurNotice}>
                         {labels.background.blurNotice}
-                      </p>
-                    )}
-                    {hidesOtherGraphics && (
-                      <p className="line-clamp-1" title={labels.mode.hidesGraphicsNotice}>
-                        {labels.mode.hidesGraphicsNotice}
                       </p>
                     )}
                   </div>
@@ -771,9 +765,14 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                       >
                         {labels.pieces.open}
                       </button>
-                      {pickedInScope.length > 0 && (
+                      {(pickedInScope.length > 0 || graphicsGoing > 0) && (
                         <span className="truncate font-body text-[10.5px]" style={{ color: "var(--ink-strong)" }}>
-                          {template(labels.pieces.summaryTemplate, { n: pickedInScope.length })}
+                          {[
+                            graphicsGoing > 0 ? template(labels.pieces.graphicsSummaryTemplate, { n: graphicsGoing }) : null,
+                            pickedInScope.length > 0 ? template(labels.pieces.summaryTemplate, { n: pickedInScope.length }) : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </span>
                       )}
                     </div>
@@ -827,7 +826,10 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               totalSlides={totalSlides}
               picked={pickedPieces}
               pickedInScope={pickedInScope.length}
-              picksHideGraphics={picksHideGraphics}
+              keptGraphics={keptGraphics}
+              onToggleGraphic={onToggleGraphic}
+              graphicsGoing={graphicsGoing}
+              newBackground={newBackgroundView}
               onToggle={onTogglePiece}
               kept={keptCovering}
               onToggleCovering={onToggleCovering}
