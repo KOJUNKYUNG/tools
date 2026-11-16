@@ -370,6 +370,7 @@
           "slideTemplate": "슬라이드 {n} / {total}",
           "previous": "이전 슬라이드",
           "next": "다음 슬라이드",
+          "onlyWithElements": "요소가 있는 슬라이드만",
           "empty": "이 슬라이드에는 고를 요소가 없습니다.",
           "picture": "그림",
           "colour": "색",

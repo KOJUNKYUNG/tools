@@ -5,6 +5,7 @@ import { serializeRange } from "@/lib/common/pageRange";
 import { template } from "@/lib/common/template";
 import { deckMedia, type SlideBackground } from "@/lib/ppt/extractCurrentBackgrounds";
 import type { Swatch } from "@/lib/ppt/fills";
+import { placed, SlideSketch } from "./SlideSketch";
 import { swatchFill } from "./swatchFill";
 
 export interface PiecePickerLabels {
@@ -14,6 +15,8 @@ export interface PiecePickerLabels {
   slideTemplate: string;
   previous: string;
   next: string;
+  /** "요소가 있는 슬라이드만": the pager skips slides with nothing to pick. */
+  onlyWithElements: string;
   empty: string;
   /** What a row shows: a picture, or a colour. */
   picture: string;
@@ -53,8 +56,13 @@ interface PiecePickerProps {
   backgroundOf: (slideIndex: number) => { url: string | null; swatch?: Swatch };
   /** aspect-ratio value, e.g. "16 / 9" */
   aspect: string;
+  /** The slide's width over its height. */
+  ratio: number;
   labels: PiecePickerLabels;
 }
+
+/** Whether the slide has anything to pick: a covering background, or a piece. */
+const hasElements = (s: SlideBackground) => s.coveringKey !== undefined || s.pieces.length > 0;
 
 /** The slides among `slides` that have each key, by key. */
 function slidesByKey(slides: readonly SlideBackground[], keysOf: (s: SlideBackground) => readonly string[]) {
@@ -103,11 +111,7 @@ function MiniMap({ box, rotation, aspect }: { box: { x: number; y: number; w: nu
       <span
         className="absolute block"
         style={{
-          left: `${box.x * 100}%`,
-          top: `${box.y * 100}%`,
-          width: `${box.w * 100}%`,
-          height: `${box.h * 100}%`,
-          transform: rotation ? `rotate(${rotation}deg)` : undefined,
+          ...placed({ box, rotation }),
           border: "1px solid color-mix(in oklch, var(--ink-strong) 55%, transparent)",
           background:
             "repeating-linear-gradient(135deg, color-mix(in oklch, var(--ink-strong) 35%, transparent) 0 1px, transparent 1px 3px)",
@@ -123,9 +127,12 @@ function MiniMap({ box, rotation, aspect }: { box: { x: number; y: number; w: nu
  * slide's covering background and pieces on the right, bottom of its stack
  * first, each named a picture or a colour. Its covering background starts
  * ticked (unticking keeps it, sheet music the rule caught); pieces start
- * unticked. Each row shows its picture
- * or colour, where it lies, its size and which slides in scope have it.
- * Ticking one ticks it on every slide that has it.
+ * unticked. Each row shows its picture or colour, where it lies, its size and
+ * which slides in scope have it. Ticking one ticks it on every slide that has
+ * it. Under the pager, a sketch of the slide with its pieces in place:
+ * pointing at a piece in the list or in the sketch marks it in both, and
+ * clicking it in the sketch picks it too. The pager skips slides with nothing
+ * to pick unless the user asks for them all.
  */
 export function PiecePicker({
   slides,
@@ -140,13 +147,22 @@ export function PiecePicker({
   file,
   backgroundOf,
   aspect,
+  ratio,
   labels,
 }: PiecePickerProps) {
-  // Opens on the first slide with anything to pick.
-  const [index, setIndex] = useState(() =>
-    Math.max(0, slides.findIndex((s) => s.coveringKey !== undefined || s.pieces.length > 0)),
-  );
-  const slide = slides[index];
+  const [onlyWithElements, setOnlyWithElements] = useState(true);
+  const paged = useMemo(() => (onlyWithElements ? slides.filter(hasElements) : slides), [slides, onlyWithElements]);
+  // The slide shown, by its number: it stays when the switch changes the
+  // slides paged through, and the next one takes over when it drops out.
+  const [current, setCurrent] = useState(() => slides.find(hasElements)?.slideIndex ?? 1);
+  const index = Math.max(0, paged.findIndex((s) => s.slideIndex >= current));
+  const slide = paged.at(index);
+  /** The piece pointed at, by its place in the slide's pieces, and where: the list follows the sketch. */
+  const [hovered, setHovered] = useState<{ index: number; from: "list" | "sketch" } | null>(null);
+  const hoveredRow = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (hovered?.from === "sketch") hoveredRow.current?.scrollIntoView({ block: "nearest" });
+  }, [hovered]);
   const pieces = useMemo(() => slide?.pieces ?? [], [slide]);
   const pieceSlides = useMemo(() => slidesByKey(slides, (s) => s.pieces.map((p) => p.key)), [slides]);
   const coveringSlides = useMemo(() => slidesByKey(slides, (s) => (s.coveringKey ? [s.coveringKey] : [])), [slides]);
@@ -190,7 +206,11 @@ export function PiecePicker({
     return () => window.removeEventListener("keydown", onKey);
   }, [onDone]);
 
-  const page = (step: number) => setIndex((i) => (i + step + slides.length) % slides.length);
+  const page = (step: number) => {
+    const next = paged.at((index + step + paged.length) % paged.length);
+    if (next) setCurrent(next.slideIndex);
+    setHovered(null);
+  };
   const background = slide ? backgroundOf(slide.slideIndex) : { url: null };
 
   /** Which slides in scope have it: listed when they fit, counted when not, or this slide alone. */
@@ -213,11 +233,32 @@ export function PiecePicker({
     );
   };
 
-  const row = (key: string, on: boolean, toggle: () => void, thumb: ReactNode, map: ReactNode, name: string, line: ReactNode) => (
-    <li key={key}>
+  const row = (
+    key: string,
+    on: boolean,
+    toggle: () => void,
+    thumb: ReactNode,
+    map: ReactNode,
+    name: string,
+    line: ReactNode,
+    /** A piece's place in the slide's pieces: pointing at its row marks it in the sketch. */
+    piece?: number,
+  ) => (
+    <li
+      key={key}
+      ref={piece !== undefined && hovered?.index === piece ? hoveredRow : undefined}
+      onMouseEnter={piece === undefined ? undefined : () => setHovered({ index: piece, from: "list" })}
+      onMouseLeave={piece === undefined ? undefined : () => setHovered(null)}
+    >
       <label
         className="flex cursor-pointer items-center gap-2.5 rounded-[6px] border px-2 py-1.5"
-        style={{ borderColor: on ? "var(--emphasis)" : "var(--border)", background: on ? "var(--surface-2)" : "var(--surface)" }}
+        style={{
+          borderColor: on ? "var(--emphasis)" : "var(--border)",
+          background: on ? "var(--surface-2)" : "var(--surface)",
+          // Drawn inside the row, so marking it moves nothing.
+          outline: piece !== undefined && hovered?.index === piece ? "1px solid var(--emphasis)" : undefined,
+          outlineOffset: "-1px",
+        }}
       >
         <input
           type="checkbox"
@@ -250,6 +291,13 @@ export function PiecePicker({
 
   const { coveringKey, coveringPlace } = slide ?? {};
   const empty = !coveringKey && pieces.length === 0;
+  /** A row's name and size: a picture or a colour, and its share of the slide. */
+  const kindOf = (imagePath: string | null) => (imagePath ? labels.picture : labels.colour);
+  const shareOf = (share: number) => template(labels.shareTemplate, { pct: Math.round(share * 100) });
+  const pieceName = (piece: (typeof pieces)[number]) => `${kindOf(piece.imagePath)} · ${shareOf(piece.share)}`;
+  // Nothing to skip when every slide has something to pick (a master picture
+  // on every slide, the common case): the switch is hidden, its line kept.
+  const allHaveElements = slides.every(hasElements);
 
   return (
     <div
@@ -269,14 +317,14 @@ export function PiecePicker({
       </div>
 
       <div className="grid min-h-0 flex-1 gap-4" style={{ gridTemplateColumns: "minmax(0, 2fr) minmax(0, 3fr)" }}>
-        {/* Left: the pager over the slide's current background. */}
+        {/* Left: the pager, the switch to skip slides with nothing to pick, and the slide's sketch. */}
         <div className="flex min-h-0 flex-col gap-2">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => page(-1)}
               aria-label={labels.previous}
-              disabled={slides.length < 2}
+              disabled={paged.length < 2}
               className="subtle-action flex size-6 items-center justify-center rounded-[5px] font-body text-[12px]"
             >
               ‹
@@ -288,25 +336,44 @@ export function PiecePicker({
               type="button"
               onClick={() => page(1)}
               aria-label={labels.next}
-              disabled={slides.length < 2}
+              disabled={paged.length < 2}
               className="subtle-action flex size-6 items-center justify-center rounded-[5px] font-body text-[12px]"
             >
               ›
             </button>
           </div>
-          <div
-            className="relative w-full overflow-hidden rounded-[8px] border"
-            style={{
-              borderColor: "var(--border)",
-              aspectRatio: aspect,
-              background: background.url ? "var(--surface-2)" : background.swatch ? swatchFill(background.swatch) : "var(--surface-2)",
-            }}
+          <label
+            className={`flex shrink-0 cursor-pointer items-center gap-1.5 font-body text-[11px] ${allHaveElements ? "invisible" : ""}`}
+            style={{ color: "var(--ink-strong)" }}
           >
-            {background.url && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={background.url} alt="" className="size-full object-cover" />
-            )}
-          </div>
+            <input
+              type="checkbox"
+              className="size-3.5 shrink-0"
+              checked={onlyWithElements}
+              disabled={allHaveElements}
+              onChange={(e) => {
+                setOnlyWithElements(e.target.checked);
+                setHovered(null);
+              }}
+              style={{ accentColor: "var(--emphasis)" }}
+            />
+            {labels.onlyWithElements}
+          </label>
+          <SlideSketch
+            background={background}
+            pieces={pieces}
+            urls={urls}
+            picked={picked}
+            onToggle={onToggle}
+            hovered={hovered?.index ?? null}
+            // Leaving a piece here (or its focus moving to the list) clears
+            // only what the sketch marked, never the row the pointer is on.
+            onHover={(i) =>
+              setHovered((prev) => (i !== null ? { index: i, from: "sketch" } : prev?.from === "sketch" ? null : prev))
+            }
+            nameOf={pieceName}
+            ratio={ratio}
+          />
         </div>
 
         {/* Right: the slide's covering background, then its pieces, bottom of the stack first. */}
@@ -325,19 +392,20 @@ export function PiecePicker({
               () => onToggleCovering(coveringKey),
               thumb(background.url, background.swatch, "cover"),
               <MiniMap box={coveringPlace.box} rotation={0} aspect={aspect} />,
-              slide.imagePath ? labels.picture : labels.colour,
-              where(coveringSlides.get(coveringKey), template(labels.shareTemplate, { pct: Math.round(coveringPlace.share * 100) })),
+              kindOf(slide.imagePath),
+              where(coveringSlides.get(coveringKey), shareOf(coveringPlace.share)),
             )}
           {pieces.map((piece, i) =>
             // By place in the stack: a slide may show the same piece twice (one picture placed twice).
             row(
-              `${slide.slideIndex}:${i}`,
+              `${slide?.slideIndex}:${i}`,
               picked.has(piece.key),
               () => onToggle(piece.key),
               thumb(piece.imagePath ? urls.get(piece.imagePath) : null, piece.swatch, "contain"),
               <MiniMap box={piece.box} rotation={piece.rotation} aspect={aspect} />,
-              piece.imagePath ? labels.picture : labels.colour,
-              where(pieceSlides.get(piece.key), template(labels.shareTemplate, { pct: Math.round(piece.share * 100) })),
+              kindOf(piece.imagePath),
+              where(pieceSlides.get(piece.key), shareOf(piece.share)),
+              i,
             ),
           )}
         </ul>

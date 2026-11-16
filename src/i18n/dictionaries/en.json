@@ -370,6 +370,7 @@
           "slideTemplate": "Slide {n} / {total}",
           "previous": "Previous slide",
           "next": "Next slide",
+          "onlyWithElements": "Only slides with elements",
           "empty": "Nothing to pick on this slide.",
           "picture": "Picture",
           "colour": "Colour",

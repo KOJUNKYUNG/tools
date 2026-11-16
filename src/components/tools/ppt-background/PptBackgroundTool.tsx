@@ -824,6 +824,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               file={pptxFile}
               backgroundOf={backgroundOf}
               aspect={aspectCss}
+              ratio={slideAspect.ratio}
               labels={labels.pieces}
             />
           )}
