@@ -351,17 +351,10 @@ export function PiecePicker({
       <div className="grid min-h-0 flex-1 gap-4" style={{ gridTemplateColumns: "minmax(0, 2fr) minmax(0, 3fr)" }}>
         {/* Left: the pager, the switch to skip slides with nothing to pick, and the slide's sketch. */}
         <div className="flex min-h-0 flex-col gap-2">
+          {/* The number on the left, the arrows together on the right: a mark
+              after the number only grows to its right, so nothing moves. */}
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => page(-1)}
-              aria-label={labels.previous}
-              disabled={paged.length < 2}
-              className="subtle-action flex size-6 items-center justify-center rounded-[5px] font-body text-[12px]"
-            >
-              ‹
-            </button>
-            <span className="min-w-0 flex-1 truncate text-center font-body text-[11.5px] tabular-nums" style={{ color: "var(--ink-strong)" }}>
+            <span className="min-w-0 flex-1 truncate font-body text-[11.5px] tabular-nums" style={{ color: "var(--ink-strong)" }}>
               {template(labels.slideTemplate, { n: slide?.slideIndex ?? 0, total: totalSlides })}
               {slide && !inScope.has(slide.slideIndex) && (
                 <span style={{ color: "var(--ink-soft)" }}>{` · ${labels.outOfScope}`}</span>
@@ -369,10 +362,19 @@ export function PiecePicker({
             </span>
             <button
               type="button"
+              onClick={() => page(-1)}
+              aria-label={labels.previous}
+              disabled={paged.length < 2}
+              className="subtle-action flex size-6 shrink-0 items-center justify-center rounded-[5px] font-body text-[12px]"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
               onClick={() => page(1)}
               aria-label={labels.next}
               disabled={paged.length < 2}
-              className="subtle-action flex size-6 items-center justify-center rounded-[5px] font-body text-[12px]"
+              className="subtle-action flex size-6 shrink-0 items-center justify-center rounded-[5px] font-body text-[12px]"
             >
               ›
             </button>
