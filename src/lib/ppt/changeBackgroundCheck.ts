@@ -89,8 +89,8 @@ export interface PptBackgroundRequest {
  * - ⚡ `covering-background-kept`: a covering background the plan deletes is
  *   still there
  * - ⚡ `piece-kept`: a background piece the user picked (spec #163) is still
- *   on a slide in scope (the plan's `pieces`, re-derived by the shared rule
- *   and keys)
+ *   on a slide in scope, or in its master or layout when the plan deletes it
+ *   there (the plan's `pieces`, re-derived by the shared rule and keys)
  * - ⚡ `element-missing`: another top-level element is gone
  * - ⚡ `animation-target-missing`: an animation or build entry names a shape
  *   the slide does not have (the deck would need repair)
@@ -191,7 +191,7 @@ export const checkPptBackground: OutputChecker<
   const rewritten = [
     ...new Set([
       ...(request.mode === "master" ? [...targets, ...coveringChecked, ...before.layoutParts] : targets),
-      ...[...deletions.keys()].filter((p) => !slideSet.has(p)),
+      ...[...deletions.keys(), ...pieces.keys()].filter((p) => !slideSet.has(p)),
     ]),
   ];
 

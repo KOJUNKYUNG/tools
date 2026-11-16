@@ -13,7 +13,7 @@ import {
   type SlideBackground,
 } from "@/lib/ppt/extractCurrentBackgrounds";
 import { getSlideAspect, type SlideAspect } from "@/lib/ppt/getSlideAspect";
-import { coveringPlan } from "@/lib/ppt/coveringPlan";
+import { coveringPlan, picksHideOtherGraphics } from "@/lib/ppt/coveringPlan";
 import { groupBackgrounds, type BackgroundGroup } from "@/lib/ppt/groupBackgrounds";
 import { noBackgroundColours } from "@/lib/ppt/themeBackground";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
@@ -435,17 +435,26 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     !normalizing &&
     status === "idle";
 
-  // Whether the apply scope hides background graphics on some slides and
-  // takes others that show something (a logo) with them: the engine's own
-  // plan, so the notice promises what the run does.
-  const hidesOtherGraphics = useMemo(() => {
-    if (currentBgs.length === 0) return false;
-    const { hides } = coveringPlan(
-      currentBgs.map((b) => b.stack),
-      { mode, targetSlides: mode === "specific-slides" ? [...selectedSlides] : undefined, keptCovering: [...keptCovering] },
-    );
-    return [...hides.values()].some((n) => n > 0);
-  }, [currentBgs, mode, selectedSlides, keptCovering]);
+  // The run's choices as the engine's own plan reads them, so the notices promise what the run does.
+  const planScope = useMemo(
+    () => ({
+      mode,
+      targetSlides: mode === "specific-slides" ? [...selectedSlides] : undefined,
+      keptCovering: [...keptCovering],
+      pickedPieces: [...pickedPieces],
+    }),
+    [mode, selectedSlides, keptCovering, pickedPieces],
+  );
+  const stacks = useMemo(() => currentBgs.map((b) => b.stack), [currentBgs]);
+  // Whether the run hides background graphics on some slides and takes others
+  // that show something (a logo) with them, for its covering backgrounds or
+  // the picked pieces: the workspace's notice.
+  const hidesOtherGraphics = useMemo(
+    () => [...coveringPlan(stacks, planScope).hides.values()].some((n) => n > 0),
+    [stacks, planScope],
+  );
+  // The picker's own notice: the picked background graphics are why.
+  const picksHideGraphics = useMemo(() => picksHideOtherGraphics(stacks, planScope), [stacks, planScope]);
 
   // ───────── Bidirectional check ↔ range binding ─────────
   // Checking a current-background group selects every slide that uses it and
@@ -818,6 +827,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               totalSlides={totalSlides}
               picked={pickedPieces}
               pickedInScope={pickedInScope.length}
+              picksHideGraphics={picksHideGraphics}
               onToggle={onTogglePiece}
               kept={keptCovering}
               onToggleCovering={onToggleCovering}

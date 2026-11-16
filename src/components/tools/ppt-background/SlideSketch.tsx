@@ -37,9 +37,10 @@ export const placed = ({ box, rotation }: Pick<PiecePreview, "box" | "rotation">
 /**
  * A sketch of the slide for the picker (spec #163): its current background
  * with each piece in place, a picture as itself, a fill as its colour, a
- * picture the browser cannot draw as a neutral box. Text is not drawn. A
- * picked piece is drawn removed, as a dashed outline; clicking a piece picks
- * or unpicks it. As large as the space it is given allows.
+ * picture the browser cannot draw as a neutral box. Text is not drawn, nor a
+ * piece under the covering background. A picked piece is drawn removed, as a
+ * dashed outline; clicking a piece picks or unpicks it. As large as the space
+ * it is given allows.
  */
 export function SlideSketch({ background, pieces, urls, picked, onToggle, hovered, onHover, nameOf, ratio }: SlideSketchProps) {
   // Pictures the browser could not draw (EMF, WMF, a damaged file).
@@ -61,6 +62,10 @@ export function SlideSketch({ background, pieces, urls, picked, onToggle, hovere
           <img src={background.url} alt="" className="size-full object-cover" draggable={false} />
         )}
         {pieces.map((piece, i) => {
+          // Under the covering background (a background graphic under the
+          // slide's photo) it does not show today, so it is not drawn over it;
+          // its outline still marks it, and its row picks it.
+          if (piece.underCovering) return null;
           const removed = picked.has(piece.key);
           const path = piece.imagePath;
           const url = path && !broken.has(path) ? urls.get(path) : undefined;

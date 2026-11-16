@@ -31,6 +31,10 @@ export interface PiecePickerLabels {
   slidesListTemplate: string;
   /** "{n}장에 있음": the same, when the list does not fit. */
   slidesTemplate: string;
+  /** "배경 그래픽": after a row's name, for a piece on the master or a layout. */
+  graphic: string;
+  /** A picked background graphic makes some slides in scope hide others (a logo) too. */
+  hidesNotice: string;
   /** "이 슬라이드에만 있음" */
   onlyHere: string;
   /** "{n}종 고름": the picked pieces on the slides in scope. */
@@ -50,6 +54,8 @@ interface PiecePickerProps {
   picked: ReadonlySet<string>;
   /** How many picked pieces the slides in scope have: those that go. */
   pickedInScope: number;
+  /** Whether a picked background graphic makes some slides in scope hide others (`picksHideOtherGraphics`). */
+  picksHideGraphics: boolean;
   onToggle: (key: string) => void;
   /** Keys of the covering-background groups the user keeps (`coveringGroupKey`): unticked here. */
   kept: ReadonlySet<string>;
@@ -131,7 +137,9 @@ function MiniMap({ box, rotation, aspect }: { box: { x: number; y: number; w: nu
  * What can go with the old background (spec #163), over the workspace card:
  * a pager through the slides in the apply scope on the left, the shown
  * slide's covering background and pieces on the right, bottom of its stack
- * first, each named a picture or a colour. Its covering background starts
+ * first, each named a picture or a colour, a piece on the master or a layout
+ * marked a background graphic (a notice says when picking one hides others,
+ * a logo, on some slides in scope). Its covering background starts
  * ticked (unticking keeps it, sheet music the rule caught); pieces start
  * unticked. Each row shows its picture or colour, where it lies, its size and
  * which slides in scope have it. Ticking one ticks it on every slide that has
@@ -146,6 +154,7 @@ export function PiecePicker({
   totalSlides,
   picked,
   pickedInScope,
+  picksHideGraphics,
   onToggle,
   kept,
   onToggleCovering,
@@ -306,7 +315,22 @@ export function PiecePicker({
   /** A row's name and size: a picture or a colour, and its share of the slide. */
   const kindOf = (imagePath: string | null) => (imagePath ? labels.picture : labels.colour);
   const shareOf = (share: number) => template(labels.shareTemplate, { pct: Math.round(share * 100) });
-  const pieceName = (piece: (typeof pieces)[number]) => `${kindOf(piece.imagePath)} · ${shareOf(piece.share)}`;
+  /** A row's name: its kind, and a background graphic marked as one. */
+  const nameOf = (piece: (typeof pieces)[number]) =>
+    piece.backgroundGraphic ? `${kindOf(piece.imagePath)} · ${labels.graphic}` : kindOf(piece.imagePath);
+  const pieceName = (piece: (typeof pieces)[number]) => `${nameOf(piece)} · ${shareOf(piece.share)}`;
+  /** A piece's row; by its place in the stack, since a slide may show the same piece twice (one picture placed twice). */
+  const pieceRow = (piece: (typeof pieces)[number], i: number) =>
+    row(
+      `${slide?.slideIndex}:${i}`,
+      picked.has(piece.key),
+      () => onToggle(piece.key),
+      thumb(piece.imagePath ? urls.get(piece.imagePath) : null, piece.swatch, "contain"),
+      <MiniMap box={piece.box} rotation={piece.rotation} aspect={aspect} />,
+      nameOf(piece),
+      where(pieceSlides.get(piece.key), shareOf(piece.share)),
+      i,
+    );
   // Nothing to skip when every slide listed has something to pick (a master
   // picture on every slide, the common case): the switch is hidden, its place kept.
   const allHaveElements = slides.every(hasElements);
@@ -401,13 +425,15 @@ export function PiecePicker({
           />
         </div>
 
-        {/* Right: the slide's covering background, then its pieces, bottom of the stack first. */}
+        {/* Right: the slide's covering background and pieces, bottom of the stack first. */}
         <ul className="flex min-h-0 flex-col gap-1.5 overflow-y-auto pr-1">
           {empty && (
             <li className="py-6 text-center font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
               {labels.empty}
             </li>
           )}
+          {/* The pieces under the covering background (background graphics), then it, then the rest. */}
+          {pieces.map((piece, i) => (piece.underCovering ? pieceRow(piece, i) : null))}
           {slide &&
             coveringKey &&
             coveringPlace &&
@@ -420,25 +446,22 @@ export function PiecePicker({
               kindOf(slide.imagePath),
               where(coveringSlides.get(coveringKey), shareOf(coveringPlace.share)),
             )}
-          {pieces.map((piece, i) =>
-            // By place in the stack: a slide may show the same piece twice (one picture placed twice).
-            row(
-              `${slide?.slideIndex}:${i}`,
-              picked.has(piece.key),
-              () => onToggle(piece.key),
-              thumb(piece.imagePath ? urls.get(piece.imagePath) : null, piece.swatch, "contain"),
-              <MiniMap box={piece.box} rotation={piece.rotation} aspect={aspect} />,
-              kindOf(piece.imagePath),
-              where(pieceSlides.get(piece.key), shareOf(piece.share)),
-              i,
-            ),
-          )}
+          {pieces.map((piece, i) => (piece.underCovering ? null : pieceRow(piece, i)))}
         </ul>
       </div>
 
       <div className="flex shrink-0 items-center gap-2 border-t pt-2" style={{ borderColor: "var(--hairline)" }}>
-        <span className="min-w-0 flex-1 truncate font-body text-[11px]" style={{ color: "var(--ink-soft)" }}>
-          {template(labels.pickedTemplate, { n: pickedInScope })}
+        {/* Two lines always reserved, the count at the bottom: the notice comes and goes without moving anything. */}
+        <span
+          className="flex min-h-[2.7em] min-w-0 flex-1 flex-col justify-end font-body text-[11px] leading-[1.35]"
+          style={{ color: "var(--ink-soft)" }}
+        >
+          {picksHideGraphics && (
+            <span className="truncate" title={labels.hidesNotice}>
+              {labels.hidesNotice}
+            </span>
+          )}
+          <span className="truncate">{template(labels.pickedTemplate, { n: pickedInScope })}</span>
         </span>
         <button
           type="button"

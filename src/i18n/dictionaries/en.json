@@ -379,6 +379,8 @@
           "shareTemplate": "{pct}% of the slide",
           "slidesListTemplate": "Slides {list}",
           "slidesTemplate": "On {n} slides",
+          "graphic": "Background graphic",
+          "hidesNotice": "Because of a picked background graphic, some slides also hide other background graphics, such as a logo.",
           "onlyHere": "Only on this slide",
           "pickedTemplate": "{n} picked",
           "clearAll": "Clear all",

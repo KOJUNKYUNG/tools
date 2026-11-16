@@ -25,6 +25,10 @@ export interface PiecePreview {
   rotation: number;
   /** The share of the slide's area it covers, 0…1. */
   share: number;
+  /** Whether it is a background graphic (on the master or a layout), not the slide's own. */
+  backgroundGraphic: boolean;
+  /** Whether it lies under the slide's covering background, so does not show today. */
+  underCovering: boolean;
 }
 
 /**
@@ -192,13 +196,15 @@ export async function extractCurrentBackgrounds(
       imagePath: null,
       stack: plannedSlide(stacks[i]),
       noBackground: noBackgroundSwatch(colours),
-      pieces: stacks[i].pieces.map(({ key, pictureParts, fills, bounds, rot, share }) => ({
+      pieces: stacks[i].pieces.map(({ key, pictureParts, fills, bounds, rot, share, holder, underCovering }) => ({
         key,
         imagePath: pictureParts[0] ?? null,
         swatch: pictureParts.length > 0 ? null : (fills[0] ?? null),
         box: fractionOf(bounds, slideSize),
         rotation: rot / 60000,
         share,
+        backgroundGraphic: holder !== "slide",
+        underCovering,
       })),
     };
 
