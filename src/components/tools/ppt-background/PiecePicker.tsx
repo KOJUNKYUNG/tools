@@ -15,15 +15,19 @@ export interface PiecePickerLabels {
   slideTemplate: string;
   previous: string;
   next: string;
+  /** "적용 슬라이드만": the pager goes through the slides in the apply scope only. */
+  onlyInScope: string;
   /** "요소가 있는 슬라이드만": the pager skips slides with nothing to pick. */
   onlyWithElements: string;
+  /** "적용 안 함": beside the slide number, when the slide shown is outside the apply scope. */
+  outOfScope: string;
   empty: string;
   /** What a row shows: a picture, or a colour. */
   picture: string;
   colour: string;
   /** "슬라이드의 {pct}%" */
   shareTemplate: string;
-  /** "슬라이드 {list}": the slides in scope that have it, e.g. "1, 3-16". */
+  /** "슬라이드 {list}": the slides listed (in scope, or all) that have it, e.g. "1, 3-16". */
   slidesListTemplate: string;
   /** "{n}장에 있음": the same, when the list does not fit. */
   slidesTemplate: string;
@@ -36,8 +40,10 @@ export interface PiecePickerLabels {
 }
 
 interface PiecePickerProps {
-  /** The slides in the apply scope, in presentation order, with their background pieces. */
+  /** The deck's slides, in presentation order, with their background pieces. */
   slides: readonly SlideBackground[];
+  /** The numbers of the slides in the apply scope: only their picks go. */
+  inScope: ReadonlySet<number>;
   /** How many slides the deck has. */
   totalSlides: number;
   /** Keys of the picked pieces (`pieceKey`). */
@@ -135,7 +141,8 @@ function MiniMap({ box, rotation, aspect }: { box: { x: number; y: number; w: nu
  * to pick unless the user asks for them all.
  */
 export function PiecePicker({
-  slides,
+  slides: deck,
+  inScope,
   totalSlides,
   picked,
   pickedInScope,
@@ -150,9 +157,14 @@ export function PiecePicker({
   ratio,
   labels,
 }: PiecePickerProps) {
+  // The slides listed: those in the apply scope (the default), or the whole
+  // deck, to look at a slide that is not changing. A pick there still goes
+  // only from the slides in scope that have it.
+  const [onlyInScope, setOnlyInScope] = useState(true);
+  const slides = useMemo(() => (onlyInScope ? deck.filter((s) => inScope.has(s.slideIndex)) : deck), [deck, inScope, onlyInScope]);
   const [onlyWithElements, setOnlyWithElements] = useState(true);
   const paged = useMemo(() => (onlyWithElements ? slides.filter(hasElements) : slides), [slides, onlyWithElements]);
-  // The slide shown, by its number: it stays when the switch changes the
+  // The slide shown, by its number: it stays when a switch changes the
   // slides paged through, and the next one takes over when it drops out.
   const [current, setCurrent] = useState(() => slides.find(hasElements)?.slideIndex ?? 1);
   const index = Math.max(0, paged.findIndex((s) => s.slideIndex >= current));
@@ -213,7 +225,7 @@ export function PiecePicker({
   };
   const background = slide ? backgroundOf(slide.slideIndex) : { url: null };
 
-  /** Which slides in scope have it: listed when they fit, counted when not, or this slide alone. */
+  /** Which of the slides listed have it: listed when they fit, counted when not, or this slide alone. */
   const where = (found: ReadonlySet<number> | undefined, share?: string) => {
     const on = found ?? new Set<number>();
     const lead = share ? `${share} · ` : "";
@@ -295,9 +307,29 @@ export function PiecePicker({
   const kindOf = (imagePath: string | null) => (imagePath ? labels.picture : labels.colour);
   const shareOf = (share: number) => template(labels.shareTemplate, { pct: Math.round(share * 100) });
   const pieceName = (piece: (typeof pieces)[number]) => `${kindOf(piece.imagePath)} · ${shareOf(piece.share)}`;
-  // Nothing to skip when every slide has something to pick (a master picture
-  // on every slide, the common case): the switch is hidden, its line kept.
+  // Nothing to skip when every slide listed has something to pick (a master
+  // picture on every slide, the common case): the switch is hidden, its place kept.
   const allHaveElements = slides.every(hasElements);
+  /** A switch over the pager's slides; a hidden one keeps its place, so nothing moves. */
+  const switchBox = (label: string, on: boolean, set: (next: boolean) => void, hidden = false) => (
+    <label
+      className={`flex cursor-pointer items-center gap-1.5 font-body text-[11px] ${hidden ? "invisible" : ""}`}
+      style={{ color: "var(--ink-strong)" }}
+    >
+      <input
+        type="checkbox"
+        className="size-3.5 shrink-0"
+        checked={on}
+        disabled={hidden}
+        onChange={(e) => {
+          set(e.target.checked);
+          setHovered(null);
+        }}
+        style={{ accentColor: "var(--emphasis)" }}
+      />
+      {label}
+    </label>
+  );
 
   return (
     <div
@@ -329,8 +361,11 @@ export function PiecePicker({
             >
               ‹
             </button>
-            <span className="min-w-0 flex-1 text-center font-body text-[11.5px] tabular-nums" style={{ color: "var(--ink-strong)" }}>
+            <span className="min-w-0 flex-1 truncate text-center font-body text-[11.5px] tabular-nums" style={{ color: "var(--ink-strong)" }}>
               {template(labels.slideTemplate, { n: slide?.slideIndex ?? 0, total: totalSlides })}
+              {slide && !inScope.has(slide.slideIndex) && (
+                <span style={{ color: "var(--ink-soft)" }}>{` · ${labels.outOfScope}`}</span>
+              )}
             </span>
             <button
               type="button"
@@ -342,23 +377,11 @@ export function PiecePicker({
               ›
             </button>
           </div>
-          <label
-            className={`flex shrink-0 cursor-pointer items-center gap-1.5 font-body text-[11px] ${allHaveElements ? "invisible" : ""}`}
-            style={{ color: "var(--ink-strong)" }}
-          >
-            <input
-              type="checkbox"
-              className="size-3.5 shrink-0"
-              checked={onlyWithElements}
-              disabled={allHaveElements}
-              onChange={(e) => {
-                setOnlyWithElements(e.target.checked);
-                setHovered(null);
-              }}
-              style={{ accentColor: "var(--emphasis)" }}
-            />
-            {labels.onlyWithElements}
-          </label>
+          {/* The scope switch first: it is always there, the other may be hidden. */}
+          <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
+            {switchBox(labels.onlyInScope, onlyInScope, setOnlyInScope)}
+            {switchBox(labels.onlyWithElements, onlyWithElements, setOnlyWithElements, allHaveElements)}
+          </div>
           <SlideSketch
             background={background}
             pieces={pieces}

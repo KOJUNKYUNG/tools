@@ -367,6 +367,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     () => (mode === "specific-slides" ? currentBgs.filter((s) => selectedSlides.has(s.slideIndex)) : currentBgs),
     [currentBgs, mode, selectedSlides],
   );
+  const scopeSlideNumbers = useMemo(() => new Set(scopeSlides.map((s) => s.slideIndex)), [scopeSlides]);
   const hasPickable = scopeSlides.some((s) => s.coveringKey !== undefined || s.pieces.length > 0);
   /** The picked pieces the slides in scope have: only those go, so only those are counted and cleared. */
   const pickedInScope = useMemo(() => {
@@ -812,7 +813,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
           {piecesOpen && status === "idle" && pptxFile && (
             <PiecePicker
-              slides={scopeSlides}
+              slides={currentBgs}
+              inScope={scopeSlideNumbers}
               totalSlides={totalSlides}
               picked={pickedPieces}
               pickedInScope={pickedInScope.length}
