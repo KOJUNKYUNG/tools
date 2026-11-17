@@ -399,10 +399,18 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     });
   }, []);
   const closePieces = useCallback(() => setPiecesOpen(false), []);
-  const clearPieces = useCallback(
-    () => setPickedPieces((prev) => new Set([...prev].filter((key) => !pickedInScope.includes(key)))),
-    [pickedInScope],
+  /** The covering-background groups of the slides in scope that go (ticked). */
+  const coveringGoing = useMemo(
+    () => [...new Set(scopeSlides.flatMap((s) => (s.coveringKey ? [s.coveringKey] : [])))].filter((key) => !keptCovering.has(key)),
+    [scopeSlides, keptCovering],
   );
+  const anyTicked = pickedInScope.length > 0 || graphicsGoing > 0 || coveringGoing.length > 0;
+  /** 모두 해제: every row of the slides in scope unticked, so everything on them stays. Picks out of scope are kept. */
+  const clearAll = useCallback(() => {
+    setPickedPieces((prev) => new Set([...prev].filter((key) => !pickedInScope.includes(key))));
+    setKeptGraphics((prev) => new Set([...prev, ...scopeSlides.flatMap((s) => s.graphics.map((g) => g.key))]));
+    setKeptCovering((prev) => new Set([...prev, ...coveringGoing]));
+  }, [pickedInScope, scopeSlides, coveringGoing]);
   /** A slide's current background, as its group's frame shows it. */
   const backgroundOf = useCallback(
     (slideIndex: number) => {
@@ -833,7 +841,8 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               onToggle={onTogglePiece}
               kept={keptCovering}
               onToggleCovering={onToggleCovering}
-              onClearAll={clearPieces}
+              anyTicked={anyTicked}
+              onClearAll={clearAll}
               onDone={closePieces}
               file={pptxFile}
               backgroundOf={backgroundOf}

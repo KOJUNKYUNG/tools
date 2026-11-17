@@ -383,6 +383,7 @@
           "slidesListTemplate": "슬라이드 {list}",
           "slidesTemplate": "{n}장에 있음",
           "graphic": "배경 그래픽",
+          "hidden": "현재 배경에 가려짐",
           "onlyHere": "이 슬라이드에만 있음",
           "pickedTemplate": "{n}종 고름",
           "clearAll": "모두 해제",

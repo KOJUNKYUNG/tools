@@ -37,12 +37,15 @@ export interface PiecePickerLabels {
   slidesTemplate: string;
   /** "배경 그래픽": after a row's name, for an element of the master or a layout. */
   graphic: string;
-  /** "배경 그래픽 {n}개 함께 지움": the background graphics going on the slides in scope. */
+  /** After a background graphic's name when it lies under the slide's current background, so does not show today. */
+  hidden: string;
+  /** "배경 그래픽 {n}종 함께 지움": the background graphics going on the slides in scope. */
   graphicsSummaryTemplate: string;
   /** "이 슬라이드에만 있음" */
   onlyHere: string;
   /** "{n}종 고름": the picked pieces on the slides in scope. */
   pickedTemplate: string;
+  /** Unticks every row on the slides in scope: everything stays. */
   clearAll: string;
   done: string;
 }
@@ -69,6 +72,9 @@ interface PiecePickerProps {
   /** Keys of the covering-background groups the user keeps (`coveringGroupKey`): unticked here. */
   kept: ReadonlySet<string>;
   onToggleCovering: (key: string) => void;
+  /** Whether any row of the slides in scope is ticked: `onClearAll` has something to untick. */
+  anyTicked: boolean;
+  /** Unticks every row of the slides in scope: their covering backgrounds and background graphics stay, no piece goes. */
   onClearAll: () => void;
   onDone: () => void;
   /** The deck: a piece's picture is read from it when its slide is shown. */
@@ -178,6 +184,7 @@ export function PiecePicker({
   newBackground,
   kept,
   onToggleCovering,
+  anyTicked,
   onClearAll,
   onDone,
   file,
@@ -351,7 +358,9 @@ export function PiecePicker({
   const shareOf = (share: number) => template(labels.shareTemplate, { pct: Math.round(share * 100) });
   /** A row's name: what it shows, a background graphic marked as one. */
   const nameOf = ({ graphic, piece }: Entry) =>
-    graphic ? `${graphicKind[graphic.kind]} · ${labels.graphic}` : kindOf(piece.imagePath);
+    graphic
+      ? `${graphicKind[graphic.kind]} · ${labels.graphic}${graphic.underCovering ? ` · ${labels.hidden}` : ""}`
+      : kindOf(piece.imagePath);
   const shareOfEntry = ({ graphic, piece }: Entry) => (graphic ? graphic.place?.share : piece.share);
   const goes = ({ graphic, piece }: Entry) => (graphic ? !keptGraphics.has(graphic.key) : picked.has(piece.key));
   const toggleOf = ({ graphic, piece }: Entry) => (graphic ? () => onToggleGraphic(graphic.key) : () => onToggle(piece.key));
@@ -519,7 +528,7 @@ export function PiecePicker({
         <button
           type="button"
           onClick={onClearAll}
-          disabled={pickedInScope === 0}
+          disabled={!anyTicked}
           className="subtle-action rounded-[5px] px-2.5 py-1.5 font-body text-[11px]"
         >
           {labels.clearAll}

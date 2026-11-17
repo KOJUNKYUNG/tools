@@ -383,6 +383,7 @@
           "slidesListTemplate": "Slides {list}",
           "slidesTemplate": "On {n} slides",
           "graphic": "Background graphic",
+          "hidden": "Behind the current background",
           "onlyHere": "Only on this slide",
           "pickedTemplate": "Picked: {n}",
           "clearAll": "Clear all",
