@@ -85,6 +85,9 @@ interface PiecePickerProps {
 /** Whether the slide has anything to pick: a covering background, a background graphic, or a piece. */
 const hasElements = (s: SlideBackground) => s.coveringKey !== undefined || s.graphics.length > 0 || s.pieces.length > 0;
 
+/** The covering background's place for pointing: its row is marked, the sketch has no item for it (it is the background). */
+const COVERING_ROW = -1;
+
 /** A row of the list, and an item of the sketch: a background graphic, or a piece. */
 type Entry = { graphic: GraphicPreview; piece?: undefined } | { piece: PiecePreview; graphic?: undefined };
 
@@ -300,9 +303,12 @@ export function PiecePicker({
         style={{
           borderColor: on ? "var(--emphasis)" : "var(--border)",
           background: on ? "var(--surface-2)" : "var(--surface)",
-          // Drawn inside the row, so marking it moves nothing.
+          // Pointed at: a 2px ring over the border, which a ticked row's
+          // emphasis border alone could not show. Drawn inside the row, so
+          // marking it moves nothing.
           outline: piece !== undefined && hovered?.index === piece ? "1px solid var(--emphasis)" : undefined,
           outlineOffset: "-1px",
+          boxShadow: piece !== undefined && hovered?.index === piece ? "inset 0 0 0 1px var(--emphasis)" : undefined,
         }}
       >
         <input
@@ -492,6 +498,7 @@ export function PiecePicker({
               <MiniMap box={coveringPlace.box} rotation={0} aspect={aspect} />,
               kindOf(slide.imagePath),
               where(coveringSlides.get(coveringKey), shareOf(coveringPlace.share)),
+              COVERING_ROW,
             )}
           {entries.map((e, i) => (e.graphic?.underCovering ? null : entryRow(e, i)))}
         </ul>
