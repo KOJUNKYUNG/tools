@@ -291,42 +291,48 @@ export function PiecePicker({
     line: ReactNode,
     /** An entry's place in the slide's entries: pointing at its row marks it in the sketch. */
     piece?: number,
-  ) => (
-    <li
-      key={key}
-      ref={piece !== undefined && hovered?.index === piece ? hoveredRow : undefined}
-      onMouseEnter={piece === undefined ? undefined : () => setHovered({ index: piece, from: "list" })}
-      onMouseLeave={piece === undefined ? undefined : () => setHovered(null)}
-    >
-      <label
-        className="flex cursor-pointer items-center gap-2.5 rounded-[6px] border px-2 py-1.5"
-        style={{
-          borderColor: on ? "var(--emphasis)" : "var(--border)",
-          background: on ? "var(--surface-2)" : "var(--surface)",
-          // Pointed at: a 2px ring over the border, which a ticked row's
-          // emphasis border alone could not show. Drawn inside the row, so
-          // marking it moves nothing.
-          outline: piece !== undefined && hovered?.index === piece ? "1px solid var(--emphasis)" : undefined,
-          outlineOffset: "-1px",
-          boxShadow: piece !== undefined && hovered?.index === piece ? "inset 0 0 0 1px var(--emphasis)" : undefined,
-        }}
+  ) => {
+    const pointed = piece !== undefined && hovered?.index === piece;
+    return (
+      <li
+        key={key}
+        ref={pointed ? hoveredRow : undefined}
+        onMouseEnter={piece === undefined ? undefined : () => setHovered({ index: piece, from: "list" })}
+        onMouseLeave={piece === undefined ? undefined : () => setHovered(null)}
       >
-        <input
-          type="checkbox"
-          className="size-3.5 shrink-0"
-          checked={on}
-          onChange={toggle}
-          style={{ accentColor: "var(--emphasis)" }}
-        />
-        {thumb}
-        {map}
-        <span className="flex min-w-0 flex-1 flex-col font-body text-[11px] leading-[1.35]">
-          <span style={{ color: "var(--ink-strong)" }}>{name}</span>
-          {line}
-        </span>
-      </label>
-    </li>
-  );
+        <label
+          className="flex cursor-pointer items-center gap-2.5 rounded-[6px] border px-2 py-1.5"
+          style={{
+            borderColor: on ? "var(--emphasis)" : "var(--border)",
+            // Pointed at: an unticked row firms its edge to the emphasis, while a
+            // ticked row, whose edge already is, steps its fill toward the ink.
+            background: on
+              ? pointed
+                ? "color-mix(in oklch, var(--surface-2), var(--ink-strong) 10%)"
+                : "var(--surface-2)"
+              : "var(--surface)",
+            // Drawn inside the row, so marking it moves nothing.
+            outline: pointed && !on ? "1px solid var(--emphasis)" : undefined,
+            outlineOffset: "-1px",
+          }}
+        >
+          <input
+            type="checkbox"
+            className="size-3.5 shrink-0"
+            checked={on}
+            onChange={toggle}
+            style={{ accentColor: "var(--emphasis)" }}
+          />
+          {thumb}
+          {map}
+          <span className="flex min-w-0 flex-1 flex-col font-body text-[11px] leading-[1.35]">
+            <span style={{ color: "var(--ink-strong)" }}>{name}</span>
+            {line}
+          </span>
+        </label>
+      </li>
+    );
+  };
   /** Its picture or colour. */
   const thumb = (url: string | null | undefined, swatch: Swatch | null | undefined, fit: "contain" | "cover") => (
     <span
