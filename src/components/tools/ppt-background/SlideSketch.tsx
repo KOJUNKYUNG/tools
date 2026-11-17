@@ -5,7 +5,7 @@ import type { Bounds } from "@/lib/ppt/coveringBackgrounds";
 import type { Swatch } from "@/lib/ppt/fills";
 import { swatchFill } from "./swatchFill";
 
-/** Something the picker lists, as the sketch draws it: a background graphic or a background piece. */
+/** Something the picker lists, as the sketch draws it: a background graphic, the covering background, or a background piece. */
 export interface SketchItem {
   /** Its first picture, as a zip path; null without one. */
   imagePath: string | null;
@@ -17,25 +17,22 @@ export interface SketchItem {
   rotation: number;
   /** It goes with the old background: drawn removed. */
   removed: boolean;
-  /** It lies under the slide's covering background, so it shows only once that is gone. */
-  underCovering: boolean;
   /** What it is called, for its button. */
   name: string;
   toggle: () => void;
 }
 
 interface SlideSketchProps {
-  /** The slide's current background: its picture, or its colour. */
-  background: { url: string | null; swatch?: Swatch };
-  /** Whether that background is the slide's covering background (the elements under it do not show). */
-  covering: boolean;
   /**
-   * The new background, drawn in place of the old one to show the slide as
-   * it will look; null to show it as it is. The covering background stays
-   * over it when `coveringKept`.
+   * The slide's background setting (its own, its layout's or its master's),
+   * under every element: its picture, or its colour.
+   */
+  background: { url: string | null; swatch?: Swatch };
+  /**
+   * The new background, drawn in place of the background setting to show the
+   * slide as it will look; null to show it as it is.
    */
   newBackground: ReactNode | null;
-  coveringKept: boolean;
   /** The slide's graphics and pieces, bottom of the stack first. */
   items: readonly SketchItem[];
   /** Object URLs of the pictures loaded so far, by zip path. */
@@ -65,20 +62,19 @@ export const placed = ({ box, rotation }: { box: Bounds; rotation: number }): CS
  * background, as it will look: its background with each background graphic
  * and piece in place, a picture as itself, a fill as its colour, text and a
  * picture the browser cannot draw as a neutral box (text itself is not
- * drawn). An item under the covering background is drawn only where that is
- * gone. An item that goes is drawn faint and grey, so it can still be told
+ * drawn). The covering background is one of the items, in its place in the
+ * stack: the background setting alone lies under them all, and an item under
+ * the covering background shows only where that is gone or faint. An item
+ * that goes is drawn faint and grey, so it can still be told
  * apart; in the result it is gone, and shows faint only while pointed at.
  * The item pointed at, here or in the list, stands out as the rest of the
  * slide dims around it. Clicking an item ticks or unticks it. As large as the
  * space it is given allows.
  */
-export function SlideSketch({ background, covering, newBackground, coveringKept, items, urls, hovered, onHover, ratio }: SlideSketchProps) {
+export function SlideSketch({ background, newBackground, items, urls, hovered, onHover, ratio }: SlideSketchProps) {
   // Pictures the browser could not draw (EMF, WMF, a damaged file).
   const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
   const result = newBackground !== null;
-  // The old background shows: always as it is, and in the result where the covering background stays.
-  const oldShown = !result || (covering && coveringKept);
-  const coveringShown = covering && oldShown;
 
   return (
     <div className="relative min-h-0 flex-1 [container-type:size]">
@@ -91,17 +87,15 @@ export function SlideSketch({ background, covering, newBackground, coveringKept,
           background: !result && !background.url && background.swatch ? swatchFill(background.swatch) : "var(--surface-2)",
         }}
       >
-        {result && newBackground}
-        {oldShown && (background.url ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={background.url} alt="" className="absolute inset-0 size-full object-cover" draggable={false} />
-        ) : result && background.swatch ? (
-          <div aria-hidden className="absolute inset-0" style={{ background: swatchFill(background.swatch) }} />
-        ) : null)}
+        {result
+          ? newBackground
+          : background.url && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={background.url} alt="" className="absolute inset-0 size-full object-cover" draggable={false} />
+            )}
         {items.map((item, i) => {
           const { box, removed, imagePath: path } = item;
-          // Under the covering background it does not show, so it is not drawn over it.
-          if (!box || (item.underCovering && coveringShown)) return null;
+          if (!box) return null;
           const url = path && !broken.has(path) ? urls.get(path) : undefined;
           // What goes is drawn faint and grey; in the result it is gone, faint only while pointed at.
           const opacity = !removed ? 1 : result && hovered !== i ? 0 : GHOST;

@@ -368,3 +368,25 @@ describe("extractCurrentBackgrounds tells which background graphics a hiding sli
     expect(await copiesOn(deck, [1], { covering: ["covering:ppt/media/master.png"], graphics: [LOGO] })).toEqual(new Map());
   });
 });
+
+describe("extractCurrentBackgrounds gives each slide its background setting, under every element", () => {
+  it("reads the slide's, else the layout's, else the master's background, covering backgrounds or not", async () => {
+    const deck = await testDeck(
+      [
+        // A covering photo over the slide's own colour: the base is the colour.
+        { shapes: [picture(2, "rId10"), textBox(9, "1절")], pictures: { rId10: "photo.png" }, background: solidBackground("112233") },
+        // A covering photo and no background of its own: the layout's picture.
+        { shapes: [picture(2, "rId10"), textBox(9, "2절")], pictures: { rId10: "photo.png" } },
+        // No covering background: the base is what it shows.
+        { shapes: [textBox(9, "3절")] },
+      ],
+      { background: pictureBackground("rId5"), pictures: { rId5: "layout.png" } },
+    );
+    const slides = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
+    expect(slides.map((s) => [s.source, s.base])).toEqual([
+      ["covering", { imagePath: null, swatch: "#112233" }],
+      ["covering", { imagePath: "ppt/media/layout.png" }],
+      ["layout", { imagePath: "ppt/media/layout.png" }],
+    ]);
+  });
+});

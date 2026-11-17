@@ -411,14 +411,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     setKeptGraphics((prev) => new Set([...prev, ...scopeSlides.flatMap((s) => s.graphics.map((g) => g.key))]));
     setKeptCovering((prev) => new Set([...prev, ...coveringGoing]));
   }, [pickedInScope, scopeSlides, coveringGoing]);
-  /** A slide's current background, as its group's frame shows it. */
-  const backgroundOf = useCallback(
-    (slideIndex: number) => {
-      const g = groups.find((grp) => grp.slideIndexes.includes(slideIndex));
-      return { url: g ? (groupThumbUrls.get(g.key) ?? null) : null, swatch: g?.swatch };
-    },
-    [groups, groupThumbUrls],
-  );
 
   const slideRatio = slideAspect.ratio;
   /** The file the run would put in, shown while the zoom fills the screen. */
@@ -845,7 +837,6 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
               onClearAll={clearAll}
               onDone={closePieces}
               file={pptxFile}
-              backgroundOf={backgroundOf}
               aspect={aspectCss}
               ratio={slideAspect.ratio}
               labels={labels.pieces}

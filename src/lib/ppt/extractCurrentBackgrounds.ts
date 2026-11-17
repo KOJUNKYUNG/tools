@@ -76,6 +76,13 @@ export interface SlideBackground {
   stack: PlannedSlide;
   /** The colour "no background" would show on it (`noBackgroundSwatch`): its own master's, not the deck's first. */
   noBackground: Swatch;
+  /**
+   * Its background setting (the slide's own, else its layout's, else its
+   * master's): what it shows with every element gone, covering backgrounds
+   * included. The picker draws it under the slide's elements. A picture as a
+   * zip path (load it with `deckMedia`); neither when it shows nothing readable.
+   */
+  base: { imagePath: string | null; swatch?: Swatch };
   /** Its background pieces, bottom first. */
   pieces: PiecePreview[];
   /** Its background graphics, bottom first: on its master and layout, under its own elements. */
@@ -149,27 +156,27 @@ async function coveringBackground(
 }
 
 /**
- * What a part's own background shows: its picture, or a swatch of its fill
- * (its own, or the theme's background style it names); neither when it shows
- * nothing readable. null when the part declares no background.
+ * What a part's own background shows: its picture (a zip path the deck
+ * holds), or a swatch of its fill (its own, or the theme's background style it
+ * names); neither when it shows nothing readable. null when the part declares
+ * no background.
  */
 async function ownBackground(
   zip: JSZip,
   partPath: string,
   partXml: string,
   colours: Colours,
-): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "swatch"> | null> {
+): Promise<SlideBackground["base"] | null> {
   const bg = child(child(parseXml(partXml) ?? undefined, "p:cSld"), "p:bg");
   if (!bg) return null;
   const fill = fillChild(child(bg, "p:bgPr"));
   const relId = fill?.name === "a:blipFill" ? child(fill, "a:blip")?.attrs["r:embed"] : undefined;
   if (relId) {
     const path = (await relationshipTargets(zip, partPath)).get(relId) ?? null;
-    const blob = path && (await mediaBlob(zip, path));
-    return blob ? { imageBlob: blob, imagePath: path } : { imageBlob: null, imagePath: null };
+    return { imagePath: path && zip.file(path) ? path : null };
   }
   const shown = shownFill(child(bg, "p:bgPr"), child(bg, "p:bgRef"), colours);
-  return { imageBlob: null, imagePath: null, ...(shown && { swatch: shown.swatch }) };
+  return { imagePath: null, ...(shown && { swatch: shown.swatch }) };
 }
 
 /**
@@ -207,6 +214,7 @@ export async function extractCurrentBackgrounds(
       imageBlob: null,
       source: "none",
       imagePath: null,
+      base: { imagePath: null },
       stack: plannedSlide(stacks[i]),
       noBackground: noBackgroundSwatch(colours),
       pieces: stacks[i].pieces.map(({ key, pictureParts, fills, bounds, rot, share }) => ({
@@ -227,12 +235,6 @@ export async function extractCurrentBackgrounds(
       })),
     };
 
-    const covering = await coveringBackground(zip, stacks[i], slideSize);
-    if (covering) {
-      results.push({ ...bg, ...covering, source: "covering" });
-      continue;
-    }
-
     // Its own background, else the layout's, else the master's: the first
     // that declares one, whatever it shows.
     const layoutPath = await reader.related(slidePath, "slideLayout");
@@ -242,15 +244,26 @@ export async function extractCurrentBackgrounds(
       ["layout", layoutPath],
       ["master", masterPath],
     ];
+    let baseSource: SlideBackground["source"] = "none";
     for (const [source, partPath] of chain) {
       const partXml = partPath && (await zip.file(partPath)?.async("text"));
       const own = partXml ? await ownBackground(zip, partPath, partXml, colours) : null;
       if (own) {
-        if (own.imagePath || own.swatch) Object.assign(bg, own, { source });
+        if (own.imagePath || own.swatch) [bg.base, baseSource] = [own, source];
         break;
       }
     }
 
+    const covering = await coveringBackground(zip, stacks[i], slideSize);
+    if (covering) {
+      results.push({ ...bg, ...covering, source: "covering" });
+      continue;
+    }
+    // Without covering backgrounds, the setting is what shows.
+    const { imagePath, swatch } = bg.base;
+    if (baseSource !== "none") {
+      Object.assign(bg, { source: baseSource, imagePath, imageBlob: imagePath && (await mediaBlob(zip, imagePath)) }, swatch && { swatch });
+    }
     results.push(bg);
   }
 

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { serializeRange } from "@/lib/common/pageRange";
 import { template } from "@/lib/common/template";
 import { deckMedia, type GraphicPreview, type PiecePreview, type SlideBackground } from "@/lib/ppt/extractCurrentBackgrounds";
+import type { Bounds } from "@/lib/ppt/coveringBackgrounds";
 import type { Swatch } from "@/lib/ppt/fills";
 import { placed, SlideSketch, type SketchItem } from "./SlideSketch";
 import { swatchFill } from "./swatchFill";
@@ -79,8 +80,6 @@ interface PiecePickerProps {
   onDone: () => void;
   /** The deck: a piece's picture is read from it when its slide is shown. */
   file: File;
-  /** The slide's current background (its group's thumbnail or swatch), by 1-based slide number. */
-  backgroundOf: (slideIndex: number) => { url: string | null; swatch?: Swatch };
   /** aspect-ratio value, e.g. "16 / 9" */
   aspect: string;
   /** The slide's width over its height. */
@@ -91,11 +90,23 @@ interface PiecePickerProps {
 /** Whether the slide has anything to pick: a covering background, a background graphic, or a piece. */
 const hasElements = (s: SlideBackground) => s.coveringKey !== undefined || s.graphics.length > 0 || s.pieces.length > 0;
 
-/** The covering background's place for pointing: its row is marked, the sketch has no item for it (it is the background). */
-const COVERING_ROW = -1;
+/** A slide's covering background as one element of its stack: its group's key, the one shown and where it lies. */
+interface CoveringEntry {
+  key: string;
+  imagePath: string | null;
+  swatch?: Swatch;
+  place: { box: Bounds; share: number };
+}
 
-/** A row of the list, and an item of the sketch: a background graphic, or a piece. */
-type Entry = { graphic: GraphicPreview; piece?: undefined } | { piece: PiecePreview; graphic?: undefined };
+/**
+ * A row of the list, and an item of the sketch: a background graphic, the
+ * covering background, or a piece. The covering background is an element like
+ * the others; only the slide's background setting lies under them all.
+ */
+type Entry =
+  | { graphic: GraphicPreview; piece?: undefined; covering?: undefined }
+  | { piece: PiecePreview; graphic?: undefined; covering?: undefined }
+  | { covering: CoveringEntry; graphic?: undefined; piece?: undefined };
 
 /** The slides among `slides` that have each key, by key. */
 function slidesByKey(slides: readonly SlideBackground[], keysOf: (s: SlideBackground) => readonly string[]) {
@@ -188,7 +199,6 @@ export function PiecePicker({
   onClearAll,
   onDone,
   file,
-  backgroundOf,
   aspect,
   ratio,
   labels,
@@ -211,11 +221,20 @@ export function PiecePicker({
   useEffect(() => {
     if (hovered?.from === "sketch") hoveredRow.current?.scrollIntoView({ block: "nearest" });
   }, [hovered]);
-  // The slide's background graphics, then its pieces: its stack from the bottom.
-  const entries = useMemo(
-    (): Entry[] => [...(slide?.graphics ?? []).map((graphic) => ({ graphic })), ...(slide?.pieces ?? []).map((piece) => ({ piece }))],
-    [slide],
-  );
+  // The slide's stack from the bottom: the background graphics under its
+  // covering background, it, the other background graphics, then its pieces.
+  const entries = useMemo((): Entry[] => {
+    if (!slide) return [];
+    const graphics = slide.graphics.map((graphic) => ({ graphic }));
+    const { coveringKey: key, coveringPlace: place, imagePath, swatch } = slide;
+    const covering: Entry[] = key && place ? [{ covering: { key, imagePath, swatch, place } }] : [];
+    return [
+      ...graphics.filter((e) => e.graphic.underCovering),
+      ...covering,
+      ...graphics.filter((e) => !e.graphic.underCovering),
+      ...slide.pieces.map((piece) => ({ piece })),
+    ];
+  }, [slide]);
   const pieceSlides = useMemo(() => slidesByKey(slides, (s) => s.pieces.map((p) => p.key)), [slides]);
   const graphicSlides = useMemo(() => slidesByKey(slides, (s) => s.graphics.map((g) => g.key)), [slides]);
   /** The sketch shows the slide with the new background, as it will look. */
@@ -241,7 +260,8 @@ export function PiecePicker({
     };
   }, []);
   useEffect(() => {
-    for (const path of entries.flatMap((e) => ((e.graphic ?? e.piece).imagePath ?? []))) {
+    const paths = [slide?.base.imagePath, ...entries.map((e) => (e.graphic ?? e.piece ?? e.covering).imagePath)];
+    for (const path of paths.flatMap((p) => p ?? [])) {
       if (loading.current.has(path)) continue;
       loading.current.add(path);
       void loadMedia(path).then((blob) => {
@@ -251,7 +271,7 @@ export function PiecePicker({
         setUrls(new Map(urlsRef.current));
       });
     }
-  }, [entries, loadMedia]);
+  }, [slide, entries, loadMedia]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -266,7 +286,8 @@ export function PiecePicker({
     if (next) setCurrent(next.slideIndex);
     setHovered(null);
   };
-  const background = slide ? backgroundOf(slide.slideIndex) : { url: null };
+  // Under every element: the slide's background setting, what it shows with all of them gone.
+  const base = { url: slide?.base.imagePath ? (urls.get(slide.base.imagePath) ?? null) : null, swatch: slide?.base.swatch };
 
   /** Which of the slides listed have it: listed when they fit, counted when not, or this slide alone. */
   const where = (found: ReadonlySet<number> | undefined, share?: string) => {
@@ -350,48 +371,53 @@ export function PiecePicker({
     </span>
   );
 
-  const { coveringKey, coveringPlace } = slide ?? {};
-  const empty = !coveringKey && entries.length === 0;
+  const empty = entries.length === 0;
   /** What a covering background or a piece shows: a picture or a colour. */
   const kindOf = (imagePath: string | null) => (imagePath ? labels.picture : labels.colour);
   const graphicKind = { text: labels.text, picture: labels.picture, fill: labels.colour, other: labels.shape } as const;
   const shareOf = (share: number) => template(labels.shareTemplate, { pct: Math.round(share * 100) });
   /** A row's name: what it shows, a background graphic marked as one. */
-  const nameOf = ({ graphic, piece }: Entry) =>
+  const nameOf = ({ graphic, piece, covering }: Entry) =>
     graphic
       ? `${graphicKind[graphic.kind]} · ${labels.graphic}${graphic.underCovering ? ` · ${labels.hidden}` : ""}`
-      : kindOf(piece.imagePath);
-  const shareOfEntry = ({ graphic, piece }: Entry) => (graphic ? graphic.place?.share : piece.share);
-  const goes = ({ graphic, piece }: Entry) => (graphic ? !keptGraphics.has(graphic.key) : picked.has(piece.key));
-  const toggleOf = ({ graphic, piece }: Entry) => (graphic ? () => onToggleGraphic(graphic.key) : () => onToggle(piece.key));
+      : kindOf((piece ?? covering).imagePath);
+  const shareOfEntry = ({ graphic, piece, covering }: Entry) => (graphic ? graphic.place?.share : piece ? piece.share : covering.place.share);
+  /** Whether it goes with the old background: a covering background or a background graphic unless kept, a piece when picked. */
+  const goes = ({ graphic, piece, covering }: Entry) =>
+    graphic ? !keptGraphics.has(graphic.key) : covering ? !kept.has(covering.key) : picked.has(piece.key);
+  const toggleOf = ({ graphic, piece, covering }: Entry) =>
+    graphic ? () => onToggleGraphic(graphic.key) : covering ? () => onToggleCovering(covering.key) : () => onToggle(piece.key);
+  /** Where it lies: a covering background as its box, unturned (its bounds are after a quarter turn). */
+  const placeOf = ({ graphic, piece, covering }: Entry) =>
+    graphic ? graphic.place : covering ? { box: covering.place.box, rotation: 0 } : { box: piece.box, rotation: piece.rotation };
   const items = entries.map((e): SketchItem => {
-    const shown = e.graphic ?? e.piece;
-    const place = e.graphic ? e.graphic.place : { box: e.piece.box, rotation: e.piece.rotation };
+    const shown = e.graphic ?? e.piece ?? e.covering;
+    const place = placeOf(e);
     const share = shareOfEntry(e);
     return {
       imagePath: shown.imagePath,
-      swatch: shown.swatch,
+      swatch: shown.swatch ?? null,
       box: place?.box ?? null,
       rotation: place?.rotation ?? 0,
       removed: goes(e),
-      underCovering: e.graphic?.underCovering ?? false,
       name: share === undefined ? nameOf(e) : `${nameOf(e)} · ${shareOf(share)}`,
       toggle: toggleOf(e),
     };
   });
   /** An entry's row; by its place in the stack, since a slide may show the same piece twice (one picture placed twice). */
   const entryRow = (e: Entry, i: number) => {
-    const shown = e.graphic ?? e.piece;
+    const shown = e.graphic ?? e.piece ?? e.covering;
     const place = items[i].box && { box: items[i].box, rotation: items[i].rotation };
     const share = shareOfEntry(e);
     return row(
       `${slide?.slideIndex}:${i}`,
       goes(e),
       toggleOf(e),
-      thumb(shown.imagePath ? urls.get(shown.imagePath) : null, shown.swatch, "contain"),
+      // A covering background's thumbnail fills its box, as the current-background card shows it.
+      thumb(shown.imagePath ? urls.get(shown.imagePath) : null, shown.swatch, e.covering ? "cover" : "contain"),
       <MiniMap box={place?.box ?? null} rotation={place?.rotation ?? 0} aspect={aspect} />,
       nameOf(e),
-      where((e.graphic ? graphicSlides : pieceSlides).get(shown.key), share === undefined ? undefined : shareOf(share)),
+      where((e.graphic ? graphicSlides : e.covering ? coveringSlides : pieceSlides).get(shown.key), share === undefined ? undefined : shareOf(share)),
       i,
     );
   };
@@ -474,10 +500,8 @@ export function PiecePicker({
             {switchBox(labels.newView, resultView, setResultView, false, newBackground === null)}
           </div>
           <SlideSketch
-            background={background}
-            covering={coveringKey !== undefined}
+            background={base}
             newBackground={resultView ? newBackground : null}
-            coveringKept={coveringKey !== undefined && kept.has(coveringKey)}
             items={items}
             urls={urls}
             hovered={hovered?.index ?? null}
@@ -497,22 +521,7 @@ export function PiecePicker({
               {labels.empty}
             </li>
           )}
-          {/* The background graphics under the covering background, then it, then the rest. */}
-          {entries.map((e, i) => (e.graphic?.underCovering ? entryRow(e, i) : null))}
-          {slide &&
-            coveringKey &&
-            coveringPlace &&
-            row(
-              `${slide.slideIndex}:covering`,
-              !kept.has(coveringKey),
-              () => onToggleCovering(coveringKey),
-              thumb(background.url, background.swatch, "cover"),
-              <MiniMap box={coveringPlace.box} rotation={0} aspect={aspect} />,
-              kindOf(slide.imagePath),
-              where(coveringSlides.get(coveringKey), shareOf(coveringPlace.share)),
-              COVERING_ROW,
-            )}
-          {entries.map((e, i) => (e.graphic?.underCovering ? null : entryRow(e, i)))}
+          {entries.map(entryRow)}
         </ul>
       </div>
 
