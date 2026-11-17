@@ -396,25 +396,19 @@ async function copiesToLay(
   zip: JSZip,
   hides: ReadonlyMap<string, readonly StackElement[]>,
 ): Promise<Map<string, GraphicCopy[]>> {
-  const read = new Map<string, Promise<{ xml: string; rels: string | null }>>();
-  const partOf = (part: string) => {
-    let found = read.get(part);
-    if (!found) {
-      found = Promise.all([zip.file(part)!.async("text"), zip.file(relsPartOf(part))?.async("text") ?? null]).then(
-        ([xml, rels]) => ({ xml, rels }),
-      );
-      read.set(part, found);
-    }
-    return found;
-  };
+  // Each part read once, for every element of it that stays on some slide.
+  const byPart = new Map<string, Map<number, StackElement>>();
+  for (const e of [...hides.values()].flat()) byPart.set(e.part, (byPart.get(e.part) ?? new Map()).set(e.start, e));
+  const read = new Map<string, GraphicCopy>();
+  for (const [part, found] of byPart) {
+    const [xml, rels] = await Promise.all([zip.file(part)!.async("text"), zip.file(relsPartOf(part))?.async("text") ?? null]);
+    const elements = [...found.values()];
+    readCopies(part, xml, rels, elements).forEach((copy, i) => read.set(`${part}@${elements[i].start}`, copy));
+  }
   const copies = new Map<string, GraphicCopy[]>();
   for (const [slide, staying] of hides) {
-    const laid: GraphicCopy[] = [];
-    for (const e of staying) {
-      const { xml, rels } = await partOf(e.part);
-      laid.push(...readCopies(e.part, xml, rels, [e]));
-    }
-    if (laid.length > 0) copies.set(slide, laid);
+    // Every staying element was read above.
+    if (staying.length > 0) copies.set(slide, staying.map((e) => read.get(`${e.part}@${e.start}`)!));
   }
   return copies;
 }

@@ -352,12 +352,6 @@ export function coveringRun(layers: readonly StackLayer[], slide: SlideSize, col
   return { qualifying, missed, somethingAbove: qualifying.length < shown.length };
 }
 
-/** A background graphic, by the part holding it and where its XML starts. */
-export interface GraphicRef {
-  part: string;
-  start: number;
-}
-
 /**
  * Whether a line shows: the element's own `a:ln` with a fill other than none,
  * or, with no line fill of its own, the line style its style reference names
@@ -396,19 +390,6 @@ function showsSomething(el: XmlElement, colours: Colours): boolean {
     default:
       return true;
   }
-}
-
-/**
- * The background graphics of a slide's stack (its master's and layout's
- * elements) that show something, bottom first: what hiding background
- * graphics on the slide takes away.
- */
-export function graphicsShowing(layers: readonly StackLayer[], colours: Colours): GraphicRef[] {
-  return layers
-    .filter((l) => l.holder !== "slide")
-    .flatMap(({ part, elements }) =>
-      elements.filter((el) => showsSomething(el, colours)).map((el) => ({ part, start: el.start })),
-    );
 }
 
 /**
@@ -537,6 +518,8 @@ export interface GraphicElement extends StackElement {
   area: { box: Bounds; rot: number; share: number } | null;
   /** Whether it lies under the slide's top covering background (under the slide's own photo): it does not show today. */
   underCovering: boolean;
+  /** Whether another top-level element of its part has its shape id (some producers repeat ids): its key then needs its place. */
+  sharedId: boolean;
 }
 
 /**
@@ -559,8 +542,9 @@ export function graphicsIn(
     top !== undefined && (layerOf(part) < layerOf(top.part) || (part === top.part && el.start < top.start));
   return layers
     .filter((l) => l.holder !== "slide")
-    .flatMap(({ part, holder, elements }) =>
-      elements.flatMap((el): GraphicElement[] => {
+    .flatMap(({ part, holder, elements }) => {
+      const firstIds = elements.map((e) => shapeIdsIn(e)[0]);
+      return elements.flatMap((el, i): GraphicElement[] => {
         if (!showsSomething(el, colours) || isCovering(part, el)) return [];
         const [pictures, fills] = [picturesOf(el), fillsOf(el, colours).map((f) => f.swatch)];
         const kind: GraphicKind = showsText(el) ? "text" : pictures.length > 0 ? "picture" : fills.length > 0 ? "fill" : "other";
@@ -577,18 +561,21 @@ export function graphicsIn(
             kind,
             area: pieceArea(el, slide),
             underCovering: isUnder(part, el),
+            sharedId: firstIds[i] !== undefined && firstIds.indexOf(firstIds[i]) !== firstIds.lastIndexOf(firstIds[i]),
           },
         ];
-      }),
-    );
+      });
+    });
 }
 
 /**
  * The key of a background graphic, shared by the preview, the engine and the
- * output check: the part holding it and its own shape id. Every slide showing
- * that part shows it, so keeping it keeps it on all of them.
+ * output check: the part holding it and its own shape id, with its place in
+ * the part when another element there shares the id. Every slide showing that
+ * part shows it, so keeping it keeps it on all of them.
  */
-export function graphicKey({ part, shapeIds, start }: Pick<GraphicElement, "part" | "shapeIds" | "start">): string {
+export function graphicKey({ part, shapeIds, start, sharedId }: Pick<GraphicElement, "part" | "shapeIds" | "start" | "sharedId">): string {
+  const id = shapeIds[0];
   // OPC part names compare case-insensitively.
-  return `graphic:${part.toLowerCase()}#${shapeIds[0] ?? `@${start}`}`;
+  return `graphic:${part.toLowerCase()}#${id === undefined ? `@${start}` : sharedId ? `${id}@${start}` : id}`;
 }

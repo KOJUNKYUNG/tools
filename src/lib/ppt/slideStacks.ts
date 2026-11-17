@@ -11,14 +11,12 @@ import {
   coveringIn,
   graphicKey,
   graphicsIn,
-  graphicsShowing,
   layoutLayers,
   pieceKey,
   piecesIn,
   stackLayers,
   type CoveringBackground,
   type GraphicElement,
-  type GraphicRef,
   type PieceElement,
   type StackLayer,
   type StackPart,
@@ -59,8 +57,6 @@ export interface SlideStack extends LayoutStack {
   covering: CoveringBackground[];
   /** Their picture parts, bottom first, each resolved from the part holding it. */
   coveringPictures: string[];
-  /** Its background graphics that show something (`graphicsShowing`), covering backgrounds included. */
-  showing: GraphicRef[];
   /** The colours its fills resolve against (`slideColours`). */
   colours: Colours;
   /** Its background pieces (`piecesIn`), bottom first. */
@@ -145,7 +141,6 @@ export async function readSlideStacks(
       layers,
       covering,
       ...(await keyed(covering, targetsOf)),
-      showing: graphicsShowing(layers, colours),
       colours,
       pieces,
       graphics,

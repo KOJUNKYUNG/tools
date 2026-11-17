@@ -183,6 +183,17 @@ describe("extractCurrentBackgrounds lists each slide's background pieces", () =>
       expect(slide.graphics.map((g) => g.key)).toEqual(["graphic:ppt/slidemasters/slidemaster1.xml#21"]);
     });
 
+    it("tells apart two graphics of one part sharing a shape id, and keeps a unique id's key plain", async () => {
+      // Some producers repeat shape ids within a part.
+      const deck = await testDeck([{ shapes: [lyrics] }], undefined, {
+        master: { shapes: [picture(21, "rId11", ICON), picture(21, "rId12", BLOB), churchName], pictures: { rId11: "logo.png", rId12: "seal.png" } },
+      });
+      const [slide] = await extractCurrentBackgrounds(new File([new Uint8Array(deck)], "deck.pptx"));
+      const keys = slide.graphics.map((g) => g.key);
+      expect(new Set(keys).size).toBe(3);
+      expect(keys[2]).toBe("graphic:ppt/slidemasters/slidemaster1.xml#22");
+    });
+
     it("marks the background graphics lying under a slide's covering background", async () => {
       const deck = await testDeck(
         [{ shapes: [picture(2, "rId10"), lyrics], pictures: { rId10: "old.png" } }],

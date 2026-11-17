@@ -270,10 +270,10 @@ export const checkPptBackground: OutputChecker<
     }
 
     if (request.mode === "master") {
-      // Slides with covering backgrounds deleted are held by the element properties.
-      // So are slides that got copies of the background graphics staying on them.
-      const copiedOn = (p: string) => (hides.get(p)?.length ?? 0) > 0;
-      for (const part of [...before.layoutParts, ...before.slideParts].filter((p) => !covering.deletedOn.has(p) && !copiedOn(p))) {
+      // Slides with covering backgrounds deleted are held by the element
+      // properties. Master mode takes every slide, so none hides background
+      // graphics or gets copies.
+      for (const part of [...before.layoutParts, ...before.slideParts].filter((p) => !covering.deletedOn.has(p))) {
         const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
         if (inXml === null || outXml === null) continue;
         // A slide the plan hides background graphics on carries the flag besides.
