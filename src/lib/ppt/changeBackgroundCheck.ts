@@ -8,6 +8,7 @@ import type { BgMode } from "./changeBackground";
 import { DEFAULT_SLIDE } from "./getSlideAspect";
 import { shapeIdsIn, topLevelElements, type StackElement } from "./coveringBackgrounds";
 import { coveringPlan } from "./coveringPlan";
+import { ATTRIBUTE, CONNECTION, SHAPE_ID } from "./copyGraphics";
 import { animationTargets } from "./slideAnimations";
 import { packagePartReader } from "./slideColours";
 import { readLayoutStacks, readSlideStacks } from "./slideStacks";
@@ -403,17 +404,20 @@ async function coveringViolations(
 }
 
 /**
- * An element as its copy must read: its shape ids blanked, and each
- * relationship id it names replaced by where that relationship points.
+ * An element as its copy must read: its shape ids and the ids its connectors
+ * join blanked, and each relationship id it names replaced by where that
+ * relationship points (`withCopies` writes them so).
  */
 function asCopied(xml: string, rels: readonly Relationship[]): string {
   const byId = new Map(rels.map((r) => [r.id, r]));
   return xml
-    .replace(/(<(?:\w+:)?cNvPr\b[^>]*\sid=")\d+(")/g, "$1#$2")
-    .replace(/(\s[\w:]+\s*=\s*")([^"]*)(")/g, (attr, before: string, value: string, after: string) => {
+    .replace(SHAPE_ID, "$1#$3")
+    .replace(CONNECTION, "$1#$3")
+    .replace(ATTRIBUTE, (attr, before: string, double?: string, single?: string) => {
+      const [value, quote] = double !== undefined ? [double, '"'] : [single ?? "", "'"];
       const rel = byId.get(value);
-      if (!rel || before.trimStart().startsWith("id=")) return attr;
-      return `${before}${rel.type} ${rel.external ? rel.target : (rel.part ?? "").toLowerCase()}${after}`;
+      if (!rel || /^\s*id\s*=/.test(before)) return attr;
+      return `${before}${quote}${rel.type} ${rel.external ? rel.target : (rel.part ?? "").toLowerCase()}${quote}`;
     });
 }
 

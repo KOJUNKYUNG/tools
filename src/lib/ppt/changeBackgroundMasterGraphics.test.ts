@@ -2,7 +2,7 @@ import JSZip from "jszip";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { headerOnlyImage, standInPrepare } from "@/lib/image/slideImageStandIn";
 import { changeBackground, type BgMode } from "./changeBackground";
-import { clickAnimations, picture, testDeck, textBox, type TestMaster, type TestSlide } from "./testDeck";
+import { clickAnimations, filledShape, group, picture, solidFill, testDeck, textBox, type TestMaster, type TestSlide } from "./testDeck";
 
 /** A phone photo's header: 4032 × 3024, upright. */
 const PHOTO = headerOnlyImage("jpeg", { width: 4032, height: 3024 }, new Uint8Array([1]));
@@ -345,6 +345,21 @@ describe("changeBackground copies the background graphics that stay onto slides 
     const [copied, lyricsBox] = await elements(zip, 1);
     expect(shape(copied)).toBe(shape(masterPicture));
     expect(lyricsBox).toContain("1절");
+  });
+
+  it("copies a kept group whose connector joins its shapes, the output check passing", async () => {
+    const member = (id: number, x: number) => filledShape(id, solidFill("336699"), { x, y: 0, w: 914400, h: 914400 });
+    // A connector written with single quotes, as some producers do.
+    const line =
+      `<p:cxnSp><p:nvCxnSpPr><p:cNvPr id='33' name='Line'/><p:cNvCxnSpPr><a:stCxn id='31' idx='3'/><a:endCxn id='32' idx='1'/></p:cNvCxnSpPr><p:nvPr/></p:nvCxnSpPr>` +
+      `<p:spPr><a:xfrm><a:off x="914400" y="457200"/><a:ext cx="914400" cy="0"/></a:xfrm><a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:ln><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln></p:spPr></p:cxnSp>`;
+    const deco = group(30, { x: 0, y: 0, w: 2743200, h: 914400 }, [member(31, 0), member(32, 1828800), line]);
+    const input = await testDeck(slides, undefined, { master: { shapes: [masterPicture, deco], pictures: { rId10: "master.png" } } });
+    // The run's own output check holds the copy to the master's group.
+    const zip = await runOn(input, "specific-slides", [2], undefined, ["graphic:ppt/slidemasters/slidemaster1.xml#30"]);
+    const xml = await text(zip, "ppt/slides/slide2.xml");
+    const idOf = (name: string) => xml.match(new RegExp(`<p:cNvPr id=["'](\\d+)["'] name=["']${name}["']`))![1];
+    expect(xml).toContain(`<a:stCxn id='${idOf("Rectangle 31")}'`);
   });
 
   it("copies nothing when everything on the master goes", async () => {
