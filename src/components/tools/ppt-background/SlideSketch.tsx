@@ -119,11 +119,9 @@ export function SlideSketch({ background, covering, newBackground, coveringKept,
               onBlur={() => onHover(null)}
               className="absolute block cursor-pointer overflow-hidden p-0"
               style={{
+                // In the slide's own order, ticked or not: where items overlap,
+                // the pointer is on the upper one, as on the slide.
                 ...placed({ box, rotation: item.rotation }),
-                // A removed item lies under the items still drawn: a click on
-                // one that shows reaches it, and the removed one's box still
-                // takes a click to bring it back.
-                zIndex: removed ? 0 : 1,
               }}
             >
               <span
