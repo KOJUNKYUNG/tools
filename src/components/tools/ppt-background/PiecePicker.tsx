@@ -304,16 +304,13 @@ export function PiecePicker({
           className="flex cursor-pointer items-center gap-2.5 rounded-[6px] border px-2 py-1.5"
           style={{
             borderColor: on ? "var(--emphasis)" : "var(--border)",
-            // Pointed at: an unticked row firms its edge to the emphasis, while a
-            // ticked row, whose edge already is, steps its fill toward the ink.
-            background: on
-              ? pointed
-                ? "color-mix(in oklch, var(--surface-2), var(--ink-strong) 10%)"
-                : "var(--surface-2)"
-              : "var(--surface)",
-            // Drawn inside the row, so marking it moves nothing.
-            outline: pointed && !on ? "1px solid var(--emphasis)" : undefined,
-            outlineOffset: "-1px",
+            // The edge says whether it is ticked; pointing at a row, ticked or
+            // not, steps its fill toward the ink, so the two never mix.
+            background: pointed
+              ? `color-mix(in oklch, ${on ? "var(--surface-2)" : "var(--surface)"}, var(--ink-strong) 20%)`
+              : on
+                ? "var(--surface-2)"
+                : "var(--surface)",
           }}
         >
           <input
