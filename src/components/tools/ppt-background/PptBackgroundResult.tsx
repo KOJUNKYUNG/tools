@@ -11,6 +11,8 @@ interface PptBackgroundResultProps {
   summary?: string;
   downloadLabel: string;
   onDownload: () => void;
+  /** Saves the background picture the deck was given; absent for "no background". */
+  saveBackground?: { label: string; onClick: () => void };
 }
 
 export function PptBackgroundResult({
@@ -18,6 +20,7 @@ export function PptBackgroundResult({
   summary,
   downloadLabel,
   onDownload,
+  saveBackground,
 }: PptBackgroundResultProps) {
   return (
     <ResultCard
@@ -25,6 +28,7 @@ export function PptBackgroundResult({
       actions={
         <ResultActions
           download={{ label: downloadLabel, onClick: onDownload }}
+          secondaryDownload={saveBackground}
         />
       }
     >

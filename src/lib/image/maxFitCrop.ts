@@ -33,6 +33,13 @@ export function maxFitCrop(
   const ratioTarget = targetW / targetH;
   const ratioImage = img.w / img.h;
 
+  // An image already of the ratio, to the 1 px a whole-pixel picture of it
+  // can miss by, is the largest frame itself. Derived the other way round,
+  // the frame could fall 1 px short, so a background saved at the slide's
+  // aspect would be cut and re-encoded when used again.
+  const whole = { x: 0, y: 0, width: img.w, height: img.h };
+  if (cropFits(whole, img, ratioTarget)) return whole;
+
   // The exact largest size: target wider than image → width-limited.
   const exactW = ratioTarget >= ratioImage ? img.w : img.h * ratioTarget;
   const exactH = ratioTarget >= ratioImage ? img.w / ratioTarget : img.h;

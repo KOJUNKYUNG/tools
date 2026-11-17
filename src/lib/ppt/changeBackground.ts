@@ -6,6 +6,7 @@ import { zipCompressionMethods } from "@/lib/output-check/zipReader";
 import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
   prepareSlideImage,
+  type PreparedImage,
   type PrepareSlideImage,
   type SlideSize,
 } from "@/lib/image/slideImage";
@@ -54,6 +55,17 @@ export interface ChangeBackgroundOptions {
   onProgress?: (pct: number) => void;
   /** The picture preparer; tests and Node stand one in for the canvas. */
   prepare?: PrepareSlideImage;
+}
+
+/** What a run gives: the deck, and the picture it put in as the background. */
+export interface ChangeBackgroundResult {
+  deck: Uint8Array;
+  /**
+   * The background picture, byte for byte as the deck holds it, so it can be
+   * saved and used again without re-encoding; null for a fill (a solid colour
+   * or "no background"), which the deck holds as no picture.
+   */
+  picture: PreparedImage | null;
 }
 
 /**
@@ -525,7 +537,7 @@ export async function changeBackground({
   keptGraphics = [],
   onProgress,
   prepare = prepareSlideImage,
-}: ChangeBackgroundOptions): Promise<Uint8Array> {
+}: ChangeBackgroundOptions): Promise<ChangeBackgroundResult> {
   // The picker only gives `#rrggbb`; anything else would be written into the
   // deck as is, and PowerPoint could not open it.
   if (background.kind === "colour" && !/^[0-9A-F]{6}$/i.test(background.rgb)) {
@@ -540,6 +552,7 @@ export async function changeBackground({
   const slideSize = await getSlideSize(zip);
   let partBackground: PartBackground;
   let requested: RequestedBackground;
+  let picture: PreparedImage | null = null;
   if (background.kind === "picture") {
     const { file, crop } = background;
     const imgSize = await loadImageSize(file);
@@ -558,6 +571,7 @@ export async function changeBackground({
 
     partBackground = { media: `../media/${mediaName}` };
     requested = { kind: "picture", source, crop, prepared: prepared.bytes };
+    picture = prepared;
   } else {
     // "No background" is written, not cleared: a cleared slide would show
     // whatever its layout or master carries, a picture included. The theme
@@ -633,7 +647,7 @@ export async function changeBackground({
   // Output check: the deck must be structurally sound and actually carry the
   // new background before it is offered. No recovery exists, so a violation
   // blocks with the corrupt-output error.
-  return runOutputCheck({
+  const deck = await runOutputCheck({
     tool: "ppt-background",
     output,
     check: (out) =>
@@ -651,4 +665,5 @@ export async function changeBackground({
         "quick",
       ),
   });
+  return { deck, picture };
 }

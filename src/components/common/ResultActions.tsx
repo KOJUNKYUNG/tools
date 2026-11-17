@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { DownloadIcon, Loader2Icon, RotateCcwIcon, ArrowRightIcon } from "lucide-react";
+import { DownloadIcon, ImageDownIcon, Loader2Icon, RotateCcwIcon, ArrowRightIcon } from "lucide-react";
 
 interface ActionSpec {
   label: string;
@@ -19,6 +19,12 @@ interface ResultActionsProps {
     disabled?: boolean;
   };
   /**
+   * A second download of something the run made besides the file, such as the
+   * background picture a deck was built with (`.nameplate`, ImageDown): right
+   * after the primary download, never as bold.
+   */
+  secondaryDownload?: ActionSpec;
+  /**
    * "다시 / Again" reset (`.nameplate`, RotateCcw — the one canonical retry icon).
    * Optional and being retired: the retry action is moving into `ToolHeader`'s
    * primary button, so newer callers omit it.
@@ -30,10 +36,11 @@ interface ResultActionsProps {
 
 /**
  * The one result-action button set — identical size, icon, and treatment on
- * every tool. Canonical order: download → handoff (`extra`) → again. Spacing
+ * every tool. Canonical order: download → second download → handoff
+ * (`extra`) → again. Spacing
  * above is owned by the parent (`ResultCard` gap), so this adds none.
  */
-export function ResultActions({ download, again, extra }: ResultActionsProps) {
+export function ResultActions({ download, secondaryDownload, again, extra }: ResultActionsProps) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {download && (
@@ -50,6 +57,17 @@ export function ResultActions({ download, again, extra }: ResultActionsProps) {
             <DownloadIcon className="size-3.5" />
           )}
           {download.label}
+        </button>
+      )}
+      {secondaryDownload && (
+        <button
+          type="button"
+          onClick={secondaryDownload.onClick}
+          className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
+          style={{ color: "var(--ink-strong)" }}
+        >
+          <ImageDownIcon className="size-3.5" />
+          {secondaryDownload.label}
         </button>
       )}
       {extra}

@@ -113,7 +113,7 @@ export function engineBackground(background: RunBackground): BuildPptxInput["bac
 const BASE64_CHUNK = 0x8000;
 
 /** A prepared picture as the data URL pptxgenjs embeds, naming its real format. */
-function dataUrlOf({ bytes, format }: PreparedImage): string {
+export function dataUrlOf({ bytes, format }: PreparedImage): string {
   let binary = "";
   for (let at = 0; at < bytes.length; at += BASE64_CHUNK) {
     binary += String.fromCharCode(...bytes.subarray(at, at + BASE64_CHUNK));
@@ -172,15 +172,25 @@ export async function prepareBackgroundPicture(
   preparation: SizedImagePreparation,
   placed?: CropRect,
   step?: PrepareStep,
-): Promise<string> {
+): Promise<PreparedImage> {
   const slide = SLIDE_SIZES[slideKind];
   const crop = placed ?? (await centredCrop(file, slide, preparation));
-  return dataUrlOf(await preparation.prepare(file, crop, fittedSize(crop, slide, screen), step));
+  return preparation.prepare(file, crop, fittedSize(crop, slide, screen), step);
 }
 
 async function centredCrop(file: File, slide: { w: number; h: number }, preparation: SizedImagePreparation) {
   const upright = await preparation.measure(file);
   return maxFitCrop({ w: upright.width, h: upright.height }, slide.w, slide.h);
+}
+
+/** What a run gives: the deck, and the picture it put in as the background. */
+export interface BuildPptxResult {
+  deck: Uint8Array;
+  /**
+   * The background picture, byte for byte as the deck holds it, so it can be
+   * saved and used again without re-encoding; null for a colour fill.
+   */
+  background: PreparedImage | null;
 }
 
 /**
@@ -194,14 +204,15 @@ export async function buildPptx(
   input: BuildPptxInput,
   onProgress?: (pct: number) => void,
   preparation: SizedImagePreparation = sizedImagePreparation,
-): Promise<Uint8Array> {
+): Promise<BuildPptxResult> {
   const boxInches: Box = input.box;
   let background: Background;
+  let picture: PreparedImage | null = null;
   if (input.background.kind === "color") background = { kind: "color", color: input.background.color };
   else {
     const { file, crop, step } = input.background;
-    const dataUrl = await prepareBackgroundPicture(file, input.slideKind, input.screen, preparation, crop, step);
-    background = { kind: "image", dataUrl };
+    picture = await prepareBackgroundPicture(file, input.slideKind, input.screen, preparation, crop, step);
+    background = { kind: "image", dataUrl: dataUrlOf(picture) };
   }
   const placed: PlacedImage[] = [];
   const total = input.files.length;
@@ -217,5 +228,5 @@ export async function buildPptx(
     check: (out) => checkImageToPptx(placed, options, out, "quick"),
   });
   onProgress?.(100);
-  return checked;
+  return { deck: checked, background: picture };
 }

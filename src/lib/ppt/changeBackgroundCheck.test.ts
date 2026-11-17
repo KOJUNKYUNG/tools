@@ -60,7 +60,7 @@ const requestOf = ({ source, crop, ...rest }: Intent, prepared: Uint8Array): Ppt
 });
 
 async function apply(deck: Uint8Array, intent: Intent): Promise<Uint8Array> {
-  return changeBackground({
+  const { deck: output } = await changeBackground({
     pptxFile: new File([new Uint8Array(deck)], "deck.pptx"),
     background: { kind: "picture", file: new File([new Uint8Array(intent.source)], "bg.png"), crop: intent.crop },
     mode: intent.mode,
@@ -70,6 +70,7 @@ async function apply(deck: Uint8Array, intent: Intent): Promise<Uint8Array> {
     keptGraphics: intent.keptGraphics,
     prepare: standInPrepare,
   });
+  return output;
 }
 
 /** The 16:9 slide of every `syntheticDeck`, in EMU. */

@@ -23,7 +23,7 @@ export interface ImageToPptxLabels {
   /** The question asked before making a deck where some slides' pictures fall wholly off the slide. */
   offSlide: { title: string; body: string; confirm: string; cancel: string };
   resultTitle: string; slideCountTemplate: string;
-  download: string; again: string;
+  download: string; downloadBackground: string; again: string;
   alignLabel: string; alignTopLeft: string; alignCenter: string;
   errNotImage: string; errTooLarge: string; errNoImages: string;
   errorCorrupt: string;
@@ -57,7 +57,7 @@ export function getImageToPptxLabels(dict: Dictionary): ImageToPptxLabels {
     sizeLock: p.sizeLock, sizeHint: p.sizeHint,
     centerH: p.centerH, centerV: p.centerV, cutNotice: p.cutNotice, offSlide: p.offSlide,
     resultTitle: p.resultTitle, slideCountTemplate: p.slideCount,
-    download: p.download, again: p.again,
+    download: p.download, downloadBackground: p.downloadBackground, again: p.again,
     alignLabel: p.alignLabel, alignTopLeft: p.alignTopLeft, alignCenter: p.alignCenter,
     errNotImage: p.errNotImage, errTooLarge: p.errTooLarge,
     errNoImages: p.errNoImages,

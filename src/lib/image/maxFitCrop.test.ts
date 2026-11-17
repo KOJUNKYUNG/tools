@@ -113,6 +113,12 @@ describe("maxFitCrop holds odd slide ratios to 1 px", () => {
       }
     }
   });
+
+  it("takes a picture already on the ratio to within 1 px whole, as a background saved for the slide is", () => {
+    // 3840 × 1670 is a 2.3 : 1 slide's picture on a 4K screen; derived from
+    // its height, the frame would be 3839 wide.
+    expect(maxFitCrop({ w: 3840, h: 1670 }, 2.3, 1)).toEqual({ x: 0, y: 0, width: 3840, height: 1670 });
+  });
 });
 
 describe("cropForRatio: a Background crop across a 16:9 ↔ 4:3 switch", () => {

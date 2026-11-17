@@ -17,6 +17,7 @@ import { JPEG_3x2, solidPng, withExifOrientation, withJpegSize } from "@/lib/pdf
 import {
   assemblePptxFromPlaced,
   buildPptx,
+  dataUrlOf,
   engineBackground,
   placeSlidePicture,
   prepareBackgroundPicture,
@@ -136,7 +137,7 @@ async function deckOf(
     box: { x: 0, y: 0, ...slide },
     ...overrides,
   };
-  const deck = await buildPptx(input, undefined, preparation);
+  const { deck } = await buildPptx(input, undefined, preparation);
   const pkg = (await openPptxPackage(deck))!;
   const [part] = await pkg.shownImages(pkg.slideParts[0]);
   const bytes = (await pkg.read(part!))!;
@@ -228,7 +229,7 @@ describe("buildPptx's slide pictures", () => {
   it("passes the full check, with the deck's screen size", async () => {
     const files = [headerFile("jpeg", 3024, 4032, 1), headerFile("jpeg", 800, 600, 2), headerFile("png", 3000, 2000, 3)];
     const input = { ...request(WHITE), files };
-    const deck = await buildPptx(input, undefined, standInSizedPreparation);
+    const { deck } = await buildPptx(input, undefined, standInSizedPreparation);
     const pictures = await Promise.all(
       files.map((f) => placeSlidePicture(f, input.box, input.align, input.slideKind, input.screen, standInSizedPreparation)),
     );
@@ -312,7 +313,7 @@ describe("buildPptx's slide pictures placed past the slide", () => {
     // A 300% box flush with the slide's right edge; a 3:4 picture at its left falls off the slide.
     const files = [headerFile("jpeg", 4000, 3000, 1), headerFile("jpeg", 3000, 4000, 2)];
     const input = flushRight(files);
-    const deck = await buildPptx(input, undefined, standInSizedPreparation);
+    const { deck } = await buildPptx(input, undefined, standInSizedPreparation);
     const pkg = (await openPptxPackage(deck))!;
     expect(pkg.slideParts).toHaveLength(2);
     expect(await pkg.shownImages(pkg.slideParts[0])).toHaveLength(1);
@@ -323,7 +324,7 @@ describe("buildPptx's slide pictures placed past the slide", () => {
     // In a 300% box flush right: the 4:3 and the wide picture are cut, the 3:4 one falls off.
     const files = [headerFile("jpeg", 4000, 3000, 1), headerFile("jpeg", 3000, 4000, 2), headerFile("jpeg", 4000, 1000, 3)];
     const input = flushRight(files);
-    const deck = await buildPptx(input, undefined, standInSizedPreparation);
+    const { deck } = await buildPptx(input, undefined, standInSizedPreparation);
     const placedImages = await Promise.all(
       files.map((f) => placeSlidePicture(f, input.box, input.align, input.slideKind, input.screen, standInSizedPreparation)),
     );
@@ -344,7 +345,7 @@ async function backgroundOf(background: File, overrides: Partial<BuildPptxInput>
     },
   };
   const input: BuildPptxInput = { ...request({ kind: "image", file: background }), ...overrides };
-  const deck = await buildPptx(input, undefined, recording);
+  const { deck } = await buildPptx(input, undefined, recording);
   const zip = await JSZip.loadAsync(deck);
   const parts = backgroundParts(zip);
   const bytes = await zip.file(parts[0])!.async("uint8array");
@@ -484,7 +485,7 @@ describe("buildPptx", () => {
     ],
   ])("builds a deck on %s that passes the full check", async (_label, background) => {
     const progress: number[] = [];
-    const deck = await buildPptx(request(background), (pct) => progress.push(pct), standInSizedPreparation);
+    const { deck } = await buildPptx(request(background), (pct) => progress.push(pct), standInSizedPreparation);
 
     expect(progress.at(-1)).toBe(100);
     expect(vi.mocked(check.checkImageToPptx)).toHaveBeenLastCalledWith(
@@ -501,14 +502,14 @@ describe("buildPptx", () => {
           ? background
           : {
               kind: "image" as const,
-              dataUrl: await prepareBackgroundPicture(
+              dataUrl: dataUrlOf(await prepareBackgroundPicture(
                 background.file,
                 "16:9",
                 "full-hd",
                 standInSizedPreparation,
                 "crop" in background ? background.crop : undefined,
                 "step" in background ? background.step : undefined,
-              ),
+              )),
             },
     };
     const pictures = await Promise.all(
@@ -537,7 +538,7 @@ describe("buildPptx", () => {
       },
     );
     const input = request(engineBackground(resolved));
-    const deck = await buildPptx(input, undefined, standInSizedPreparation);
+    const { deck } = await buildPptx(input, undefined, standInSizedPreparation);
 
     const zip = await JSZip.loadAsync(deck);
     expect(backgroundParts(zip)).toHaveLength(1);
@@ -549,7 +550,7 @@ describe("buildPptx", () => {
       screen: "full-hd" as const,
       background: {
         kind: "image" as const,
-        dataUrl: await prepareBackgroundPicture(solid, "16:9", "full-hd", standInSizedPreparation, undefined, background!.step),
+        dataUrl: dataUrlOf(await prepareBackgroundPicture(solid, "16:9", "full-hd", standInSizedPreparation, undefined, background!.step)),
       },
     };
     const pictures = await Promise.all(FILES.map((f) => placeSlidePicture(f, input.box, input.align, "16:9", "full-hd", standInSizedPreparation)));
