@@ -132,7 +132,7 @@ export interface PptBackgroundToolLabels {
     open: string;
     /** The button's title when the slides in scope have nothing to pick. */
     openEmpty: string;
-    /** "추가로 지울 요소 {n}종" */
+    /** "추가로 지울 요소 {n}개" */
     summaryTemplate: string;
   };
   fileUpload: Dictionary["common"]["fileUpload"];

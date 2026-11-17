@@ -361,19 +361,19 @@
           "exitFullscreen": "Exit full screen"
         },
         "pieces": {
-          "open": "Pick more to remove…",
+          "open": "Pick more elements to remove",
           "openEmpty": "Nothing to pick on the slides in scope",
-          "summaryTemplate": "{n} more to remove",
-          "graphicsSummaryTemplate": "{n} background graphics go too",
+          "summaryTemplate": "More elements to remove: {n}",
+          "graphicsSummaryTemplate": "Background graphics removed with it: {n}",
           "title": "Pick elements to remove",
-          "hint": "Picked elements are removed only from the slides you change. Picking one picks it on every slide that has it.",
+          "hint": "Selected elements are removed only from the slides you change. Selecting one selects it on every slide that has it.",
           "slideTemplate": "Slide {n} / {total}",
           "previous": "Previous slide",
           "next": "Next slide",
           "onlyInScope": "Only slides in scope",
           "onlyWithElements": "Only slides with elements",
           "newView": "Show with the new background",
-          "outOfScope": "not changed",
+          "outOfScope": "Not changed",
           "empty": "Nothing to pick on this slide.",
           "picture": "Picture",
           "colour": "Colour",
@@ -384,7 +384,7 @@
           "slidesTemplate": "On {n} slides",
           "graphic": "Background graphic",
           "onlyHere": "Only on this slide",
-          "pickedTemplate": "{n} picked",
+          "pickedTemplate": "Picked: {n}",
           "clearAll": "Clear all",
           "done": "Done"
         }

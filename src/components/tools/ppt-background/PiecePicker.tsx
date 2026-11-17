@@ -41,7 +41,7 @@ export interface PiecePickerLabels {
   graphicsSummaryTemplate: string;
   /** "이 슬라이드에만 있음" */
   onlyHere: string;
-  /** "{n}종 고름": the picked pieces on the slides in scope. */
+  /** "{n}개 고름": the picked pieces on the slides in scope. */
   pickedTemplate: string;
   clearAll: string;
   done: string;

@@ -361,12 +361,12 @@
           "exitFullscreen": "전체 화면 끝내기"
         },
         "pieces": {
-          "open": "지워질 요소 추가 선택",
+          "open": "지울 요소 추가 선택",
           "openEmpty": "적용할 슬라이드에 고를 요소가 없습니다",
-          "summaryTemplate": "추가로 지울 요소 {n}종",
+          "summaryTemplate": "추가로 지울 요소 {n}개",
           "graphicsSummaryTemplate": "배경 그래픽 {n}개 함께 지움",
           "title": "지울 요소 고르기",
-          "hint": "선택한 요소는 변경하는 슬라이드에서만 지워집니다. 선택 시 같은 요소가 있는 모든 슬라이드에서 선택됩니다.",
+          "hint": "선택된 요소는 변경하는 슬라이드에서만 지워집니다. 선택 시 같은 요소가 있는 모든 슬라이드에서 선택됩니다.",
           "slideTemplate": "슬라이드 {n} / {total}",
           "previous": "이전 슬라이드",
           "next": "다음 슬라이드",
@@ -384,7 +384,7 @@
           "slidesTemplate": "{n}장에 있음",
           "graphic": "배경 그래픽",
           "onlyHere": "이 슬라이드에만 있음",
-          "pickedTemplate": "{n}종 고름",
+          "pickedTemplate": "{n}개 고름",
           "clearAll": "모두 해제",
           "done": "완료"
         }
