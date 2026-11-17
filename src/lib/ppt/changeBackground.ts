@@ -10,8 +10,9 @@ import {
   type SlideSize,
 } from "@/lib/image/slideImage";
 import { checkPptBackground, type RequestedBackground } from "./changeBackgroundCheck";
-import { withoutCovering, type CoveringBackground } from "./coveringBackgrounds";
+import { withoutElements, type StackElement } from "./coveringBackgrounds";
 import { coveringPlan } from "./coveringPlan";
+import { readCopies, withCopies, type GraphicCopy } from "./copyGraphics";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
 import { zipPartReader } from "./slideColours";
 import { partsUnder } from "./slideOrder";
@@ -46,6 +47,10 @@ export interface ChangeBackgroundOptions {
   targetSlides?: number[];
   /** Keys of the covering-background groups the user keeps (`coveringGroupKey`); none by default. */
   keptCovering?: readonly string[];
+  /** Keys of the background pieces the user picked (`pieceKey`): deleted from the slides that change; none by default. */
+  pickedPieces?: readonly string[];
+  /** Keys of the background graphics the user keeps (`graphicKey`); none by default: they go with the old background. */
+  keptGraphics?: readonly string[];
   onProgress?: (pct: number) => void;
   /** The picture preparer; tests and Node stand one in for the canvas. */
   prepare?: PrepareSlideImage;
@@ -265,10 +270,12 @@ interface GroupChange {
   /** 1-based whitelist over the parts' order (for slides, presentation order,
    *  as the preview numbers them). Undefined = all. */
   targetIndices1Based?: ReadonlySet<number>;
-  /** The covering backgrounds the plan deletes, by part (`coveringPlan`); none from parts it does not name. */
-  deletions?: ReadonlyMap<string, readonly CoveringBackground[]>;
+  /** The covering backgrounds and picked pieces the plan deletes, by part (`coveringPlan`); none from parts it does not name. */
+  deletions?: ReadonlyMap<string, readonly StackElement[]>;
   /** The slides the plan hides background graphics on (`coveringPlan`). */
-  hides?: ReadonlyMap<string, number>;
+  hides?: ReadonlyMap<string, readonly StackElement[]>;
+  /** The background graphics that stay on those slides, read from the input: laid under each one's own elements. */
+  copies?: ReadonlyMap<string, readonly GraphicCopy[]>;
 }
 
 /** A slide's root start tag. */
@@ -292,10 +299,10 @@ const droppedIds = (relsXml: string | null, before: string, after: string) =>
  * animations naming them and every relationship only they named; returns the
  * parts those relationships pointed at.
  */
-async function deleteFromPart(zip: JSZip, part: string, covering: readonly CoveringBackground[]): Promise<Set<string>> {
+async function deleteFromPart(zip: JSZip, part: string, covering: readonly StackElement[]): Promise<Set<string>> {
   const replaced = new Set<string>();
   const before = await zip.file(part)!.async("text");
-  const after = withoutCovering(before, covering);
+  const after = withoutElements(before, covering);
   const relsPath = relsPartOf(part);
   let relsXml = (await zip.file(relsPath)?.async("text")) ?? null;
   for (const id of droppedIds(relsXml, before, after)) {
@@ -316,7 +323,7 @@ async function deleteFromPart(zip: JSZip, part: string, covering: readonly Cover
 async function processSlideGroup(
   zip: JSZip,
   slideFiles: readonly string[],
-  { background, onEach, targetIndices1Based, deletions, hides }: GroupChange,
+  { background, onEach, targetIndices1Based, deletions, hides, copies }: GroupChange,
 ): Promise<Set<string>> {
   /** Parts the replaced backgrounds pointed at, to delete once unreferenced. */
   const replaced = new Set<string>();
@@ -340,9 +347,10 @@ async function processSlideGroup(
     // replaced background's: every one only they named, whatever its type
     // (the picture, an HD photo layer, a hyperlink).
     const before = slideXml;
-    slideXml = withoutCovering(slideXml, deletions?.get(slidePath) ?? []);
+    slideXml = withoutElements(slideXml, deletions?.get(slidePath) ?? []);
     const deletedIds = droppedIds(relsXml, before, slideXml);
     if (hides?.has(slidePath)) slideXml = hidingBackgroundGraphics(slideXml);
+    ({ slideXml, relsXml } = withCopies(slidePath, slideXml, relsXml, copies?.get(slidePath) ?? []));
 
     const oldIds = [...backgroundValues(slideXml), ...deletedIds];
     let relId: string | undefined;
@@ -378,6 +386,31 @@ async function processSlideGroup(
     onEach?.(i + 1, filtered.length);
   }
   return replaced;
+}
+
+/**
+ * The background graphics that stay on each slide hiding them (the plan's
+ * `hides`), read from the input before any master or layout loses an element.
+ */
+async function copiesToLay(
+  zip: JSZip,
+  hides: ReadonlyMap<string, readonly StackElement[]>,
+): Promise<Map<string, GraphicCopy[]>> {
+  // Each part read once, for every element of it that stays on some slide.
+  const byPart = new Map<string, Map<number, StackElement>>();
+  for (const e of [...hides.values()].flat()) byPart.set(e.part, (byPart.get(e.part) ?? new Map()).set(e.start, e));
+  const read = new Map<string, GraphicCopy>();
+  for (const [part, found] of byPart) {
+    const [xml, rels] = await Promise.all([zip.file(part)!.async("text"), zip.file(relsPartOf(part))?.async("text") ?? null]);
+    const elements = [...found.values()];
+    readCopies(part, xml, rels, elements).forEach((copy, i) => read.set(`${part}@${elements[i].start}`, copy));
+  }
+  const copies = new Map<string, GraphicCopy[]>();
+  for (const [slide, staying] of hides) {
+    // Every staying element was read above.
+    if (staying.length > 0) copies.set(slide, staying.map((e) => read.get(`${e.part}@${e.start}`)!));
+  }
+  return copies;
 }
 
 /**
@@ -488,6 +521,8 @@ export async function changeBackground({
   mode,
   targetSlides,
   keptCovering = [],
+  pickedPieces = [],
+  keptGraphics = [],
   onProgress,
   prepare = prepareSlideImage,
 }: ChangeBackgroundOptions): Promise<Uint8Array> {
@@ -540,11 +575,18 @@ export async function changeBackground({
   // Planned on the input, before any part changes: deleting a master's
   // covering background would change what every slide's stack shows.
   const reader = zipPartReader(zip);
-  const { deletions, hides } = coveringPlan(
+  const plan = coveringPlan(
     await readSlideStacks(reader, slides, slideSize),
-    { mode, targetSlides, keptCovering },
+    { mode, targetSlides, keptCovering, pickedPieces, keptGraphics },
     mode === "master" ? await readLayoutStacks(reader, partsUnder(parts, "ppt/slideLayouts"), slideSize) : [],
   );
+  const { hides } = plan;
+  // Picked pieces and background graphics go with the covering backgrounds, in one cut per part.
+  const deletions = new Map<string, StackElement[]>(plan.deletions);
+  for (const [part, pieces] of plan.pieces) {
+    deletions.set(part, [...(deletions.get(part) ?? []), ...pieces].sort((a, b) => a.start - b.start));
+  }
+  const copies = await copiesToLay(zip, hides);
   const replaced = new Set<string>();
   // Masters and layouts lose theirs first: the slides' own go as each slide is rewritten.
   const slideSet = new Set(slides);
@@ -560,7 +602,7 @@ export async function changeBackground({
     // slides added later.
     await rewrite(partsUnder(parts, "ppt/slideMasters"), { background: partBackground });
     await rewrite(partsUnder(parts, "ppt/slideLayouts"), { background: "clear" });
-    await rewrite(slides, { background: "clear", onEach: progress, deletions, hides });
+    await rewrite(slides, { background: "clear", onEach: progress, deletions, hides, copies });
   } else {
     await rewrite(slides, {
       background: partBackground,
@@ -568,6 +610,7 @@ export async function changeBackground({
       targetIndices1Based: mode === "specific-slides" ? new Set(targetSlides) : undefined,
       deletions,
       hides,
+      copies,
     });
   }
 
@@ -601,6 +644,8 @@ export async function changeBackground({
           mode,
           targetSlides,
           keptCovering,
+          pickedPieces,
+          keptGraphics,
         },
         out,
         "quick",

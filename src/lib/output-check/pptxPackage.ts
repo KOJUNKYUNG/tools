@@ -152,6 +152,8 @@ export interface Relationship {
   /** Resolved part name, or null for an external or unresolvable target. */
   readonly part: string | null;
   readonly external: boolean;
+  /** The target as written (an external one's URL). */
+  readonly target: string;
 }
 
 /**
@@ -169,6 +171,7 @@ export function parseRelationships(relsXml: string, sourceDir: string): Relation
       type: a.Type ?? "",
       external,
       part: external || !a.Target ? null : resolveTarget(sourceDir, a.Target),
+      target: a.Target ?? "",
     };
   });
 }

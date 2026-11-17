@@ -86,10 +86,13 @@ async function requests(
   const centred = maxFitCrop(PHOTO_SIZE, slide.w, slide.h);
   // The top-left quarter's largest crop: smaller than a 4K screen, so kept as is.
   const corner = { ...maxFitCrop({ w: PHOTO_SIZE.w / 2, h: PHOTO_SIZE.h / 2 }, slide.w, slide.h), x: 0, y: 0 };
+  const analysis = await extractCurrentBackgrounds(new File([new Uint8Array(input)], "deck.pptx"));
   // The deck's first covering-background group, as the preview offers it to keep.
-  const covering = groupBackgrounds(
-    await extractCurrentBackgrounds(new File([new Uint8Array(input)], "deck.pptx")),
-  ).find((g) => g.source === "covering");
+  const covering = groupBackgrounds(analysis).find((g) => g.source === "covering");
+  // Every background piece the picker offers, picked: the most the engine deletes.
+  const pieces = [...new Set(analysis.flatMap((s) => s.pieces.map((p) => p.key)))];
+  // Every background graphic kept: on chosen slides they are copied back, the most the engine copies.
+  const graphics = [...new Set(analysis.flatMap((s) => s.graphics.map((g) => g.key)))];
   const prepared = async (crop: CropRect, source = PHOTO) => ({
     background: {
       kind: "picture" as const,
@@ -135,6 +138,32 @@ async function requests(
           },
         ]
       : []),
+    ...(pieces.length > 0
+      ? [
+          {
+            label: `specific-slides ${firstAndLast.join(",")}, every background piece picked (${pieces.length})`,
+            request: {
+              ...(await prepared(centred)),
+              mode: "specific-slides" as const,
+              targetSlides: firstAndLast,
+              pickedPieces: pieces,
+            },
+          },
+        ]
+      : []),
+    ...(graphics.length > 0
+      ? [
+          {
+            label: `specific-slides ${firstAndLast.join(",")}, every background graphic kept (${graphics.length})`,
+            request: {
+              ...(await prepared(centred)),
+              mode: "specific-slides" as const,
+              targetSlides: firstAndLast,
+              keptGraphics: graphics,
+            },
+          },
+        ]
+      : []),
   ];
 }
 
@@ -156,6 +185,8 @@ realFileSuite({
       mode: request.mode,
       targetSlides: request.targetSlides,
       keptCovering: request.keptCovering,
+      pickedPieces: request.pickedPieces,
+      keptGraphics: request.keptGraphics,
       prepare: standInPrepare,
     }),
   check: checkPptBackground,

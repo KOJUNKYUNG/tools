@@ -9,8 +9,11 @@ import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { changeBackground } from "./changeBackground";
 import {
+  BAND,
+  BLOB,
   clickAnimations,
   filledShape,
+  pictureShape,
   picture as pictureElement,
   solidBackground,
   solidFill,
@@ -63,6 +66,8 @@ async function apply(deck: Uint8Array, intent: Intent): Promise<Uint8Array> {
     mode: intent.mode,
     targetSlides: intent.targetSlides,
     keptCovering: intent.keptCovering,
+    pickedPieces: intent.pickedPieces,
+    keptGraphics: intent.keptGraphics,
     prepare: standInPrepare,
   });
 }
@@ -937,29 +942,39 @@ describe("checkPptBackground checks covering backgrounds on the master", () => {
     mutate(deck, async (zip) => {
       zip.file(MASTER, edit(await zip.file(MASTER)!.async("text")));
     });
+  /** 전체, the user keeping the logo (it goes by default). */
+  const keepingLogo: Intent = { ...allSlides, keptGraphics: ["graphic:ppt/slidemasters/slidemaster1.xml#21"] };
 
   it("passes the engine's output, the master rewritten", async () => {
     const input = await masterDeck();
-    const output = await apply(input, allSlides);
-    expect(await properties(input, allSlides, output)).toEqual([]);
+    expect(await properties(input, allSlides, await apply(input, allSlides))).toEqual([]);
+    expect(await properties(input, keepingLogo, await apply(input, keepingLogo))).toEqual([]);
   });
 
   it("flags the master picture left on the master", async () => {
     const input = await masterDeck();
-    const output = await editMaster(await apply(input, allSlides), (xml) =>
+    const output = await editMaster(await apply(input, keepingLogo), (xml) =>
       xml.replace(logo, `${masterPicture}${logo}`),
     );
-    expect(await quick(input, allSlides, output)).toContainEqual({
+    expect(await quick(input, keepingLogo, output)).toContainEqual({
       property: "covering-background-kept",
       detail: `${MASTER} #20`,
     });
   });
 
-  it("flags the master's logo removed", async () => {
+  it("flags a kept logo removed from the master", async () => {
     const input = await masterDeck();
-    const output = await editMaster(await apply(input, allSlides), (xml) => xml.replace(logo, ""));
-    expect(await quick(input, allSlides, output)).toContainEqual({
+    const output = await editMaster(await apply(input, keepingLogo), (xml) => xml.replace(logo, ""));
+    expect(await quick(input, keepingLogo, output)).toContainEqual({
       property: "element-missing",
+      detail: `${MASTER} #21`,
+    });
+  });
+
+  it("flags a logo left on the master though it goes by default", async () => {
+    const input = await masterDeck();
+    expect(await quick(input, allSlides, await apply(input, keepingLogo))).toContainEqual({
+      property: "piece-kept",
       detail: `${MASTER} #21`,
     });
   });
@@ -1079,5 +1094,82 @@ describe("checkPptBackground checks which slides hide background graphics", () =
       property: "background-graphics-hidden",
       detail: "ppt/slides/slide2.xml: hidden",
     });
+  });
+});
+
+describe("checkPptBackground checks the background pieces the user picked", () => {
+  const blobPicture = "piece:picture:ppt/media/blob.png";
+  /** Two slides of a red band, a picture blob (animated) and the lyrics. */
+  const piecedDeck = () =>
+    testDeck(
+      [1, 2].map((n) => ({
+        shapes: [filledShape(3, solidFill("FF0000"), BAND), pictureShape(4, "rId11", BLOB), textBox(9, `${n}절`)],
+        pictures: { rId11: "blob.png" },
+        timing: clickAnimations([4, 9]),
+      })),
+    );
+  const picking: Intent = { source: newBgBytes, mode: "specific-slides", targetSlides: [1], pickedPieces: [blobPicture] };
+  const SLIDE1 = "ppt/slides/slide1.xml";
+
+  it("passes the engine's output", async () => {
+    const input = await piecedDeck();
+    expect(await properties(input, picking, await apply(input, picking))).toEqual([]);
+    const everywhere: Intent = { ...picking, mode: "all-slides", targetSlides: undefined };
+    expect(await properties(input, everywhere, await apply(input, everywhere))).toEqual([]);
+  });
+
+  it("flags a picked piece left on a changed slide", async () => {
+    const input = await piecedDeck();
+    const output = await apply(input, { ...picking, pickedPieces: [] });
+    expect(await quick(input, picking, output)).toContainEqual({ property: "piece-kept", detail: `${SLIDE1} #4` });
+  });
+
+  it("flags an unpicked piece deleted with the picked one", async () => {
+    const input = await piecedDeck();
+    const output = await apply(input, { ...picking, pickedPieces: [blobPicture, "piece:fill:#ff0000@0,0,9144000,1028700"] });
+    expect(await quick(input, picking, output)).toContainEqual({ property: "element-missing", detail: `${SLIDE1} #3` });
+  });
+});
+
+describe("checkPptBackground checks the background graphics copied onto slides hiding them", () => {
+  const masterPicture = pictureElement(20, "rId10");
+  const logo = pictureElement(21, "rId11", { x: 8001000, y: 4343400, w: 914400, h: 571500 });
+  const deck = () =>
+    testDeck([{ shapes: [textBox(9, "1절")] }, { shapes: [textBox(9, "2절")] }], undefined, {
+      master: { shapes: [masterPicture, logo], pictures: { rId10: "master.png", rId11: "logo.png" } },
+    });
+  const keepingLogo: Intent = {
+    source: newBgBytes,
+    mode: "specific-slides",
+    targetSlides: [1],
+    keptGraphics: ["graphic:ppt/slidemasters/slidemaster1.xml#21"],
+  };
+  const SLIDE1 = "ppt/slides/slide1.xml";
+  const editSlide = (output: Uint8Array, change: (xml: string) => string) =>
+    mutate(output, async (zip) => {
+      zip.file(SLIDE1, change(await zip.file(SLIDE1)!.async("text")));
+    });
+
+  it("passes the engine's output, the kept logo copied onto the chosen slide", async () => {
+    const input = await deck();
+    expect(await properties(input, keepingLogo, await apply(input, keepingLogo))).toEqual([]);
+  });
+
+  it("flags a slide hiding its background graphics without the kept logo's copy", async () => {
+    const input = await deck();
+    const output = await editSlide(await apply(input, keepingLogo), (xml) => xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/, ""));
+    expect(await quick(input, keepingLogo, output)).toContainEqual({
+      property: "kept-graphic-missing",
+      detail: `${SLIDE1}: ppt/slideMasters/slideMaster1.xml #21`,
+    });
+  });
+
+  it("flags a copy showing another picture", async () => {
+    const input = await deck();
+    const output = await mutate(await apply(input, keepingLogo), async (zip) => {
+      const rels = "ppt/slides/_rels/slide1.xml.rels";
+      zip.file(rels, (await zip.file(rels)!.async("text")).replace("../media/logo.png", "../media/master.png"));
+    });
+    expect((await quick(input, keepingLogo, output)).map((v) => v.property)).toContain("kept-graphic-missing");
   });
 });

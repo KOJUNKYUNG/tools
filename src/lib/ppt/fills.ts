@@ -18,10 +18,12 @@ import { child, findAll, firstElementNamed, type XmlElement } from "./xmlTree";
 
 /**
  * What a fill shows, for the preview: a resolved solid colour as lowercase
- * `#rrggbb`, or `"fill"` for a gradient, a pattern or a colour that could not
- * be resolved (a neutral swatch, named generically).
+ * `#rrggbb`; a gradient or a pattern as the CSS image that draws its colours
+ * (a linear or radial gradient through its stops, stripes of its two
+ * colours); or `"fill"` when a colour in it could not be resolved (a neutral
+ * swatch, named generically).
  */
-export type Swatch = `#${string}` | "fill";
+export type Swatch = `#${string}` | `${"linear" | "radial" | "repeating-linear"}-gradient(${string})` | "fill";
 
 /** What theme colours and style references resolve against, for one slide. */
 export interface Colours {
@@ -195,6 +197,19 @@ function resolveColour(clr: XmlElement, colours: Colours, placeholder?: XmlEleme
 const swatchOf = (rgb: Rgb | null): Swatch =>
   rgb ? `#${rgb.map((c) => Math.round(c * 255).toString(16).padStart(2, "0")).join("")}` : "fill";
 
+/**
+ * A gradient's swatch: its stops in order, along its line (DrawingML's angle
+ * 0 runs left to right, CSS's 90deg) or out from the centre for a path
+ * gradient; neutral when a stop's colour cannot be resolved.
+ */
+function gradientSwatch(fill: XmlElement, stops: readonly (Colour & { at: number })[]): Swatch {
+  if (stops.length === 0 || stops.some((s) => !s.rgb || !Number.isFinite(s.at))) return "fill";
+  const through = stops.map((s) => `${swatchOf(s.rgb)} ${Math.round(s.at * 10) / 10}%`).join(", ");
+  if (child(fill, "a:path")) return `radial-gradient(${through})`;
+  const angle = Number(child(fill, "a:lin")?.attrs.ang ?? 0) / 60000;
+  return `linear-gradient(${Math.round((Number.isFinite(angle) ? angle : 0) + 90) % 360}deg, ${through})`;
+}
+
 export interface ResolvedFill {
   swatch: Swatch;
   opaque: boolean;
@@ -213,12 +228,17 @@ export function resolveFill(fill: XmlElement | undefined, colours: Colours, plac
       return { swatch: swatchOf(c.rgb), opaque: c.opaque };
     }
     case "a:gradFill": {
-      const stops = findAll(fill, (e) => e.name === "a:gs").map((gs) => colour(colourChild(gs)));
-      return { swatch: "fill", opaque: stops.length > 0 && stops.every((s) => s.opaque) };
+      const found = findAll(fill, (e) => e.name === "a:gs").map((gs) => ({ at: Number(gs.attrs.pos) / 1000, ...colour(colourChild(gs)) }));
+      const stops = found.sort((a, b) => a.at - b.at);
+      return { swatch: gradientSwatch(fill, stops), opaque: stops.length > 0 && stops.every((s) => s.opaque) };
     }
     case "a:pattFill": {
       const sides = ["a:fgClr", "a:bgClr"].map((name) => colour(colourChild(child(fill, name))));
-      return { swatch: "fill", opaque: sides.every((s) => s.opaque) };
+      const [fg, bg] = sides.map((c) => c.rgb && swatchOf(c.rgb));
+      return {
+        swatch: fg && bg ? `repeating-linear-gradient(135deg, ${fg} 0 2px, ${bg} 2px 4px)` : "fill",
+        opaque: sides.every((s) => s.opaque),
+      };
     }
     default:
       return null;

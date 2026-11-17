@@ -1,13 +1,14 @@
 import { notInherited, type OutputChecker, type Violation } from "@/lib/output-check/core";
 import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
-import { openPptxPackage, relsPartOf, type PptxPackage } from "@/lib/output-check/pptxPackage";
+import { openPptxPackage, relsPartOf, type PptxPackage, type Relationship } from "@/lib/output-check/pptxPackage";
 import { pngAlphaUsed } from "@/lib/output-check/pngAlpha";
 import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { CropRect } from "@/lib/image/maxFitCrop";
 import type { BgMode } from "./changeBackground";
 import { DEFAULT_SLIDE } from "./getSlideAspect";
-import { shapeIdsIn, topLevelElements, type CoveringBackground } from "./coveringBackgrounds";
+import { shapeIdsIn, topLevelElements, type StackElement } from "./coveringBackgrounds";
 import { coveringPlan } from "./coveringPlan";
+import { ATTRIBUTE, CONNECTION, SHAPE_ID } from "./copyGraphics";
 import { animationTargets } from "./slideAnimations";
 import { packagePartReader } from "./slideColours";
 import { readLayoutStacks, readSlideStacks } from "./slideStacks";
@@ -36,6 +37,10 @@ export interface PptBackgroundRequest {
   targetSlides?: number[];
   /** Keys of the covering-background groups the user keeps (`coveringGroupKey`). */
   keptCovering?: readonly string[];
+  /** Keys of the background pieces the user picked (`pieceKey`). */
+  pickedPieces?: readonly string[];
+  /** Keys of the background graphics the user keeps (`graphicKey`). */
+  keptGraphics?: readonly string[];
 }
 
 /**
@@ -86,12 +91,19 @@ export interface PptBackgroundRequest {
  *
  * - ⚡ `covering-background-kept`: a covering background the plan deletes is
  *   still there
+ * - ⚡ `piece-kept`: a background piece the user picked (spec #163) is still
+ *   on a slide in scope, or in its master or layout when the plan deletes it
+ *   there (the plan's `pieces`, re-derived by the shared rule and keys)
  * - ⚡ `element-missing`: another top-level element is gone
  * - ⚡ `animation-target-missing`: an animation or build entry names a shape
  *   the slide does not have (the deck would need repair)
  * - ⚡ `background-graphics-hidden`: a slide hides its background graphics
  *   (`showMasterSp`) though the plan does not hide them there and the input
  *   did not, or does not though the plan does or the input did
+ * - ⚡ `kept-graphic-missing`: a background graphic that stays on a slide
+ *   hiding them (a kept logo, a kept covering background) has no copy among
+ *   its top-level elements: one equal to it but for its shape ids, naming
+ *   relationships of the same types to the same parts
  *
  * The prepared picture (spec #98), re-derived from the source picture, the
  * crop and the input's slide size, never from the engine's numbers (a solid
@@ -173,7 +185,7 @@ export const checkPptBackground: OutputChecker<
   // The covering backgrounds the engine must have deleted, re-planned on the
   // input with the shared rule and plan (not the engine's own selection).
   const [reader, size] = [packagePartReader(before), await slideSize(before)];
-  const { deletions, hides } = coveringPlan(
+  const { deletions, hides, pieces } = coveringPlan(
     await readSlideStacks(reader, before.slideParts, size),
     request,
     request.mode === "master" ? await readLayoutStacks(reader, before.layoutParts, size) : [],
@@ -186,7 +198,7 @@ export const checkPptBackground: OutputChecker<
   const rewritten = [
     ...new Set([
       ...(request.mode === "master" ? [...targets, ...coveringChecked, ...before.layoutParts] : targets),
-      ...[...deletions.keys()].filter((p) => !slideSet.has(p)),
+      ...[...deletions.keys(), ...pieces.keys()].filter((p) => !slideSet.has(p)),
     ]),
   ];
 
@@ -208,12 +220,15 @@ export const checkPptBackground: OutputChecker<
     }
   }
 
+  violations.push(...(await copyViolations(before, after, hides)));
+
   // Every master and layout too: their background graphics show on the slides.
   const covering = await coveringViolations(
     before,
     after,
     [...coveringChecked, ...before.layoutParts, ...before.masterParts],
     deletions,
+    pieces,
   );
   violations.push(...covering.violations);
 
@@ -255,7 +270,9 @@ export const checkPptBackground: OutputChecker<
     }
 
     if (request.mode === "master") {
-      // Slides with covering backgrounds deleted are held by the element properties.
+      // Slides with covering backgrounds deleted are held by the element
+      // properties. Master mode takes every slide, so none hides background
+      // graphics or gets copies.
       for (const part of [...before.layoutParts, ...before.slideParts].filter((p) => !covering.deletedOn.has(p))) {
         const [inXml, outXml] = await Promise.all([before.text(part), after.text(part)]);
         if (inXml === null || outXml === null) continue;
@@ -323,21 +340,24 @@ async function slideSize(pkg: PptxPackage): Promise<{ w: number; h: number }> {
 }
 
 /**
- * The covering-background properties of the given parts (slides, layouts,
- * masters), and the parts from which the engine must have deleted covering
- * backgrounds: those the plan (`deletions`) names.
+ * The covering-background and piece properties of the given parts (slides,
+ * layouts, masters), and the parts from which the engine must have deleted
+ * elements: those the plan names (`deletions`, `pieces`).
  */
 async function coveringViolations(
   before: PptxPackage,
   after: PptxPackage,
   targets: readonly string[],
-  deletions: ReadonlyMap<string, readonly CoveringBackground[]>,
+  deletions: ReadonlyMap<string, readonly StackElement[]>,
+  pieces: ReadonlyMap<string, readonly StackElement[]>,
 ): Promise<{ violations: Violation[]; deletedOn: Set<string> }> {
   const violations: Violation[] = [];
   const deletedOn = new Set<string>();
   for (const part of targets) {
     const covering = new Set((deletions.get(part) ?? []).map((c) => c.start));
-    if (covering.size > 0) deletedOn.add(part);
+    const picked = new Set((pieces.get(part) ?? []).map((c) => c.start));
+    const going = (el: XmlElement) => covering.has(el.start) || picked.has(el.start);
+    if (covering.size > 0 || picked.size > 0) deletedOn.add(part);
     // A part stored as in the input lost nothing, and kept nothing it should not when nothing goes from it.
     else if (after.storedAsIn(before, part)) continue;
 
@@ -362,12 +382,14 @@ async function coveringViolations(
       return n > 0;
     };
     const detail = (el: XmlElement) => `${part} #${ownId(el) ?? el.name}`;
-    // Elements that stay first, so one equal to a covering background is never taken for it.
-    for (const el of inEls.filter((e) => !covering.has(e.start))) {
+    // Elements that stay first, so one equal to a covering background or a piece is never taken for it.
+    for (const el of inEls.filter((e) => !going(e))) {
       if (!match(el)) violations.push({ property: "element-missing", detail: detail(el) });
     }
-    for (const el of inEls.filter((e) => covering.has(e.start))) {
-      if (match(el)) violations.push({ property: "covering-background-kept", detail: detail(el) });
+    for (const el of inEls.filter(going)) {
+      if (match(el)) {
+        violations.push({ property: covering.has(el.start) ? "covering-background-kept" : "piece-kept", detail: detail(el) });
+      }
     }
 
     const missingTargets = (root: XmlElement, els: XmlElement[]) => {
@@ -379,6 +401,54 @@ async function coveringViolations(
     violations.push(...notInherited(missingTargets(outRoot, outEls), missingTargets(inRoot, inEls)));
   }
   return { violations, deletedOn };
+}
+
+/**
+ * An element as its copy must read: its shape ids and the ids its connectors
+ * join blanked, and each relationship id it names replaced by where that
+ * relationship points (`withCopies` writes them so).
+ */
+function asCopied(xml: string, rels: readonly Relationship[]): string {
+  const byId = new Map(rels.map((r) => [r.id, r]));
+  return xml
+    .replace(SHAPE_ID, "$1#$3")
+    .replace(CONNECTION, "$1#$3")
+    .replace(ATTRIBUTE, (attr, before: string, double?: string, single?: string) => {
+      const [value, quote] = double !== undefined ? [double, '"'] : [single ?? "", "'"];
+      const rel = byId.get(value);
+      if (!rel || /^\s*id\s*=/.test(before)) return attr;
+      return `${before}${quote}${rel.type} ${rel.external ? rel.target : (rel.part ?? "").toLowerCase()}${quote}`;
+    });
+}
+
+/** The kept background graphics missing their copy on the slides hiding them (`kept-graphic-missing`). */
+async function copyViolations(
+  before: PptxPackage,
+  after: PptxPackage,
+  hides: ReadonlyMap<string, readonly StackElement[]>,
+): Promise<Violation[]> {
+  const violations: Violation[] = [];
+  for (const [slide, staying] of hides) {
+    if (staying.length === 0) continue;
+    const outXml = await after.text(slide);
+    const outEls = topLevelElements(parseXml(outXml ?? ""));
+    // Unreadable or malformed parts are structural defects, reported elsewhere.
+    if (outXml === null || !outEls) continue;
+    const outRels = await after.relationships(slide);
+    /** The copies not yet matched, by how they read. */
+    const unmatched = new Map<string, number>();
+    for (const el of outEls) {
+      const read = asCopied(outXml.slice(el.start, el.end), outRels);
+      unmatched.set(read, (unmatched.get(read) ?? 0) + 1);
+    }
+    for (const e of staying) {
+      const read = asCopied(((await before.text(e.part)) ?? "").slice(e.start, e.end), await before.relationships(e.part));
+      const n = unmatched.get(read) ?? 0;
+      if (n > 0) unmatched.set(read, n - 1);
+      else violations.push({ property: "kept-graphic-missing", detail: `${slide}: ${e.part} #${e.shapeIds[0] ?? e.start}` });
+    }
+  }
+  return violations;
 }
 
 /** An element's own shape id. */

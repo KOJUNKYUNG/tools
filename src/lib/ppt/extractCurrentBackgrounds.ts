@@ -1,13 +1,46 @@
 import JSZip from "jszip";
 import { parseRelationships } from "@/lib/output-check/pptxPackage";
+import type { Bounds, GraphicKind } from "./coveringBackgrounds";
 import { plannedSlide, type PlannedSlide } from "./coveringPlan";
 import { readSlideStacks, type SlideStack } from "./slideStacks";
 import { fillChild, shownFill, type Colours, type Swatch } from "./fills";
 import { DEFAULT_SLIDE, slideSizeFromXml } from "./getSlideAspect";
+import type { SlideSize } from "@/lib/image/slideImage";
 import { zipPartReader, type PartReader } from "./slideColours";
 import { noBackgroundSwatch } from "./themeBackground";
 import { child, parseXml } from "./xmlTree";
 import { slidesInOrder } from "./zipSlides";
+
+/** A background piece (CONTEXT.md → Background piece) as the picker lists it. */
+export interface PiecePreview {
+  /** What the user picks it by (`pieceKey`): picking it picks it on every slide that has it. */
+  key: string;
+  /** Its first picture part from the bottom, as a zip path (load it with `deckMedia`); null for a fill. */
+  imagePath: string | null;
+  /** What a piece without a picture shows: its first fill's colour, or the neutral `fill`. */
+  swatch: Swatch | null;
+  /** Its box before its turn, as fractions of the slide's width and height (may reach past the slide). */
+  box: Bounds;
+  /** Its turn about the box's centre, clockwise, in degrees. */
+  rotation: number;
+  /** The share of the slide's area it covers, 0…1. */
+  share: number;
+}
+
+/** A background graphic (CONTEXT.md → Background graphics) as the picker lists it: it goes unless the user keeps it. */
+export interface GraphicPreview {
+  /** What the user keeps it by (`graphicKey`): keeping it keeps it on every slide that shows it. */
+  key: string;
+  kind: GraphicKind;
+  /** Its first picture part from the bottom, as a zip path (load it with `deckMedia`); null without one. */
+  imagePath: string | null;
+  /** What it shows without a picture: its first fill's colour; null for none. */
+  swatch: Swatch | null;
+  /** Its box before its turn, as fractions of the slide, its turn in degrees and its share of the slide; null when unknown. */
+  place: { box: Bounds; rotation: number; share: number } | null;
+  /** Whether it lies under the slide's covering background, so does not show today. */
+  underCovering: boolean;
+}
 
 /**
  * A slide's visible background (CONTEXT.md): its covering backgrounds when it
@@ -33,10 +66,27 @@ export interface SlideBackground {
   swatch?: Swatch;
   /** For covering backgrounds: their group's key (`coveringGroupKey`), what the user keeps a group by. */
   coveringKey?: string;
+  /**
+   * For covering backgrounds: where the one shown lies (the thumbnail's, or
+   * the bottom one without a picture), as fractions of the slide's width and
+   * height, and the share of the slide it covers.
+   */
+  coveringPlace?: { box: Bounds; share: number };
   /** Its stack as the shared plan (`coveringPlan`) reads it: what the preview promises for the apply scope. */
   stack: PlannedSlide;
   /** The colour "no background" would show on it (`noBackgroundSwatch`): its own master's, not the deck's first. */
   noBackground: Swatch;
+  /**
+   * Its background setting (the slide's own, else its layout's, else its
+   * master's): what it shows with every element gone, covering backgrounds
+   * included. The picker draws it under the slide's elements. A picture as a
+   * zip path (load it with `deckMedia`); neither when it shows nothing readable.
+   */
+  base: { imagePath: string | null; swatch?: Swatch };
+  /** Its background pieces, bottom first. */
+  pieces: PiecePreview[];
+  /** Its background graphics, bottom first: on its master and layout, under its own elements. */
+  graphics: GraphicPreview[];
 }
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -79,6 +129,9 @@ async function relationshipTargets(zip: JSZip, partPath: string): Promise<Map<st
   return new Map((await relationshipsOf(zip, partPath)).map((r) => [r.id, r.part]));
 }
 
+/** Bounds as fractions of the slide's width and height. */
+const fractionOf = (b: Bounds, slide: SlideSize): Bounds => ({ x: b.x / slide.w, y: b.y / slide.h, w: b.w / slide.w, h: b.h / slide.h });
+
 /**
  * The slide's covering backgrounds as its visible background, wherever in its
  * stack they lie (a master's picture included); null when it has none.
@@ -86,11 +139,14 @@ async function relationshipTargets(zip: JSZip, partPath: string): Promise<Map<st
 async function coveringBackground(
   zip: JSZip,
   stack: SlideStack,
-): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "swatch" | "coveringKey"> | null> {
+  slide: SlideSize,
+): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "swatch" | "coveringKey" | "coveringPlace"> | null> {
   const { covering, coveringKey, coveringPictures } = stack;
   if (covering.length === 0 || coveringKey === null) return null;
   const thumbnail = coveringPictures[0] ?? null;
+  const shown = covering.find((c) => c.pictures.length > 0) ?? covering[0];
   return {
+    coveringPlace: { box: fractionOf(shown.bounds, slide), share: shown.share },
     imageBlob: thumbnail === null ? null : await mediaBlob(zip, thumbnail),
     imagePath: thumbnail,
     // A fill under a covering background's picture is hidden by it: the picture shows.
@@ -100,27 +156,36 @@ async function coveringBackground(
 }
 
 /**
- * What a part's own background shows: its picture, or a swatch of its fill
- * (its own, or the theme's background style it names); neither when it shows
- * nothing readable. null when the part declares no background.
+ * What a part's own background shows: its picture (a zip path the deck
+ * holds), or a swatch of its fill (its own, or the theme's background style it
+ * names); neither when it shows nothing readable. null when the part declares
+ * no background.
  */
 async function ownBackground(
   zip: JSZip,
   partPath: string,
   partXml: string,
   colours: Colours,
-): Promise<Pick<SlideBackground, "imageBlob" | "imagePath" | "swatch"> | null> {
+): Promise<SlideBackground["base"] | null> {
   const bg = child(child(parseXml(partXml) ?? undefined, "p:cSld"), "p:bg");
   if (!bg) return null;
   const fill = fillChild(child(bg, "p:bgPr"));
   const relId = fill?.name === "a:blipFill" ? child(fill, "a:blip")?.attrs["r:embed"] : undefined;
   if (relId) {
     const path = (await relationshipTargets(zip, partPath)).get(relId) ?? null;
-    const blob = path && (await mediaBlob(zip, path));
-    return blob ? { imageBlob: blob, imagePath: path } : { imageBlob: null, imagePath: null };
+    return { imagePath: path && zip.file(path) ? path : null };
   }
   const shown = shownFill(child(bg, "p:bgPr"), child(bg, "p:bgRef"), colours);
-  return { imageBlob: null, imagePath: null, ...(shown && { swatch: shown.swatch }) };
+  return { imagePath: null, ...(shown && { swatch: shown.swatch }) };
+}
+
+/**
+ * The deck's media as blobs, by zip path, the deck read once on the first
+ * call: the picker loads a piece's picture only when its slide is shown.
+ */
+export function deckMedia(file: File): (path: string) => Promise<Blob | null> {
+  let zip: Promise<JSZip> | null = null;
+  return async (path) => mediaBlob(await (zip ??= file.arrayBuffer().then((b) => JSZip.loadAsync(b))), path);
 }
 
 export async function extractCurrentBackgrounds(
@@ -149,15 +214,26 @@ export async function extractCurrentBackgrounds(
       imageBlob: null,
       source: "none",
       imagePath: null,
+      base: { imagePath: null },
       stack: plannedSlide(stacks[i]),
       noBackground: noBackgroundSwatch(colours),
+      pieces: stacks[i].pieces.map(({ key, pictureParts, fills, bounds, rot, share }) => ({
+        key,
+        imagePath: pictureParts[0] ?? null,
+        swatch: pictureParts.length > 0 ? null : (fills[0] ?? null),
+        box: fractionOf(bounds, slideSize),
+        rotation: rot / 60000,
+        share,
+      })),
+      graphics: stacks[i].graphics.map(({ key, kind, pictureParts, fills, area, underCovering }) => ({
+        key,
+        kind,
+        imagePath: pictureParts[0] ?? null,
+        swatch: pictureParts.length > 0 ? null : (fills[0] ?? null),
+        place: area && { box: fractionOf(area.box, slideSize), rotation: area.rot / 60000, share: area.share },
+        underCovering,
+      })),
     };
-
-    const covering = await coveringBackground(zip, stacks[i]);
-    if (covering) {
-      results.push({ ...bg, ...covering, source: "covering" });
-      continue;
-    }
 
     // Its own background, else the layout's, else the master's: the first
     // that declares one, whatever it shows.
@@ -168,15 +244,26 @@ export async function extractCurrentBackgrounds(
       ["layout", layoutPath],
       ["master", masterPath],
     ];
+    let baseSource: SlideBackground["source"] = "none";
     for (const [source, partPath] of chain) {
       const partXml = partPath && (await zip.file(partPath)?.async("text"));
       const own = partXml ? await ownBackground(zip, partPath, partXml, colours) : null;
       if (own) {
-        if (own.imagePath || own.swatch) Object.assign(bg, own, { source });
+        if (own.imagePath || own.swatch) [bg.base, baseSource] = [own, source];
         break;
       }
     }
 
+    const covering = await coveringBackground(zip, stacks[i], slideSize);
+    if (covering) {
+      results.push({ ...bg, ...covering, source: "covering" });
+      continue;
+    }
+    // Without covering backgrounds, the setting is what shows.
+    const { imagePath, swatch } = bg.base;
+    if (baseSource !== "none") {
+      Object.assign(bg, { source: baseSource, imagePath, imageBlob: imagePath && (await mediaBlob(zip, imagePath)) }, swatch && { swatch });
+    }
     results.push(bg);
   }
 

@@ -52,8 +52,12 @@ export interface StackLayer {
   elements: XmlElement[];
 }
 
-/** A covering background, as the span of its part's XML it takes up. */
-export interface CoveringBackground extends Span {
+/**
+ * A top-level element of a slide's stack that ppt-background may delete (a
+ * covering background, a background piece), as the span of its part's XML it
+ * takes up.
+ */
+export interface StackElement extends Span {
   /** The part that holds it, and which of the stack's parts that is. */
   part: string;
   holder: Holder;
@@ -61,12 +65,22 @@ export interface CoveringBackground extends Span {
   shapeIds: string[];
   /** Relationship ids of its pictures, in document order. */
   pictures: string[];
-  /** What its opaque fills show (a shape's, or a group's members'), in document order. */
+  /** What its fills show (a shape's, or a group's members'), in document order. */
   fills: Swatch[];
+}
+
+/** A covering background; its `fills` are its opaque ones only. */
+export interface CoveringBackground extends StackElement {
+  /** Its bounds on the slide (EMU), after a quarter turn. */
+  bounds: Bounds;
+  /** The share of the slide's area it covers, 0…1. */
+  share: number;
 }
 
 /** The share of the slide's area an element must cover, as a fraction. */
 const COVER = { num: 9, den: 10 };
+/** The share of the slide's area a background piece must cover, as a fraction. */
+const PIECE = { num: 1, den: 20 };
 /** The shape tree's own children that are not elements on the slide. */
 const NOT_ELEMENTS = new Set(["p:nvGrpSpPr", "p:grpSpPr", "p:extLst"]);
 /** Media a picture element may play: such an element is not a picture. */
@@ -209,8 +223,16 @@ function fillsOf(el: XmlElement, colours: Colours, groupFill?: XmlElement): Reso
   }
 }
 
+/** An element's bounds (EMU): its top-left corner and size. */
+export interface Bounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 /** An element's bounds on the slide (EMU), after a quarter turn; null when unknown. */
-function boundsOf(el: XmlElement): { x: number; y: number; w: number; h: number } | null {
+function boundsOf(el: XmlElement): Bounds | null {
   const props = el.name === "p:grpSp" ? child(el, "p:grpSpPr") : child(el, "p:spPr");
   const xfrm = child(props, "a:xfrm");
   const [off, ext] = [child(xfrm, "a:off"), child(xfrm, "a:ext")];
@@ -223,13 +245,57 @@ function boundsOf(el: XmlElement): { x: number; y: number; w: number; h: number 
   return { x, y, w, h };
 }
 
+/** An element's box as written (EMU) and its turn about the box's centre (1/60000°, 0 up to a full turn); null when unknown. */
+function placementOf(el: XmlElement): { box: Bounds; rot: number } | null {
+  const props = el.name === "p:grpSp" ? child(el, "p:grpSpPr") : child(el, "p:spPr");
+  const xfrm = child(props, "a:xfrm");
+  const [off, ext] = [child(xfrm, "a:off"), child(xfrm, "a:ext")];
+  const [x, y, w, h, turn] = [off?.attrs.x, off?.attrs.y, ext?.attrs.cx, ext?.attrs.cy, xfrm?.attrs.rot ?? 0].map(Number);
+  if (![x, y, w, h, turn].every(Number.isFinite) || w <= 0 || h <= 0) return null;
+  return { box: { x, y, w, h }, rot: ((turn % TURN) + TURN) % TURN };
+}
+
+/**
+ * The area of a box turned by `rot` about its centre that lies on the slide
+ * (EMU²): its corners clipped to the slide, one edge at a time.
+ */
+function turnedAreaOnSlide({ x, y, w, h }: Bounds, rot: number, slide: SlideSize): number {
+  const a = (rot / TURN) * 2 * Math.PI;
+  const [cx, cy, cos, sin] = [x + w / 2, y + h / 2, Math.cos(a), Math.sin(a)];
+  let poly = [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([dx, dy]) => [
+    cx + dx * cos - dy * sin,
+    cy + dx * sin + dy * cos,
+  ]);
+  // Each slide edge as the coordinate it bounds, its limit and which side is inside.
+  const edges: [number, number, 1 | -1][] = [[0, 0, 1], [0, slide.w, -1], [1, 0, 1], [1, slide.h, -1]];
+  for (const [axis, limit, side] of edges) {
+    const inside = (p: number[]) => (p[axis] - limit) * side >= 0;
+    const next: number[][] = [];
+    poly.forEach((p, i) => {
+      const q = poly[(i + 1) % poly.length];
+      if (inside(p)) next.push(p);
+      if (inside(p) !== inside(q)) {
+        const t = (limit - p[axis]) / (q[axis] - p[axis]);
+        next.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]);
+      }
+    });
+    poly = next;
+  }
+  // Shoelace.
+  return Math.abs(poly.reduce((sum, p, i) => sum + p[0] * poly[(i + 1) % poly.length][1] - poly[(i + 1) % poly.length][0] * p[1], 0)) / 2;
+}
+
+/** The area of `b` that lies on the slide (EMU²). */
+function areaOnSlide(b: Bounds, slide: SlideSize): number {
+  const across = Math.min(b.x + b.w, slide.w) - Math.max(b.x, 0);
+  const down = Math.min(b.y + b.h, slide.h) - Math.max(b.y, 0);
+  return across > 0 && down > 0 ? across * down : 0;
+}
+
 /** Whether the element's bounds cover at least 90% of the slide's area. */
 function covers(el: XmlElement, slide: SlideSize): boolean {
   const b = boundsOf(el);
-  if (!b) return false;
-  const across = Math.min(b.x + b.w, slide.w) - Math.max(b.x, 0);
-  const down = Math.min(b.y + b.h, slide.h) - Math.max(b.y, 0);
-  return across > 0 && down > 0 && across * down * COVER.den >= slide.w * slide.h * COVER.num;
+  return b !== null && areaOnSlide(b, slide) * COVER.den >= slide.w * slide.h * COVER.num;
 }
 
 /**
@@ -278,15 +344,12 @@ export function coveringRun(layers: readonly StackLayer[], slide: SlideSize, col
       missed = { start: el.start, end: el.end, reason };
       break;
     }
-    qualifying.push({ start: el.start, end: el.end, part, holder, shapeIds: shapeIdsIn(el), pictures, fills: opaque });
+    // It covers the slide, so its bounds are known.
+    const bounds = boundsOf(el)!;
+    const share = areaOnSlide(bounds, slide) / (slide.w * slide.h);
+    qualifying.push({ start: el.start, end: el.end, part, holder, shapeIds: shapeIdsIn(el), pictures, fills: opaque, bounds, share });
   }
   return { qualifying, missed, somethingAbove: qualifying.length < shown.length };
-}
-
-/** A background graphic, by the part holding it and where its XML starts. */
-export interface GraphicRef {
-  part: string;
-  start: number;
 }
 
 /**
@@ -330,19 +393,6 @@ function showsSomething(el: XmlElement, colours: Colours): boolean {
 }
 
 /**
- * The background graphics of a slide's stack (its master's and layout's
- * elements) that show something, bottom first: what hiding background
- * graphics on the slide takes away.
- */
-export function graphicsShowing(layers: readonly StackLayer[], colours: Colours): GraphicRef[] {
-  return layers
-    .filter((l) => l.holder !== "slide")
-    .flatMap(({ part, elements }) =>
-      elements.filter((el) => showsSomething(el, colours)).map((el) => ({ part, start: el.start })),
-    );
-}
-
-/**
  * The covering backgrounds of a slide's stack (bottom first), fills resolved
  * against the slide's `colours`.
  */
@@ -374,13 +424,158 @@ export function coveringGroupKey(
 }
 
 /**
- * A slide, layout or master without these covering backgrounds of it and the
- * animations naming them. Their relationships stay: the caller drops those
- * the part no longer names.
+ * A slide, layout or master without these elements of it (covering
+ * backgrounds, background pieces) and the animations naming them. Their
+ * relationships stay: the caller drops those the part no longer names.
  */
-export function withoutCovering(partXml: string, covering: readonly CoveringBackground[]): string {
-  const root = covering.length > 0 ? parseXml(partXml) : null;
+export function withoutElements(partXml: string, elements: readonly StackElement[]): string {
+  const root = elements.length > 0 ? parseXml(partXml) : null;
   if (!root) return partXml;
-  const ids = new Set(covering.flatMap((c) => c.shapeIds));
-  return cutSpans(partXml, [...covering, ...animationCuts(root, ids)]);
+  const ids = new Set(elements.flatMap((c) => c.shapeIds));
+  return cutSpans(partXml, [...elements, ...animationCuts(root, ids)]);
+}
+
+/**
+ * A background piece (CONTEXT.md → Background piece) as the rule finds it,
+ * before its key: an element the user may pick to delete with the old
+ * background. Its `fills` are all of them, opaque or not.
+ */
+export interface PieceElement extends StackElement {
+  /** Its box (EMU), as written: before its turn. */
+  bounds: Bounds;
+  /** Its turn about the box's centre, clockwise (1/60000°, 0 up to a full turn). */
+  rot: number;
+  /** The share of the slide's area it covers, 0…1. */
+  share: number;
+}
+
+/** Whether a textless element shows enough of the slide to be a piece: its turned box covers at least 5% of it. */
+function pieceArea(el: XmlElement, slide: SlideSize): { box: Bounds; rot: number; share: number } | null {
+  const placed = placementOf(el);
+  if (!placed) return null;
+  const share = turnedAreaOnSlide(placed.box, placed.rot, slide) / (slide.w * slide.h);
+  return { ...placed, share };
+}
+
+/**
+ * The background pieces of a slide's stack, bottom first: the slide's own
+ * top-level elements that are not among its `covering` backgrounds, show no
+ * text, show a picture or a fill (opaque or not), and cover at least 5% of
+ * the slide with known bounds, turned at any angle. A group is one piece;
+ * hidden elements are none. Background graphics are listed apart
+ * (`graphicsIn`).
+ */
+export function piecesIn(
+  layers: readonly StackLayer[],
+  slide: SlideSize,
+  colours: Colours,
+  covering: readonly CoveringBackground[],
+): PieceElement[] {
+  const isCovering = (part: string, el: XmlElement) => covering.some((c) => c.part === part && c.start === el.start);
+  return layers
+    .filter((l) => l.holder === "slide")
+    .flatMap(({ part, holder, elements }) =>
+      elements.flatMap((el): PieceElement[] => {
+        if (isHidden(el) || showsText(el) || isCovering(part, el)) return [];
+        const [pictures, fills] = [picturesOf(el), fillsOf(el, colours).map((f) => f.swatch)];
+        const area = pieceArea(el, slide);
+        if ((pictures.length === 0 && fills.length === 0) || !area) return [];
+        if (area.share * PIECE.den < PIECE.num) return [];
+        const { start, end } = el;
+        const { box, rot, share } = area;
+        return [{ start, end, part, holder, shapeIds: shapeIdsIn(el), pictures, fills, bounds: box, rot, share }];
+      }),
+    );
+}
+
+/**
+ * The key of a background piece, shared by the preview, the engine and the
+ * output check: the set of picture parts it shows (`pictureParts`, its
+ * pictures resolved from its part), or, with none, its fills with its
+ * position, size and turn. Picking a key picks the piece on every slide that
+ * has it.
+ */
+export function pieceKey(piece: PieceElement, pictureParts: readonly string[]): string {
+  // OPC part names compare case-insensitively.
+  const parts = [...new Set(pictureParts.map((p) => p.toLowerCase()))].sort();
+  if (parts.length > 0) return `piece:picture:${parts.join("|")}`;
+  const { x, y, w, h } = piece.bounds;
+  return `piece:fill:${piece.fills.join("|")}@${x},${y},${w},${h}${piece.rot ? `,r${piece.rot}` : ""}`;
+}
+
+/** What a background graphic shows, for its row: text first, then a picture, a fill, or something else (a line, a table). */
+export type GraphicKind = "text" | "picture" | "fill" | "other";
+
+/**
+ * A background graphic (CONTEXT.md → Background graphics) as the picker lists
+ * it: an element of the slide's master or layout that shows something and is
+ * not one of its covering backgrounds. It goes with the old background unless
+ * the user keeps it. Its `fills` are all of them, opaque or not.
+ */
+export interface GraphicElement extends StackElement {
+  kind: GraphicKind;
+  /** Its box (EMU) before its turn, its turn and its share of the slide; null when its bounds are unknown. */
+  area: { box: Bounds; rot: number; share: number } | null;
+  /** Whether it lies under the slide's top covering background (under the slide's own photo): it does not show today. */
+  underCovering: boolean;
+  /** Whether another top-level element of its part has its shape id (some producers repeat ids): its key then needs its place. */
+  sharedId: boolean;
+}
+
+/**
+ * The background graphics of a slide's stack that show something (text, a
+ * picture, a fill or a line), bottom first, but its `covering` backgrounds:
+ * whatever their size, since they go by default and the user keeps a logo by
+ * unticking it. A group is one graphic.
+ */
+export function graphicsIn(
+  layers: readonly StackLayer[],
+  slide: SlideSize,
+  colours: Colours,
+  covering: readonly CoveringBackground[],
+): GraphicElement[] {
+  const isCovering = (part: string, el: XmlElement) => covering.some((c) => c.part === part && c.start === el.start);
+  /** Where an element lies in the stack: its layer, then its place in that part. */
+  const layerOf = (part: string) => layers.findIndex((l) => l.part === part);
+  const top = covering.at(-1);
+  const isUnder = (part: string, el: XmlElement) =>
+    top !== undefined && (layerOf(part) < layerOf(top.part) || (part === top.part && el.start < top.start));
+  return layers
+    .filter((l) => l.holder !== "slide")
+    .flatMap(({ part, holder, elements }) => {
+      const firstIds = elements.map((e) => shapeIdsIn(e)[0]);
+      return elements.flatMap((el, i): GraphicElement[] => {
+        if (!showsSomething(el, colours) || isCovering(part, el)) return [];
+        const [pictures, fills] = [picturesOf(el), fillsOf(el, colours).map((f) => f.swatch)];
+        const kind: GraphicKind = showsText(el) ? "text" : pictures.length > 0 ? "picture" : fills.length > 0 ? "fill" : "other";
+        const { start, end } = el;
+        return [
+          {
+            start,
+            end,
+            part,
+            holder,
+            shapeIds: shapeIdsIn(el),
+            pictures,
+            fills,
+            kind,
+            area: pieceArea(el, slide),
+            underCovering: isUnder(part, el),
+            sharedId: firstIds[i] !== undefined && firstIds.indexOf(firstIds[i]) !== firstIds.lastIndexOf(firstIds[i]),
+          },
+        ];
+      });
+    });
+}
+
+/**
+ * The key of a background graphic, shared by the preview, the engine and the
+ * output check: the part holding it and its own shape id, with its place in
+ * the part when another element there shares the id. Every slide showing that
+ * part shows it, so keeping it keeps it on all of them.
+ */
+export function graphicKey({ part, shapeIds, start, sharedId }: Pick<GraphicElement, "part" | "shapeIds" | "start" | "sharedId">): string {
+  const id = shapeIds[0];
+  // OPC part names compare case-insensitively.
+  return `graphic:${part.toLowerCase()}#${id === undefined ? `@${start}` : sharedId ? `${id}@${start}` : id}`;
 }

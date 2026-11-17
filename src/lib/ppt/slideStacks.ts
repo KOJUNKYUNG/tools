@@ -9,11 +9,15 @@ import type { SlideSize } from "@/lib/image/slideImage";
 import {
   coveringGroupKey,
   coveringIn,
-  graphicsShowing,
+  graphicKey,
+  graphicsIn,
   layoutLayers,
+  pieceKey,
+  piecesIn,
   stackLayers,
   type CoveringBackground,
-  type GraphicRef,
+  type GraphicElement,
+  type PieceElement,
   type StackLayer,
   type StackPart,
 } from "./coveringBackgrounds";
@@ -33,6 +37,18 @@ export interface LayoutStack {
   coveringKey: string | null;
 }
 
+/** A background piece with its key (`pieceKey`) and its picture parts, bottom first. */
+export interface BackgroundPiece extends PieceElement {
+  key: string;
+  pictureParts: string[];
+}
+
+/** A background graphic with its key (`graphicKey`) and its picture parts, bottom first. */
+export interface BackgroundGraphic extends GraphicElement {
+  key: string;
+  pictureParts: string[];
+}
+
 /** A slide's stack: its background graphics, then its own elements. */
 export interface SlideStack extends LayoutStack {
   /** The slide part. */
@@ -41,10 +57,12 @@ export interface SlideStack extends LayoutStack {
   covering: CoveringBackground[];
   /** Their picture parts, bottom first, each resolved from the part holding it. */
   coveringPictures: string[];
-  /** Its background graphics that show something (`graphicsShowing`), covering backgrounds included. */
-  showing: GraphicRef[];
   /** The colours its fills resolve against (`slideColours`). */
   colours: Colours;
+  /** Its background pieces (`piecesIn`), bottom first. */
+  pieces: BackgroundPiece[];
+  /** Its background graphics that show something, but its covering backgrounds (`graphicsIn`), bottom first. */
+  graphics: BackgroundGraphic[];
 }
 
 type Targets = ReadonlyMap<string, string | null>;
@@ -107,13 +125,25 @@ export async function readSlideStacks(
     );
     const colours = await coloursOf(part, xml);
     const covering = coveringIn(layers, slide, colours);
+    const pieces: BackgroundPiece[] = [];
+    for (const piece of piecesIn(layers, slide, colours, covering)) {
+      const targets = await targetsOf(piece.part);
+      const pictureParts = piece.pictures.flatMap((id) => targets.get(id) ?? []);
+      pieces.push({ ...piece, key: pieceKey(piece, pictureParts), pictureParts });
+    }
+    const graphics: BackgroundGraphic[] = [];
+    for (const graphic of graphicsIn(layers, slide, colours, covering)) {
+      const targets = await targetsOf(graphic.part);
+      graphics.push({ ...graphic, key: graphicKey(graphic), pictureParts: graphic.pictures.flatMap((id) => targets.get(id) ?? []) });
+    }
     stacks.push({
       part,
       layers,
       covering,
       ...(await keyed(covering, targetsOf)),
-      showing: graphicsShowing(layers, colours),
       colours,
+      pieces,
+      graphics,
     });
   }
   return stacks;
