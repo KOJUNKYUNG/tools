@@ -48,6 +48,9 @@ interface SlideSketchProps {
   ratio: number;
 }
 
+/** How faint an item that goes is drawn: enough to tell what it is. */
+const GHOST = 0.25;
+
 /** Where an item lies on a drawing of the slide: its box, turned about its centre. */
 export const placed = ({ box, rotation }: { box: Bounds; rotation: number }): CSSProperties => ({
   left: `${box.x * 100}%`,
@@ -63,8 +66,11 @@ export const placed = ({ box, rotation }: { box: Bounds; rotation: number }): CS
  * and piece in place, a picture as itself, a fill as its colour, text and a
  * picture the browser cannot draw as a neutral box (text itself is not
  * drawn). An item under the covering background is drawn only where that is
- * gone. An item that goes is drawn removed, as a dashed outline; clicking an
- * item ticks or unticks it. As large as the space it is given allows.
+ * gone. An item that goes is drawn faint and grey, so it can still be told
+ * apart; in the result it is gone, and shows faint only while pointed at.
+ * The item pointed at, here or in the list, stands out as the rest of the
+ * slide dims around it. Clicking an item ticks or unticks it. As large as the
+ * space it is given allows.
  */
 export function SlideSketch({ background, covering, newBackground, coveringKept, items, urls, hovered, onHover, ratio }: SlideSketchProps) {
   // Pictures the browser could not draw (EMF, WMF, a damaged file).
@@ -96,9 +102,9 @@ export function SlideSketch({ background, covering, newBackground, coveringKept,
           const { box, removed, imagePath: path } = item;
           // Under the covering background it does not show, so it is not drawn over it.
           if (!box || (item.underCovering && coveringShown)) return null;
-          // In the result, what goes is gone: only its outline is left to bring it back.
-          const drawn = !removed;
           const url = path && !broken.has(path) ? urls.get(path) : undefined;
+          // What goes is drawn faint and grey; in the result it is gone, faint only while pointed at.
+          const opacity = !removed ? 1 : result && hovered !== i ? 0 : GHOST;
           return (
             <button
               // By place in the stack: a slide may show the same piece twice.
@@ -114,51 +120,56 @@ export function SlideSketch({ background, covering, newBackground, coveringKept,
               className="absolute block cursor-pointer overflow-hidden p-0"
               style={{
                 ...placed({ box, rotation: item.rotation }),
-                // A removed item shows nothing, so it lies under the items
-                // still drawn: a click on one that shows reaches it, and the
-                // removed one's empty box still takes a click to bring it back.
+                // A removed item lies under the items still drawn: a click on
+                // one that shows reaches it, and the removed one's box still
+                // takes a click to bring it back.
                 zIndex: removed ? 0 : 1,
-                // A picture not drawn (yet, or ever), text and a fill without a colour: a neutral box.
-                background: !drawn || url ? "transparent" : item.swatch ? swatchFill(item.swatch) : "var(--surface-2)",
-                border: !drawn || url || item.swatch ? undefined : "1px solid var(--border)",
               }}
             >
-              {drawn && url && path && (
-                /* A picture fills its box; where the slide crops it, the sketch shows its middle. */
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={url}
-                  alt=""
-                  draggable={false}
-                  className="size-full object-cover"
-                  onError={() => setBroken((prev) => new Set(prev).add(path))}
-                />
-              )}
+              <span
+                aria-hidden
+                className="block size-full"
+                style={{
+                  opacity,
+                  filter: removed ? "grayscale(1)" : undefined,
+                  transition: "opacity var(--motion-fast) var(--ease-standard)",
+                  // A picture not drawn (yet, or ever), text and a fill without a colour: a neutral box.
+                  background: url ? undefined : item.swatch ? swatchFill(item.swatch) : "var(--surface-2)",
+                  border: url || item.swatch ? undefined : "1px solid var(--border)",
+                }}
+              >
+                {url && path && (
+                  /* A picture fills its box; where the slide crops it, the sketch shows its middle. */
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={url}
+                    alt=""
+                    draggable={false}
+                    className="size-full object-cover"
+                    onError={() => setBroken((prev) => new Set(prev).add(path))}
+                  />
+                )}
+              </span>
             </button>
           );
         })}
-        {/* Outlines lie over every item, a fixed white line on a fixed dark
-            one (DESIGN.md, on-content overlays), so they read on any picture
-            or colour in either theme: dashed for a removed item, solid for
-            the one pointed at. */}
-        {items.map((item, i) => {
-          if (!item.box || (!item.removed && hovered !== i)) return null;
-          const width = hovered === i ? 2 : 1.5;
-          return (
-            <span
-              key={i}
-              aria-hidden
-              className="pointer-events-none absolute block"
-              style={{
-                ...placed({ box: item.box, rotation: item.rotation }),
-                zIndex: 2,
-                outline: `${width}px ${item.removed ? "dashed" : "solid"} white`,
-                outlineOffset: `-${width}px`,
-                boxShadow: `inset 0 0 0 ${width + 1}px rgba(0,0,0,0.7)`,
-              }}
-            />
-          );
-        })}
+        {/* The item pointed at stands out: the rest of the slide dims around
+            it under a fixed dark scrim, with a thin fixed white line on its
+            edge for an item as large as the slide (DESIGN.md, on-content
+            overlays), so it reads on any picture or colour in either theme. */}
+        {hovered !== null && items[hovered]?.box && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute block"
+            style={{
+              ...placed({ box: items[hovered].box, rotation: items[hovered].rotation }),
+              zIndex: 2,
+              outline: "1px solid rgba(255,255,255,0.9)",
+              outlineOffset: "-1px",
+              boxShadow: "0 0 0 100vmax rgba(0,0,0,0.45)",
+            }}
+          />
+        )}
       </div>
     </div>
   );
