@@ -20,7 +20,7 @@ import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { savedBackground, type SavedBackground } from "@/lib/background/savedBackground";
 import { useSaveBackground } from "@/hooks/useSaveBackground";
 import { template } from "@/lib/common/template";
-import { maxFitCrop } from "@/lib/image/maxFitCrop";
+import { slideCrop } from "@/lib/image/maxFitCrop";
 import { belowFullHd, filledSize, slideImagePreparer, type SlideSize } from "@/lib/image/slideImage";
 import { filteredColour } from "@/lib/image/filterSet";
 import type { RunPicture } from "@/lib/background/resolveBackground";
@@ -42,6 +42,8 @@ import { diagonalBands } from "@/components/background-editor/diagonalBands";
 /** A finished run: the deck, and the background it was given to save, if it is a file. */
 interface PptBackgroundRun {
   deck: Uint8Array;
+  /** The uploaded deck's name without its extension, both files are named after. */
+  baseName: string;
   saved: SavedBackground | null;
 }
 
@@ -261,12 +263,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         prepare: background.kind === "picture" && background.step ? slideImagePreparer(background.step) : undefined,
       });
       // The engine's pictures are sized for a 4K screen (`slideImagePreparer`).
-      return { deck, saved: savedBackground(background, picture, slide, "4k") };
+      return { deck, baseName: deckBaseName(files[0]), saved: savedBackground(background, picture, slide, "4k") };
     },
-    onDownload: ({ deck }) => {
+    onDownload: ({ deck, baseName }) => {
       downloadBlob(
         deck,
-        `${deckBaseName(pptxFiles[0])}-bg-changed.pptx`,
+        `${baseName}-bg-changed.pptx`,
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       );
     },
@@ -277,7 +279,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
   const saveBackground = useSaveBackground(
     result?.saved ?? null,
-    deckBaseName(pptxFile ?? undefined),
+    result?.baseName ?? "",
     labels.processing.downloadBackground,
   );
 
@@ -440,7 +442,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       const bitmap = await createImageBitmap(file);
       const size = { w: bitmap.width, h: bitmap.height };
       bitmap.close();
-      const prepared = await slideImagePreparer(step)(file, cut ?? maxFitCrop(size, slideRatio, 1), { w: slideRatio, h: 1 });
+      const prepared = await slideImagePreparer(step)(file, cut ?? slideCrop(size, slideRatio), { w: slideRatio, h: 1 });
       // The bytes are the prepared picture's own buffer; a Blob takes them as they are.
       return new Blob([prepared.bytes as Uint8Array<ArrayBuffer>], { type: `image/${prepared.format}` });
     },

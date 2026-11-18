@@ -3,7 +3,7 @@ import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { relsPartOf } from "@/lib/output-check/pptxPackage";
 import { zipCompressionMethods } from "@/lib/output-check/zipReader";
-import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
+import { slideCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
   prepareSlideImage,
   type PreparedImage,
@@ -559,7 +559,7 @@ export async function changeBackground({
     const source = new Uint8Array(await file.arrayBuffer());
     const prepared = await prepare(
       file,
-      crop ?? maxFitCrop(imgSize, slideSize.w, slideSize.h),
+      crop ?? slideCrop(imgSize, slideSize.w / slideSize.h),
       slideSize,
     );
 

@@ -1,7 +1,7 @@
 import PptxGenJS from "pptxgenjs";
 import { CORRUPT_OUTPUT_PREFIX } from "@/lib/errors";
 import type { RunBackground } from "@/lib/background/resolveBackground";
-import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
+import { slideCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import {
   containedSize,
   fittedSize,
@@ -180,7 +180,7 @@ export async function prepareBackgroundPicture(
 
 async function centredCrop(file: File, slide: { w: number; h: number }, preparation: SizedImagePreparation) {
   const upright = await preparation.measure(file);
-  return maxFitCrop({ w: upright.width, h: upright.height }, slide.w, slide.h);
+  return slideCrop({ w: upright.width, h: upright.height }, slide.w / slide.h);
 }
 
 /** What a run gives: the deck, and the picture it put in as the background. */

@@ -33,13 +33,6 @@ export function maxFitCrop(
   const ratioTarget = targetW / targetH;
   const ratioImage = img.w / img.h;
 
-  // An image already of the ratio, to the 1 px a whole-pixel picture of it
-  // can miss by, is the largest frame itself. Derived the other way round,
-  // the frame could fall 1 px short, so a background saved at the slide's
-  // aspect would be cut and re-encoded when used again.
-  const whole = { x: 0, y: 0, width: img.w, height: img.h };
-  if (cropFits(whole, img, ratioTarget)) return whole;
-
   // The exact largest size: target wider than image → width-limited.
   const exactW = ratioTarget >= ratioImage ? img.w : img.h * ratioTarget;
   const exactH = ratioTarget >= ratioImage ? img.w / ratioTarget : img.h;
@@ -68,6 +61,21 @@ export function maxFitCrop(
     width: cropW,
     height: cropH,
   };
+}
+
+/**
+ * The Background crop a picture starts with on a slide of `ratio` (w / h):
+ * the whole picture when it already holds the ratio to the 1 px a slide
+ * background is checked to, otherwise the centred largest frame. A
+ * background saved at the slide's aspect is a whole-pixel picture that can
+ * miss the ratio by up to 1 px; `maxFitCrop`, which derives the frame from
+ * one side, could fall 1 px short of it, so the picture would be cut and
+ * re-encoded when used again. Kept apart from `maxFitCrop`, whose callers
+ * (image-resize) ask for an exact pixel ratio.
+ */
+export function slideCrop(img: ImageDims, ratio: number): CropRect {
+  const whole = { x: 0, y: 0, width: img.w, height: img.h };
+  return cropFits(whole, img, ratio) ? whole : maxFitCrop(img, ratio, 1);
 }
 
 /**

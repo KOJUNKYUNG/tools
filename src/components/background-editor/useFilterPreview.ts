@@ -6,7 +6,7 @@ import { bakesPicture, filterPlan, paperDrawingKey, type BackgroundKind, type Fi
 import { drawPaperFilter } from "@/lib/image/paperFilterDrawing";
 import { filledSize, fittedSize, type PixelSize } from "@/lib/image/slideImage";
 import { standInRect } from "@/lib/image/cropFrameView";
-import { maxFitCrop, type CropRect, type ImageDims } from "@/lib/image/maxFitCrop";
+import { slideCrop, type CropRect, type ImageDims } from "@/lib/image/maxFitCrop";
 import { drawScaledDown } from "@/lib/image/downscale";
 import type { LivePicture } from "@/components/image/LiveCanvas";
 
@@ -191,7 +191,7 @@ export function useFilterPreview({
       const part = standInRect(crop, source, own, ratio);
       // The size the applied picture is stored at, from the crop the run
       // takes (centred to fill until one is set); both read only the slide's aspect.
-      const applied = fittedSize(crop ?? maxFitCrop(source, ratio, 1), { w: ratio, h: 1 });
+      const applied = fittedSize(crop ?? slideCrop(source, ratio), { w: ratio, h: 1 });
       const box = previewBox(ratio);
       // Never larger than the part itself: an enlargement only blurs.
       const scale = Math.min(1, box.w / part.w, box.h / part.h);
