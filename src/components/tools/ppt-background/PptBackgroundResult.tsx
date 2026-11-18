@@ -12,7 +12,7 @@ interface PptBackgroundResultProps {
   downloadLabel: string;
   onDownload: () => void;
   /** Saves the background picture the deck was given; absent for "no background". */
-  saveBackground?: { label: string; onClick: () => void };
+  saveBackground?: { label: string; onClick: () => void; busy?: boolean };
 }
 
 export function PptBackgroundResult({

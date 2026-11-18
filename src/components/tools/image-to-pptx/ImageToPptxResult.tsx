@@ -12,14 +12,15 @@ interface ImageToPptxResultProps {
   result: ImageToPptxResultData;
   labels: ImageToPptxLabels;
   onDownload: () => void;
-  onSaveBackground: () => void;
+  /** Saves the background picture the deck was given; absent when there is none. */
+  saveBackground?: { label: string; onClick: () => void; busy?: boolean };
 }
 
 export function ImageToPptxResult({
   result,
   labels,
   onDownload,
-  onSaveBackground,
+  saveBackground,
 }: ImageToPptxResultProps) {
   const sizeText = useMemo(() => formatBytes(result.bytes.byteLength), [result.bytes]);
 
@@ -31,7 +32,7 @@ export function ImageToPptxResult({
       actions={
         <ResultActions
           download={{ label: labels.download, onClick: onDownload }}
-          secondaryDownload={result.saved ? { label: labels.downloadBackground, onClick: onSaveBackground } : undefined}
+          secondaryDownload={saveBackground}
         />
       }
     >

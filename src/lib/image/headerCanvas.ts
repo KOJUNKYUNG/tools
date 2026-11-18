@@ -20,7 +20,9 @@ export function stubHeaderCanvas(wins: "jpeg" | "png"): void {
     ) {}
     getContext() {
       return {
+        fillStyle: "",
         drawImage() {},
+        fillRect() {},
         clearRect() {},
         getImageData: (_x: number, _y: number, w: number, h: number) => ({
           data: new Uint8ClampedArray(w * h * 4).fill(255),

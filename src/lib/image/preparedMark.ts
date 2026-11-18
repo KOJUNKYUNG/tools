@@ -1,8 +1,9 @@
 /**
- * The mark on a PNG the slide image preparer encoded: a private ancillary
- * chunk after IHDR, which decoders skip, so the pixels are untouched. Its
- * format was settled when it was prepared; re-uploaded whole (a background
- * saved from a result, a picture taken out of a deck), it goes back in as is.
+ * The mark on a PNG whose format the site settled for a slide (one the slide
+ * image preparer encoded, or a solid colour saved from a result): a private
+ * ancillary chunk after IHDR, which decoders skip, so the pixels are
+ * untouched. Re-uploaded whole (a background saved from a result, a picture
+ * taken out of a deck), it goes back in as is.
  * Without the mark, the format rule would measure it again, and another
  * browser's encoder could turn it into JPEG: a quality change on re-use.
  */

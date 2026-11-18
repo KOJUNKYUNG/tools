@@ -16,8 +16,9 @@ import { getSlideAspect, type SlideAspect } from "@/lib/ppt/getSlideAspect";
 import { groupBackgrounds, type BackgroundGroup } from "@/lib/ppt/groupBackgrounds";
 import { noBackgroundColours } from "@/lib/ppt/themeBackground";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
-import { downloadBlob, downloadBlobObject } from "@/lib/pdf/downloadBlob";
-import { savedBackground, savedBackgroundFile, type SavedBackground } from "@/lib/background/savedBackground";
+import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { savedBackground, type SavedBackground } from "@/lib/background/savedBackground";
+import { useSaveBackground } from "@/hooks/useSaveBackground";
 import { template } from "@/lib/common/template";
 import { maxFitCrop } from "@/lib/image/maxFitCrop";
 import { belowFullHd, filledSize, slideImagePreparer, type SlideSize } from "@/lib/image/slideImage";
@@ -274,12 +275,11 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
 
   const pptxFile = pptxFiles[0] ?? null;
 
-  const saved = result?.saved ?? null;
-  const saveBackground = async () => {
-    if (!saved) return;
-    const file = await savedBackgroundFile(saved, deckBaseName(pptxFile ?? undefined));
-    downloadBlobObject(file, file.name);
-  };
+  const saveBackground = useSaveBackground(
+    result?.saved ?? null,
+    deckBaseName(pptxFile ?? undefined),
+    labels.processing.downloadBackground,
+  );
 
   // .ppt vs .pptx routing — .ppt never enters useToolProcessor state.
   const setPptxFiles = useCallback(
@@ -804,9 +804,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   title={labels.processing.done}
                   downloadLabel={labels.processing.download}
                   onDownload={download}
-                  saveBackground={
-                    saved ? { label: labels.processing.downloadBackground, onClick: saveBackground } : undefined
-                  }
+                  saveBackground={saveBackground}
                 />
               ) : (
                 <ProcessingStatus

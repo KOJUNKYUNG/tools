@@ -1,3 +1,4 @@
+import { markPrepared } from "@/lib/image/preparedMark";
 import type { PreparedImage, ScreenSize, SlideSize } from "@/lib/image/slideImage";
 import { solidPictureFile } from "./backgroundFiles";
 import type { RunBackground } from "./resolveBackground";
@@ -43,6 +44,8 @@ export async function savedBackgroundFile(saved: SavedBackground, deckName: stri
     const { bytes, format } = saved.picture;
     return new File([Uint8Array.from(bytes)], savedBackgroundName(deckName, format), { type: `image/${format}` });
   }
-  const drawn = await solidPictureFile(saved.rgb, saved.slide, saved.screen);
-  return new File([drawn], savedBackgroundName(deckName, "png"), { type: "image/png" });
+  // Marked as settled: a flat colour's JPEG is far smaller than its PNG, so
+  // measured again on re-upload it would turn into JPEG.
+  const drawn = markPrepared(new Uint8Array(await (await solidPictureFile(saved.rgb, saved.slide, saved.screen)).arrayBuffer()));
+  return new File([Uint8Array.from(drawn)], savedBackgroundName(deckName, "png"), { type: "image/png" });
 }

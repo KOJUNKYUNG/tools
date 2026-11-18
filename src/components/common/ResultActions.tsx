@@ -23,7 +23,7 @@ interface ResultActionsProps {
    * background picture a deck was built with (`.nameplate`, ImageDown): right
    * after the primary download, never as bold.
    */
-  secondaryDownload?: ActionSpec;
+  secondaryDownload?: ActionSpec & { busy?: boolean };
   /**
    * "다시 / Again" reset (`.nameplate`, RotateCcw — the one canonical retry icon).
    * Optional and being retired: the retry action is moving into `ToolHeader`'s
@@ -63,10 +63,16 @@ export function ResultActions({ download, secondaryDownload, again, extra }: Res
         <button
           type="button"
           onClick={secondaryDownload.onClick}
+          disabled={secondaryDownload.busy}
+          aria-busy={secondaryDownload.busy}
           className="nameplate inline-flex h-9 items-center justify-center gap-1.5 rounded-[9px] px-3 font-body text-[12px]"
           style={{ color: "var(--ink-strong)" }}
         >
-          <ImageDownIcon className="size-3.5" />
+          {secondaryDownload.busy ? (
+            <Loader2Icon className="size-3.5 animate-spin" />
+          ) : (
+            <ImageDownIcon className="size-3.5" />
+          )}
           {secondaryDownload.label}
         </button>
       )}

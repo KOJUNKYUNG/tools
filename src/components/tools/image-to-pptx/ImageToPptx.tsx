@@ -44,7 +44,8 @@ import {
 } from "@/lib/pptx/slidePlacement";
 import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
-import { savedBackground, savedBackgroundFile, type SavedBackground } from "@/lib/background/savedBackground";
+import { savedBackground, type SavedBackground } from "@/lib/background/savedBackground";
+import { useSaveBackground } from "@/hooks/useSaveBackground";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import { normalizeImageFiles } from "@/lib/image/heic";
 import { filledSize, sizedImagePreparation, uprightSize, type ScreenSize } from "@/lib/image/slideImage";
@@ -319,11 +320,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
     errorOptions: { copy: labels.errors, corruptOutputHint: labels.errorCorrupt },
   });
 
-  const saveBackground = useCallback(async () => {
-    if (!result?.saved) return;
-    const file = await savedBackgroundFile(result.saved, result.baseName);
-    downloadBlobObject(file, file.name);
-  }, [result]);
+  const saveBackground = useSaveBackground(result?.saved ?? null, result?.baseName ?? "", labels.downloadBackground);
 
   // Cleanup thumbnail cache on unmount
   useEffect(() => () => clearThumbnailCache(), []);
@@ -802,7 +799,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         {status === "idle" ? (
           settings
         ) : status === "done" && result ? (
-          <ImageToPptxResult result={result} labels={labels} onDownload={download} onSaveBackground={saveBackground} />
+          <ImageToPptxResult result={result} labels={labels} onDownload={download} saveBackground={saveBackground} />
         ) : (
           <ProcessingStatus
             status={status}
