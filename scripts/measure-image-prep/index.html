@@ -167,7 +167,7 @@ async function measureDeck(entries, screen) {
     },
   };
   const start = performance.now();
-  const deck = await buildPptx(
+  const { deck } = await buildPptx(
     {
       files: entries.map((e) => e.file),
       box: { x: 0, y: 0, w: SLIDE.w, h: SLIDE.h },

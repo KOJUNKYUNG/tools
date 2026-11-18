@@ -189,6 +189,35 @@ describe("sizedImagePreparer", () => {
     expect(prepared.format).toBe("png");
   });
 
+  it("puts a PNG it prepared back in as uploaded, though another browser's JPEG would halve it", async () => {
+    // Real PNG chunks, so the prepared picture can be read again; the JPEG's
+    // size against them is what each browser's encoder gives.
+    const encoding = (jpegBytes: number) =>
+      class extends FakeCanvas {
+        override async convertToBlob({ type }: { type: string }) {
+          const png = headerOnlyImage("png", size(this.width, this.height), new TextEncoder().encode(this.name));
+          return new Blob([type === "image/png" ? Uint8Array.from(png) : new Uint8Array(jpegBytes)]);
+        }
+      };
+    const decoder = async (source: Blob) => {
+      const header = new DataView(await source.arrayBuffer());
+      return bitmap(header.getUint32(16), header.getUint32(20));
+    };
+    vi.stubGlobal("createImageBitmap", decoder);
+    const upload = headerOnlyImage("png", size(4000, 3000), new Uint8Array([12]));
+    // Here the JPEG is as large as the PNG: the picture stays PNG.
+    vi.stubGlobal("OffscreenCanvas", encoding(10_000));
+    const prepared = await sizedImagePreparer()(fileOf(upload), whole(4000, 3000), size(1440, 1080));
+    expect(prepared.format).toBe("png");
+
+    // Re-uploaded where the JPEG is far smaller, it is not re-encoded.
+    vi.stubGlobal("OffscreenCanvas", encoding(1));
+    const again = await sizedImagePreparer()(fileOf(prepared.bytes), whole(1440, 1080), size(1440, 1080));
+
+    expect(again.bytes).toEqual(prepared.bytes);
+    expect(again.format).toBe("png");
+  });
+
   it("saves a resized PNG whose transparency is used as PNG", async () => {
     vi.stubGlobal("createImageBitmap", async () => ({ ...bitmap(4000, 3000), alpha: 128 }));
     const png = headerOnlyImage("png", size(4000, 3000), new Uint8Array([10]));

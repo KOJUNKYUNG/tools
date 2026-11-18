@@ -17,8 +17,10 @@ import { groupBackgrounds, type BackgroundGroup } from "@/lib/ppt/groupBackgroun
 import { noBackgroundColours } from "@/lib/ppt/themeBackground";
 import { PageRangeSelector } from "@/components/common/PageRangeSelector";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
+import { savedBackground, type SavedBackground } from "@/lib/background/savedBackground";
+import { useSaveBackground } from "@/hooks/useSaveBackground";
 import { template } from "@/lib/common/template";
-import { maxFitCrop } from "@/lib/image/maxFitCrop";
+import { slideCrop } from "@/lib/image/maxFitCrop";
 import { belowFullHd, filledSize, slideImagePreparer, type SlideSize } from "@/lib/image/slideImage";
 import { filteredColour } from "@/lib/image/filterSet";
 import type { RunPicture } from "@/lib/background/resolveBackground";
@@ -36,6 +38,17 @@ import { BackgroundEditor, type BackgroundEditorLabels } from "@/components/back
 import type { RecipeEditLabels } from "@/components/background-editor/RecipeEditControls";
 import type { NoneColours, SolidColourLabels } from "@/components/background-editor/SolidColourGrid";
 import { diagonalBands } from "@/components/background-editor/diagonalBands";
+
+/** A finished run: the deck, and the background it was given to save, if it is a file. */
+interface PptBackgroundRun {
+  deck: Uint8Array;
+  /** The uploaded deck's name without its extension, both files are named after. */
+  baseName: string;
+  saved: SavedBackground | null;
+}
+
+/** The uploaded deck's name without its extension. */
+const deckBaseName = (file: File | undefined) => file?.name.replace(/\.pptx?$/i, "") ?? "presentation";
 
 /** What "no background" shows until the deck is read, or where its colour cannot be resolved: the default theme's. */
 const UNREAD_NONE = "#ffffff";
@@ -103,6 +116,8 @@ export interface PptBackgroundToolLabels {
     done: string;
     doneBody: string;
     download: string;
+    /** The second download on the result card: the background picture the deck was given. */
+    downloadBackground: string;
     error: string;
     /** Shown when the output check blocks a broken deck. */
     errorCorrupt: string;
@@ -223,16 +238,17 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
     progress,
     runLine,
     errorMessage,
+    result,
     run,
     retry,
     download,
-  } = useToolProcessor<Uint8Array>({
+  } = useToolProcessor<PptBackgroundRun>({
     processor: async (files, onProgress, needsScreen) => {
       // The pick as the run puts it in: an edited recipe drawn, a solid colour
       // with grain or a Paper filter a picture of the colour, the filters the
       // step baked in between the fit and the format.
       const { background, onProgress: shown } = await resolveForRun({ slide, needsScreen, onProgress });
-      return changeBackground({
+      const { deck, picture } = await changeBackground({
         pptxFile: files[0],
         background: background.kind === "fill" ? background.fill : { kind: "picture", file: background.file, crop: background.crop },
         mode,
@@ -246,11 +262,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
         onProgress: shown,
         prepare: background.kind === "picture" && background.step ? slideImagePreparer(background.step) : undefined,
       });
+      // The engine's pictures are sized for a 4K screen (`slideImagePreparer`).
+      return { deck, baseName: deckBaseName(files[0]), saved: savedBackground(background, picture, slide, "4k") };
     },
-    onDownload: (bytes) => {
-      const baseName = pptxFiles[0]?.name.replace(/\.pptx?$/i, "") ?? "presentation";
+    onDownload: ({ deck, baseName }) => {
       downloadBlob(
-        bytes,
+        deck,
         `${baseName}-bg-changed.pptx`,
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       );
@@ -259,6 +276,12 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
   });
 
   const pptxFile = pptxFiles[0] ?? null;
+
+  const saveBackground = useSaveBackground(
+    result?.saved ?? null,
+    result?.baseName ?? "",
+    labels.processing.downloadBackground,
+  );
 
   // .ppt vs .pptx routing — .ppt never enters useToolProcessor state.
   const setPptxFiles = useCallback(
@@ -419,7 +442,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
       const bitmap = await createImageBitmap(file);
       const size = { w: bitmap.width, h: bitmap.height };
       bitmap.close();
-      const prepared = await slideImagePreparer(step)(file, cut ?? maxFitCrop(size, slideRatio, 1), { w: slideRatio, h: 1 });
+      const prepared = await slideImagePreparer(step)(file, cut ?? slideCrop(size, slideRatio), { w: slideRatio, h: 1 });
       // The bytes are the prepared picture's own buffer; a Blob takes them as they are.
       return new Blob([prepared.bytes as Uint8Array<ArrayBuffer>], { type: `image/${prepared.format}` });
     },
@@ -783,6 +806,7 @@ export function PptBackgroundTool({ labels, inline = false }: PptBackgroundToolP
                   title={labels.processing.done}
                   downloadLabel={labels.processing.download}
                   onDownload={download}
+                  saveBackground={saveBackground}
                 />
               ) : (
                 <ProcessingStatus

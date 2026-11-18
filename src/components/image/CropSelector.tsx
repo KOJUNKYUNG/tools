@@ -10,7 +10,7 @@ import {
 } from "react";
 
 import { EMPTY_BOX, containBox, frameInBox, pointInSource, type Box } from "@/lib/image/cropFrameView";
-import { cropFits, maxFitCrop, type CropRect, type ImageDims } from "@/lib/image/maxFitCrop";
+import { cropFits, maxFitCrop, slideCrop, type CropRect, type ImageDims } from "@/lib/image/maxFitCrop";
 import {
   aspectLockedResize,
   type ResizeHandle,
@@ -66,6 +66,12 @@ interface CropSelectorProps {
    * and the target ratio, otherwise the centred, largest frame.
    */
   initialCrop?: CropRect | null;
+  /**
+   * A slide background's frame: with no fitting `initialCrop`, a picture
+   * already on the target ratio to within 1 px starts whole (`slideCrop`), so
+   * a background saved for the slide goes back in unchanged.
+   */
+  slideFrame?: boolean;
   /** Shows the frame without handles and ignores drags, e.g. while a run uses it. */
   readOnly?: boolean;
   /**
@@ -95,6 +101,7 @@ export function CropSelector({
   onCropChange,
   handleLabels,
   initialCrop = null,
+  slideFrame = false,
   readOnly = false,
   maxImageHeight,
   overlay,
@@ -136,11 +143,13 @@ export function CropSelector({
     const rect =
       start && cropFits(start, dims, targetWidth / targetHeight)
         ? start
-        : maxFitCrop(dims, targetWidth, targetHeight);
+        : slideFrame
+          ? slideCrop(dims, targetWidth / targetHeight)
+          : maxFitCrop(dims, targetWidth, targetHeight);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- re-place the frame when the source or target size changes
     setCrop(rect);
     onCropChange(rect);
-  }, [targetWidth, targetHeight, sourceW, sourceH, onCropChange]);
+  }, [targetWidth, targetHeight, sourceW, sourceH, onCropChange, slideFrame]);
 
   // Its own effect: a new callback must never re-place the frame.
   useEffect(() => {

@@ -204,6 +204,7 @@ export function BackgroundPicker({
                 targetWidth={frame.ratio}
                 targetHeight={1}
                 initialCrop={frame.crop}
+                slideFrame
                 onCropChange={frame.onCropChange}
                 onSourceSize={onSourceSize}
                 handleLabels={labels.handles}

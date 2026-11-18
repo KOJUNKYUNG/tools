@@ -64,6 +64,21 @@ export function maxFitCrop(
 }
 
 /**
+ * The Background crop a picture starts with on a slide of `ratio` (w / h):
+ * the whole picture when it already holds the ratio to the 1 px a slide
+ * background is checked to, otherwise the centred largest frame. A
+ * background saved at the slide's aspect is a whole-pixel picture that can
+ * miss the ratio by up to 1 px; `maxFitCrop`, which derives the frame from
+ * one side, could fall 1 px short of it, so the picture would be cut and
+ * re-encoded when used again. Kept apart from `maxFitCrop`, whose callers
+ * (image-resize) ask for an exact pixel ratio.
+ */
+export function slideCrop(img: ImageDims, ratio: number): CropRect {
+  const whole = { x: 0, y: 0, width: img.w, height: img.h };
+  return cropFits(whole, img, ratio) ? whole : maxFitCrop(img, ratio, 1);
+}
+
+/**
  * Whether `crop` lies inside an image of `img` and holds the ratio (w / h)
  * to within 1 px on both sides, the tolerance a slide background's aspect is
  * checked to. A frame the user set earlier is reused only when it fits.

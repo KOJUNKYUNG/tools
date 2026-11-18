@@ -39,7 +39,7 @@
 ### E. 공통 규격 준수
 - [ ] **실행 버튼**은 공통 `ToolHeader` 오른쪽 고정. 위치·규격 전 도구 통일, 예외 없음.
 - [ ] **파일 메타** 순서 = `파일명 · 크기 · 카운트`. 단일 파일이면 크기 표시(PPT=슬라이드수·PDF=페이지수), 다중이면 파일 개수.
-- [ ] **완료 상태**는 공통 `ResultCard` + `ResultActions`(다운로드→핸드오프→다시 하기 순). 자체 결과 마크업 금지. 2컬럼 레이아웃에서 결과 카드는 **우측 컬럼 가로 폭을 채운다**(`self-start` 등으로 hug 금지 — ppt-background·pdf-watermark·pdf-compress canon).
+- [ ] **완료 상태**는 공통 `ResultCard` + `ResultActions`(다운로드→보조 다운로드→핸드오프→다시 하기 순). 자체 결과 마크업 금지. 2컬럼 레이아웃에서 결과 카드는 **우측 컬럼 가로 폭을 채운다**(`self-start` 등으로 hug 금지 — ppt-background·pdf-watermark·pdf-compress canon).
 - [ ] **단일 파일 도구**는 헤더 오른쪽 되돌리기(reset) 버튼을 두지 않는다(다시 업로드로 대체).
 - [ ] 공통 요소를 손봐야 하면 그 도구가 아니라 **공유 컴포넌트/토큰 출처에서** 고쳐 전 도구에 반영([[common-component-unification]]).
 - [ ] **재사용 검토**: 이번에 새로 도입·구현한 기능(선택 UI·인코딩 규칙·크기 기준 등)을 다른 도구도 쓸 수 있는가? 쓸 수 있으면 공유 모듈로 만들고 도입할 도구를 백로그에 남긴다(`workflow.md` "Re-check and polish order").

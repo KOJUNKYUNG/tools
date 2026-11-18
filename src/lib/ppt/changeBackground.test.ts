@@ -64,7 +64,7 @@ async function run(
   input: Uint8Array,
   options: { crop?: CropRect; prepare?: PrepareSlideImage; image?: Uint8Array } = {},
 ): Promise<JSZip> {
-  const output = await changeBackground({
+  const { deck: output } = await changeBackground({
     pptxFile: new File([new Uint8Array(input)], "deck.pptx"),
     background: {
       kind: "picture",

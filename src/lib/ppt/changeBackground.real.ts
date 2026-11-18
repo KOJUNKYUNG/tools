@@ -188,6 +188,6 @@ realFileSuite({
       pickedPieces: request.pickedPieces,
       keptGraphics: request.keptGraphics,
       prepare: standInPrepare,
-    }),
+    }).then((result) => result.deck),
   check: checkPptBackground,
 });

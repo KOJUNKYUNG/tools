@@ -13,6 +13,7 @@
 import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { displayedSize, hasUnreadOrientation, readImageHeader } from "@/lib/output-check/imageHeader";
 import { downscaleImage } from "./downscale";
+import { isMarkedPrepared, markPrepared } from "./preparedMark";
 import type { CropRect } from "./maxFitCrop";
 
 /** A slide's size in any unit (EMU from `<p:sldSz>`); only its shape matters. */
@@ -288,6 +289,9 @@ export function sizedImagePreparer(step?: PrepareStep): PrepareSizedImage {
     let canvas: OffscreenCanvas | null = null;
     try {
       if (whole && header?.format === "jpeg") return { bytes, format: "jpeg", ...size };
+      // Its format was settled when this preparer encoded it; measuring it
+      // again in another browser could turn it into JPEG.
+      if (whole && isMarkedPrepared(bytes)) return { bytes, format: "png", ...size };
       const sourceAlpha = !step && header?.format !== "jpeg" && alphaUsed(bitmap);
       if (whole && sourceAlpha) return { bytes, format: "png", ...size };
       canvas = await downscaleImage(bitmap, size.width, size.height, crop);
@@ -305,7 +309,7 @@ export function sizedImagePreparer(step?: PrepareStep): PrepareSizedImage {
       if (jpeg && preparedFormat({ alphaUsed: alpha, jpegBytes: jpeg.length, pngBytes: png.length }) === "jpeg") {
         return { bytes: jpeg, format: "jpeg", ...size };
       }
-      return { bytes: whole ? bytes : png, format: "png", ...size };
+      return { bytes: whole ? bytes : markPrepared(png), format: "png", ...size };
     } finally {
       if (canvas) canvas.width = canvas.height = 0;
       bitmap.close();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cropFits, cropForRatio, maxFitCrop } from "./maxFitCrop";
+import { cropFits, cropForRatio, maxFitCrop, slideCrop } from "./maxFitCrop";
 
 describe("maxFitCrop", () => {
   it("returns a centred crop when target ratio matches the image ratio", () => {
@@ -112,6 +112,20 @@ describe("maxFitCrop holds odd slide ratios to 1 px", () => {
         expect(cropFits(crop, { w, h }, ratio)).toBe(true);
       }
     }
+  });
+
+});
+
+describe("slideCrop", () => {
+  it("takes a picture already on the ratio to within 1 px whole, as a background saved for the slide is", () => {
+    // 3840 × 1670 is a 2.3 : 1 slide's picture on a 4K screen; maxFitCrop
+    // derives its frame from the height, 3839 wide.
+    expect(maxFitCrop({ w: 3840, h: 1670 }, 2.3, 1).width).toBe(3839);
+    expect(slideCrop({ w: 3840, h: 1670 }, 2.3)).toEqual({ x: 0, y: 0, width: 3840, height: 1670 });
+  });
+
+  it("is the centred largest frame for a picture of another shape", () => {
+    expect(slideCrop({ w: 4032, h: 3024 }, 16 / 9)).toEqual(maxFitCrop({ w: 4032, h: 3024 }, 16 / 9, 1));
   });
 });
 

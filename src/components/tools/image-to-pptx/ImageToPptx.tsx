@@ -44,6 +44,8 @@ import {
 } from "@/lib/pptx/slidePlacement";
 import { SLIDE_SIZES, type SlideKind } from "@/lib/pptx/slideSize";
 import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
+import { savedBackground, type SavedBackground } from "@/lib/background/savedBackground";
+import { useSaveBackground } from "@/hooks/useSaveBackground";
 import { consumeStagedFiles } from "@/lib/common/toolHandoff";
 import { normalizeImageFiles } from "@/lib/image/heic";
 import { filledSize, sizedImagePreparation, uprightSize, type ScreenSize } from "@/lib/image/slideImage";
@@ -79,8 +81,11 @@ const WHITE: FillBackground = { kind: "colour", rgb: "FFFFFF" };
 
 export interface ImageToPptxResultData {
   bytes: Uint8Array;
-  name: string;
+  /** The deck's name without its extension. */
+  baseName: string;
   slideCount: number;
+  /** The background the deck was given, to save as a picture. */
+  saved: SavedBackground | null;
 }
 
 interface SortableCellProps {
@@ -240,8 +245,8 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
   /** The background file the run would put in, shown under the slide pictures while the zoom fills the screen. */
   const prepareActual = useCallback(
     async ({ file, crop: cut, step }: RunPicture) => {
-      const dataUrl = await prepareBackgroundPicture(file, slideKind, screen, sizedImagePreparation, cut, step);
-      return (await fetch(dataUrl)).blob();
+      const { bytes, format } = await prepareBackgroundPicture(file, slideKind, screen, sizedImagePreparation, cut, step);
+      return new Blob([Uint8Array.from(bytes)], { type: `image/${format}` });
     },
     [slideKind, screen],
   );
@@ -294,22 +299,28 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
       // with grain or a Paper filter a picture of the colour, the filters the
       // step the engine runs between the fit and the format.
       const resolved = await resolveForRun({ slide, screen, needsScreen, onProgress });
-      const bytes = await buildPptx(
+      const { deck, picture } = await buildPptx(
         { files: orderedFiles, box, slideKind, background: engineBackground(resolved.background), align, screen },
         resolved.onProgress,
       );
-      const name = `${deriveBaseName(items[0]?.sourceFileName)}.pptx`;
-      return { bytes, name, slideCount: orderedFiles.length };
+      return {
+        bytes: deck,
+        baseName: deriveBaseName(items[0]?.sourceFileName),
+        slideCount: orderedFiles.length,
+        saved: savedBackground(resolved.background, picture, slide, screen),
+      };
     },
     onDownload: (res) =>
       downloadBlobObject(
         new Blob([res.bytes.buffer as ArrayBuffer], {
           type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         }),
-        res.name,
+        `${res.baseName}.pptx`,
       ),
     errorOptions: { copy: labels.errors, corruptOutputHint: labels.errorCorrupt },
   });
+
+  const saveBackground = useSaveBackground(result?.saved ?? null, result?.baseName ?? "", labels.downloadBackground);
 
   // Cleanup thumbnail cache on unmount
   useEffect(() => () => clearThumbnailCache(), []);
@@ -788,7 +799,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
         {status === "idle" ? (
           settings
         ) : status === "done" && result ? (
-          <ImageToPptxResult result={result} labels={labels} onDownload={download} />
+          <ImageToPptxResult result={result} labels={labels} onDownload={download} saveBackground={saveBackground} />
         ) : (
           <ProcessingStatus
             status={status}

@@ -31,7 +31,7 @@ async function runOn(
   keptCovering?: readonly string[],
   keptGraphics?: readonly string[],
 ): Promise<JSZip> {
-  const output = await changeBackground({
+  const { deck: output } = await changeBackground({
     pptxFile: new File([new Uint8Array(deck)], "deck.pptx"),
     background: { kind: "picture", file: new File([new Uint8Array(PHOTO)], "photo.jpg") },
     mode,

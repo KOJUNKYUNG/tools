@@ -36,7 +36,7 @@ const violations = async (input: Uint8Array, output: Uint8Array) =>
 
 /** The slide parts whose XML the engine changed, choosing slide 3. */
 async function changedSlides(input: Uint8Array): Promise<string[]> {
-  const output = await changeBackground({
+  const { deck: output } = await changeBackground({
     pptxFile: new File([new Uint8Array(input)], "deck.pptx"),
     background: navy,
     mode: "specific-slides",

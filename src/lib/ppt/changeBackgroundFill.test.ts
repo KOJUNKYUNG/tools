@@ -14,7 +14,7 @@ async function apply(
   options: { mode?: BgMode; targetSlides?: number[]; layout?: TestLayout } = {},
 ): Promise<JSZip> {
   const deck = await testDeck(slides, options.layout);
-  const output = await changeBackground({
+  const { deck: output } = await changeBackground({
     pptxFile: new File([new Uint8Array(deck)], "deck.pptx"),
     background,
     mode: options.mode ?? "all-slides",

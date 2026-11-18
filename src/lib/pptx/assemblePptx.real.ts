@@ -8,6 +8,7 @@ import { realFileSuite, type RealFileRequest } from "@/lib/output-check/realFile
 import { solidPng } from "@/lib/pdf/testImages";
 import {
   buildPptx,
+  dataUrlOf,
   placeSlidePicture,
   prepareBackgroundPicture,
   type AssembleOptions,
@@ -71,7 +72,7 @@ async function requests(input: Uint8Array): Promise<RealFileRequest<Request>[]> 
     ),
     background: background && {
       file: background,
-      embedded: await prepareBackgroundPicture(background, slideKind, screen, standInSizedPreparation),
+      embedded: dataUrlOf(await prepareBackgroundPicture(background, slideKind, screen, standInSizedPreparation)),
     },
     box,
     slideKind,
@@ -136,7 +137,7 @@ realFileSuite({
       },
       undefined,
       standInSizedPreparation,
-    ),
+    ).then((result) => result.deck),
   check: (_input, request, output, depth) =>
     checkImageToPptx(request.slidesPlaced, optionsOf(request), output, depth),
 });

@@ -20,7 +20,7 @@ async function applied(background: RequestedBackground, mode: BgMode = "all-slid
   const input = await deck();
   // Fills carry no picture, so the request is what the engine is given.
   if (background.kind === "picture") throw new Error("fills only");
-  const output = await changeBackground({ pptxFile: new File([new Uint8Array(input)], "deck.pptx"), background, mode });
+  const { deck: output } = await changeBackground({ pptxFile: new File([new Uint8Array(input)], "deck.pptx"), background, mode });
   const request: PptBackgroundRequest = { background, mode };
   return { input, output, request };
 }

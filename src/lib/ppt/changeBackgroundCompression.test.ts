@@ -51,7 +51,7 @@ afterAll(() => {
 describe("changeBackground keeps the deck's compression", () => {
   it("does not grow the deck beyond the new image and a few rewritten parts", async () => {
     const input = await deck();
-    const output = await changeBackground({
+    const { deck: output } = await changeBackground({
       pptxFile: new File([new Uint8Array(input)], "deck.pptx"),
       background: { kind: "picture", file: new File([BG], "bg.png") },
       mode: "all-slides",
@@ -63,7 +63,7 @@ describe("changeBackground keeps the deck's compression", () => {
 
   it("stores every part the way the input stored it", async () => {
     const input = await deck();
-    const output = await changeBackground({
+    const { deck: output } = await changeBackground({
       pptxFile: new File([new Uint8Array(input)], "deck.pptx"),
       background: { kind: "picture", file: new File([BG], "bg.png") },
       mode: "all-slides",

@@ -33,12 +33,13 @@ afterAll(() => {
 });
 
 async function runOn(deck: Uint8Array, mode: BgMode): Promise<Uint8Array> {
-  return changeBackground({
+  const { deck: output } = await changeBackground({
     pptxFile: new File([new Uint8Array(deck)], "deck.pptx"),
     background: { kind: "picture", file: new File([new Uint8Array(PHOTO)], "photo.jpg") },
     mode,
     prepare: standInPrepare,
   });
+  return output;
 }
 
 async function master(slides: TestSlide[], layout?: TestLayout): Promise<JSZip> {
