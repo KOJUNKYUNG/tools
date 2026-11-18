@@ -5,6 +5,7 @@ import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
 import { ResultCard } from "@/components/common/ResultCard";
 import { ResultActions } from "@/components/common/ResultActions";
+import type { SaveBackgroundAction } from "@/hooks/useSaveBackground";
 import type { ImageToPptxLabels } from "./labels";
 import type { ImageToPptxResultData } from "./ImageToPptx";
 
@@ -13,7 +14,7 @@ interface ImageToPptxResultProps {
   labels: ImageToPptxLabels;
   onDownload: () => void;
   /** Saves the background picture the deck was given; absent when there is none. */
-  saveBackground?: { label: string; onClick: () => void; busy?: boolean };
+  saveBackground?: SaveBackgroundAction;
 }
 
 export function ImageToPptxResult({

@@ -408,7 +408,10 @@ replace the file; multi-file tools keep their in-body add / remove controls).
   padding, title, and the action row are identical site-wide: `<ResultCard>`
   (the `result-pop` shell — flat `--surface`, left `--emphasis` bar, optional
   title icon, tool-specific body as children) + `<ResultActions>` (the canonical
-  **download → handoff** button set) + `<HandoffAction>` for the cross-tool link.
+  **download → second download → handoff** button set; the second download is a
+  `.nameplate` for something the run made besides its file, e.g. the background
+  picture ppt-background and image-to-pptx built the deck on) + `<HandoffAction>`
+  for the cross-tool link.
   The **again ("다시 하기") no longer lives in the card** — it is the header's
   primary button in the done state (see Tool header). The 2-column tools
   (pdf-arrange, ppt-extract, image-to-pdf, pdf-to-image) keep their own grid +

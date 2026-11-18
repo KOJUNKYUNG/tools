@@ -3,6 +3,7 @@
 
 import { ResultCard } from "@/components/common/ResultCard";
 import { ResultActions } from "@/components/common/ResultActions";
+import type { SaveBackgroundAction } from "@/hooks/useSaveBackground";
 
 interface PptBackgroundResultProps {
   /** e.g. "완료" — labels.processing.done */
@@ -12,7 +13,7 @@ interface PptBackgroundResultProps {
   downloadLabel: string;
   onDownload: () => void;
   /** Saves the background picture the deck was given; absent for "no background". */
-  saveBackground?: { label: string; onClick: () => void; busy?: boolean };
+  saveBackground?: SaveBackgroundAction;
 }
 
 export function PptBackgroundResult({

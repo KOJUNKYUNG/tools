@@ -10,11 +10,18 @@ import { downloadBlobObject } from "@/lib/pdf/downloadBlob";
  * background"), busy while a solid colour is drawn, so a second click does
  * not save it twice.
  */
+/** The result card's save-background button: `ResultActions`' `secondaryDownload`. */
+export interface SaveBackgroundAction {
+  label: string;
+  onClick: () => void;
+  busy: boolean;
+}
+
 export function useSaveBackground(
   saved: SavedBackground | null,
   deckName: string,
   label: string,
-): { label: string; onClick: () => void; busy: boolean } | undefined {
+): SaveBackgroundAction | undefined {
   const [busy, setBusy] = useState(false);
   if (!saved) return undefined;
   const onClick = async () => {

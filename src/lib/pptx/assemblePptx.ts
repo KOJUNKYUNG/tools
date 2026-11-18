@@ -190,7 +190,7 @@ export interface BuildPptxResult {
    * The background picture, byte for byte as the deck holds it, so it can be
    * saved and used again without re-encoding; null for a colour fill.
    */
-  background: PreparedImage | null;
+  picture: PreparedImage | null;
 }
 
 /**
@@ -228,5 +228,5 @@ export async function buildPptx(
     check: (out) => checkImageToPptx(placed, options, out, "quick"),
   });
   onProgress?.(100);
-  return { deck: checked, background: picture };
+  return { deck: checked, picture };
 }

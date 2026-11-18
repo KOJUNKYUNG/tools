@@ -55,13 +55,13 @@ describe("buildPptx's background picture, re-used", () => {
     stubHeaderCanvas(wins);
     const first = await run(photo, screen, step);
 
-    expect(first.background).toMatchObject({ format: wins, width });
-    expect(await backgroundMedia(first.deck)).toEqual(first.background!.bytes);
+    expect(first.picture).toMatchObject({ format: wins, width });
+    expect(await backgroundMedia(first.deck)).toEqual(first.picture!.bytes);
 
     // Re-measured elsewhere, the format rule would pick the other format.
     stubHeaderCanvas(wins === "png" ? "jpeg" : "png");
-    const again = await run(first.background!.bytes, screen);
-    expect(await backgroundMedia(again.deck)).toEqual(first.background!.bytes);
+    const again = await run(first.picture!.bytes, screen);
+    expect(await backgroundMedia(again.deck)).toEqual(first.picture!.bytes);
   });
 
   it("returns no picture for a colour fill", async () => {
@@ -78,6 +78,6 @@ describe("buildPptx's background picture, re-used", () => {
       undefined,
       sizedImagePreparation,
     );
-    expect(result.background).toBeNull();
+    expect(result.picture).toBeNull();
   });
 });

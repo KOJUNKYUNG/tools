@@ -299,7 +299,7 @@ export function ImageToPptx({ labels, lang, inline = false }: ImageToPptxProps) 
       // with grain or a Paper filter a picture of the colour, the filters the
       // step the engine runs between the fit and the format.
       const resolved = await resolveForRun({ slide, screen, needsScreen, onProgress });
-      const { deck, background: picture } = await buildPptx(
+      const { deck, picture } = await buildPptx(
         { files: orderedFiles, box, slideKind, background: engineBackground(resolved.background), align, screen },
         resolved.onProgress,
       );
