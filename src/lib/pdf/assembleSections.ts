@@ -7,7 +7,6 @@
 
 import JSZip from "jszip";
 import {
-  type PDFImage,
   PDFDocument,
   type PDFPage,
   concatTransformationMatrix,
@@ -24,6 +23,7 @@ import { stripPhotoInfo } from "@/lib/image/stripPhotoInfo";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { type PageItem, buildOutputNames } from "./pageItem";
 import { computeImageFit } from "./imageFit";
+import { type EmbeddedImage, embedPng } from "./embedPng";
 import { LOAD_WITH_RARE_YIELDS, SAVE_WITH_RARE_YIELDS } from "./pdfLibYields";
 import {
   type ExifOrientation,
@@ -72,7 +72,7 @@ export function detectImageFormat(bytes: Uint8Array): "png" | "jpg" {
  */
 function drawOrientedImage(
   page: PDFPage,
-  image: PDFImage,
+  image: EmbeddedImage,
   orientation: ExifOrientation,
   { x, y, width, height, rotate = 0 }: {
     x: number;
@@ -154,13 +154,13 @@ export async function assembleSections(
         // A JPEG goes in without its photo info (CONTEXT "Photo info"), its
         // picture byte for byte. The EXIF orientation is read from the
         // original first and applied when drawn, so the page shows what the
-        // editor's thumbnail shows.
-        const image = isPng
-          ? await out.embedPng(bytes)
+        // editor's thumbnail shows. A PNG goes in losslessly and no larger
+        // than it is (see embedPng).
+        const image: EmbeddedImage = isPng
+          ? await embedPng(out, bytes)
           : await out.embedJpg(stripPhotoInfo(bytes));
         const orientation = isPng ? 1 : readJpegOrientation(bytes);
-        const stored = image.scale(1);
-        const [imgW, imgH] = orientedSize(stored.width, stored.height, orientation);
+        const [imgW, imgH] = orientedSize(image.width, image.height, orientation);
 
         if (imageLayout.mode === "native") {
           const page = out.addPage([imgW, imgH]);

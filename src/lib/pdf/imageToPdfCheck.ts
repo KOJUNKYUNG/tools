@@ -95,10 +95,11 @@ async function checkPages(
 
 /**
  * The size bound: the PDF holds its images plus a little structure per page.
- * A JPEG is embedded as-is, less its photo info. A PNG is decoded and its pixels re-deflated
- * without PNG's filters, which can come out larger than the file, so it is
- * allowed its raw size (8-bit RGB plus alpha): deflate never exceeds that
- * by more than the margin.
+ * A JPEG is embedded as-is, less its photo info. A PNG keeps its own
+ * compressed data only when a PDF image can hold it as it is; one with
+ * transparency or interlacing is decoded and deflated again, which can come
+ * out larger than a carefully optimised file, so it is allowed its raw size
+ * (8-bit RGB plus alpha): deflate never exceeds that by more than the margin.
  */
 function sizeBound(sources: ImageToPdfSources, pages: PageItem[]): number {
   let images = 0;

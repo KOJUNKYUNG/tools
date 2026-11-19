@@ -2,6 +2,7 @@
 import { crc32, deflateSync } from "node:zlib";
 import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 import { vi } from "vitest";
+import { type TestPngOptions, testPng } from "@/lib/image/testPng";
 import { readImageHeader } from "@/lib/output-check/imageHeader";
 import type { PageItem, Rotation } from "./pageItem";
 
@@ -42,6 +43,183 @@ function rgbPng(width: number, height: number, sample: () => number): Uint8Array
       chunk("IEND", new Uint8Array(0)),
     ]),
   );
+}
+
+/**
+ * The most a one-picture PDF may add to the PNG it holds: the file's header,
+ * catalogue and cross-references, a page, its content stream and the
+ * picture's dictionary, plus the soft mask a PNG's transparency becomes (a
+ * palette's tRNS chunk takes a byte per colour, the mask a byte per pixel
+ * before compression).
+ */
+export const PNG_PAGE_OVERHEAD = 1536;
+
+const clamp = (v: number) => Math.max(0, Math.min(255, v));
+/** Seeded by position, not call order: interlaced PNGs ask for pixels pass by pass. */
+const noise = (x: number, y: number) => ((Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0) % 7 - 3;
+/** A 16-bit sample whose 8-bit reading is `v` whether a viewer drops the low byte or rounds. */
+const wide = (v: number, x: number) => v * 256 + (v >> 1) + (x % 64);
+const KEY_GREEN: [number, number, number] = [0, 255, 0];
+const PALETTE = Array.from({ length: 200 }, (_, i): [number, number, number] => [(i * 37) % 256, (i * 91) % 256, (i * 53) % 256]);
+const PALETTE_ALPHA = [0, 128, 200];
+const FLAT_COLOURS: [number, number, number][] = [[230, 57, 70], [29, 53, 87], [241, 250, 238], [69, 123, 157]];
+
+interface Kind {
+  options: Omit<TestPngOptions, "width" | "height" | "pixel">;
+  /** The samples stored at (x, y), and what a viewer shows there (8-bit RGBA). */
+  pixel: (x: number, y: number) => { samples: number[]; shown: number[] };
+}
+
+/** Noisy gradients: they compress like real pictures, only with PNG's predictors. */
+const grey = (x: number, y: number) => clamp(x * 2 + y + noise(x, y));
+const rgb = (x: number, y: number) => [grey(x, y), clamp(y * 3 + noise(y, x)), clamp(x + y * 2 + noise(x + 1, y))];
+const alpha = (x: number, y: number) => (x * 9 + y * 5) % 256;
+
+const KINDS = {
+  truecolour: {
+    options: { colorType: 2 },
+    pixel: (x, y) => ({ samples: rgb(x, y), shown: [...rgb(x, y), 255] }),
+  },
+  "truecolour with alpha": {
+    options: { colorType: 6 },
+    pixel: (x, y) => ({ samples: [...rgb(x, y), alpha(x, y)], shown: [...rgb(x, y), alpha(x, y)] }),
+  },
+  "truecolour with a transparent colour": {
+    options: { colorType: 2, trns: KEY_GREEN },
+    // The gradient's green stays below 255, so only these pixels are the key.
+    pixel: (x, y) =>
+      (x + y) % 11 === 0 ? { samples: KEY_GREEN, shown: [...KEY_GREEN, 0] } : { samples: rgb(x, y), shown: [...rgb(x, y), 255] },
+  },
+  "16-bit truecolour": {
+    options: { colorType: 2, bitDepth: 16 },
+    pixel: (x, y) => ({ samples: rgb(x, y).map((v) => wide(v, x)), shown: [...rgb(x, y), 255] }),
+  },
+  palette: {
+    options: { colorType: 3, palette: PALETTE },
+    pixel: (x, y) => {
+      const index = (x * 3 + y * 7 + (noise(x, y) & 1)) % PALETTE.length;
+      return { samples: [index], shown: [...PALETTE[index], 255] };
+    },
+  },
+  "4-bit palette with transparency": {
+    options: { colorType: 3, bitDepth: 4, palette: PALETTE.slice(0, 16), trns: PALETTE_ALPHA },
+    pixel: (x, y) => {
+      const index = (Math.floor(x / 4) + Math.floor(y / 3)) % 16;
+      return { samples: [index], shown: [...PALETTE[index], PALETTE_ALPHA[index] ?? 255] };
+    },
+  },
+  "1-bit greyscale": {
+    options: { colorType: 0, bitDepth: 1 },
+    pixel: (x, y) => ((x >> 2) + (y >> 1)) % 3 === 0 ? { samples: [1], shown: [255, 255, 255, 255] } : { samples: [0], shown: [0, 0, 0, 255] },
+  },
+  greyscale: {
+    options: { colorType: 0 },
+    pixel: (x, y) => ({ samples: [grey(x, y)], shown: [grey(x, y), grey(x, y), grey(x, y), 255] }),
+  },
+  "16-bit greyscale": {
+    options: { colorType: 0, bitDepth: 16 },
+    pixel: (x, y) => ({ samples: [wide(grey(x, y), x)], shown: [grey(x, y), grey(x, y), grey(x, y), 255] }),
+  },
+  "greyscale with alpha": {
+    options: { colorType: 4 },
+    pixel: (x, y) => ({ samples: [grey(x, y), alpha(x, y)], shown: [grey(x, y), grey(x, y), grey(x, y), alpha(x, y)] }),
+  },
+  "flat-coloured art with alpha": {
+    // Four colours in hard-edged blocks on a clear ground, like a drawn
+    // illustration: deflates smaller unfiltered than with predictors.
+    options: { colorType: 6 },
+    pixel: (x, y) => {
+      const inside = (x - 48) ** 2 + (y - 32) ** 2 < 900;
+      const colour = FLAT_COLOURS[((x >> 4) + (y >> 3)) % FLAT_COLOURS.length];
+      const shown = inside ? [...colour, 255] : [0, 0, 0, 0];
+      return { samples: shown, shown };
+    },
+  },
+  "interlaced truecolour": {
+    options: { colorType: 2, interlace: true },
+    pixel: (x, y) => ({ samples: rgb(x, y), shown: [...rgb(x, y), 255] }),
+  },
+} satisfies Record<string, Kind>;
+export type PngKind = keyof typeof KINDS;
+// Object.keys types its result string[]; the keys are KINDS' own.
+export const PNG_KINDS = Object.keys(KINDS) as PngKind[];
+
+export interface PngOfKind {
+  bytes: Uint8Array;
+  /** What a viewer shows: 8-bit RGBA, row by row from the top. */
+  rgba: Uint8Array;
+}
+
+/**
+ * A PNG of `kind` (encoded by the shared test encoder, its data over several
+ * IDAT chunks) and the pixels it shows. Alpha, where the kind has it, runs
+ * from clear to opaque; the 4-bit palette marks three colours clear or
+ * part-clear.
+ */
+export function pngOfKind(kind: PngKind, width = 96, height = 64): PngOfKind {
+  const { options, pixel }: Kind = KINDS[kind];
+  const bytes = testPng({ ...options, width, height, idatChunks: 4, pixel: (x, y) => pixel(x, y).samples });
+  const rgba = new Uint8Array(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) rgba.set(pixel(x, y).shown, (y * width + x) * 4);
+  }
+  return { bytes, rgba };
+}
+
+/** `png` with its header claiming `height` rows, its image data left as it is. */
+export function withPngHeight(png: Uint8Array, height: number): Uint8Array {
+  const out = Buffer.from(png);
+  out.writeUInt32BE(height, 8 + 8 + 4); // signature, IHDR's length and type, then width
+  out.writeUInt32BE(crc32(out.subarray(12, 12 + 4 + 13)), 12 + 4 + 13);
+  return Uint8Array.from(out);
+}
+
+/**
+ * The pixels of the first picture page 1 paints, as pdf.js decodes them
+ * (soft mask applied as alpha), in 8-bit RGBA.
+ */
+export async function firstPictureRgba(pdf: Uint8Array): Promise<Uint8Array> {
+  const { nodePdfjsAdapter } = await import("@/lib/output-check/pdfjsNode");
+  const { lib, docParams } = await nodePdfjsAdapter.load();
+  const doc = await lib.getDocument({ ...docParams, data: pdf.slice(), verbosity: 0 }).promise;
+  try {
+    const page = await doc.getPage(1);
+    const { fnArray, argsArray } = await page.getOperatorList();
+    type Decoded = { width: number; height: number; data: Uint8Array | Uint8ClampedArray };
+    let image: Decoded | null = null;
+    for (let i = 0; i < fnArray.length && !image; i++) {
+      if (fnArray[i] === lib.OPS.paintInlineImageXObject) {
+        // pdfjs passes small pictures inline, already decoded; its operator
+        // arguments are typed any[], and an inline picture's first is the data.
+        image = (argsArray[i] as [Decoded])[0];
+      } else if (fnArray[i] === lib.OPS.paintImageXObject) {
+        // An image XObject's first argument is the id its decoded data is kept under.
+        const [id] = argsArray[i] as [string];
+        image = await new Promise<Decoded>((resolve) => page.objs.get(id, resolve));
+      }
+    }
+    if (!image) throw new Error("page 1 paints no picture");
+    const { width, height, data } = image;
+    if (data.length === width * height * 4) return Uint8Array.from(data);
+    const rowBytes = Math.ceil(width / 8);
+    if (data.length === rowBytes * height) {
+      // 1 bit a pixel, rows padded to a byte, 1 white: pdf.js's GRAYSCALE_1BPP.
+      const out = new Uint8Array(width * height * 4).fill(255);
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const v = (data[y * rowBytes + (x >> 3)] >> (7 - (x & 7))) & 1 ? 255 : 0;
+          out.set([v, v, v], (y * width + x) * 4);
+        }
+      }
+      return out;
+    }
+    if (data.length !== width * height * 3) throw new Error(`unexpected picture data: ${data.length} bytes`);
+    const out = new Uint8Array(width * height * 4).fill(255);
+    for (let p = 0; p < width * height; p++) out.set(data.subarray(p * 3, p * 3 + 3), p * 4);
+    return out;
+  } finally {
+    await doc.destroy();
+  }
 }
 
 /** A 3×2 JPEG, encoded by a browser canvas. */

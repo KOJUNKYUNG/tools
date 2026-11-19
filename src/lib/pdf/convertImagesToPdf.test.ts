@@ -1,3 +1,4 @@
+import { PDFDocument } from "pdf-lib";
 import { describe, expect, it, vi } from "vitest";
 import { getImageToPdfLabels } from "@/components/tools/image-to-pdf/labels";
 import type { Dictionary } from "@/i18n/config";
@@ -10,10 +11,15 @@ import * as check from "./imageToPdfCheck";
 import type { Matrix } from "./jpegOrientation";
 import {
   JPEG_3x2,
+  PNG_KINDS,
+  PNG_PAGE_OVERHEAD,
   embeddedJpegs,
+  firstPictureRgba,
   imagePage as image,
   imageSources as sources,
+  pngOfKind,
   withExifOrientation,
+  withPngHeight,
   withPhotoInfo,
 } from "./testImages";
 
@@ -173,6 +179,49 @@ describe("convertImagesToPdf", () => {
     });
     expect(await storedTopRowSide(output)).toBe("right");
     expect(await embeddedJpegs(output)).toEqual([JPEG_3x2]);
+  });
+
+  it.each(PNG_KINDS)("a %s PNG: pdf.js reads back its pixels, transparency included", async (kind) => {
+    const png = pngOfKind(kind);
+    const output = await convertImagesToPdf({
+      pages: [image("png")],
+      sourceBytesById: new Map([["png", png.bytes]]),
+      imageLayout: { mode: "fixed", widthPt: 595, heightPt: 842 },
+    });
+    expect(Buffer.from(await firstPictureRgba(output)).equals(Buffer.from(png.rgba))).toBe(true);
+  });
+
+  it.each(PNG_KINDS)("a %s PNG: the PDF is no larger than the PNG plus a page's overhead", async (kind) => {
+    const png = pngOfKind(kind).bytes;
+    const output = await convertImagesToPdf({
+      pages: [image("png")],
+      sourceBytesById: new Map([["png", png]]),
+      imageLayout: { mode: "native" },
+    });
+    expect(output.byteLength).toBeLessThanOrEqual(png.byteLength + PNG_PAGE_OVERHEAD);
+  });
+
+  it("flat-coloured art is no larger than pdf-lib stored it before, without predictors", async () => {
+    const png = pngOfKind("flat-coloured art with alpha").bytes;
+    const output = await convertImagesToPdf({
+      pages: [image("art")],
+      sourceBytesById: new Map([["art", png]]),
+      imageLayout: { mode: "native" },
+    });
+    const before = await PDFDocument.create();
+    const embedded = await before.embedPng(png);
+    before.addPage([embedded.width, embedded.height]).drawImage(embedded);
+    expect(output.byteLength).toBeLessThanOrEqual((await before.save()).byteLength);
+  });
+
+  it("a PNG whose data holds fewer rows than its header says still shows a picture", async () => {
+    const png = withPngHeight(pngOfKind("truecolour").bytes, 80);
+    const pagesShort = [image("short")];
+    const src = new Map([["short", png]]);
+    const imageLayout: ImageLayout = { mode: "native" };
+    const output = await convertImagesToPdf({ pages: pagesShort, sourceBytesById: src, imageLayout });
+    expect(await checkImageToPdf(src, { pages: pagesShort, imageLayout }, output, "full")).toEqual([]);
+    expect((await firstPictureRgba(output)).length).toBe(96 * 80 * 4);
   });
 
   it("blocks a failing quick check with the corrupt-output error and image-to-pdf's hint", async () => {

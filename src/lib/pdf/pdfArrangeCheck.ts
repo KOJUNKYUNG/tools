@@ -159,8 +159,9 @@ async function checkPages(
 /**
  * The size bound: a file holds only pages of its sources, so it stays within
  * the sources it draws from, plus a margin for the rewritten structure.
- * Sections with PNG pages are left out: pdf-lib re-encodes PNG pixels, whose
- * size bears no fixed relation to the PNG file's.
+ * Sections with PNG pages are left out: a PNG with transparency or
+ * interlacing is decoded and deflated again, whose size bears no fixed
+ * relation to the PNG file's.
  */
 function sizeBound(sources: PdfArrangeSources, section: PageItem[]): number | null {
   let total = 0;
