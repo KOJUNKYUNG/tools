@@ -72,3 +72,6 @@ public/browser-image-compression/
 
 # gallery build inputs (CC0 originals are re-downloadable; own exports kept by their maker)
 /scripts/gallery/sources/
+
+# filter lab saves (scripts/measure-filters/serve.mjs); values are applied to the app by hand
+/scripts/measure-filters/tuning.json
