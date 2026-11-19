@@ -111,6 +111,47 @@ for pictures already there.
 _Avoid_: a long-edge cap: 1920 px on the long edge of a portrait picture holds
 1920 rows where Full HD shows 1080.
 
+### Page size
+The size of the pages image-to-pdf makes, set one of three ways:
+- **Preset** (the default, A4): print sizes A3, A4, A5, B4, B5 and Letter,
+  and screen sizes 16:9 and 4:3 for a PDF kept as a deck's stand-in. B sizes
+  are the JIS ones Korean copiers use (B4 = 257 × 364 mm), shown with their
+  millimetres. Screen sizes match PowerPoint's default slides; a viewer fits
+  the page to the screen, so only the aspect matters.
+- **Image fit**: each page takes its picture's pixel size as points, so the
+  page has no margin and no white around it.
+- **Custom**: width and height in millimetres, starting from the preset last
+  chosen. Poster sizes go here.
+With a preset or custom size the picture sits inside the page whole (never
+cropped or stretched) within an optional margin (none, 10 mm or 20 mm), and
+**orientation** (auto by default, or portrait or landscape) turns each page
+to its picture: auto gives a landscape picture a landscape page, and a
+portrait picture a 9:16 page under the 16:9 preset.
+_Avoid_: "px" for a page: a PDF page has no pixels, and a custom size in
+pixels read as points made pages of 68 cm and more.
+
+### Picture quality
+image-to-pdf's one setting for how many pixels a picture keeps: 원본 그대로
+(as uploaded), 높게, or 보통 (the default). Its meaning follows the
+**page size**: on a print preset or a custom size, 300 or 200 dots per inch
+across the size the picture is drawn at; on a screen preset, the
+**screen size**, 4K or Full HD; under image fit, the pixels the same level
+keeps on A4, the page staying the size of the original. A picture is never
+enlarged, and one already small enough goes in as uploaded. 보통 keeps a
+12 MP phone photo near 0.5 MB a page, so about twenty fit a 10 MB upload
+limit.
+_Avoid_: "compression": the tool sizes pictures as they enter; pdf-compress
+is the second line.
+
+### Photo info
+What a camera writes into a photo besides its pixels: the device, the time
+taken and, when location was on, GPS coordinates (EXIF). A picture that
+image-to-pdf puts on a page carries none of it into the PDF, whatever the
+size setting; the turn it records is applied to the page first. The user is
+not asked: nobody submitting or sharing a PDF wants their location in it.
+_Avoid_: "metadata" alone: a PDF also has document properties (title,
+producer), which are a different thing.
+
 ### Placement
 Where image-to-pptx puts the slide pictures: one box for the whole deck, in
 which each picture is fitted keeping its shape (anchored top-left or

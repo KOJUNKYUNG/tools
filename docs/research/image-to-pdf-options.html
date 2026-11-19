@@ -1,0 +1,224 @@
+<title>이미지 → PDF 선택지 조사</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column (~760px), wide tables scroll inside their own box. Monochrome like Ontab, one ink-blue for proposals. */
+:root {
+  --bg: #fbfbfa;
+  --surface: #ffffff;
+  --fg: #1c1d20;
+  --muted: #5d6068;
+  --line: #dcdde0;
+  --accent: #2a4f8f;
+  --accent-soft: #e8eef8;
+  --warn: #8a5a00;
+  --warn-soft: #fbf1dc;
+  --font-body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15161a; --surface: #1d1f24; --fg: #e7e8ea; --muted: #a3a6ad; --line: #34373e;
+    --accent: #8fb0ea; --accent-soft: #1f2b40; --warn: #e6b65c; --warn-soft: #3a2f1a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15161a; --surface: #1d1f24; --fg: #e7e8ea; --muted: #a3a6ad; --line: #34373e;
+  --accent: #8fb0ea; --accent-soft: #1f2b40; --warn: #e6b65c; --warn-soft: #3a2f1a; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.7; }
+.wrap { max-width: 820px; margin: 0 auto; padding-block: 40px 80px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 40px; }
+header { display: flex; flex-direction: column; gap: 8px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; }
+h1 { font-size: 28px; line-height: 1.3; margin: 0; text-wrap: balance; }
+h2 { font-size: 20px; margin: 0; text-wrap: balance; }
+h3 { font-size: 16px; margin: 0; }
+p, ul, ol { margin: 0; }
+ul, ol { padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; }
+section { display: flex; flex-direction: column; gap: 14px; }
+.lead { color: var(--muted); }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 13.5px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+th { font-weight: 500; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+tr.us td { background: var(--accent-soft); }
+.mono { font-family: var(--font-mono); font-size: 12.5px; }
+.tag { display: inline-block; font-size: 11.5px; font-weight: 500; padding: 0 6px; border-radius: 3px; white-space: nowrap; }
+.tag.p { background: var(--accent-soft); color: var(--accent); }
+.tag.w { background: var(--warn-soft); color: var(--warn); }
+.tag.n { border: 1px solid var(--line); color: var(--muted); }
+.note { border-left: 3px solid var(--accent); padding: 10px 14px; background: var(--surface); display: flex; flex-direction: column; gap: 6px; }
+.note.w { border-left-color: var(--warn); }
+.keys { display: grid; gap: 10px; }
+.keys > div { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; }
+.keys b { display: block; margin-bottom: 2px; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.src { font-size: 13px; color: var(--muted); }
+.src li { overflow-wrap: anywhere; }
+</style>
+
+<div class="wrap">
+<header>
+  <span class="eyebrow">Ontab · image-to-pdf · 조사 2026-11-19</span>
+  <h1>이미지 → PDF: 다른 도구, 쓰이는 곳, 정할 수 있는 것</h1>
+  <p class="lead">grill-with-docs 1라운드 전에 필요한 배경 자료입니다. 결정은 담지 않았습니다. <span class="tag p">제안</span>은 제 추천이고, <span class="tag w">미확인</span>은 출처가 약하거나 아직 재 보지 않은 것입니다.</p>
+</header>
+
+<section>
+  <h2>한눈에</h2>
+  <div class="keys">
+    <div><b>업계 표준 선택지는 세 가지입니다: 용지 크기, 방향, 여백.</b>iLovePDF·Sejda·PDF Candy·Smallpdf·PDF24·Adobe가 모두 이 셋을 줍니다. 우리는 크기만 있고 방향·여백이 없습니다.</div>
+    <div><b>"이미지 크기 그대로" 페이지는 경쟁 도구도 모두 둡니다.</b>iLovePDF "Fit", Sejda "Fit to image", PDF Candy "original". 이 선택지에 크기 제한을 두지 않겠다는 의견이 업계 관행과 맞습니다.</div>
+    <div><b>화질·용량 선택은 변환 도구에 거의 없습니다.</b>PDF24는 아예 "압축 도구를 쓰라"고 안내합니다. 대신 PDF가 가는 곳(이메일, 제출 시스템)은 5~25MB 제한이 흔해서, 폰 사진 여러 장이면 넘기기 쉽습니다.</div>
+    <div><b>코드 확인 중 개인정보 문제를 발견했습니다.</b>JPEG를 원본 그대로 넣기 때문에 사진의 EXIF(촬영 기기, 시각, 켜져 있었다면 GPS 위치)가 PDF 안에 그대로 남습니다. 제출·공유용 PDF에 집 위치가 들어갈 수 있습니다. <span class="tag w">실제 폰 사진으로 확인 필요</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>1. 다른 도구는 어떻게 하는가</h2>
+  <p class="lead">각 도구의 공개 페이지 기준입니다. 기본값을 밝히지 않은 곳은 비워 두었습니다.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>도구</th><th>용지 크기</th><th>방향</th><th>여백</th><th>화질·용량</th><th>묶기</th><th>기타</th></tr></thead>
+    <tbody>
+      <tr class="us"><td><b>Ontab (지금)</b></td><td>이미지맞춤 · A4 · 사용자 지정(px라 적혀 있지만 실제는 pt)</td><td>없음 (A4는 세로만)</td><td>없음</td><td>원본 그대로</td><td>하나로만</td><td>순서 바꾸기·회전·삭제, HEIC 받음</td></tr>
+      <tr><td>iLovePDF</td><td>Fit(이미지 크기) · A4 · US Letter</td><td>세로 · 가로</td><td>없음 · 작게 · 크게</td><td>없음</td><td>"하나로 합치기" 선택</td><td>파일명 순 정렬</td></tr>
+      <tr><td>Sejda</td><td>이미지에 맞춤 · 사용자 지정(인치) · A5~A1 · Letter · Legal 등 (기본 A4)</td><td>자동(기본) · 세로 · 가로</td><td>없음(기본) · 0.5인치 · 1인치</td><td>없음</td><td>"하나로 합치기" 체크</td><td></td></tr>
+      <tr><td>PDF Candy</td><td>원본 · US Letter · A4</td><td>자동 · 세로 · 가로</td><td>없음 · 작게 · 크게</td><td>없음</td><td></td><td></td></tr>
+      <tr><td>Smallpdf</td><td>있음 (값 미공개)</td><td>있음</td><td>있음</td><td>없음</td><td></td><td></td></tr>
+      <tr><td>PDF24</td><td>있음</td><td>있음</td><td>있음</td><td>원본 그대로, 줄이려면 압축 도구로 안내</td><td></td><td></td></tr>
+      <tr><td>Adobe 온라인</td><td>공개 안 됨</td><td>있음 (자동 감지 언급)</td><td>있음</td><td>없음</td><td></td><td>OCR 제공</td></tr>
+      <tr><td>iPhone 파일 앱 "PDF 생성"</td><td>고를 수 없음 (출처마다 Letter라는 말과 사진 비율이라는 말이 엇갈림)</td><td>없음</td><td>없음</td><td>없음 (단축어로 크기 줄이기 가능)</td><td>선택 순서대로 하나로</td><td>폰 사용자의 기본 경로</td></tr>
+      <tr><td>Windows 사진 인쇄 → PDF</td><td>인쇄 용지 (Letter일 때만 크기별 배치)</td><td>프린터 설정</td><td>배치에 따라</td><td>없음</td><td>하나로</td><td>한 장에 여러 장(2×2, 3×3, 지갑 사진), "사진을 프레임에 맞춤"(잘림/여백 선택)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <p><b>읽을 점</b></p>
+    <ul>
+      <li>방향 "자동"(사진이 가로면 가로 페이지)이 Sejda·PDF Candy의 기본입니다.</li>
+      <li>여백은 거의 모두 "없음/작게/크게" 3단계이고, 기본은 "없음"입니다.</li>
+      <li>"이미지 크기 그대로"도 거의 모두 둡니다. 다만 그 페이지가 실제로 몇 cm인지는 어느 곳도 설명하지 않습니다.</li>
+      <li>화질·용량을 묶어서 파는 곳은 없습니다. 이건 우리가 차별점으로 삼을 수 있는 자리이기도 하고, 아무도 안 하는 데 이유가 있을 수도 있는 자리입니다.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>2. 만든 PDF는 어디로 가는가</h2>
+  <p class="lead">CONTEXT의 대상 사용자 표를 기준으로, 결과 PDF가 가는 곳과 그곳의 제약입니다. 용량 수치는 공식 안내를 찾지 못한 것이 많아 <span class="tag w">미확인</span>으로 표시했습니다.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>가는 곳</th><th>누가</th><th>무엇을</th><th>그곳의 제약</th><th>중요한 선택지</th></tr></thead>
+    <tbody>
+      <tr><td>학교 LMS·과제 제출</td><td>학생, 교사(받는 쪽)</td><td>필기·칠판·과제 사진 여러 장</td><td>학교마다 용량 제한이 다르고 공개 수치를 찾지 못함 <span class="tag w">미확인</span></td><td>용량, 순서</td></tr>
+      <tr><td>회사 경비·증빙 제출</td><td>직장인</td><td>영수증 사진</td><td>홈택스·연말정산 업로드는 5~10MB라는 업체 글만 있음 <span class="tag w">미확인</span></td><td>용량, A4, 한 장에 여러 장</td></tr>
+      <tr><td>민원·공공 제출</td><td>모두</td><td>서류 사진·스캔</td><td>지자체 전자민원 5MB 사례(2015 국민신문고, 오래된 자료). 정부24 현재 수치 못 찾음 <span class="tag w">미확인</span></td><td>용량, A4</td></tr>
+      <tr><td>이메일 첨부</td><td>모두</td><td>무엇이든</td><td>네이버 메일 일반 첨부 10MB(블로그 기준), 넘으면 대용량 링크로 바뀜. Gmail 25MB</td><td>용량</td></tr>
+      <tr><td>인쇄</td><td>목회자(주보·악보 사진), 교사(학습지), 소상공인(메뉴)</td><td>사진·이미지</td><td>프린터는 가장자리 몇 mm를 못 찍음. 용지 크기가 맞아야 함</td><td>A4/Letter, 여백, 방향</td></tr>
+      <tr><td>메신저·화면 보기</td><td>모두</td><td>공지 이미지 묶음</td><td>뷰어가 화면 폭에 맞춰 보여 주므로 페이지 실제 크기는 거의 안 보임</td><td>순서 정도</td></tr>
+      <tr><td>보관</td><td>직장인, 소상공인</td><td>영수증·계약서 사진</td><td>장기 보관 규격(PDF/A)을 요구하는 곳이 있으나 개인 사용자에겐 드묾</td><td>(낮음)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <p><b>읽을 점</b></p>
+    <ul>
+      <li>"화면으로 본다"면 거의 아무 선택지도 중요하지 않습니다. 선택지가 의미 있는 경우는 <b>제출(용량)</b>과 <b>인쇄(용지·여백·방향)</b> 두 가지입니다.</li>
+      <li>폰 사진 한 장은 보통 2~5MB입니다. 원본 그대로면 3~4장만 넣어도 10MB 제한에 걸립니다.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>3. PDF를 만들 때 정할 수 있는 것 전체</h2>
+  <p class="lead">사용자에게 고르게 할지, 우리가 기본값으로 정할지는 칸마다 따로 판단할 일입니다. 오른쪽 칸은 <span class="tag p">제안</span>이며 아직 결정이 아닙니다.</p>
+
+  <h3>A. 페이지 모양</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>항목</th><th>가능한 값</th><th>지금 Ontab</th><th>누가 정하나 (제안)</th></tr></thead>
+    <tbody>
+      <tr><td>용지 크기</td><td>이미지 크기 그대로 · A4 · US Letter · A5/A3 · 사용자 지정</td><td>이미지맞춤 · A4 · 사용자 지정</td><td><span class="tag p">제안</span> 사용자. Letter 추가는 영어 페이지 사용자용</td></tr>
+      <tr><td>방향</td><td>자동(사진 따라) · 세로 · 가로</td><td>세로만</td><td><span class="tag p">제안</span> 사용자, 기본 "자동"</td></tr>
+      <tr><td>여백</td><td>없음 · 작게 · 크게 (또는 mm 직접)</td><td>없음</td><td><span class="tag p">제안</span> 사용자, 기본 "없음"</td></tr>
+      <tr><td>맞춤 방식</td><td>안에 맞춤(여백 생김) · 꽉 채움(잘림) · 늘리기(찌그러짐) · 실제 크기(DPI 기준)</td><td>안에 맞춤</td><td><span class="tag p">제안</span> 우리가 "안에 맞춤"으로 고정. 영수증·서류가 잘리면 안 됨</td></tr>
+      <tr><td>작은 그림 확대</td><td>페이지에 맞게 키움 · 원래 크기 유지</td><td>키움</td><td><span class="tag p">제안</span> 우리. 지금대로</td></tr>
+      <tr><td>정렬·배경색</td><td>가운데 · 위 / 흰색 · 다른 색</td><td>가운데 · 흰색</td><td><span class="tag p">제안</span> 우리. 지금대로</td></tr>
+      <tr><td>한 페이지에 여러 장</td><td>1장 · 2장 · 4장 …</td><td>1장</td><td><span class="tag n">범위 판단 필요</span> 영수증엔 유용. image-to-pptx 범위 점검에서는 기각됨</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>B. 그림 데이터 (용량을 정하는 곳)</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>항목</th><th>가능한 값</th><th>지금 Ontab</th><th>누가 정하나 (제안)</th></tr></thead>
+    <tbody>
+      <tr><td>해상도</td><td>원본 그대로 · 페이지 기준 DPI로 줄이기(예: 150/200/300)</td><td>원본 그대로</td><td><span class="tag p">제안</span> 사용자가 2~3단계 중 고름. 단계와 기본값은 실측 후</td></tr>
+      <tr><td>JPEG 재압축</td><td>안 함(손실 0, 빠름) · 품질 지정 재압축</td><td>안 함</td><td><span class="tag p">제안</span> 우리. 줄일 때만 재압축, 아니면 그대로</td></tr>
+      <tr><td>PNG 처리</td><td>무손실 유지(압축 방식 개선) · JPEG로 바꾸기</td><td>무손실, 압축 방식이 비효율 (predictor 없음)</td><td><span class="tag p">제안</span> 우리. 무손실 유지, 효과는 실측 <span class="tag w">미확인</span></td></tr>
+      <tr><td>흑백·회색조</td><td>컬러 · 회색조 · 흑백(스캔 문서처럼)</td><td>컬러</td><td><span class="tag n">범위 판단 필요</span> 영수증·서류는 용량이 크게 줄고 읽기 쉬워짐</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>C. 문서 정보</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>항목</th><th>가능한 값</th><th>지금 Ontab</th><th>누가 정하나 (제안)</th></tr></thead>
+    <tbody>
+      <tr><td>사진 속 촬영 정보(EXIF·GPS)</td><td>남김 · 지움</td><td><b>JPEG는 그대로 남음</b> (HEIC는 변환 과정에서 빠지는 것으로 보임 <span class="tag w">미확인</span>)</td><td><span class="tag p">제안</span> 우리가 기본으로 지움. 선택지로 둘 필요 없음</td></tr>
+      <tr><td>PDF 속성(제목·만든 프로그램)</td><td>비움 · 파일 이름 · Ontab</td><td>pdf-lib 기본값</td><td><span class="tag p">제안</span> 우리</td></tr>
+      <tr><td>파일 이름</td><td>첫 그림 이름 · 날짜 · 직접 입력</td><td>첫 그림 이름</td><td><span class="tag p">제안</span> 우리. 지금대로</td></tr>
+      <tr><td>책갈피</td><td>없음 · 그림 파일 이름마다</td><td>없음</td><td><span class="tag p">제안</span> 하지 않음. 쓰는 사람 적음</td></tr>
+      <tr><td>장기 보관 규격(PDF/A)</td><td>일반 · PDF/A</td><td>일반</td><td><span class="tag p">제안</span> 하지 않음. 요구하는 곳이 개인 대상엔 드묾</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>D. 결과 묶음과 그 밖</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>항목</th><th>가능한 값</th><th>지금 Ontab</th><th>누가 정하나 (제안)</th></tr></thead>
+    <tbody>
+      <tr><td>묶기</td><td>하나로 · 그림마다 PDF 하나</td><td>하나로</td><td><span class="tag p">제안</span> 지금대로. 나누기는 pdf-arrange 몫</td></tr>
+      <tr><td>받는 형식</td><td>JPG · PNG · HEIC · WebP · GIF · BMP …</td><td>JPG · PNG · HEIC</td><td><span class="tag p">제안</span> WebP 추가 (소상공인)</td></tr>
+      <tr><td>글자 인식(OCR)</td><td>없음 · 검색 가능한 PDF</td><td>없음</td><td><span class="tag n">범위 밖 후보</span> 브라우저에서 가능하나 무겁고, 한국어 정확도·모델 크기 검토 필요</td></tr>
+      <tr><td>문서 자동 자르기·기울기 보정</td><td>없음 · 스캔 앱처럼 보정</td><td>없음</td><td><span class="tag n">범위 밖 후보</span> 폰 스캔 앱의 핵심 기능, 별도 도구 수준의 작업</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>4. "이미지맞춤" 다시 보기</h2>
+  <p>1라운드의 Q2(이미지맞춤 페이지를 A4 길이로 맞추자)는 거둡니다. 지적하신 대로 경쟁 도구가 모두 "이미지 크기 그대로"를 두고, 화면으로 보는 대부분의 경우 티가 나지 않습니다. 인쇄할 사람은 A4를 고르면 됩니다.</p>
+  <div class="note w">
+    <p><b>남는 영향 두 가지 (선택지를 바꿀 정도는 아님)</b></p>
+    <ul>
+      <li><b>해상도가 다른 그림을 섞으면 페이지 크기가 들쭉날쭉합니다.</b> 스크린샷(폭 1170px)과 폰 사진(폭 4032px)을 같이 넣으면 페이지 폭이 약 3.4배 차이가 나서, 고정 배율로 보는 뷰어에서는 작은 페이지와 큰 페이지가 섞여 보입니다.</li>
+      <li><b>크기 줄이기와 엮입니다.</b> 그림을 줄일 때 페이지까지 같이 작아지면 안 되므로, 페이지 크기는 원본 기준으로 두고 그림만 줄여 넣어야 합니다. 이건 기술 결정이라 제가 처리합니다.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>5. 아직 모르는 것</h2>
+  <ul>
+    <li>제출처 용량 제한의 공식 수치 (LMS, 홈택스, 정부24). 업체 블로그 수준만 찾았습니다.</li>
+    <li>iPhone·Android 브라우저로 사진을 올릴 때 GPS가 실제로 남아 있는지. 폰 설정과 OS 버전에 따라 다릅니다. 실제 사진으로 확인할 일입니다.</li>
+    <li>PNG 압축 방식을 바꿀 때 실제로 얼마나 줄어드는지. 측정 전입니다.</li>
+    <li>폰 사진을 DPI 단계별로 줄였을 때의 용량과 화질. 측정 스크립트(<span class="mono">scripts/measure-image-prep/</span>)를 재사용해 잴 수 있습니다.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>출처</h2>
+  <ul class="src">
+    <li><a href="https://www.ilovepdf.com/jpg_to_pdf">iLovePDF JPG to PDF</a></li>
+    <li><a href="https://www.sejda.com/jpg-to-pdf">Sejda JPG to PDF</a></li>
+    <li><a href="https://pdfcandy.com/blog/best-online-jpg-to-pdf-converter.html">PDF Candy 블로그 (자사 옵션 설명)</a></li>
+    <li><a href="https://smallpdf.com/pro/jpg-to-pdf">Smallpdf JPG to PDF</a></li>
+    <li><a href="https://tools.pdf24.org/en/images-to-pdf">PDF24 Images to PDF</a></li>
+    <li><a href="https://www.adobe.com/acrobat/online/jpg-to-pdf.html">Adobe Acrobat online JPG to PDF</a></li>
+    <li><a href="https://inventivehq.com/blog/convert-photos-to-pdf-on-iphone">iPhone에서 사진을 PDF로 (Inventive HQ)</a></li>
+    <li><a href="https://www.howtogeek.com/248462/how-to-combine-images-into-one-pdf-file-in-windows/">Windows에서 이미지를 PDF로 합치기 (How-To Geek)</a></li>
+    <li><a href="https://castleink.com/blogs/printer-help/how-to-print-multiple-pictures-on-one-page">한 장에 여러 사진 인쇄 (Castle Ink)</a></li>
+    <li><a href="https://110.go.kr/data/storyView.do?curPage=7&amp;num=3328">국민신문고 제도개선 사례 (전자민원 첨부 5MB, 2015)</a></li>
+    <li><a href="https://funissu.com/naver-email-large-file-attach">네이버 메일 대용량 첨부 (블로그)</a></li>
+    <li><a href="https://updf.com/knowledge/year-end-tax-pdf-upload-error/">연말정산 PDF 업로드 오류 (UPDF, 업체 글)</a></li>
+    <li>코드: <span class="mono">src/lib/pdf/assembleSections.ts</span>, pdf-lib 1.17.1 <span class="mono">JpegEmbedder</span>(JPEG 바이트를 그대로 DCTDecode 스트림으로 넣음), <span class="mono">src/lib/image/heic.ts</span>(HEIC→JPEG 품질 0.92)</li>
+  </ul>
+</section>
+</div>
