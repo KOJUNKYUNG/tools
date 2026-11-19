@@ -24,9 +24,9 @@ const args = Object.fromEntries(
 );
 const ORIGIN = `http://localhost:${process.env.MEASURE_IMAGE_PREP_PORT ?? 4340}`;
 const query = new URLSearchParams(
-  Object.entries({ sets: args.sets, screens: args.screens, pdfs: args.pdfs, pages: args.pages }).filter(([, v]) => v),
+  Object.entries({ sets: args.sets, screens: args.screens, pdfs: args.pdfs, pages: args.pages, dpi: args.dpi, samples: args.samples }).filter(([, v]) => v),
 );
-const PAGE = `${ORIGIN}/${query.size ? `?${query}` : ""}`;
+const PAGE = `${ORIGIN}/${args.page ?? ""}${query.size ? `?${query}` : ""}`;
 
 async function serverUp() {
   try {

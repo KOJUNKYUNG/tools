@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>image-to-pdf picture size measurement</title>
+<style>
+  body { font: 13px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #111; }
+  table { border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #ccc; padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  h2 { margin-top: 24px; font-size: 15px; }
+</style>
+</head>
+<body>
+<h1>image-to-pdf picture size measurement</h1>
+<p>Grilling measurement for image-to-pdf's picture size setting (2026-11-20). Each input set becomes one PDF per
+level: pictures sized for the page, prepared by the shared preparation image-to-pptx uses
+(<code>sizedImagePreparation</code> in <code>src/lib/image/slideImage.ts</code>: never enlarged, a whole JPEG at its
+own size goes in as uploaded, a PNG turns into JPEG only at half the size or less), then embedded with pdf-lib, one
+picture per page, orientation auto, no margin.</p>
+<ul>
+  <li><b>original</b>: every picture as uploaded (HEIC after the tool's conversion), which is what the tool does today.</li>
+  <li><b>A4 @ N dpi</b>: the picture holds no more pixels than N dots per inch across the size it is drawn at on A4
+    (210 × 297 mm, turned to the picture).</li>
+  <li><b>16:9 full-hd / 4k</b>: image-to-pptx's screen size on a 16:9 page turned to the picture
+    (<code>containedSize</code>).</li>
+  <li><b>MB</b> is the whole PDF's size. Pictures not shrunk keep their bytes, so a set of small pictures barely moves.</li>
+</ul>
+<p>Query <code>?sets=jpg,heic,png&amp;dpi=100,150,200,300&amp;screens=full-hd,4k</code> picks what to run.</p>
+<p id="status">Starting…</p>
+<div id="out"></div>
+<script type="module">
+import { PDFDocument } from "/pkg/pdf-lib.js";
+import { sizedImagePreparation, containedSize } from "/src/lib/image/slideImage.ts";
+import { normalizeImageFile } from "/src/lib/image/heic.ts";
+import { readImageHeader } from "/src/lib/output-check/imageHeader.ts";
+
+const params = new URLSearchParams(location.search);
+const setNames = (params.get("sets") ?? "jpg,heic,png").split(",");
+const dpis = (params.get("dpi") ?? "100,150,200,300").split(",").map(Number);
+const screens = (params.get("screens") ?? "full-hd,4k").split(",");
+const status = (text) => (document.getElementById("status").textContent = text);
+const MB = (bytes) => +(bytes / 1e6).toFixed(2);
+
+const A4_IN = { short: 210 / 25.4, long: 297 / 25.4 };
+const SLIDE_16_9 = { long: 13.333, short: 7.5 };
+
+const fetchBytes = async (name) => {
+  const res = await fetch(`/fixtures/${encodeURIComponent(name).replace(/%2F/g, "/")}`);
+  if (!res.ok) throw new Error(`${name}: ${res.status}`);
+  return new Uint8Array(await res.arrayBuffer());
+};
+const typeOf = (name) => (/\.png$/i.test(name) ? "image/png" : /\.heic$/i.test(name) ? "image/heic" : "image/jpeg");
+const fileOf = async (name) => new File([await fetchBytes(name)], name.split("/").pop(), { type: typeOf(name) });
+const loose = (names, re) => Promise.all(names.filter((n) => re.test(n)).map(async (n) => ({ label: n, file: await fileOf(n) })));
+
+const SETS = {
+  jpg: (names) => loose(names, /\.jpe?g$/i),
+  png: (names) => loose(names, /\.png$/i),
+  async heic(names) {
+    const out = [];
+    for (const n of names.filter((n) => /\.heic$/i.test(n))) {
+      const original = await fileOf(n);
+      out.push({ label: n, file: await normalizeImageFile(original), original });
+    }
+    return out;
+  },
+};
+
+/** The page turned to the picture (orientation auto), in inches. */
+const turned = (page, picture) =>
+  picture.width >= picture.height ? { w: page.long, h: page.short } : { w: page.short, h: page.long };
+
+/** The pixels a picture holds when drawn whole inside `page` (inches) at `dpi`, never enlarged. */
+function sizeAtDpi(picture, page, dpi) {
+  const scale = Math.min(page.w / picture.width, page.h / picture.height); // inches per pixel, drawn
+  const want = { width: Math.round(picture.width * scale * dpi), height: Math.round(picture.height * scale * dpi) };
+  if (want.width >= picture.width || want.height >= picture.height) return picture;
+  return { width: Math.max(1, want.width), height: Math.max(1, want.height) };
+}
+
+/** One PDF of `pictures` ({ bytes, format, page: {w, h} in inches }), one per page; its size in bytes. */
+async function pdfBytes(pictures) {
+  const doc = await PDFDocument.create();
+  for (const p of pictures) {
+    const image = p.format === "png" ? await doc.embedPng(p.bytes) : await doc.embedJpg(p.bytes);
+    const [pw, ph] = [p.page.w * 72, p.page.h * 72];
+    const page = doc.addPage([pw, ph]);
+    const scale = Math.min(pw / image.width, ph / image.height);
+    const [w, h] = [image.width * scale, image.height * scale];
+    page.drawImage(image, { x: (pw - w) / 2, y: (ph - h) / 2, width: w, height: h });
+  }
+  return (await doc.save()).length;
+}
+
+/** The levels: each gives a picture's page (inches) and the size it is prepared at, or null to take it as uploaded. */
+const levels = [
+  { name: "original", page: (pic) => turned(A4_IN, pic), size: () => null },
+  ...dpis.map((dpi) => ({ name: `A4 @ ${dpi} dpi`, page: (pic) => turned(A4_IN, pic), size: (pic, page) => sizeAtDpi(pic, page, dpi) })),
+  ...screens.map((screen) => ({
+    name: `16:9 ${screen}`,
+    page: (pic) => turned(SLIDE_16_9, pic),
+    size: (pic, page) => containedSize(pic, { w: page.w, h: page.h }, screen),
+  })),
+];
+
+function table(rows) {
+  if (rows.length === 0) return "<p>(none)</p>";
+  const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))];
+  const cell = (v) => (v === null || v === undefined ? "–" : String(v));
+  return `<table><tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr>${rows
+    .map((r) => `<tr>${cols.map((c) => `<td>${cell(r[c])}</td>`).join("")}</tr>`)
+    .join("")}</table>`;
+}
+
+/**
+ * `?samples=<names>`: instead of measuring, one A4 PDF per level holding the
+ * named fixtures, to compare by eye; each comes back base64 in
+ * `__results.samples` (run-headless.mjs --out saves the JSON).
+ */
+async function samples(list) {
+  const entries = [];
+  for (const n of list) {
+    const original = await fileOf(n);
+    const file = /\.heic$/i.test(n) ? await normalizeImageFile(original) : original;
+    entries.push({ label: n, file, upright: await sizedImagePreparation.measure(file) });
+  }
+  const out = [];
+  for (const level of levels.filter((l) => l.name === "original" || l.name.startsWith("A4"))) {
+    status(`sample: ${level.name}…`);
+    const prepared = [];
+    for (const p of entries) {
+      const page = level.page(p.upright);
+      const size = level.size(p.upright, page);
+      const bytes = new Uint8Array(await p.file.arrayBuffer());
+      const ready = size
+        ? await sizedImagePreparation.prepare(p.file, { x: 0, y: 0, width: p.upright.width, height: p.upright.height }, size)
+        : { bytes, format: readImageHeader(bytes)?.format === "png" ? "png" : "jpeg" };
+      prepared.push({ ...ready, page });
+    }
+    const doc = await PDFDocument.create();
+    for (const p of prepared) {
+      const image = p.format === "png" ? await doc.embedPng(p.bytes) : await doc.embedJpg(p.bytes);
+      const [pw, ph] = [p.page.w * 72, p.page.h * 72];
+      const pg = doc.addPage([pw, ph]);
+      const scale = Math.min(pw / image.width, ph / image.height);
+      pg.drawImage(image, { x: (pw - image.width * scale) / 2, y: (ph - image.height * scale) / 2, width: image.width * scale, height: image.height * scale });
+    }
+    const pdf = await doc.save();
+    let binary = "";
+    for (let i = 0; i < pdf.length; i += 0x8000) binary += String.fromCharCode(...pdf.subarray(i, i + 0x8000));
+    out.push({ level: level.name, MB: MB(pdf.length), base64: btoa(binary) });
+  }
+  return out;
+}
+
+try {
+  if (params.get("samples")) {
+    const made = await samples(params.get("samples").split(","));
+    window.__results = { summary: made.map(({ level, MB }) => ({ level, MB })), samples: made, pdfs: "-", pages: "-", dpi: dpis.join("/") };
+    status("Done.");
+  } else {
+  const names = await (await fetch("/fixtures")).json();
+  const summary = [];
+  const pictureRows = [];
+  for (const set of setNames) {
+    status(`Reading ${set}…`);
+    const entries = await SETS[set](names);
+    const row = { set, count: entries.length, "files MB": MB(entries.reduce((s, e) => s + (e.original ?? e.file).size, 0)) };
+    if (set === "heic") row["as JPEG MB"] = MB(entries.reduce((s, e) => s + e.file.size, 0));
+    const pics = [];
+    for (const e of entries) pics.push({ ...e, upright: await sizedImagePreparation.measure(e.file) });
+    for (const level of levels) {
+      status(`${set}: ${level.name}…`);
+      const start = performance.now();
+      const prepared = [];
+      for (const p of pics) {
+        const page = level.page(p.upright);
+        const size = level.size(p.upright, page);
+        const bytes = new Uint8Array(await p.file.arrayBuffer());
+        const out = size
+          ? await sizedImagePreparation.prepare(p.file, { x: 0, y: 0, width: p.upright.width, height: p.upright.height }, size)
+          : { bytes, format: readImageHeader(bytes)?.format === "png" ? "png" : "jpeg", ...p.upright };
+        prepared.push({ ...out, page });
+        pictureRows.push({
+          set, level: level.name, picture: p.label, upright: `${p.upright.width}×${p.upright.height}`,
+          stored: `${out.width}×${out.height}`, format: out.format, "KB": Math.round(out.bytes.length / 1000),
+        });
+      }
+      const pdf = await pdfBytes(prepared);
+      row[`${level.name} MB`] = MB(pdf);
+      row[`${level.name} s`] = +((performance.now() - start) / 1000).toFixed(1);
+    }
+    summary.push(row);
+  }
+  document.getElementById("out").innerHTML = `<h2>Per set</h2>${table(summary)}<h2>Per picture</h2>${table(pictureRows)}`;
+  window.__results = { summary, pictures: pictureRows, pdfs: "-", pages: "-", dpi: dpis.join("/") };
+  status("Done.");
+  }
+} catch (error) {
+  console.error(error);
+  status(`Failed: ${error.message}`);
+  window.__results = { error: `${error.message}\n${error.stack}` };
+}
+</script>
+</body>
+</html>

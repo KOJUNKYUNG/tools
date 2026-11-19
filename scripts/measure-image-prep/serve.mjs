@@ -30,6 +30,7 @@ const CONFIG = join(fixtures, "measure-image-prep.json");
 
 const files = {
   "/": [join(here, "index.html"), "text/html; charset=utf-8"],
+  "/pdf": [join(here, "pdf.html"), "text/html; charset=utf-8"],
   "/colourDifference.js": [join(root, "scripts/lib/colourDifference.js"), "text/javascript"],
   "/lib/jszip.js": [join(root, "node_modules/jszip/dist/jszip.min.js"), "text/javascript"],
 };
@@ -40,6 +41,7 @@ const PACKAGE_FILES = {
   "/pkg/pptxgenjs.js": join(root, "node_modules/pptxgenjs/dist/pptxgen.es.js"),
   "/pkg/heic-to.js": join(root, "node_modules/heic-to/dist/next/heic-to.js"),
   "/pkg/pdfjs.js": join(root, "node_modules/pdfjs-dist/build/pdf.min.mjs"),
+  "/pkg/pdf-lib.js": join(root, "node_modules/pdf-lib/dist/pdf-lib.esm.js"),
 };
 // Each package at the global its script tag on the page defines (served as
 // /lib/global/<package>.js), as in scripts/measure-ppt-ratios.
@@ -49,6 +51,7 @@ const PACKAGES = {
   pptxgenjs: "/pkg/pptxgenjs.js",
   "heic-to/next": "/pkg/heic-to.js",
   "pdfjs-dist": "/pkg/pdfjs.js",
+  "pdf-lib": "/pkg/pdf-lib.js",
   ...Object.fromEntries(Object.keys(PAGE_GLOBALS).map((name) => [name, `/lib/global/${name}.js`])),
 };
 // pptxgenjs imports JSZip by name.
