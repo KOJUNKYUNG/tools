@@ -4,7 +4,7 @@ import { getImageToPdfLabels } from "@/components/tools/image-to-pdf/labels";
 import type { Dictionary } from "@/i18n/config";
 import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
-import { getErrorMessage } from "@/lib/errors";
+import { INVALID_INPUT_PREFIX, getErrorMessage } from "@/lib/errors";
 import { convertImagesToPdf, type ImageLayout } from "./assembleSections";
 import type { Rotation } from "./pageItem";
 import * as check from "./imageToPdfCheck";
@@ -237,10 +237,9 @@ describe("convertImagesToPdf", () => {
       imageLayout: { mode: "native" },
     }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(Error);
-    // Narrowed by the assertion above.
-    expect(getErrorMessage(err, { copy: (ko as Dictionary).common.errors }).message).toBe(
-      (ko as Dictionary).common.errors.invalidFile,
-    );
+    // Narrowed by the assertion above. The user's file, not the tool: the
+    // invalid-input error, not the corrupt-output one.
+    expect((err as Error).message).toMatch(new RegExp(`^${INVALID_INPUT_PREFIX}`));
   }, 15_000);
 
   it.each<[string, (png: Uint8Array) => Uint8Array]>([
@@ -255,6 +254,34 @@ describe("convertImagesToPdf", () => {
     });
     expect(Buffer.from(await firstPictureRgba(output)).equals(Buffer.from(png.rgba))).toBe(true);
   }, 15_000);
+
+  it("a browser without compression streams still gets its PNGs in, as pdf-lib embedded them", async () => {
+    vi.stubGlobal("DecompressionStream", undefined);
+    vi.stubGlobal("CompressionStream", undefined);
+    try {
+      const png = pngOfKind("truecolour with alpha");
+      const output = await convertImagesToPdf({
+        pages: [image("png")],
+        sourceBytesById: new Map([["png", png.bytes]]),
+        imageLayout: { mode: "native" },
+      });
+      expect(Buffer.from(await firstPictureRgba(output)).equals(Buffer.from(png.rgba))).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("a JPEG cut off before its picture is refused as a damaged file, not the tool's fault", async () => {
+    const scan = Buffer.from(JPEG_3x2).indexOf(Buffer.from([0xff, 0xda]));
+    const err = await convertImagesToPdf({
+      pages: [image("cut")],
+      sourceBytesById: new Map([["cut", JPEG_3x2.subarray(0, scan)]]),
+      imageLayout: { mode: "native" },
+    }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    // Narrowed by the assertion above.
+    expect((err as Error).message).toMatch(new RegExp(`^${INVALID_INPUT_PREFIX}`));
+  });
 
   it("blocks a failing quick check with the corrupt-output error and image-to-pdf's hint", async () => {
     vi.mocked(check.checkImageToPdf).mockResolvedValueOnce([

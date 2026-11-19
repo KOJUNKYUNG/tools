@@ -23,7 +23,7 @@
 //   viewer shows 8 bits a sample anyway).
 //
 // No PNG reaches pdf-lib's decoder, which never returns on some damaged
-// image data. What a browser shows, this shows: image data that runs past
+// image data, except in a browser without compression streams. What a browser shows, this shows: image data that runs past
 // the picture's end or fails its checksum only after every scanline, and
 // data that ends cleanly but early (the missing rows left at zero), are decoded
 // as they are; an animated PNG goes in as its default image. Data broken
@@ -225,11 +225,15 @@ function paeth(a: number, b: number, c: number): number {
   return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
 }
 
+/** What PNG filter `filter` (0 none, 1 sub, 2 up, 3 average, 4 Paeth) predicts a byte to be. */
+const predict = (filter: number, a: number, b: number, c: number) =>
+  filter === 0 ? 0 : filter === 1 ? a : filter === 2 ? b : filter === 3 ? (a + b) >> 1 : paeth(a, b, c);
+
 interface Pixels {
   /** 8-bit RGB, rows from the top. */
-  rgb: Uint8Array;
+  rgb: Uint8Array<ArrayBuffer>;
   /** 8-bit alpha, present only when some pixel is not opaque. */
-  alpha?: Uint8Array;
+  alpha?: Uint8Array<ArrayBuffer>;
 }
 
 /**
@@ -272,9 +276,7 @@ function decodePixels(raw: Uint8Array, png: PngChunks, passes: Pass[]): Pixels {
         const a = i >= bpp ? row[i - bpp] : 0;
         const b = prior[i];
         const c = i >= bpp ? prior[i - bpp] : 0;
-        const predicted =
-          filter === 0 ? 0 : filter === 1 ? a : filter === 2 ? b : filter === 3 ? (a + b) >> 1 : paeth(a, b, c);
-        row[i] = (row[i] + predicted) & 0xff;
+        row[i] = (row[i] + predict(filter, a, b, c)) & 0xff;
       }
       prior = row;
       for (let px = 0; px < pass.width; px++) {
@@ -318,7 +320,12 @@ function decodePixels(raw: Uint8Array, png: PngChunks, passes: Pass[]): Pixels {
  * scanlines: each row behind the filter byte that leaves the smallest sum of
  * signed residues, libpng's heuristic.
  */
-function pngFiltered(samples: Uint8Array, width: number, height: number, channels: number): Uint8Array {
+function pngFiltered(
+  samples: Uint8Array<ArrayBuffer>,
+  width: number,
+  height: number,
+  channels: number,
+): Uint8Array<ArrayBuffer> {
   const stride = width * channels;
   const out = new Uint8Array(height * (stride + 1));
   const zeros = new Uint8Array(stride);
@@ -335,9 +342,7 @@ function pngFiltered(samples: Uint8Array, width: number, height: number, channel
         const a = i >= channels ? row[i - channels] : 0;
         const b = up[i];
         const c = i >= channels ? up[i - channels] : 0;
-        const predicted =
-          filter === 0 ? 0 : filter === 1 ? a : filter === 2 ? b : filter === 3 ? (a + b) >> 1 : paeth(a, b, c);
-        const residue = (row[i] - predicted) & 0xff;
+        const residue = (row[i] - predict(filter, a, b, c)) & 0xff;
         residues[i] = residue;
         cost += residue < 128 ? residue : 256 - residue;
         if (cost >= bestCost) break;
@@ -369,9 +374,8 @@ const pngDecodeParms = (colors: number, bitsPerComponent: number, columns: numbe
  * zlib: several times faster than pdf-lib's flateStream (pako, in
  * JavaScript) on predicted rows, the step that took most of the time.
  */
-async function deflate(data: Uint8Array): Promise<Uint8Array> {
-  // Copied into a fresh buffer: a Blob takes only ArrayBuffer-backed views.
-  const compressed = new Blob([Uint8Array.from(data)]).stream().pipeThrough(new CompressionStream("deflate"));
+async function deflate(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
+  const compressed = new Blob([data]).stream().pipeThrough(new CompressionStream("deflate"));
   return new Uint8Array(await new Response(compressed).arrayBuffer());
 }
 
@@ -386,7 +390,7 @@ const TRIAL_BANDS = 4;
  * flat-coloured art (a few colours, hard edges) deflates smaller as it is,
  * which is why libpng leaves such pictures unfiltered.
  */
-async function predictorsPay(samples: Uint8Array, width: number, height: number, channels: number): Promise<boolean> {
+async function predictorsPay(samples: Uint8Array<ArrayBuffer>, width: number, height: number, channels: number): Promise<boolean> {
   const stride = width * channels;
   const bands = Math.min(TRIAL_BANDS, Math.ceil(height / TRIAL_BAND_ROWS));
   let predicted = 0;
@@ -405,7 +409,7 @@ async function predictorsPay(samples: Uint8Array, width: number, height: number,
 /** An 8-bit image of `channels` (1 grey, 3 RGB), deflated with PNG predictors when they pay; its reference. */
 async function registerDeflated(
   doc: PDFDocument,
-  samples: Uint8Array,
+  samples: Uint8Array<ArrayBuffer>,
   width: number,
   height: number,
   channels: 1 | 3,
@@ -431,7 +435,7 @@ async function registerDeflated(
 }
 
 /** The soft mask for `alpha`, or undefined when every pixel is opaque (pdf-lib leaves it out then). */
-async function softMask(doc: PDFDocument, alpha: Uint8Array | undefined, width: number, height: number) {
+async function softMask(doc: PDFDocument, alpha: Uint8Array<ArrayBuffer> | undefined, width: number, height: number) {
   return alpha ? await registerDeflated(doc, alpha, width, height, 1) : undefined;
 }
 
@@ -452,7 +456,7 @@ function passesThrough({ header, transparency }: PngChunks): boolean {
 }
 
 /** `png`'s own data as an image stream; a palette's clear entries as the soft mask `alpha`. */
-async function registerAsIs(doc: PDFDocument, png: PngChunks, alpha: Uint8Array | undefined): Promise<PDFRef> {
+async function registerAsIs(doc: PDFDocument, png: PngChunks, alpha: Uint8Array<ArrayBuffer> | undefined): Promise<PDFRef> {
   const { width, height, bitDepth, colorType } = png.header;
   const colors = colorType === ColorType.rgb ? 3 : 1;
   const colorSpace =
@@ -485,6 +489,11 @@ async function registerAsIs(doc: PDFDocument, png: PngChunks, alpha: Uint8Array 
  * a PNG it cannot read.
  */
 export async function embedPng(doc: PDFDocument, bytes: Uint8Array): Promise<EmbeddedImage> {
+  // A browser without compression streams (Safari before 16.4) gets
+  // pdf-lib's embedding, as before: larger PNGs, and its decoder's faults.
+  if (typeof DecompressionStream === "undefined" || typeof CompressionStream === "undefined") {
+    return doc.embedPng(bytes);
+  }
   const png = readChunks(bytes);
   // The file is not a PNG this or any decoder can read: the user's file, not the tool.
   if (!png) throw new Error(`${INVALID_INPUT_PREFIX}: not a readable PNG image`);

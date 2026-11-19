@@ -67,13 +67,15 @@ function endOfScanData(bytes: Uint8Array, from: number): number {
  * `jpeg` without its photo info: the segments the picture needs, in order,
  * byte for byte, ending at its end-of-image marker. Returns `jpeg` itself
  * when there is nothing to drop. Throws the invalid-input error when its
- * marker structure is broken, since what to keep could not be told apart.
+ * marker structure is broken, since what to keep could not be told apart,
+ * or when it holds no scan: cut off before its picture, it has none to show.
  */
 export function stripPhotoInfo(jpeg: Uint8Array): Uint8Array {
   if (jpeg[0] !== 0xff || jpeg[1] !== SOI) throw notJpeg();
   const view = new DataView(jpeg.buffer, jpeg.byteOffset, jpeg.byteLength);
   const kept: [number, number][] = [[0, 2]];
   let at = 2;
+  let hasScan = false;
 
   while (at < jpeg.length) {
     if (jpeg[at] !== 0xff) {
@@ -100,6 +102,7 @@ export function stripPhotoInfo(jpeg: Uint8Array): Uint8Array {
     const segmentEnd = at + 2 + view.getUint16(at + 2);
     if (segmentEnd > jpeg.length || segmentEnd < at + 4) throw notJpeg();
     if (marker === SOS) {
+      hasScan = true;
       // The scan header, then its entropy-coded data up to the next marker.
       const dataEnd = endOfScanData(jpeg, segmentEnd);
       kept.push([at, dataEnd]);
@@ -110,6 +113,7 @@ export function stripPhotoInfo(jpeg: Uint8Array): Uint8Array {
     at = segmentEnd;
   }
 
+  if (!hasScan) throw notJpeg();
   const size = kept.reduce((sum, [from, to]) => sum + to - from, 0);
   if (size === jpeg.length) return jpeg;
   const out = new Uint8Array(size);
