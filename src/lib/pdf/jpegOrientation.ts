@@ -1,7 +1,8 @@
 // EXIF orientation for JPEG pages. Browsers show a JPEG turned as its EXIF
 // Orientation tag says (the editor's thumbnails do), but a PDF shows the
-// stored pixels as they are. pdf-lib embeds the JPEG unchanged, so the engine
-// applies the orientation itself when drawing, keeping the original bytes.
+// stored pixels as they are. The engine embeds the JPEG's picture unchanged,
+// without the EXIF segment (see `stripPhotoInfo`), so it reads the orientation
+// from the original first and applies it itself when drawing.
 // PNG is treated as upright: its rare eXIf chunk is not read.
 
 /** EXIF Orientation: 1 = upright; 2–8 = mirrored and/or turned (TIFF 6.0). */

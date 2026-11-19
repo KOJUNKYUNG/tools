@@ -3,7 +3,13 @@ import { PDFDocument, degrees } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import type { ImageLayout } from "./assembleSections";
 import { checkImageToPdf } from "./imageToPdfCheck";
-import { imagePage as image, imageSources as sources } from "./testImages";
+import {
+  JPEG_3x2,
+  imagePage as image,
+  imageSources as sources,
+  withExifOrientation,
+  withPhotoInfo,
+} from "./testImages";
 
 interface PageSpec {
   /** Which source image the page shows; null for a page without one. */
@@ -12,7 +18,11 @@ interface PageSpec {
   rotation?: number;
 }
 
-/** Draw pages by hand (not through the engine): each shows its image. */
+/**
+ * Draw pages by hand (not through the engine): each shows its image. A JPEG
+ * goes in as the engine embeds it, without its EXIF: both test photos are
+ * JPEG_3x2 with an EXIF segment added.
+ */
 async function pdfOf(pages: PageSpec[]): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const src = sources();
@@ -21,7 +31,7 @@ async function pdfOf(pages: PageSpec[]): Promise<Uint8Array> {
     if (source !== null) {
       const bytes = src.get(source)!; // test data: every named source exists
       const isJpeg = source === "photo" || source === "phone";
-      const img = isJpeg ? await doc.embedJpg(bytes) : await doc.embedPng(bytes);
+      const img = isJpeg ? await doc.embedJpg(JPEG_3x2) : await doc.embedPng(bytes);
       page.drawImage(img, { x: 0, y: 0, width: size[0], height: size[1] });
     }
     if (rotation) page.setRotation(degrees(rotation));
@@ -167,6 +177,23 @@ describe("checkImageToPdf: broken outputs", () => {
       "full",
     );
     expect(props(vs)).toEqual(["size-bound"]);
+  });
+
+  it.each<[string, Uint8Array]>([
+    ["EXIF, GPS, XMP, IPTC, a comment and an appended picture", withPhotoInfo(JPEG_3x2)],
+    ["an EXIF segment alone", withExifOrientation(JPEG_3x2, 1)],
+    ["data after the picture's end", Uint8Array.from([...JPEG_3x2, 0xff, 0xd8, 0xff, 0xd9])],
+  ])("flags a JPEG still carrying %s, at quick depth", async (_, photo) => {
+    const doc = await PDFDocument.create();
+    const jpg = await doc.embedJpg(photo);
+    doc.addPage([3, 2]).drawImage(jpg, { x: 0, y: 0, width: 3, height: 2 });
+    const vs = await checkImageToPdf(
+      new Map([["gps", photo]]),
+      { pages: [image("gps")], imageLayout: NATIVE },
+      await doc.save(),
+      "quick",
+    );
+    expect(props(vs)).toEqual(["photo-info"]);
   });
 
   it("keeps the caller's output bytes intact", async () => {

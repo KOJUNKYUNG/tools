@@ -1,5 +1,6 @@
 // Test-only image fixtures, generated in Node (never imported by the app).
 import { crc32, deflateSync } from "node:zlib";
+import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 import { vi } from "vitest";
 import { readImageHeader } from "@/lib/output-check/imageHeader";
 import type { PageItem, Rotation } from "./pageItem";
@@ -154,4 +155,80 @@ export function stubBrowserDecoder(): void {
     if (!header) throw new DOMException("The source image could not be decoded.", "InvalidStateError");
     return { width: header.width, height: header.height, close: () => {} };
   });
+}
+
+/** A JPEG marker segment: FF, `marker`, a length, then `payload`. */
+function segment(marker: number, payload: Uint8Array | string): Buffer {
+  const data = typeof payload === "string" ? Buffer.from(payload, "latin1") : Buffer.from(payload);
+  const head = Buffer.alloc(4);
+  head.writeUInt16BE(0xff00 | marker, 0);
+  head.writeUInt16BE(data.length + 2, 2);
+  return Buffer.concat([head, data]);
+}
+
+/** Where `jpeg`'s first start-of-scan marker sits (its segments walked from SOI). */
+function startOfScan(jpeg: Uint8Array): number {
+  const view = new DataView(jpeg.buffer, jpeg.byteOffset, jpeg.byteLength);
+  for (let at = 2; at + 4 <= jpeg.length; at += 2 + view.getUint16(at + 2)) {
+    if (jpeg[at + 1] === 0xda) return at;
+  }
+  throw new Error("no start of scan");
+}
+
+/**
+ * `jpeg` carrying a phone's photo info: EXIF holding a GPS position and XMP
+ * right after SOI, Photoshop's IPTC block, a comment and a multi-picture
+ * index just before the image data, and a second picture (a gain map, as
+ * Ultra HDR photos append) after its end. The colour profile and JFIF header
+ * of `jpeg` stay where they are.
+ */
+export function withPhotoInfo(jpeg: Uint8Array): Uint8Array {
+  // IFD0 holds one entry, the GPS IFD pointer; the GPS IFD holds the
+  // latitude reference "N" (an ASCII value short enough to sit inline).
+  const tiff = Buffer.from(
+    "4d4d002a00000008" + // "MM", 42, IFD0 at 8
+      "0001" + "88250004000000010000001a" + "00000000" + // GPSInfo → 26
+      "0001" + "0001000200000002" + "4e000000" + "00000000", // GPSLatitudeRef "N"
+    "hex",
+  );
+  const exif = segment(0xe1, Buffer.concat([Buffer.from("Exif\0\0", "latin1"), tiff]));
+  const xmp = segment(
+    0xe1,
+    'http://ns.adobe.com/xap/1.0/\0<x:xmpmeta xmlns:x="adobe:ns:meta/"><exif:GPSLatitude>37,33.5N</exif:GPSLatitude></x:xmpmeta>',
+  );
+  const iptc = segment(0xed, "Photoshop 3.0\x008BIM\x04\x04\0\0\0\0\0\x0a\x1c\x02\x5a\0\x05Seoul");
+  const comment = segment(0xfe, "Taken at home");
+  const mpf = segment(0xe2, "MPF\0MM\0\x2a\0\0\0\x08");
+  const gainMap = Buffer.concat([Buffer.from([0xff, 0xd8]), segment(0xe1, "http://ns.adobe.com/xap/1.0/\0<hdrgm/>"), Buffer.from([0xff, 0xd9])]);
+  const sos = startOfScan(jpeg);
+  return Uint8Array.from(
+    Buffer.concat([
+      jpeg.subarray(0, 2),
+      exif,
+      xmp,
+      jpeg.subarray(2, sos),
+      iptc,
+      comment,
+      mpf,
+      jpeg.subarray(sos),
+      gainMap,
+    ]),
+  );
+}
+
+/**
+ * The JPEG streams (DCTDecode image XObjects) a PDF embeds, as stored, read
+ * with pdf-lib's parser: independent of the output checks' own byte scan.
+ */
+export async function embeddedJpegs(pdf: Uint8Array): Promise<Uint8Array[]> {
+  const doc = await PDFDocument.load(pdf);
+  const jpegs: Uint8Array[] = [];
+  for (const [, object] of doc.context.enumerateIndirectObjects()) {
+    if (!(object instanceof PDFRawStream)) continue;
+    const filter = object.dict.get(PDFName.of("Filter"));
+    if (object.dict.get(PDFName.of("Subtype")) !== PDFName.of("Image")) continue;
+    if (filter !== PDFName.of("DCTDecode")) continue;
+    jpegs.push(object.contents);
+  }
+  return jpegs;
 }

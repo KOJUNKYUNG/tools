@@ -10,9 +10,11 @@ import * as check from "./imageToPdfCheck";
 import type { Matrix } from "./jpegOrientation";
 import {
   JPEG_3x2,
+  embeddedJpegs,
   imagePage as image,
   imageSources as sources,
   withExifOrientation,
+  withPhotoInfo,
 } from "./testImages";
 
 // The real checker by default; one test makes it report a violation.
@@ -129,6 +131,49 @@ describe("convertImagesToPdf", () => {
       expect(await storedTopRowSide(output)).toBe(expectedSide);
     },
   );
+
+  it.each<[string, ImageLayout]>([
+    ["native layout", { mode: "native" }],
+    ["A4", { mode: "fixed", widthPt: 595, heightPt: 842 }],
+    ["custom size", { mode: "fixed", widthPt: 300, heightPt: 120 }],
+  ])("%s: a photo goes in without its photo info, its picture untouched", async (_, imageLayout) => {
+    const output = await convertImagesToPdf({
+      pages: [image("gps")],
+      sourceBytesById: new Map([["gps", withPhotoInfo(JPEG_3x2)]]),
+      imageLayout,
+    });
+    // JPEG_3x2 is the photo with nothing added: same scan data, its JFIF
+    // header and colour profile (ICC) still there, nothing re-encoded.
+    expect(await embeddedJpegs(output)).toEqual([JPEG_3x2]);
+  });
+
+  it("a photo with stray bytes between its segments still goes in, without them", async () => {
+    // Some cameras pad between segments; decoders skip such bytes.
+    const photo = withPhotoInfo(JPEG_3x2);
+    const afterExif = 2 + 2 + ((photo[4] << 8) | photo[5]); // SOI, then the EXIF segment
+    const padded = Uint8Array.from([
+      ...photo.subarray(0, afterExif),
+      0x00,
+      0x00,
+      ...photo.subarray(afterExif),
+    ]);
+    const output = await convertImagesToPdf({
+      pages: [image("padded")],
+      sourceBytesById: new Map([["padded", padded]]),
+      imageLayout: { mode: "native" },
+    });
+    expect(await embeddedJpegs(output)).toEqual([JPEG_3x2]);
+  });
+
+  it("a photo with photo info and an EXIF orientation still shows upright", async () => {
+    const output = await convertImagesToPdf({
+      pages: [image("phone")],
+      sourceBytesById: new Map([["phone", withExifOrientation(withPhotoInfo(JPEG_3x2), 6)]]),
+      imageLayout: { mode: "native" },
+    });
+    expect(await storedTopRowSide(output)).toBe("right");
+    expect(await embeddedJpegs(output)).toEqual([JPEG_3x2]);
+  });
 
   it("blocks a failing quick check with the corrupt-output error and image-to-pdf's hint", async () => {
     vi.mocked(check.checkImageToPdf).mockResolvedValueOnce([

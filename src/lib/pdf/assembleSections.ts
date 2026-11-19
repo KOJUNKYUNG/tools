@@ -20,6 +20,7 @@ import {
   translate,
 } from "pdf-lib";
 import { INVALID_INPUT_PREFIX } from "@/lib/errors";
+import { stripPhotoInfo } from "@/lib/image/stripPhotoInfo";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { type PageItem, buildOutputNames } from "./pageItem";
 import { computeImageFit } from "./imageFit";
@@ -150,9 +151,13 @@ export async function assembleSections(
         const bytes = sourceBytesById.get(item.sourceFileId);
         if (!bytes) throw new Error(`원본 파일을 찾을 수 없습니다: ${item.sourceFileId}`);
         const isPng = detectImageFormat(bytes) === "png";
-        const image = isPng ? await out.embedPng(bytes) : await out.embedJpg(bytes);
-        // The JPEG stays as stored; its EXIF orientation is applied when drawn,
-        // so the page shows what the editor's thumbnail shows.
+        // A JPEG goes in without its photo info (CONTEXT "Photo info"), its
+        // picture byte for byte. The EXIF orientation is read from the
+        // original first and applied when drawn, so the page shows what the
+        // editor's thumbnail shows.
+        const image = isPng
+          ? await out.embedPng(bytes)
+          : await out.embedJpg(stripPhotoInfo(bytes));
         const orientation = isPng ? 1 : readJpegOrientation(bytes);
         const stored = image.scale(1);
         const [imgW, imgH] = orientedSize(stored.width, stored.height, orientation);

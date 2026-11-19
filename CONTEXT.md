@@ -146,9 +146,10 @@ is the second line.
 ### Photo info
 What a camera writes into a photo besides its pixels: the device, the time
 taken and, when location was on, GPS coordinates (EXIF). A picture that
-image-to-pdf puts on a page carries none of it into the PDF, whatever the
-size setting; the turn it records is applied to the page first. The user is
-not asked: nobody submitting or sharing a PDF wants their location in it.
+image-to-pdf or pdf-arrange puts on a page carries none of it into the PDF,
+whatever the size setting; the turn it records is applied to the page first.
+The user is not asked: nobody submitting or sharing a PDF wants their
+location in it.
 _Avoid_: "metadata" alone: a PDF also has document properties (title,
 producer), which are a different thing.
 
