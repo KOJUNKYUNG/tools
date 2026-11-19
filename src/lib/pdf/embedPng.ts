@@ -22,12 +22,17 @@
 //   PNGs, so a 16-bit PNG with alpha or a colour key keeps its high bytes (a
 //   viewer shows 8 bits a sample anyway).
 //
-// A file this embedder cannot read (an animation, a broken header, image
-// data that does not inflate to its scanlines) goes to pdf-lib's embedPng,
-// which handles it as before. Colour profiles and gamma chunks are ignored,
-// as pdf-lib ignores them.
+// No PNG reaches pdf-lib's decoder, which never returns on some damaged
+// image data. What a browser shows, this shows: image data that runs past
+// the picture's end or fails its checksum only after every scanline, and
+// data that ends cleanly but early (the missing rows left at zero), are decoded
+// as they are; an animated PNG goes in as its default image. Data broken
+// before the picture's end, a header PNG does not allow or a bad filter
+// byte is refused as the user's damaged file. Colour profiles and gamma
+// chunks are ignored, as pdf-lib ignores them.
 
 import { type PDFDocument, type PDFRef } from "pdf-lib";
+import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 
 /** A picture placed in a PDF: its object and its stored size in pixels. */
 export interface EmbeddedImage {
@@ -53,7 +58,6 @@ interface PngChunks {
   palette: Uint8Array | null;
   /** The tRNS chunk: a colour key (grey or RGB) or an alpha per palette entry. */
   transparency: Uint8Array | null;
-  animated: boolean;
   /** The IDAT chunks' data joined: one zlib stream. */
   data: Uint8Array<ArrayBuffer>;
 }
@@ -96,14 +100,17 @@ function readChunks(bytes: Uint8Array): PngChunks | null {
   let header: PngHeader | null = null;
   let palette: Uint8Array | null = null;
   let transparency: Uint8Array | null = null;
-  let animated = false;
   const idats: Uint8Array[] = [];
   for (let at = 8; at + 12 <= bytes.length; ) {
     const length = view.getUint32(at);
     const type = String.fromCharCode(...bytes.subarray(at + 4, at + 8));
     const end = at + 12 + length;
-    if (end > bytes.length) return null;
-    const data = bytes.subarray(at + 8, at + 8 + length);
+    const data = bytes.subarray(at + 8, Math.min(at + 8 + length, bytes.length));
+    if (end > bytes.length) {
+      // The file is cut off: its image data so far is all there is.
+      if (type === "IDAT") idats.push(data);
+      break;
+    }
     if (type === "IHDR" && length >= 13) {
       const colorType = data[9];
       // Compression and filter methods other than 0 are not PNG's.
@@ -117,7 +124,6 @@ function readChunks(bytes: Uint8Array): PngChunks | null {
       };
     } else if (type === "PLTE") palette = data;
     else if (type === "tRNS") transparency = data;
-    else if (type === "acTL") animated = true;
     else if (type === "IDAT") idats.push(data);
     else if (type === "IEND") break;
     at = end;
@@ -136,7 +142,7 @@ function readChunks(bytes: Uint8Array): PngChunks | null {
     data.set(d, offset);
     offset += d.length;
   }
-  return { header, palette, transparency, animated, data };
+  return { header, palette, transparency, data };
 }
 
 interface Pass {
@@ -163,39 +169,51 @@ function passesOf({ width, height, bitDepth, colorType, interlaced }: PngHeader)
     .filter((pass) => pass.width > 0 && pass.height > 0);
 }
 
+interface Inflated {
+  /** The scanlines; missing ones are zero (filter none, every sample 0). */
+  raw: Uint8Array;
+  /**
+   * Whether the data was exactly the scanlines, its zlib checksum correct:
+   * only then can a PDF viewer inflate it unaided.
+   */
+  whole: boolean;
+}
+
 /**
- * `data` inflated, when it holds exactly the scanlines `passes` call for,
- * each behind a valid filter byte (0–4), its zlib checksum correct; null
- * otherwise. A PDF viewer would show anything else broken, with no error.
+ * `data` inflated into the scanlines `passes` call for, or null when it
+ * breaks off before the picture's end or holds a filter byte PNG does not
+ * have (above 4). Whatever follows the last scanline, data or an error, is
+ * ignored, as browsers ignore it.
  */
-async function inflateScanlines(data: Uint8Array<ArrayBuffer>, passes: Pass[]): Promise<Uint8Array | null> {
+async function inflateScanlines(data: Uint8Array<ArrayBuffer>, passes: Pass[]): Promise<Inflated | null> {
   const expected = passes.reduce((sum, p) => sum + p.height * (p.rowBytes + 1), 0);
-  const out = new Uint8Array(expected);
+  const raw = new Uint8Array(expected);
   const reader = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
-  let offset = 0;
+  let got = 0;
+  let clean = true;
   try {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
-      if (offset + value.length > expected) {
+      raw.set(value.subarray(0, Math.max(0, expected - got)), got);
+      got += value.length;
+      if (got > expected) {
         await reader.cancel();
-        return null;
+        break;
       }
-      out.set(value, offset);
-      offset += value.length;
     }
   } catch {
-    // A broken stream or a wrong checksum.
-    return null;
+    // A broken stream, cut-off data or a wrong checksum.
+    clean = false;
   }
-  if (offset !== expected) return null;
+  if (!clean && got < expected) return null;
   let row = 0;
   for (const pass of passes) {
     for (let y = 0; y < pass.height; y++, row += pass.rowBytes + 1) {
-      if (out[row] > 4) return null;
+      if (raw[row] > 4) return null;
     }
   }
-  return out;
+  return { raw, whole: clean && got === expected };
 }
 
 /** PNG's filter predictor for byte `a` (left), `b` (up), `c` (up-left). */
@@ -461,16 +479,22 @@ async function registerAsIs(doc: PDFDocument, png: PngChunks, alpha: Uint8Array 
   );
 }
 
-/** Embed `bytes`, a PNG, as a lossless image of `doc`, no larger than the PNG's own data where it can go in as is. */
+/**
+ * Embed `bytes`, a PNG, as a lossless image of `doc`, no larger than the
+ * PNG's own data where it can go in as is. Throws an invalid-input error for
+ * a PNG it cannot read.
+ */
 export async function embedPng(doc: PDFDocument, bytes: Uint8Array): Promise<EmbeddedImage> {
   const png = readChunks(bytes);
-  if (!png || png.animated) return doc.embedPng(bytes);
+  // The file is not a PNG this or any decoder can read: the user's file, not the tool.
+  if (!png) throw new Error(`${INVALID_INPUT_PREFIX}: not a readable PNG image`);
   const passes = passesOf(png.header);
-  const raw = await inflateScanlines(png.data, passes);
-  if (!raw) return doc.embedPng(bytes);
+  const inflated = await inflateScanlines(png.data, passes);
+  if (!inflated) throw new Error(`${INVALID_INPUT_PREFIX}: the PNG's image data is damaged`);
+  const { raw, whole } = inflated;
   const { width, height } = png.header;
 
-  if (passesThrough(png)) {
+  if (whole && passesThrough(png)) {
     // Only a palette's clear entries need the pixels decoded.
     const alpha = png.transparency ? decodePixels(raw, png, passes).alpha : undefined;
     return { ref: await registerAsIs(doc, png, alpha), width, height };

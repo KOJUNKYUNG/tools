@@ -16,15 +16,19 @@ export function noisePng(width: number, height: number): Uint8Array {
   return rgbPng(width, height, () => Math.floor(Math.random() * 256));
 }
 
+/** A PNG chunk: length, type, data, CRC. */
+function chunk(type: string, data: Uint8Array): Buffer {
+  const out = Buffer.alloc(12 + data.length);
+  out.writeUInt32BE(data.length, 0);
+  out.write(type, 4, "ascii");
+  out.set(data, 8);
+  out.writeUInt32BE(crc32(out.subarray(4, 8 + data.length)), 8 + data.length);
+  return out;
+}
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
 function rgbPng(width: number, height: number, sample: () => number): Uint8Array {
-  const chunk = (type: string, data: Uint8Array) => {
-    const out = Buffer.alloc(12 + data.length);
-    out.writeUInt32BE(data.length, 0);
-    out.write(type, 4, "ascii");
-    out.set(data, 8);
-    out.writeUInt32BE(crc32(out.subarray(4, 8 + data.length)), 8 + data.length);
-    return out;
-  };
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
@@ -37,7 +41,7 @@ function rgbPng(width: number, height: number, sample: () => number): Uint8Array
   const pixels = Buffer.concat(rows);
   return Uint8Array.from(
     Buffer.concat([
-      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      PNG_SIGNATURE,
       chunk("IHDR", ihdr),
       chunk("IDAT", deflateSync(pixels)),
       chunk("IEND", new Uint8Array(0)),
@@ -172,6 +176,51 @@ export function withPngHeight(png: Uint8Array, height: number): Uint8Array {
   out.writeUInt32BE(height, 8 + 8 + 4); // signature, IHDR's length and type, then width
   out.writeUInt32BE(crc32(out.subarray(12, 12 + 4 + 13)), 12 + 4 + 13);
   return Uint8Array.from(out);
+}
+
+/** `png`'s chunks, as type and data, in file order. */
+function pngChunks(png: Uint8Array): [string, Buffer][] {
+  const buf = Buffer.from(png);
+  const chunks: [string, Buffer][] = [];
+  for (let at = 8; at + 12 <= buf.length; at += 12 + buf.readUInt32BE(at)) {
+    chunks.push([buf.toString("ascii", at + 4, at + 8), buf.subarray(at + 8, at + 8 + buf.readUInt32BE(at))]);
+  }
+  return chunks;
+}
+
+/** A PNG of `chunks`, CRCs computed. */
+function pngOfChunks(chunks: [string, Uint8Array][]): Uint8Array {
+  return Uint8Array.from(Buffer.concat([PNG_SIGNATURE, ...chunks.map(([type, data]) => chunk(type, data))]));
+}
+
+/** `png` with its image data (the IDAT chunks' data joined) replaced by `edit`'s, in one IDAT chunk. */
+function withImageData(png: Uint8Array, edit: (data: Buffer) => Uint8Array): Uint8Array {
+  const chunks = pngChunks(png);
+  const data = Buffer.concat(chunks.filter(([type]) => type === "IDAT").map(([, d]) => d));
+  const at = chunks.findIndex(([type]) => type === "IDAT");
+  const rest = chunks.filter(([type]) => type !== "IDAT");
+  return pngOfChunks([...rest.slice(0, at), ["IDAT", edit(data)], ...rest.slice(at)]);
+}
+
+/** `png` with bytes in the middle of its compressed image data flipped, as a bad disk or transfer leaves it. */
+export const withDamagedImageData = (png: Uint8Array) =>
+  withImageData(png, (data) => {
+    const out = Buffer.from(data);
+    for (let i = Math.floor(out.length / 4); i < Math.floor(out.length / 2); i++) out[i] ^= 0x5a;
+    return out;
+  });
+
+/** `png` with `tail` after the end of its compressed image data; decoders ignore it. */
+export const withImageDataTail = (png: Uint8Array, tail: Uint8Array) =>
+  withImageData(png, (data) => Buffer.concat([data, tail]));
+
+/** `png` marked as an animated PNG (an acTL chunk: one frame, the image data its default image). */
+export function asAnimatedPng(png: Uint8Array): Uint8Array {
+  const chunks = pngChunks(png);
+  const acTL = Buffer.alloc(8);
+  acTL.writeUInt32BE(1, 0); // frames
+  acTL.writeUInt32BE(0, 4); // plays: forever
+  return pngOfChunks([chunks[0], ["acTL", acTL], ...chunks.slice(1)]);
 }
 
 /**

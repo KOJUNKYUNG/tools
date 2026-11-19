@@ -17,8 +17,11 @@ import {
   firstPictureRgba,
   imagePage as image,
   imageSources as sources,
+  asAnimatedPng,
   pngOfKind,
+  withDamagedImageData,
   withExifOrientation,
+  withImageDataTail,
   withPngHeight,
   withPhotoInfo,
 } from "./testImages";
@@ -223,6 +226,35 @@ describe("convertImagesToPdf", () => {
     expect(await checkImageToPdf(src, { pages: pagesShort, imageLayout }, output, "full")).toEqual([]);
     expect((await firstPictureRgba(output)).length).toBe(96 * 80 * 4);
   });
+
+  it.each<[string, (png: Uint8Array) => Uint8Array]>([
+    ["its compressed image data damaged", withDamagedImageData],
+    ["cut off mid-download", (png) => png.subarray(0, Math.floor(png.length * 0.6))],
+  ])("a PNG with %s is refused as a damaged file", async (_, damage) => {
+    const err = await convertImagesToPdf({
+      pages: [image("png")],
+      sourceBytesById: new Map([["png", damage(pngOfKind("truecolour with alpha").bytes)]]),
+      imageLayout: { mode: "native" },
+    }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    // Narrowed by the assertion above.
+    expect(getErrorMessage(err, { copy: (ko as Dictionary).common.errors }).message).toBe(
+      (ko as Dictionary).common.errors.invalidFile,
+    );
+  }, 15_000);
+
+  it.each<[string, (png: Uint8Array) => Uint8Array]>([
+    ["bytes after the end of its image data", (png) => withImageDataTail(png, Uint8Array.from([1, 2, 3, 4]))],
+    ["an animation chunk (shown as its default image)", asAnimatedPng],
+  ])("a PNG with %s still goes in, its pixels as a browser shows them", async (_, alter) => {
+    const png = pngOfKind("truecolour with alpha");
+    const output = await convertImagesToPdf({
+      pages: [image("png")],
+      sourceBytesById: new Map([["png", alter(png.bytes)]]),
+      imageLayout: { mode: "native" },
+    });
+    expect(Buffer.from(await firstPictureRgba(output)).equals(Buffer.from(png.rgba))).toBe(true);
+  }, 15_000);
 
   it("blocks a failing quick check with the corrupt-output error and image-to-pdf's hint", async () => {
     vi.mocked(check.checkImageToPdf).mockResolvedValueOnce([
