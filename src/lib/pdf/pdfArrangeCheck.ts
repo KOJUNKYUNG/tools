@@ -1,6 +1,8 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import { readImageHeader } from "@/lib/output-check/imageHeader";
 import { inspectPdf, type PdfReport } from "@/lib/output-check/pdfInspector";
+import { pdfJpegs, readJpegPhotoInfo } from "@/lib/output-check/pdfJpegs";
+import { sameBytes } from "@/lib/output-check/sameBytes";
 import type { PageItem } from "./pageItem";
 
 /** Raw bytes per source file id: a PDF, or a PNG/JPEG for image pages. */
@@ -157,8 +159,9 @@ async function checkPages(
 /**
  * The size bound: a file holds only pages of its sources, so it stays within
  * the sources it draws from, plus a margin for the rewritten structure.
- * Sections with PNG pages are left out: pdf-lib re-encodes PNG pixels, whose
- * size bears no fixed relation to the PNG file's.
+ * Sections with PNG pages are left out: a PNG with transparency or
+ * interlacing is decoded and deflated again, whose size bears no fixed
+ * relation to the PNG file's.
  */
 function sizeBound(sources: PdfArrangeSources, section: PageItem[]): number | null {
   let total = 0;
@@ -170,6 +173,43 @@ function sizeBound(sources: PdfArrangeSources, section: PageItem[]): number | nu
     total += bytes.byteLength;
   }
   return total + 4096 + total / 50;
+}
+
+/**
+ * The pictures of a section's JPEG image pages, as `readJpegPhotoInfo` reads them
+ * from the uploads. A JPEG pdf-lib cannot have embedded is left out.
+ */
+function imagePagePictures(sources: PdfArrangeSources, section: PageItem[]): Uint8Array[] {
+  const pictures: Uint8Array[] = [];
+  for (const id of new Set(section.filter((p) => p.kind === "image").map((p) => p.sourceFileId))) {
+    const bytes = sources.get(id);
+    if (!bytes || isPng(bytes)) continue;
+    const reading = readJpegPhotoInfo(bytes);
+    if (reading) pictures.push(reading.picture);
+  }
+  return pictures;
+}
+
+/**
+ * A JPEG in the file that is one of the section's image pages must carry no
+ * photo info. The file also holds the pictures of the PDF pages it copies,
+ * which are left as their source has them, so an embedded JPEG counts as an
+ * image page's when its picture (its first scan) is the upload's.
+ */
+function photoInfoViolations(
+  sources: PdfArrangeSources,
+  section: PageItem[],
+  output: Uint8Array,
+  file: number,
+): Violation[] {
+  const pictures = imagePagePictures(sources, section);
+  if (pictures.length === 0) return [];
+  return pdfJpegs(output).flatMap((jpeg): Violation[] => {
+    if (!jpeg.readable || jpeg.reading.photoInfo.length === 0) return [];
+    const { picture, photoInfo } = jpeg.reading;
+    if (!pictures.some((p) => sameBytes(p, picture))) return [];
+    return [{ property: "photo-info", detail: `file ${file}: an image page carries ${photoInfo.join(", ")}` }];
+  });
 }
 
 /**
@@ -190,6 +230,8 @@ function sizeBound(sources: PdfArrangeSources, section: PageItem[]): number | nu
  *   page's box and text; an image page must show an image
  * - `page-size`: an image page is the image's size as browsers show it
  * - `size-bound`: each file ≤ the sources it draws from + a margin
+ * - ⚡ `photo-info`: no image page's JPEG carries photo info (CONTEXT "Photo
+ *   info"); pictures inside copied PDF pages stay as their source has them
  *
  * Defects the source already had are not the tool's doing: a first page that
  * does not render in its source either is not reported, and pages pdfjs
@@ -226,6 +268,8 @@ export const checkPdfArrange: OutputChecker<
         });
       }
     }
+
+    violations.push(...photoInfoViolations(sources, section, output, file));
 
     const fileViolations = await inspectPdf(output, async (inspection): Promise<Violation[]> => {
       if (inspection.status === "password-required") {

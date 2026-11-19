@@ -1,6 +1,7 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import { type ImageHeader, readImageHeader } from "@/lib/output-check/imageHeader";
 import { inspectPdf, type PdfReport } from "@/lib/output-check/pdfInspector";
+import { pdfJpegs } from "@/lib/output-check/pdfJpegs";
 import type { ImageLayout } from "./assembleSections";
 import type { PageItem } from "./pageItem";
 
@@ -94,10 +95,11 @@ async function checkPages(
 
 /**
  * The size bound: the PDF holds its images plus a little structure per page.
- * A JPEG is embedded as-is. A PNG is decoded and its pixels re-deflated
- * without PNG's filters, which can come out larger than the file, so it is
- * allowed its raw size (8-bit RGB plus alpha): deflate never exceeds that
- * by more than the margin.
+ * A JPEG is embedded as-is, less its photo info. A PNG keeps its own
+ * compressed data only when a PDF image can hold it as it is; one with
+ * transparency or interlacing is decoded and deflated again, which can come
+ * out larger than a carefully optimised file, so it is allowed its raw size
+ * (8-bit RGB plus alpha): deflate never exceeds that by more than the margin.
  */
 function sizeBound(sources: ImageToPdfSources, pages: PageItem[]): number {
   let images = 0;
@@ -110,6 +112,20 @@ function sizeBound(sources: ImageToPdfSources, pages: PageItem[]): number {
           sources.get(id)!.byteLength;
   }
   return images + images / 50 + 4096 + 1024 * pages.length;
+}
+
+/**
+ * Every JPEG in the PDF is one of the user's pictures, so none may carry
+ * photo info. One that cannot be read is reported too: what it carries is
+ * unknown.
+ */
+function photoInfoViolations(output: Uint8Array): Violation[] {
+  return pdfJpegs(output).flatMap((jpeg, i): Violation[] => {
+    const at = `picture ${i + 1}`;
+    if (!jpeg.readable) return [{ property: "photo-info", detail: `${at}: cannot be read (${jpeg.detail})` }];
+    const { photoInfo } = jpeg.reading;
+    return photoInfo.length > 0 ? [{ property: "photo-info", detail: `${at}: ${photoInfo.join(", ")}` }] : [];
+  });
 }
 
 /**
@@ -128,6 +144,9 @@ function sizeBound(sources: ImageToPdfSources, pages: PageItem[]): number {
  *   image's size as displayed (EXIF orientation applied), turned as
  *   requested. Fixed: the chosen size, upright
  * - `size-bound`: the PDF ≤ its images + a margin
+ * - ⚡ `photo-info`: no embedded JPEG carries photo info (EXIF, XMP, maker
+ *   data, comments, data after its end; CONTEXT "Photo info"), read from
+ *   the file's bytes
  */
 export const checkImageToPdf: OutputChecker<
   ImageToPdfSources,
@@ -145,6 +164,8 @@ export const checkImageToPdf: OutputChecker<
       });
     }
   }
+
+  violations.push(...photoInfoViolations(output));
 
   const found = await inspectPdf(output, async (inspection): Promise<Violation[]> => {
     if (inspection.status === "password-required") {

@@ -19,21 +19,25 @@ level: pictures sized for the page, prepared by the shared preparation image-to-
 own size goes in as uploaded, a PNG turns into JPEG only at half the size or less), then embedded with pdf-lib, one
 picture per page, orientation auto, no margin.</p>
 <ul>
-  <li><b>original</b>: every picture as uploaded (HEIC after the tool's conversion), which is what the tool does today.</li>
+  <li><b>original</b>: every picture as uploaded (HEIC after the tool's conversion), a PNG embedded losslessly
+    without growing (<code>embedPng</code> in <code>src/lib/pdf/embedPng.ts</code>, the assembler's, issue #178).</li>
+  <li><b>original, pdf-lib PNG</b>: the same, every PNG embedded by pdf-lib's <code>embedPng</code>, as the
+    assembler did before issue #178.</li>
   <li><b>A4 @ N dpi</b>: the picture holds no more pixels than N dots per inch across the size it is drawn at on A4
     (210 × 297 mm, turned to the picture).</li>
   <li><b>16:9 full-hd / 4k</b>: image-to-pptx's screen size on a 16:9 page turned to the picture
     (<code>containedSize</code>).</li>
   <li><b>MB</b> is the whole PDF's size. Pictures not shrunk keep their bytes, so a set of small pictures barely moves.</li>
 </ul>
-<p>Query <code>?sets=jpg,heic,png&amp;dpi=100,150,200,300&amp;screens=full-hd,4k</code> picks what to run.</p>
+<p>Every other level embeds PNGs as the assembler does. Query <code>?sets=jpg,heic,png&amp;dpi=100,150,200,300&amp;screens=full-hd,4k</code> picks what to run.</p>
 <p id="status">Starting…</p>
 <div id="out"></div>
 <script type="module">
-import { PDFDocument } from "/pkg/pdf-lib.js";
+import { PDFDocument, concatTransformationMatrix, drawObject, popGraphicsState, pushGraphicsState } from "/pkg/pdf-lib.js";
 import { sizedImagePreparation, containedSize } from "/src/lib/image/slideImage.ts";
 import { normalizeImageFile } from "/src/lib/image/heic.ts";
 import { readImageHeader } from "/src/lib/output-check/imageHeader.ts";
+import { embedPng } from "/src/lib/pdf/embedPng.ts";
 
 const params = new URLSearchParams(location.search);
 const setNames = (params.get("sets") ?? "jpg,heic,png").split(",");
@@ -79,23 +83,31 @@ function sizeAtDpi(picture, page, dpi) {
   return { width: Math.max(1, want.width), height: Math.max(1, want.height) };
 }
 
+/** Embed a prepared picture: a PNG as the assembler does, or by pdf-lib's embedPng with `pdfLibPng`. */
+const embed = (doc, p, pdfLibPng) =>
+  p.format !== "png" ? doc.embedJpg(p.bytes) : pdfLibPng ? doc.embedPng(p.bytes) : embedPng(doc, p.bytes);
+
+/** Draw `image` ({ ref, width, height }) whole and centred on a new page of `page` (inches). */
+function placeOnPage(doc, image, page) {
+  const [pw, ph] = [page.w * 72, page.h * 72];
+  const pg = doc.addPage([pw, ph]);
+  const scale = Math.min(pw / image.width, ph / image.height);
+  const [w, h] = [image.width * scale, image.height * scale];
+  const name = pg.node.newXObject("Image", image.ref);
+  pg.pushOperators(pushGraphicsState(), concatTransformationMatrix(w, 0, 0, h, (pw - w) / 2, (ph - h) / 2), drawObject(name), popGraphicsState());
+}
+
 /** One PDF of `pictures` ({ bytes, format, page: {w, h} in inches }), one per page; its size in bytes. */
-async function pdfBytes(pictures) {
+async function pdfBytes(pictures, pdfLibPng = false) {
   const doc = await PDFDocument.create();
-  for (const p of pictures) {
-    const image = p.format === "png" ? await doc.embedPng(p.bytes) : await doc.embedJpg(p.bytes);
-    const [pw, ph] = [p.page.w * 72, p.page.h * 72];
-    const page = doc.addPage([pw, ph]);
-    const scale = Math.min(pw / image.width, ph / image.height);
-    const [w, h] = [image.width * scale, image.height * scale];
-    page.drawImage(image, { x: (pw - w) / 2, y: (ph - h) / 2, width: w, height: h });
-  }
+  for (const p of pictures) placeOnPage(doc, await embed(doc, p, pdfLibPng), p.page);
   return (await doc.save()).length;
 }
 
 /** The levels: each gives a picture's page (inches) and the size it is prepared at, or null to take it as uploaded. */
 const levels = [
   { name: "original", page: (pic) => turned(A4_IN, pic), size: () => null },
+  { name: "original, pdf-lib PNG", page: (pic) => turned(A4_IN, pic), size: () => null, pdfLibPng: true },
   ...dpis.map((dpi) => ({ name: `A4 @ ${dpi} dpi`, page: (pic) => turned(A4_IN, pic), size: (pic, page) => sizeAtDpi(pic, page, dpi) })),
   ...screens.map((screen) => ({
     name: `16:9 ${screen}`,
@@ -139,13 +151,7 @@ async function samples(list) {
       prepared.push({ ...ready, page });
     }
     const doc = await PDFDocument.create();
-    for (const p of prepared) {
-      const image = p.format === "png" ? await doc.embedPng(p.bytes) : await doc.embedJpg(p.bytes);
-      const [pw, ph] = [p.page.w * 72, p.page.h * 72];
-      const pg = doc.addPage([pw, ph]);
-      const scale = Math.min(pw / image.width, ph / image.height);
-      pg.drawImage(image, { x: (pw - image.width * scale) / 2, y: (ph - image.height * scale) / 2, width: image.width * scale, height: image.height * scale });
-    }
+    for (const p of prepared) placeOnPage(doc, await embed(doc, p, false), p.page);
     const pdf = await doc.save();
     let binary = "";
     for (let i = 0; i < pdf.length; i += 0x8000) binary += String.fromCharCode(...pdf.subarray(i, i + 0x8000));
@@ -187,7 +193,7 @@ try {
           stored: `${out.width}×${out.height}`, format: out.format, "KB": Math.round(out.bytes.length / 1000),
         });
       }
-      const pdf = await pdfBytes(prepared);
+      const pdf = await pdfBytes(prepared, level.pdfLibPng);
       row[`${level.name} MB`] = MB(pdf);
       row[`${level.name} s`] = +((performance.now() - start) / 1000).toFixed(1);
     }

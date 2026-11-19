@@ -3,7 +3,7 @@ import { PDFDocument, StandardFonts, degrees } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import type { PageItem, Rotation } from "./pageItem";
 import { checkPdfArrange } from "./pdfArrangeCheck";
-import { JPEG_3x2, withExifOrientation } from "./testImages";
+import { JPEG_3x2, withExifOrientation, withPhotoInfo } from "./testImages";
 
 // Outputs here are drawn from scratch, never copied with pdf-lib's copyPages
 // as the engine does: a page "is" a source page when it has the same size
@@ -212,7 +212,8 @@ describe("checkPdfArrange: broken outputs", () => {
     const phone = withExifOrientation(JPEG_3x2, 6);
     const pageOf = async (size: [number, number]) => {
       const doc = await PDFDocument.create();
-      const jpg = await doc.embedJpg(phone);
+      // As the engine embeds it: the photo without its EXIF.
+      const jpg = await doc.embedJpg(JPEG_3x2);
       doc.addPage(size).drawImage(jpg, { x: 0, y: 0, width: size[0], height: size[1] });
       return doc.save();
     };
@@ -221,6 +222,31 @@ describe("checkPdfArrange: broken outputs", () => {
     expect(await checkPdfArrange(src, { sections }, [await pageOf([2, 3])], "full")).toEqual([]);
     const vs = await checkPdfArrange(src, { sections }, [await pageOf([3, 2])], "full");
     expect(props(vs)).toEqual(["page-size"]);
+  });
+
+  it("flags an image page whose JPEG still carries photo info, at quick depth", async () => {
+    const photo = withPhotoInfo(JPEG_3x2);
+    const doc = await PDFDocument.create();
+    const jpg = await doc.embedJpg(photo);
+    doc.addPage([3, 2]).drawImage(jpg, { x: 0, y: 0, width: 3, height: 2 });
+    const src = new Map([["img", photo]]);
+    const vs = await checkPdfArrange(src, { sections: [[imagePage()]] }, [await doc.save()], "quick");
+    expect(props(vs)).toEqual(["photo-info"]);
+  });
+
+  it("flags an image page stripped only of the photo info after its scan", async () => {
+    // The upload has EXIF and a comment between its scan data and its end
+    // marker (where a progressive JPEG also holds segments between scans);
+    // the output dropped the comment but kept the EXIF.
+    const comment = Buffer.from([0xff, 0xfe, 0x00, 0x06, ...Buffer.from("home")]);
+    const withComment = Uint8Array.from([...JPEG_3x2.subarray(0, -2), ...comment, 0xff, 0xd9]);
+    const photo = withExifOrientation(withComment, 1);
+    const doc = await PDFDocument.create();
+    const jpg = await doc.embedJpg(withExifOrientation(JPEG_3x2, 1));
+    doc.addPage([3, 2]).drawImage(jpg, { x: 0, y: 0, width: 3, height: 2 });
+    const src = new Map([["img", photo]]);
+    const vs = await checkPdfArrange(src, { sections: [[imagePage()]] }, [await doc.save()], "quick");
+    expect(props(vs)).toEqual(["photo-info"]);
   });
 
   it("flags an image page that shows no image", async () => {
@@ -248,6 +274,17 @@ describe("checkPdfArrange: inherited defects", () => {
     // The source's broken first page, carried over as-is.
     const vs = await checkPdfArrange(src, { sections: [[pdfPage("a", 0)]] }, [bytes], "quick");
     expect(props(vs)).not.toContain("first-page-renders");
+  });
+
+  it("does not blame the tool for photo info a source PDF's own picture carries", async () => {
+    // A PDF someone else made from a camera JPEG, kept whole as a pdf page.
+    const doc = await PDFDocument.create();
+    const jpg = await doc.embedJpg(withPhotoInfo(JPEG_3x2));
+    doc.addPage([3, 2]).drawImage(jpg, { x: 0, y: 0, width: 3, height: 2 });
+    const scan = await doc.save();
+    const src = new Map([["a", scan]]);
+    const vs = await checkPdfArrange(src, { sections: [[pdfPage("a", 0)]] }, [scan], "full");
+    expect(vs).toEqual([]);
   });
 
   it("keeps the caller's output bytes intact", async () => {
