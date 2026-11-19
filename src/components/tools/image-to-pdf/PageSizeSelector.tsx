@@ -1,5 +1,6 @@
 "use client";
 
+import { ChoiceSelect } from "@/components/common/ChoiceSelect";
 import { ChoiceTabs } from "@/components/common/ChoiceTabs";
 import { NumberField } from "@/components/common/NumberField";
 import { template } from "@/lib/common/template";
@@ -88,36 +89,31 @@ export function PageSizeSelector({
           picture cards below never move when the mode changes. */}
       <div className="flex h-[34px] items-center">
         {mode === "preset" && (
-          <select
-            value={preset}
-            // The options are exactly the presets, so the value is one of them.
-            onChange={(e) => onPresetChange(e.target.value as PagePreset)}
-            aria-label={labels.presetAria}
-            className={FIELD_CLASS}
-            style={FIELD_STYLE}
-          >
-            <optgroup label={labels.presetGroupPrint}>
-              {PRINT_PRESETS.map((p) => {
-                const { widthMm, heightMm } = presetSizeMm(p);
-                return (
-                  <option key={p} value={p}>
-                    {template(labels.presetPrintOptionTemplate, {
+          <ChoiceSelect
+            ariaLabel={labels.presetAria}
+            groups={[
+              {
+                label: labels.presetGroupPrint,
+                options: PRINT_PRESETS.map((p) => {
+                  const { widthMm, heightMm } = presetSizeMm(p);
+                  return {
+                    value: p,
+                    label: template(labels.presetPrintOptionTemplate, {
                       name: printName[p],
                       w: Math.round(widthMm),
                       h: Math.round(heightMm),
-                    })}
-                  </option>
-                );
-              })}
-            </optgroup>
-            <optgroup label={labels.presetGroupScreen}>
-              {SCREEN_PRESETS.map((p) => (
-                <option key={p} value={p}>
-                  {screenLabel[p]}
-                </option>
-              ))}
-            </optgroup>
-          </select>
+                    }),
+                  };
+                }),
+              },
+              {
+                label: labels.presetGroupScreen,
+                options: SCREEN_PRESETS.map((p) => ({ value: p, label: screenLabel[p] })),
+              },
+            ]}
+            value={preset}
+            onChange={onPresetChange}
+          />
         )}
 
         {mode === "custom" && (
