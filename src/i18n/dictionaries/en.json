@@ -715,6 +715,7 @@
         "presetGroupPrint": "Print",
         "presetGroupScreen": "Screen",
         "presetPrintOption": "{name} ({w} × {h} mm)",
+        "presetNameLetter": "Letter",
         "presetScreenWide": "16:9 widescreen",
         "presetScreenStandard": "4:3 screen",
         "customWidth": "Width (mm)",

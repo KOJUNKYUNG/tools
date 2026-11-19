@@ -1,6 +1,6 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
 import { type ImageHeader, readImageHeader } from "@/lib/output-check/imageHeader";
-import { inspectPdf, type PdfReport } from "@/lib/output-check/pdfInspector";
+import { inspectPdf, type PdfImagePaint, type PdfReport } from "@/lib/output-check/pdfInspector";
 import { pdfJpegs } from "@/lib/output-check/pdfJpegs";
 import type { PageItem } from "./pageItem";
 import type { PagePreset, PageSize } from "./pageSize";
@@ -48,7 +48,8 @@ const LISTED_PT: Record<PagePreset, [number, number]> = {
   "16:9": [12192000 / 12700, 7.5 * 72], // 13.333 in: PowerPoint's 12192000 EMU
   "4:3": [10 * 72, 7.5 * 72],
 };
-/** PDF's largest page side, 200 in; a custom side is held within it. */
+/** A custom side is held within 1 mm and PDF's largest page side, 200 in. */
+const MIN_SIDE_PT = MM;
 const MAX_SIDE_PT = 200 * 72;
 
 /**
@@ -75,7 +76,7 @@ function expectedPage(
     pageSize.kind === "preset"
       ? LISTED_PT[pageSize.preset]
       : [pageSize.widthMm * MM, pageSize.heightMm * MM].map((side) =>
-          Math.min(MAX_SIDE_PT, side),
+          Math.min(MAX_SIDE_PT, Math.max(MIN_SIDE_PT, side)),
         );
   const userTurned = normalise(item.rotation) % 180 === 90;
   const [picW, picH] = userTurned ? [shownH, shownW] : [shownW, shownH];
@@ -91,7 +92,7 @@ function expectedPage(
  * large as fits (touching two opposite sides) and centred. Empty when right.
  */
 function fitProblems(
-  box: { x0: number; y0: number; x1: number; y1: number },
+  box: PdfImagePaint["box"],
   page: { width: number; height: number },
   pictureAspect: number,
 ): string[] {
@@ -206,7 +207,7 @@ function photoInfoViolations(output: Uint8Array): Violation[] {
  * - `page-image`: every page shows an image
  * - `page-size` / `page-rotation`: each page follows the page size. Image
  *   fit: the image's size as displayed (EXIF orientation applied), turned as
- *   requested. Preset or custom: that size (custom held within 200 in),
+ *   requested. Preset or custom: that size (custom held within 1 mm–200 in),
  *   upright, turned to the picture as the user turned it
  * - `picture-fit`: every picture is whole inside its page, keeping its
  *   shape, as large as fits and centred

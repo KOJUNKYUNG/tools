@@ -159,11 +159,7 @@ export async function assembleSections(
         const orientation = isPng ? 1 : readJpegOrientation(bytes);
         const [imgW, imgH] = orientedSize(image.width, image.height, orientation);
 
-        // The user's turn is applied before the page is turned to the picture.
-        const quarterTurned = item.rotation === 90 || item.rotation === 270;
-        const box = quarterTurned
-          ? pageBoxPt(pageSize, imgH, imgW)
-          : pageBoxPt(pageSize, imgW, imgH);
+        const box = pageBoxPt(pageSize, imgW, imgH, item.rotation);
 
         if (box === null) {
           const page = out.addPage([imgW, imgH]);

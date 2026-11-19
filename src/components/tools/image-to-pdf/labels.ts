@@ -25,6 +25,7 @@ export interface ImageToPdfLabels {
   presetGroupScreen: string;
   /** A print preset's option: `{name}`, `{w}` and `{h}` in whole millimetres. */
   presetPrintOptionTemplate: string;
+  presetNameLetter: string;
   presetScreenWide: string;
   presetScreenStandard: string;
   customWidth: string;
@@ -65,6 +66,7 @@ export function getImageToPdfLabels(dict: Dictionary): ImageToPdfLabels {
     presetGroupPrint: p.presetGroupPrint,
     presetGroupScreen: p.presetGroupScreen,
     presetPrintOptionTemplate: p.presetPrintOption,
+    presetNameLetter: p.presetNameLetter,
     presetScreenWide: p.presetScreenWide,
     presetScreenStandard: p.presetScreenStandard,
     customWidth: p.customWidth,

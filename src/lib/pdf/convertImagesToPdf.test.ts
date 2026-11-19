@@ -174,13 +174,16 @@ describe("convertImagesToPdf: page size", () => {
     ]);
   });
 
-  it("a custom size past PDF's largest page is held at 200 in (5080 mm)", async () => {
+  it.each<[string, [number, number], [number, number]]>([
+    ["past PDF's largest page is held at 200 in (5080 mm)", [90000, 300], [5080, 300]],
+    ["under 1 mm is held at 1 mm", [0.2, 300], [300, 1]],
+  ])("a custom side %s", async (_, [widthMm, heightMm], expected) => {
     const output = await convertImagesToPdf({
       pages: [image("wide")],
       sourceBytesById: sources(),
-      pageSize: { kind: "custom", widthMm: 90000, heightMm: 300 },
+      pageSize: { kind: "custom", widthMm, heightMm },
     });
-    expect(await pageBoxesMm(output)).toEqual([[5080, 300]]);
+    expect(await pageBoxesMm(output)).toEqual([expected]);
   });
 
   it("a square picture keeps the preset as listed: paper portrait, screens landscape", async () => {

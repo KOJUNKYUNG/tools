@@ -37,14 +37,16 @@ import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { convertImagesToPdf } from "@/lib/pdf/assembleSections";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { type PageItem, type Rotation } from "@/lib/pdf/pageItem";
-import { type PagePreset, type PageSize, pageBoxPt } from "@/lib/pdf/pageSize";
-import { ImageToPdfResult } from "./ImageToPdfResult";
 import {
   type CustomSizeMm,
-  PageSizeSelector,
+  type PagePreset,
+  type PageSize,
   type PageSizeMode,
   customFromPreset,
-} from "./PageSizeSelector";
+  pageBoxPt,
+} from "@/lib/pdf/pageSize";
+import { ImageToPdfResult } from "./ImageToPdfResult";
+import { PageSizeSelector } from "./PageSizeSelector";
 import type { ImageToPdfLabels } from "./labels";
 
 const ACCEPT = {
@@ -70,9 +72,8 @@ function cardPageAspect(
   bytes: Uint8Array | undefined,
 ): number | null {
   const header = bytes ? readImageHeader(bytes) : null;
-  let [w, h] = header ? displayedSize(header) : [1, 1];
-  if (item.rotation === 90 || item.rotation === 270) [w, h] = [h, w];
-  const box = pageBoxPt(pageSize, w, h);
+  const [w, h] = header ? displayedSize(header) : [1, 1];
+  const box = pageBoxPt(pageSize, w, h, item.rotation);
   return box ? box.width / box.height : null;
 }
 

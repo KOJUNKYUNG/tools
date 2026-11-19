@@ -715,6 +715,7 @@
         "presetGroupPrint": "인쇄용",
         "presetGroupScreen": "화면용",
         "presetPrintOption": "{name} ({w} × {h} mm)",
+        "presetNameLetter": "Letter",
         "presetScreenWide": "16:9 와이드 화면",
         "presetScreenStandard": "4:3 화면",
         "customWidth": "가로(mm)",

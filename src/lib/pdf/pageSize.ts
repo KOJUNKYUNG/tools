@@ -2,6 +2,8 @@
 // or a custom size in millimetres, and the page box each picture gets from
 // it. Pure, so the engine and the editor cards share one rule.
 
+import type { Rotation } from "./pageItem";
+
 export const PT_PER_MM = 72 / 25.4;
 const PT_PER_IN = 72;
 
@@ -20,6 +22,14 @@ export type PageSize =
   | { kind: "preset"; preset: PagePreset }
   | { kind: "image-fit" }
   | { kind: "custom"; widthMm: number; heightMm: number };
+
+/** The setting's three ways, as its tab row offers them. */
+export type PageSizeMode = PageSize["kind"];
+
+export interface CustomSizeMm {
+  widthMm: number;
+  heightMm: number;
+}
 
 /**
  * Each preset's size in points, as it is listed: paper portrait, screens
@@ -44,6 +54,15 @@ export function presetSizeMm(preset: PagePreset): { widthMm: number; heightMm: n
   return { widthMm: width / PT_PER_MM, heightMm: height / PT_PER_MM };
 }
 
+/** One decimal place: what a custom millimetre field shows and keeps. */
+export const toTenthMm = (mm: number) => Math.round(mm * 10) / 10;
+
+/** The custom fields' start: the preset's size as listed, to a tenth of a millimetre. */
+export function customFromPreset(preset: PagePreset): CustomSizeMm {
+  const { widthMm, heightMm } = presetSizeMm(preset);
+  return { widthMm: toTenthMm(widthMm), heightMm: toTenthMm(heightMm) };
+}
+
 /** A custom side in millimetres, held within what the tool and a PDF allow. */
 export function clampPageMm(mm: number): number {
   if (!Number.isFinite(mm)) return MIN_PAGE_MM;
@@ -51,18 +70,22 @@ export function clampPageMm(mm: number): number {
 }
 
 /**
- * The page box, in points, a picture shown `shownW`×`shownH` gets under a
- * preset or custom size (null under image fit, where the page is the
- * picture). "Shown" is after its EXIF orientation and the user's turn. The
- * page turns to the picture: a landscape picture gets the long side across,
- * a portrait one the long side up; a square one keeps the size as listed.
+ * The page box, in points, a picture shown `shownW`×`shownH` (after its EXIF
+ * orientation) and turned `rotation` by the user gets under a preset or
+ * custom size; null under image fit, where the page is the picture. The
+ * user's turn is applied first, then the page turns to the picture: a
+ * landscape picture gets the long side across, a portrait one the long side
+ * up; a square one keeps the size as listed.
  */
 export function pageBoxPt(
   pageSize: PageSize,
   shownW: number,
   shownH: number,
+  rotation: Rotation,
 ): { width: number; height: number } | null {
   if (pageSize.kind === "image-fit") return null;
+  const quarterTurned = rotation === 90 || rotation === 270;
+  const [picW, picH] = quarterTurned ? [shownH, shownW] : [shownW, shownH];
   const listed =
     pageSize.kind === "preset"
       ? PRESET_PT[pageSize.preset]
@@ -72,7 +95,7 @@ export function pageBoxPt(
         };
   const long = Math.max(listed.width, listed.height);
   const short = Math.min(listed.width, listed.height);
-  if (shownW > shownH) return { width: long, height: short };
-  if (shownW < shownH) return { width: short, height: long };
+  if (picW > picH) return { width: long, height: short };
+  if (picW < picH) return { width: short, height: long };
   return listed;
 }

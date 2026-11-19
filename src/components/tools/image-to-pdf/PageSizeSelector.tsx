@@ -4,21 +4,16 @@ import { ChoiceTabs } from "@/components/common/ChoiceTabs";
 import { NumberField } from "@/components/common/NumberField";
 import { template } from "@/lib/common/template";
 import {
+  type CustomSizeMm,
   MAX_PAGE_MM,
   MIN_PAGE_MM,
   type PagePreset,
+  type PageSizeMode,
   PRINT_PRESETS,
   SCREEN_PRESETS,
   presetSizeMm,
+  toTenthMm,
 } from "@/lib/pdf/pageSize";
-
-/** The page size setting's three ways (CONTEXT "Page size"). */
-export type PageSizeMode = "preset" | "image-fit" | "custom";
-
-export interface CustomSizeMm {
-  widthMm: number;
-  heightMm: number;
-}
 
 export interface PageSizeSelectorLabels {
   sizeLabel: string;
@@ -29,21 +24,12 @@ export interface PageSizeSelectorLabels {
   presetGroupPrint: string;
   presetGroupScreen: string;
   presetPrintOptionTemplate: string;
+  presetNameLetter: string;
   presetScreenWide: string;
   presetScreenStandard: string;
   customWidth: string;
   customHeight: string;
 }
-
-/** A print preset's name as printed on paper packs and printer menus. */
-const PRINT_NAME: Record<(typeof PRINT_PRESETS)[number], string> = {
-  a3: "A3",
-  a4: "A4",
-  a5: "A5",
-  b4: "B4",
-  b5: "B5",
-  letter: "Letter",
-};
 
 const FIELD_CLASS =
   "w-full rounded-[5px] border px-2.5 py-1.5 font-body text-[12px] tabular-nums outline-none focus:border-[color:var(--emphasis)] focus:ring-1 focus:ring-[color:var(--emphasis)]";
@@ -52,9 +38,6 @@ const FIELD_STYLE = {
   borderColor: "var(--border)",
   color: "var(--ink-strong)",
 } as const;
-
-/** One decimal place: what a millimetre field shows and keeps. */
-const toTenth = (mm: number) => Math.round(mm * 10) / 10;
 
 export function PageSizeSelector({
   mode,
@@ -73,6 +56,16 @@ export function PageSizeSelector({
   onCustomChange: (next: CustomSizeMm) => void;
   labels: PageSizeSelectorLabels;
 }) {
+  // ISO and JIS sizes are written the same in every language (A4, B5);
+  // Letter's name comes from the dictionary.
+  const printName: Record<(typeof PRINT_PRESETS)[number], string> = {
+    a3: "A3",
+    a4: "A4",
+    a5: "A5",
+    b4: "B4",
+    b5: "B5",
+    letter: labels.presetNameLetter,
+  };
   const screenLabel: Record<(typeof SCREEN_PRESETS)[number], string> = {
     "16:9": labels.presetScreenWide,
     "4:3": labels.presetScreenStandard,
@@ -109,7 +102,7 @@ export function PageSizeSelector({
                 return (
                   <option key={p} value={p}>
                     {template(labels.presetPrintOptionTemplate, {
-                      name: PRINT_NAME[p],
+                      name: printName[p],
                       w: Math.round(widthMm),
                       h: Math.round(heightMm),
                     })}
@@ -138,9 +131,9 @@ export function PageSizeSelector({
               </span>
               <NumberField
                 min={MIN_PAGE_MM}
-                max={toTenth(MAX_PAGE_MM)}
+                max={toTenthMm(MAX_PAGE_MM)}
                 fallback={MIN_PAGE_MM}
-                normalize={toTenth}
+                normalize={toTenthMm}
                 inputMode="decimal"
                 value={custom.widthMm}
                 onCommit={(widthMm) => onCustomChange({ ...custom, widthMm })}
@@ -161,9 +154,9 @@ export function PageSizeSelector({
               </span>
               <NumberField
                 min={MIN_PAGE_MM}
-                max={toTenth(MAX_PAGE_MM)}
+                max={toTenthMm(MAX_PAGE_MM)}
                 fallback={MIN_PAGE_MM}
-                normalize={toTenth}
+                normalize={toTenthMm}
                 inputMode="decimal"
                 value={custom.heightMm}
                 onCommit={(heightMm) => onCustomChange({ ...custom, heightMm })}
@@ -179,8 +172,3 @@ export function PageSizeSelector({
   );
 }
 
-/** The custom fields' start: the preset's size as listed, to a tenth of a millimetre. */
-export function customFromPreset(preset: PagePreset): CustomSizeMm {
-  const { widthMm, heightMm } = presetSizeMm(preset);
-  return { widthMm: toTenth(widthMm), heightMm: toTenth(heightMm) };
-}
