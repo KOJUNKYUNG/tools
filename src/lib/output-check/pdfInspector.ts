@@ -65,6 +65,11 @@ export interface PdfImagePaint {
   /** Pixel size. */
   width: number;
   height: number;
+  /**
+   * Where it lands on the page: the bounding box of its unit square under
+   * the transform in force when painted, in unrotated page space (pt).
+   */
+  box: { x0: number; y0: number; x1: number; y1: number };
 }
 
 /** What a page's content stream draws. */
@@ -117,6 +122,34 @@ const UNOPENABLE = new Set(["InvalidPDFException", "FormatError"]);
 
 function errorText(err: unknown): string {
   return err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+}
+
+/** A PDF transformation matrix [a b c d e f]. */
+type Matrix = [number, number, number, number, number, number];
+
+/** `m` applied after `n`: what `cm` does to the current matrix. */
+function multiply(m: Matrix, n: Matrix): Matrix {
+  return [
+    m[0] * n[0] + m[2] * n[1],
+    m[1] * n[0] + m[3] * n[1],
+    m[0] * n[2] + m[2] * n[3],
+    m[1] * n[2] + m[3] * n[3],
+    m[0] * n[4] + m[2] * n[5] + m[4],
+    m[1] * n[4] + m[3] * n[5] + m[5],
+  ];
+}
+
+/** The bounding box of the unit square, where an image is painted, under `m`. */
+function unitSquareBox(m: Matrix): PdfImagePaint["box"] {
+  const corners = [
+    [0, 0],
+    [1, 0],
+    [0, 1],
+    [1, 1],
+  ].map(([u, v]) => [m[0] * u + m[2] * v + m[4], m[1] * u + m[3] * v + m[5]]);
+  const xs = corners.map(([x]) => x);
+  const ys = corners.map(([, y]) => y);
+  return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
 }
 
 function report(doc: PDFDocumentProxy, lib: PdfjsLib): PdfReport {
@@ -172,11 +205,17 @@ function report(doc: PDFDocumentProxy, lib: PdfjsLib): PdfReport {
     async content(n) {
       const { fnArray, argsArray } = await (await doc.getPage(n)).getOperatorList();
       const images: PdfImagePaint[] = [];
+      let ctm: Matrix = [1, 0, 0, 1, 0, 0];
+      const saved: Matrix[] = [];
       fnArray.forEach((op, i) => {
+        if (op === lib.OPS.save) saved.push(ctm);
+        else if (op === lib.OPS.restore) ctm = saved.pop() ?? ctm;
+        // pdfjs passes a transform's operands as one 6-number array.
+        else if (op === lib.OPS.transform) ctm = multiply(ctm, argsArray[i] as Matrix);
         if (op !== lib.OPS.paintImageXObject) return;
         // pdfjs's paintImageXObject arguments are [objId, width, height].
         const [id, width, height] = argsArray[i] as [string, number, number];
-        images.push({ id, width, height });
+        images.push({ id, width, height, box: unitSquareBox(ctm) });
       });
       return { operatorCount: fnArray.length, images };
     },

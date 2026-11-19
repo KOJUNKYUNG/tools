@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { PDFDocument, degrees } from "pdf-lib";
 import { describe, expect, it } from "vitest";
-import type { ImageLayout } from "./assembleSections";
 import { checkImageToPdf } from "./imageToPdfCheck";
+import type { PageSize } from "./pageSize";
 import {
   JPEG_3x2,
   imagePage as image,
@@ -16,6 +16,8 @@ interface PageSpec {
   source: string | null;
   size: [number, number];
   rotation?: number;
+  /** Where the picture is drawn, [x, y, width, height]; the whole page by default. */
+  draw?: [number, number, number, number];
 }
 
 /**
@@ -26,50 +28,65 @@ interface PageSpec {
 async function pdfOf(pages: PageSpec[]): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const src = sources();
-  for (const { source, size, rotation = 0 } of pages) {
+  for (const { source, size, rotation = 0, draw = [0, 0, ...size] } of pages) {
     const page = doc.addPage(size);
     if (source !== null) {
       const bytes = src.get(source)!; // test data: every named source exists
       const isJpeg = source === "photo" || source === "phone";
       const img = isJpeg ? await doc.embedJpg(JPEG_3x2) : await doc.embedPng(bytes);
-      page.drawImage(img, { x: 0, y: 0, width: size[0], height: size[1] });
+      const [x, y, width, height] = draw;
+      page.drawImage(img, { x, y, width, height });
     }
     if (rotation) page.setRotation(degrees(rotation));
   }
   return doc.save();
 }
 
-const NATIVE: ImageLayout = { mode: "native" };
-const A4: ImageLayout = { mode: "fixed", widthPt: 595, heightPt: 842 };
+const IMAGE_FIT: PageSize = { kind: "image-fit" };
+const A4: PageSize = { kind: "preset", preset: "a4" };
+// A4 in points, as listed (portrait) and turned (landscape).
+const A4_UP: [number, number] = [595.2756, 841.8898];
+const A4_ACROSS: [number, number] = [841.8898, 595.2756];
 const props = (vs: { property: string }[]) => vs.map((v) => v.property);
 
 describe("checkImageToPdf: good outputs", () => {
-  it("native layout: each page is its image's size, turned as requested", async () => {
+  it("image fit: each page is its image's size, turned as requested", async () => {
     const pages = [image("wide"), image("tall", 90), image("photo")];
     const out = await pdfOf([
       { source: "wide", size: [40, 20] },
       { source: "tall", size: [10, 30], rotation: 90 },
       { source: "photo", size: [3, 2] },
     ]);
-    expect(await checkImageToPdf(sources(), { pages, imageLayout: NATIVE }, out, "full")).toEqual([]);
+    expect(await checkImageToPdf(sources(), { pages, pageSize: IMAGE_FIT }, out, "full")).toEqual([]);
   });
 
-  it("native layout: a photo with EXIF orientation gets its displayed size", async () => {
+  it("image fit: a photo with EXIF orientation gets its displayed size", async () => {
     // Stored 3×2, shown 2×3: the PDF page must match what the user sees.
     const out = await pdfOf([{ source: "phone", size: [2, 3] }]);
     expect(
-      await checkImageToPdf(sources(), { pages: [image("phone")], imageLayout: NATIVE }, out, "full"),
+      await checkImageToPdf(sources(), { pages: [image("phone")], pageSize: IMAGE_FIT }, out, "full"),
     ).toEqual([]);
   });
 
-  it("fixed layout: every page has the chosen size, unturned", async () => {
-    // The turn is drawn into the page, so the page itself stays upright.
-    const pages = [image("wide"), image("tall", 270)];
+  it("preset: each page has the preset's size turned to its picture, the picture whole and fitted", async () => {
+    // wide 40×20 across A4: 841.9 × 420.9, centred; tall 10×30 up A4: 280.6 × 841.9.
+    const pages = [image("wide"), image("tall")];
     const out = await pdfOf([
-      { source: "wide", size: [595, 842] },
-      { source: "tall", size: [595, 842] },
+      { source: "wide", size: A4_ACROSS, draw: [0, 87.17, 841.8898, 420.9449] },
+      { source: "tall", size: A4_UP, draw: [157.32, 0, 280.6299, 841.8898] },
     ]);
-    expect(await checkImageToPdf(sources(), { pages, imageLayout: A4 }, out, "full")).toEqual([]);
+    expect(await checkImageToPdf(sources(), { pages, pageSize: A4 }, out, "full")).toEqual([]);
+  });
+
+  it("custom: each page has the millimetres given, turned to its picture", async () => {
+    // 100 × 40 mm = 283.46 × 113.39 pt.
+    const pages = [image("wide"), image("tall")];
+    const out = await pdfOf([
+      { source: "wide", size: [283.4646, 113.3858], draw: [28.35, 0, 226.7717, 113.3858] },
+      { source: "tall", size: [113.3858, 283.4646], draw: [9.45, 0, 94.4882, 283.4646] },
+    ]);
+    const pageSize: PageSize = { kind: "custom", widthMm: 100, heightMm: 40 };
+    expect(await checkImageToPdf(sources(), { pages, pageSize }, out, "full")).toEqual([]);
   });
 });
 
@@ -78,14 +95,14 @@ describe("checkImageToPdf: broken outputs", () => {
 
   it("flags a missing page at quick depth", async () => {
     const out = await pdfOf([{ source: "wide", size: [40, 20] }]);
-    expect(props(await checkImageToPdf(sources(), { pages, imageLayout: NATIVE }, out, "quick"))).toEqual([
+    expect(props(await checkImageToPdf(sources(), { pages, pageSize: IMAGE_FIT }, out, "quick"))).toEqual([
       "page-count",
     ]);
   });
 
   it("flags unopenable bytes at quick depth", async () => {
     const out = new TextEncoder().encode("%PDF-1.7 truncated");
-    expect(props(await checkImageToPdf(sources(), { pages, imageLayout: NATIVE }, out, "quick"))).toEqual([
+    expect(props(await checkImageToPdf(sources(), { pages, pageSize: IMAGE_FIT }, out, "quick"))).toEqual([
       "pdf-opens",
     ]);
   });
@@ -98,61 +115,88 @@ describe("checkImageToPdf: broken outputs", () => {
       ]),
     );
     doc.catalog.Pages().Kids().set(0, doc.context.nextRef());
-    const vs = await checkImageToPdf(sources(), { pages, imageLayout: NATIVE }, await doc.save(), "quick");
+    const vs = await checkImageToPdf(sources(), { pages, pageSize: IMAGE_FIT }, await doc.save(), "quick");
     expect(props(vs)).toContain("first-page-renders");
   });
 
-  it("flags a native page that is not its image's size, at full depth only", async () => {
+  it("flags an image-fit page that is not its image's size, at full depth only", async () => {
     const out = await pdfOf([
       { source: "wide", size: [40, 20] },
       { source: "tall", size: [30, 10] },
     ]);
     const src = sources();
-    expect(await checkImageToPdf(src, { pages, imageLayout: NATIVE }, out, "quick")).toEqual([]);
-    expect(props(await checkImageToPdf(src, { pages, imageLayout: NATIVE }, out, "full"))).toEqual([
+    expect(await checkImageToPdf(src, { pages, pageSize: IMAGE_FIT }, out, "quick")).toEqual([]);
+    // The picture fills the wrong page, so it is stretched as well.
+    expect(props(await checkImageToPdf(src, { pages, pageSize: IMAGE_FIT }, out, "full"))).toEqual([
       "page-size",
+      "picture-fit",
     ]);
   });
 
-  it("flags a native page that ignores the photo's EXIF orientation", async () => {
+  it("flags an image-fit page that ignores the photo's EXIF orientation", async () => {
     const out = await pdfOf([{ source: "phone", size: [3, 2] }]);
     const vs = await checkImageToPdf(
       sources(),
-      { pages: [image("phone")], imageLayout: NATIVE },
+      { pages: [image("phone")], pageSize: IMAGE_FIT },
       out,
       "full",
     );
-    expect(props(vs)).toEqual(["page-size"]);
+    // The picture fills the wrong page, so it is stretched as well.
+    expect(props(vs)).toEqual(["page-size", "picture-fit"]);
   });
 
-  it("flags a native page whose turn was not applied", async () => {
+  it("flags an image-fit page whose turn was not applied", async () => {
     const out = await pdfOf([
       { source: "wide", size: [40, 20] },
       { source: "tall", size: [10, 30] },
     ]);
     const turned = [image("wide"), image("tall", 90)];
-    expect(props(await checkImageToPdf(sources(), { pages: turned, imageLayout: NATIVE }, out, "full"))).toEqual([
+    expect(props(await checkImageToPdf(sources(), { pages: turned, pageSize: IMAGE_FIT }, out, "full"))).toEqual([
       "page-rotation",
     ]);
   });
 
-  it("flags a fixed-layout page of the wrong size", async () => {
+  it("flags a preset page not turned to its picture", async () => {
     const out = await pdfOf([
-      { source: "wide", size: [595, 842] },
-      { source: "tall", size: [40, 20] },
+      { source: "wide", size: A4_ACROSS, draw: [0, 87.17, 841.8898, 420.9449] },
+      { source: "tall", size: A4_ACROSS, draw: [321.73, 0, 198.4252, 595.2756] },
     ]);
-    expect(props(await checkImageToPdf(sources(), { pages, imageLayout: A4 }, out, "full"))).toEqual([
+    expect(props(await checkImageToPdf(sources(), { pages, pageSize: A4 }, out, "full"))).toEqual([
       "page-size",
     ]);
   });
 
-  it("flags a fixed-layout page turned instead of drawn turned", async () => {
+  it("flags a preset page turned instead of drawn turned", async () => {
     const out = await pdfOf([
-      { source: "wide", size: [595, 842] },
-      { source: "tall", size: [595, 842], rotation: 90 },
+      { source: "wide", size: A4_ACROSS, draw: [0, 87.17, 841.8898, 420.9449] },
+      { source: "tall", size: A4_UP, draw: [157.32, 0, 280.6299, 841.8898], rotation: 90 },
     ]);
-    expect(props(await checkImageToPdf(sources(), { pages, imageLayout: A4 }, out, "full"))).toEqual([
+    expect(props(await checkImageToPdf(sources(), { pages, pageSize: A4 }, out, "full"))).toEqual([
       "page-rotation",
+    ]);
+  });
+
+  it.each<[string, [number, number, number, number]]>([
+    ["drawn past the page's edge", [-10, 87.17, 841.8898, 420.9449]],
+    ["stretched to the page", [0, 0, 841.8898, 595.2756]],
+    ["smaller than fits", [100, 100, 400, 200]],
+  ])("flags a preset page whose picture is %s", async (_, draw) => {
+    const out = await pdfOf([
+      { source: "wide", size: A4_ACROSS, draw },
+      { source: "tall", size: A4_UP, draw: [157.32, 0, 280.6299, 841.8898] },
+    ]);
+    expect(props(await checkImageToPdf(sources(), { pages, pageSize: A4 }, out, "full"))).toEqual([
+      "picture-fit",
+    ]);
+  });
+
+  it("flags an image-fit page whose picture does not fill it", async () => {
+    const out = await pdfOf([
+      { source: "wide", size: [40, 20], draw: [0, 0, 20, 10] },
+      { source: "tall", size: [10, 30] },
+    ]);
+    expect(props(await checkImageToPdf(sources(), { pages, pageSize: IMAGE_FIT }, out, "full"))).toEqual([
+      "picture-fit",
     ]);
   });
 
@@ -161,7 +205,7 @@ describe("checkImageToPdf: broken outputs", () => {
       { source: "wide", size: [40, 20] },
       { source: null, size: [10, 30] },
     ]);
-    expect(props(await checkImageToPdf(sources(), { pages, imageLayout: NATIVE }, out, "full"))).toEqual([
+    expect(props(await checkImageToPdf(sources(), { pages, pageSize: IMAGE_FIT }, out, "full"))).toEqual([
       "page-image",
     ]);
   });
@@ -172,7 +216,7 @@ describe("checkImageToPdf: broken outputs", () => {
     await doc.attach(randomBytes(200_000), "padding.bin");
     const vs = await checkImageToPdf(
       sources(),
-      { pages: [image("photo")], imageLayout: NATIVE },
+      { pages: [image("photo")], pageSize: IMAGE_FIT },
       await doc.save(),
       "full",
     );
@@ -189,7 +233,7 @@ describe("checkImageToPdf: broken outputs", () => {
     doc.addPage([3, 2]).drawImage(jpg, { x: 0, y: 0, width: 3, height: 2 });
     const vs = await checkImageToPdf(
       new Map([["gps", photo]]),
-      { pages: [image("gps")], imageLayout: NATIVE },
+      { pages: [image("gps")], pageSize: IMAGE_FIT },
       await doc.save(),
       "quick",
     );
@@ -199,7 +243,7 @@ describe("checkImageToPdf: broken outputs", () => {
   it("keeps the caller's output bytes intact", async () => {
     const out = await pdfOf([{ source: "photo", size: [3, 2] }]);
     const copy = out.slice();
-    await checkImageToPdf(sources(), { pages: [image("photo")], imageLayout: NATIVE }, out, "full");
+    await checkImageToPdf(sources(), { pages: [image("photo")], pageSize: IMAGE_FIT }, out, "full");
     expect(out).toEqual(copy);
   });
 });

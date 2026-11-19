@@ -19,16 +19,15 @@ const sourcesOf = (input: Uint8Array) =>
 async function requests(): Promise<RealFileRequest<ImageToPdfRequest>[]> {
   const turned = [image("a", 90), image("b", 270)];
   return [
-    { label: "fit to image (default)", request: { pages: [image("a")], imageLayout: { mode: "native" } } },
-    { label: "fit to image, turned", request: { pages: turned, imageLayout: { mode: "native" } } },
+    { label: "A4 (default)", request: { pages: [image("a")], pageSize: { kind: "preset", preset: "a4" } } },
+    { label: "B4, turned", request: { pages: turned, pageSize: { kind: "preset", preset: "b4" } } },
+    { label: "16:9, turned", request: { pages: turned, pageSize: { kind: "preset", preset: "16:9" } } },
     {
-      label: "A4, turned",
-      request: { pages: turned, imageLayout: { mode: "fixed", widthPt: 595, heightPt: 842 } },
+      label: "custom 300 × 200 mm",
+      request: { pages: [image("a")], pageSize: { kind: "custom", widthMm: 300, heightMm: 200 } },
     },
-    {
-      label: "custom size",
-      request: { pages: [image("a")], imageLayout: { mode: "fixed", widthPt: 1280, heightPt: 720 } },
-    },
+    { label: "image fit", request: { pages: [image("a")], pageSize: { kind: "image-fit" } } },
+    { label: "image fit, turned", request: { pages: turned, pageSize: { kind: "image-fit" } } },
   ];
 }
 
@@ -36,8 +35,8 @@ realFileSuite({
   tool: "image-to-pdf",
   extensions: [".png", ".jpg", ".jpeg"],
   requests,
-  run: (input, { pages, imageLayout }) =>
-    convertImagesToPdf({ pages, sourceBytesById: sourcesOf(input), imageLayout }),
+  run: (input, { pages, pageSize }) =>
+    convertImagesToPdf({ pages, sourceBytesById: sourcesOf(input), pageSize }),
   check: (input, request, output, depth) =>
     checkImageToPdf(sourcesOf(input), request, output, depth),
 });

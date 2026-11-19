@@ -17,9 +17,16 @@ export interface ImageToPdfLabels {
   deleteAria: string;
   processing: string;
   sizeLabel: string;
+  sizePreset: string;
   sizeFit: string;
-  sizeA4: string;
   sizeCustom: string;
+  presetAria: string;
+  presetGroupPrint: string;
+  presetGroupScreen: string;
+  /** A print preset's option: `{name}`, `{w}` and `{h}` in whole millimetres. */
+  presetPrintOptionTemplate: string;
+  presetScreenWide: string;
+  presetScreenStandard: string;
   customWidth: string;
   customHeight: string;
   resultTitle: string;
@@ -51,9 +58,15 @@ export function getImageToPdfLabels(dict: Dictionary): ImageToPdfLabels {
     deleteAria: p.deleteAria,
     processing: p.processing,
     sizeLabel: p.sizeLabel,
+    sizePreset: p.sizePreset,
     sizeFit: p.sizeFit,
-    sizeA4: p.sizeA4,
     sizeCustom: p.sizeCustom,
+    presetAria: p.presetAria,
+    presetGroupPrint: p.presetGroupPrint,
+    presetGroupScreen: p.presetGroupScreen,
+    presetPrintOptionTemplate: p.presetPrintOption,
+    presetScreenWide: p.presetScreenWide,
+    presetScreenStandard: p.presetScreenStandard,
     customWidth: p.customWidth,
     customHeight: p.customHeight,
     resultTitle: p.resultTitle,

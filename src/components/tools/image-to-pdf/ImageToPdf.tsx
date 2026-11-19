@@ -33,14 +33,18 @@ import { template } from "@/lib/common/template";
 import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { normalizeImageFiles } from "@/lib/image/heic";
-import {
-  convertImagesToPdf,
-  type ImageLayout,
-} from "@/lib/pdf/assembleSections";
+import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
+import { convertImagesToPdf } from "@/lib/pdf/assembleSections";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { type PageItem, type Rotation } from "@/lib/pdf/pageItem";
+import { type PagePreset, type PageSize, pageBoxPt } from "@/lib/pdf/pageSize";
 import { ImageToPdfResult } from "./ImageToPdfResult";
-import { PageSizeSelector, type CustomSize, type PageSizeMode } from "./PageSizeSelector";
+import {
+  type CustomSizeMm,
+  PageSizeSelector,
+  type PageSizeMode,
+  customFromPreset,
+} from "./PageSizeSelector";
 import type { ImageToPdfLabels } from "./labels";
 
 const ACCEPT = {
@@ -53,19 +57,23 @@ const ACCEPT_ATTR = "image/png,image/jpeg,image/heic,image/heif,.heic,.heif";
 
 const NEUTRAL_TINT = { ring: "transparent" } as const;
 
-/** Read an image file's natural pixel dimensions. Returns null if it can't be
- *  decoded (used to seed the custom page-size default). */
-async function readImagePixelSize(
-  file: File,
-): Promise<{ w: number; h: number } | null> {
-  try {
-    const bitmap = await createImageBitmap(file);
-    const size = { w: bitmap.width, h: bitmap.height };
-    bitmap.close();
-    return size;
-  } catch {
-    return null;
-  }
+/**
+ * The shape (width / height) of the page `item` will be made on, for its
+ * editor card: the picture's shown size (EXIF orientation, then the user's
+ * turn) put through the same page rule as the engine. Null under image fit,
+ * where the picture is the page. A picture whose header cannot be read gets
+ * the size as listed.
+ */
+function cardPageAspect(
+  pageSize: PageSize,
+  item: PageItem,
+  bytes: Uint8Array | undefined,
+): number | null {
+  const header = bytes ? readImageHeader(bytes) : null;
+  let [w, h] = header ? displayedSize(header) : [1, 1];
+  if (item.rotation === 90 || item.rotation === 270) [w, h] = [h, w];
+  const box = pageBoxPt(pageSize, w, h);
+  return box ? box.width / box.height : null;
 }
 
 export interface ImageToPdfResultData {
@@ -145,23 +153,32 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
     new Map(),
   );
   const [loadingPages, setLoadingPages] = useState(false);
-  const [sizeMode, setSizeMode] = useState<PageSizeMode>("fit");
-  const [custom, setCustom] = useState<CustomSize>({ w: 595, h: 842 });
+  const [sizeMode, setSizeMode] = useState<PageSizeMode>("preset");
+  const [preset, setPreset] = useState<PagePreset>("a4");
+  const [custom, setCustom] = useState<CustomSizeMm>(() => customFromPreset("a4"));
+  // The preset the custom fields were last filled from: switching to custom
+  // refills them only after another preset was chosen, so sizes typed there
+  // survive a look at image fit or the same preset.
+  const [customSeed, setCustomSeed] = useState<PagePreset>("a4");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
 
-  const imageLayout = useMemo<ImageLayout>(() => {
-    if (sizeMode === "a4") return { mode: "fixed", widthPt: 595, heightPt: 842 };
-    if (sizeMode === "custom") {
-      // Clamp to PDF's max page dimension (14400 pt ≈ 200in) so an absurd value
-      // can't produce a giant page / OOM.
-      const MAX_PT = 14400;
-      const w = Math.min(MAX_PT, Math.max(1, Math.round(custom.w || 0)));
-      const h = Math.min(MAX_PT, Math.max(1, Math.round(custom.h || 0)));
-      return { mode: "fixed", widthPt: w, heightPt: h };
-    }
-    return { mode: "native" };
-  }, [sizeMode, custom]);
+  const pageSize = useMemo<PageSize>(() => {
+    if (sizeMode === "preset") return { kind: "preset", preset };
+    if (sizeMode === "custom") return { kind: "custom", ...custom };
+    return { kind: "image-fit" };
+  }, [sizeMode, preset, custom]);
+
+  const handleModeChange = useCallback(
+    (next: PageSizeMode) => {
+      if (next === "custom" && customSeed !== preset) {
+        setCustom(customFromPreset(preset));
+        setCustomSeed(preset);
+      }
+      setSizeMode(next);
+    },
+    [customSeed, preset],
+  );
 
   const {
     files,
@@ -179,7 +196,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       const live = items.filter((p) => !p.deleted);
       if (live.length === 0) throw new Error("no images to convert"); // Convert is disabled then
       const bytes = await convertImagesToPdf(
-        { pages: live, sourceBytesById, imageLayout },
+        { pages: live, sourceBytesById, pageSize },
         onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pdf`;
@@ -237,10 +254,6 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
           setItems(built.items);
           setSourceBytesById(built.sourceBytesById);
           setFiles(accepted);
-          // Seed the custom page size with the first image's pixel dimensions, so
-          // "사용자 지정" starts from a meaningful basis (the user's own image).
-          const size = await readImagePixelSize(accepted[0]);
-          if (size) setCustom({ w: size.w, h: size.h });
         } else {
           setItems((prev) => [...prev, ...built.items]);
           setSourceBytesById((prev) => new Map([...prev, ...built.sourceBytesById]));
@@ -335,15 +348,6 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
   const showOversize =
     totalBytes > totalSizeWarnFor("image-to-pdf") && !oversizeDismissed;
 
-  // White page-rect aspect (w/h) shown inside each editor card. null = fit-image
-  // (no fixed page → image fills the card directly).
-  const editorPageAspect =
-    sizeMode === "a4"
-      ? 595 / 842
-      : sizeMode === "custom"
-        ? Math.max(1, custom.w || 0) / Math.max(1, custom.h || 0)
-        : null;
-
   const filesSummary =
     files.length <= 1
       ? template(labels.filesOneTemplate, { name: files[0]?.name ?? "" })
@@ -356,17 +360,12 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
     <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
       <PageSizeSelector
         mode={sizeMode}
-        onModeChange={setSizeMode}
+        onModeChange={handleModeChange}
+        preset={preset}
+        onPresetChange={setPreset}
         custom={custom}
         onCustomChange={setCustom}
-        labels={{
-          sizeLabel: labels.sizeLabel,
-          sizeFit: labels.sizeFit,
-          sizeA4: labels.sizeA4,
-          sizeCustom: labels.sizeCustom,
-          customWidth: labels.customWidth,
-          customHeight: labels.customHeight,
-        }}
+        labels={labels}
       />
 
       <div
@@ -391,7 +390,11 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
                   rotateAria={labels.rotateAria}
                   deleteAria={labels.deleteAria}
                   frameBg="var(--surface-2)"
-                  pageAspect={editorPageAspect}
+                  pageAspect={cardPageAspect(
+                    pageSize,
+                    item,
+                    sourceBytesById.get(item.sourceFileId),
+                  )}
                 />
               ))}
               <div className="flex items-stretch">

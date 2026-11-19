@@ -33,18 +33,15 @@ import {
 } from "./jpegOrientation";
 import { checkImageToPdf } from "./imageToPdfCheck";
 import { checkPdfArrange } from "./pdfArrangeCheck";
-
-export type ImageLayout =
-  | { mode: "native" }
-  | { mode: "fixed"; widthPt: number; heightPt: number };
+import { type PageSize, pageBoxPt } from "./pageSize";
 
 export interface AssembleInput {
   /** Output sections, already split + deletion-filtered (see splitIntoSections). */
   sections: PageItem[][];
   /** Raw bytes per source file id: pdf bytes for pdf pages, image bytes for images. */
   sourceBytesById: Map<string, Uint8Array>;
-  /** Image placement. Default: native (page = image size, current behavior). */
-  imageLayout?: ImageLayout;
+  /** The pages pictures get (CONTEXT "Page size"). Default: image fit. */
+  pageSize?: PageSize;
 }
 
 /** Detect raster format from magic bytes so PageItem need not carry a mime type. */
@@ -100,7 +97,7 @@ function drawOrientedImage(
  * sections. Progress is reported across the total page count (0–100).
  */
 export async function assembleSections(
-  { sections, sourceBytesById, imageLayout = { mode: "native" } }: AssembleInput,
+  { sections, sourceBytesById, pageSize = { kind: "image-fit" } }: AssembleInput,
   onProgress?: (pct: number) => void,
 ): Promise<Uint8Array[]> {
   const sourceDocCache = new Map<string, PDFDocument>();
@@ -162,21 +159,26 @@ export async function assembleSections(
         const orientation = isPng ? 1 : readJpegOrientation(bytes);
         const [imgW, imgH] = orientedSize(image.width, image.height, orientation);
 
-        if (imageLayout.mode === "native") {
+        // The user's turn is applied before the page is turned to the picture.
+        const quarterTurned = item.rotation === 90 || item.rotation === 270;
+        const box = quarterTurned
+          ? pageBoxPt(pageSize, imgH, imgW)
+          : pageBoxPt(pageSize, imgW, imgH);
+
+        if (box === null) {
           const page = out.addPage([imgW, imgH]);
           drawOrientedImage(page, image, orientation, { x: 0, y: 0, width: imgW, height: imgH });
           if (item.rotation !== 0) page.setRotation(degrees(item.rotation));
         } else {
-          const { widthPt, heightPt } = imageLayout;
-          const page = out.addPage([widthPt, heightPt]);
+          const page = out.addPage([box.width, box.height]);
           page.drawRectangle({
             x: 0,
             y: 0,
-            width: widthPt,
-            height: heightPt,
+            width: box.width,
+            height: box.height,
             color: rgb(1, 1, 1),
           });
-          const fit = computeImageFit(imgW, imgH, widthPt, heightPt, item.rotation);
+          const fit = computeImageFit(imgW, imgH, box.width, box.height, item.rotation);
           drawOrientedImage(page, image, orientation, {
             x: fit.x,
             y: fit.y,
@@ -204,7 +206,7 @@ export async function assembleSections(
  * corrupt-output error.
  */
 export async function arrangePdf(
-  input: Omit<AssembleInput, "imageLayout">,
+  input: Omit<AssembleInput, "pageSize">,
   onProgress?: (pct: number) => void,
 ): Promise<Uint8Array[]> {
   const outputs = await assembleSections(input, onProgress);
@@ -217,8 +219,8 @@ export async function arrangePdf(
 }
 
 /**
- * image-to-pdf's engine entry: one PDF with a page per image, laid out as
- * chosen, then the tool's output check (see `imageToPdfCheck.ts`). A failing
+ * image-to-pdf's engine entry: one PDF with a page per image, of the page
+ * size chosen, then the tool's output check (see `imageToPdfCheck.ts`). A failing
  * check has no safer mode to fall back to, so it blocks with the
  * corrupt-output error.
  */
@@ -226,24 +228,24 @@ export async function convertImagesToPdf(
   {
     pages,
     sourceBytesById,
-    imageLayout,
+    pageSize,
   }: {
     /** The images the user kept, in order. */
     pages: PageItem[];
     sourceBytesById: Map<string, Uint8Array>;
-    imageLayout: ImageLayout;
+    pageSize: PageSize;
   },
   onProgress?: (pct: number) => void,
 ): Promise<Uint8Array> {
   const [output] = await assembleSections(
-    { sections: [pages], sourceBytesById, imageLayout },
+    { sections: [pages], sourceBytesById, pageSize },
     onProgress,
   );
   return runOutputCheck({
     tool: "image-to-pdf",
     output,
     check: (out) =>
-      checkImageToPdf(sourceBytesById, { pages, imageLayout }, out, "quick"),
+      checkImageToPdf(sourceBytesById, { pages, pageSize }, out, "quick"),
   });
 }
 
