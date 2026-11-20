@@ -694,32 +694,32 @@ describe("convertImagesToPdf: picture quality", () => {
     expect(await run({ pageSize: SQUARE_100, margin: 10, quality: "standard" }, src)).toEqual([[630, 420]]);
   });
 
-  it("screen presets: the picture keeps what the page shows on a Full HD (보통) or 4K (높게) screen, turned as the page is", async () => {
-    // A 4:3 photo on a 16:9 page fills its height: 1080 rows of Full HD, 2160 of 4K.
-    const src = new Map([
-      ["across", await photo(4000, 3000)],
-      ["up", await photo(3000, 4000)],
-    ]);
-    expect(await run({ pageSize: SCREEN_WIDE, quality: "standard" }, src)).toEqual([
-      [1440, 1080],
-      [1080, 1440],
-    ]);
-    expect(await run({ pageSize: SCREEN_WIDE, quality: "high" }, src)).toEqual([
-      [2880, 2160],
-      [2160, 2880],
-    ]);
+  // A 4:3 photo across and one up, made once: each case converts them once,
+  // so no case holds several 12 MP runs (CI's runners are a few times slower).
+  let screenPhotos: Promise<Map<string, Uint8Array>> | undefined;
+  const acrossAndUp = () =>
+    (screenPhotos ??= Promise.all([photo(4000, 3000), photo(3000, 4000)]).then(
+      ([across, up]) =>
+        new Map([
+          ["across", across],
+          ["up", up],
+        ]),
+    ));
+
+  // A 4:3 photo on a 16:9 page fills its height: 1080 rows of Full HD, 2160 of 4K.
+  it.each<[string, Omit<ImageToPdfRequest, "pages">, [number, number][]]>([
+    ["16:9 at 보통 keeps Full HD's rows", { pageSize: SCREEN_WIDE, quality: "standard" }, [[1440, 1080], [1080, 1440]]],
+    ["16:9 at 높게 keeps 4K's rows", { pageSize: SCREEN_WIDE, quality: "high" }, [[2880, 2160], [2160, 2880]]],
     // A 4:3 page is 1440 × 1080 of a Full HD screen.
-    expect(await run({ pageSize: SCREEN_STANDARD, quality: "standard" }, src)).toEqual([
-      [1440, 1080],
-      [1080, 1440],
-    ]);
+    ["4:3 at 보통 is 1440 × 1080 of Full HD", { pageSize: SCREEN_STANDARD, quality: "standard" }, [[1440, 1080], [1080, 1440]]],
     // Forced landscape: the portrait photo sits in the page's 1080 rows.
-    expect(
-      await run({ pageSize: SCREEN_WIDE, orientation: "landscape", quality: "standard" }, src),
-    ).toEqual([
-      [1440, 1080],
-      [810, 1080],
-    ]);
+    [
+      "16:9 forced landscape fits the portrait photo in 1080 rows",
+      { pageSize: SCREEN_WIDE, orientation: "landscape", quality: "standard" },
+      [[1440, 1080], [810, 1080]],
+    ],
+  ])("screen presets: %s, turned as the page is", async (_, settings, expected) => {
+    expect(await run(settings, await acrossAndUp())).toEqual(expected);
   });
 
   it("image fit: the pixels the level keeps on A4, the page keeping the picture's own size", async () => {
@@ -735,14 +735,17 @@ describe("convertImagesToPdf: picture quality", () => {
     expect(await pageBoxesMm(output)).toEqual([[1411.1, 1058.3]]); // 4000 × 3000 pt
   });
 
-  it("fill page: the part kept holds what the level keeps across the whole page", async () => {
+  // One conversion per case, as the screen presets above.
+  it.each<[string, Omit<ImageToPdfRequest, "pages">, [number, number], [number, number]]>([
     // 4000 × 3000 on 16:9 keeps 4000 × 2250, drawn across the whole Full HD or 4K screen.
-    const src = new Map([["p", await photo(4000, 3000)]]);
-    expect(await run({ pageSize: SCREEN_WIDE, margin: "fill", quality: "standard" }, src)).toEqual([[1920, 1080]]);
-    expect(await run({ pageSize: SCREEN_WIDE, margin: "fill", quality: "high" }, src)).toEqual([[3840, 2160]]);
-    // 3000 × 2000 on 100 mm square keeps 2000 × 2000, drawn across 100 mm: 787 px at 200 dpi.
-    expect(await run({ pageSize: SQUARE_100, margin: "fill", quality: "standard" }, src)).toEqual([[787, 787]]);
-    expect(await run({ pageSize: SQUARE_100, margin: "fill", quality: "original" }, new Map([["p", await photo(3000, 2000)]]))).toEqual([[2000, 2000]]);
+    ["16:9 at 보통 fills Full HD", { pageSize: SCREEN_WIDE, margin: "fill", quality: "standard" }, [4000, 3000], [1920, 1080]],
+    ["16:9 at 높게 fills 4K", { pageSize: SCREEN_WIDE, margin: "fill", quality: "high" }, [4000, 3000], [3840, 2160]],
+    // 4000 × 3000 on a 100 mm square keeps 3000 × 3000, drawn across 100 mm: 787 px at 200 dpi.
+    ["a 100 mm square at 보통 keeps 200 dpi", { pageSize: SQUARE_100, margin: "fill", quality: "standard" }, [4000, 3000], [787, 787]],
+    // 3000 × 2000 on a 100 mm square keeps its 2000 × 2000 centre whole.
+    ["a 100 mm square at 원본 그대로 keeps every pixel of the part", { pageSize: SQUARE_100, margin: "fill", quality: "original" }, [3000, 2000], [2000, 2000]],
+  ])("fill page: %s", async (_, settings, [width, height], expected) => {
+    expect(await run(settings, new Map([["p", await photo(width, height)]]))).toEqual([expected]);
   });
 
   it.each<[string, Omit<ImageToPdfRequest, "pages" | "quality">]>([
@@ -848,17 +851,21 @@ describe("convertImagesToPdf: WebP", () => {
     return output;
   };
 
-  it.each<[string, Omit<ImageToPdfRequest, "pages" | "quality">]>([
-    ["A4", { pageSize: A4 }],
-    ["A4 with a margin", { pageSize: A4, margin: 10 }],
-    ["16:9 fill page", { pageSize: { kind: "preset", preset: "16:9" }, margin: "fill" }],
-    ["image fit", { pageSize: IMAGE_FIT }],
-  ])("%s: a WebP lands on its page at every level", async (_, settings) => {
-    const src = new Map([["p", await webp(3000, 2000)]]);
-    for (const quality of PICTURE_QUALITIES) {
-      const output = await run({ ...settings, quality }, src);
-      expect(await storedPictureSizes(output)).toHaveLength(1);
-    }
+  // Every page kind at every level, one conversion each; resizing a WebP is
+  // the 보통 case below, so a small picture serves here.
+  it.each(
+    (
+      [
+        ["A4", { pageSize: A4 }],
+        ["A4 with a margin", { pageSize: A4, margin: 10 }],
+        ["16:9 fill page", { pageSize: { kind: "preset", preset: "16:9" }, margin: "fill" }],
+        ["image fit", { pageSize: IMAGE_FIT }],
+      ] as const
+    ).flatMap(([label, settings]) => PICTURE_QUALITIES.map((quality) => [label, quality, settings] as const)),
+  )("%s, %s: a WebP lands on its page", async (_, quality, settings) => {
+    const src = new Map([["p", await webp(600, 400)]]);
+    const output = await run({ ...settings, quality }, src);
+    expect(await storedPictureSizes(output)).toHaveLength(1);
   });
 
   it("원본 그대로: a WebP goes in at its own size, as JPEG or PNG by the preparation's rule", async () => {
