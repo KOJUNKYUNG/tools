@@ -8,6 +8,10 @@ import {
   type CustomSizeMm,
   MAX_PAGE_MM,
   MIN_PAGE_MM,
+  PAGE_MARGINS_MM,
+  PAGE_ORIENTATIONS,
+  type PageMarginMm,
+  type PageOrientation,
   type PagePreset,
   type PageSizeMode,
   PRINT_PRESETS,
@@ -30,6 +34,13 @@ export interface PageSizeSelectorLabels {
   presetScreenStandard: string;
   customWidth: string;
   customHeight: string;
+  orientationLabel: string;
+  orientationAuto: string;
+  orientationPortrait: string;
+  orientationLandscape: string;
+  marginLabel: string;
+  marginNone: string;
+  marginOptionTemplate: string;
 }
 
 const FIELD_CLASS =
@@ -47,6 +58,10 @@ export function PageSizeSelector({
   onPresetChange,
   custom,
   onCustomChange,
+  orientation,
+  onOrientationChange,
+  marginMm,
+  onMarginChange,
   labels,
 }: {
   mode: PageSizeMode;
@@ -55,6 +70,10 @@ export function PageSizeSelector({
   onPresetChange: (preset: PagePreset) => void;
   custom: CustomSizeMm;
   onCustomChange: (next: CustomSizeMm) => void;
+  orientation: PageOrientation;
+  onOrientationChange: (next: PageOrientation) => void;
+  marginMm: PageMarginMm;
+  onMarginChange: (next: PageMarginMm) => void;
   labels: PageSizeSelectorLabels;
 }) {
   // ISO and JIS sizes are written the same in every language (A4, B5);
@@ -70,6 +89,11 @@ export function PageSizeSelector({
   const screenLabel: Record<(typeof SCREEN_PRESETS)[number], string> = {
     "16:9": labels.presetScreenWide,
     "4:3": labels.presetScreenStandard,
+  };
+  const orientationLabel: Record<PageOrientation, string> = {
+    auto: labels.orientationAuto,
+    portrait: labels.orientationPortrait,
+    landscape: labels.orientationLandscape,
   };
 
   return (
@@ -164,7 +188,37 @@ export function PageSizeSelector({
           </div>
         )}
       </div>
+
+      {/* Orientation and margin do nothing under image fit, so they are hidden
+          there, keeping their space so the picture cards never move. */}
+      <div
+        className={`grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 ${mode === "image-fit" ? "invisible" : ""}`}
+        aria-hidden={mode === "image-fit" || undefined}
+      >
+        <ChoiceTabs
+          label={labels.orientationLabel}
+          labelBeside
+          options={PAGE_ORIENTATIONS.map((o) => ({ value: o, label: orientationLabel[o] }))}
+          value={orientation}
+          onChange={onOrientationChange}
+        />
+        <ChoiceTabs
+          label={labels.marginLabel}
+          labelBeside
+          options={PAGE_MARGINS_MM.map((mm) => ({
+            // ChoiceTabs takes string values; the margins are distinct numbers.
+            value: String(mm),
+            label: mm === 0 ? labels.marginNone : template(labels.marginOptionTemplate, { n: mm }),
+          }))}
+          value={String(marginMm)}
+          onChange={(v) => onMarginChange(marginFromValue(v))}
+        />
+      </div>
     </div>
   );
 }
 
+/** The margin a tab's value names; only values built from PAGE_MARGINS_MM reach here. */
+function marginFromValue(value: string): PageMarginMm {
+  return PAGE_MARGINS_MM.find((mm) => String(mm) === value) ?? 0;
+}

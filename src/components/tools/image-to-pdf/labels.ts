@@ -30,6 +30,14 @@ export interface ImageToPdfLabels {
   presetScreenStandard: string;
   customWidth: string;
   customHeight: string;
+  orientationLabel: string;
+  orientationAuto: string;
+  orientationPortrait: string;
+  orientationLandscape: string;
+  marginLabel: string;
+  marginNone: string;
+  /** A margin option: `{n}` millimetres. */
+  marginOptionTemplate: string;
   resultTitle: string;
   pageCountTemplate: string;
   download: string;
@@ -71,6 +79,13 @@ export function getImageToPdfLabels(dict: Dictionary): ImageToPdfLabels {
     presetScreenStandard: p.presetScreenStandard,
     customWidth: p.customWidth,
     customHeight: p.customHeight,
+    orientationLabel: p.orientationLabel,
+    orientationAuto: p.orientationAuto,
+    orientationPortrait: p.orientationPortrait,
+    orientationLandscape: p.orientationLandscape,
+    marginLabel: p.marginLabel,
+    marginNone: p.marginNone,
+    marginOptionTemplate: p.marginOption,
     resultTitle: p.resultTitle,
     pageCountTemplate: p.pageCount,
     download: p.download,

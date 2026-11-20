@@ -3,7 +3,7 @@ import { type ImageHeader, readImageHeader } from "@/lib/output-check/imageHeade
 import { inspectPdf, type PdfImagePaint, type PdfReport } from "@/lib/output-check/pdfInspector";
 import { pdfJpegs } from "@/lib/output-check/pdfJpegs";
 import type { PageItem } from "./pageItem";
-import type { PagePreset, PageSize } from "./pageSize";
+import type { PageMarginMm, PageOrientation, PagePreset, PageSize } from "./pageSize";
 
 /** Raw bytes per source image id (PNG or JPEG). */
 export type ImageToPdfSources = Map<string, Uint8Array>;
@@ -12,6 +12,10 @@ export interface ImageToPdfRequest {
   /** The images the user kept, in order: one page each. */
   pages: PageItem[];
   pageSize: PageSize;
+  /** How preset and custom pages are turned; ignored under image fit. Default: auto. */
+  orientation?: PageOrientation;
+  /** The white on every side of a preset or custom page; ignored under image fit. Default: none. */
+  marginMm?: PageMarginMm;
 }
 
 const normalise = (deg: number) => ((deg % 360) + 360) % 360;
@@ -55,22 +59,32 @@ const MAX_SIDE_PT = 200 * 72;
 /**
  * The page box and turn the page size calls for, with the picture's shown
  * size (EXIF orientations 5–8 swap the stored sides). Image fit: that size
- * in points, turned by /Rotate. Preset or custom: the size listed, upright
- * (the engine draws the user's turn into the page), its long side along the
- * picture's long side once turned; a square picture keeps it as listed.
+ * in points, turned by /Rotate, whatever the orientation. Preset or custom:
+ * the size listed, upright (the engine draws the user's turn into the
+ * page), its long side up under portrait, across under landscape, and under
+ * auto along the picture's long side once turned; a square picture keeps it
+ * as listed. `margin` is the white on every side, in points: none under
+ * image fit, otherwise the margin asked for, at most a quarter of the
+ * page's short side.
  */
 function expectedPage(
-  pageSize: PageSize,
+  { pageSize, orientation = "auto", marginMm = 0 }: ImageToPdfRequest,
   item: PageItem,
   sources: ImageToPdfSources,
-): { width: number; height: number; rotation: number; pictureAspect: number } {
-  const { width, height, orientation } = headerOf(sources, item.sourceFileId);
-  const exifTurned = orientation >= 5;
+): { width: number; height: number; rotation: number; pictureAspect: number; margin: number } {
+  const { width, height, orientation: exif } = headerOf(sources, item.sourceFileId);
+  const exifTurned = exif >= 5;
   const shownW = exifTurned ? height : width;
   const shownH = exifTurned ? width : height;
   if (pageSize.kind === "image-fit") {
     // Drawn upright on the page; /Rotate turns the whole page.
-    return { width: shownW, height: shownH, rotation: item.rotation, pictureAspect: shownW / shownH };
+    return {
+      width: shownW,
+      height: shownH,
+      rotation: item.rotation,
+      pictureAspect: shownW / shownH,
+      margin: 0,
+    };
   }
   const [w, h] =
     pageSize.kind === "preset"
@@ -80,31 +94,45 @@ function expectedPage(
         );
   const userTurned = normalise(item.rotation) % 180 === 90;
   const [picW, picH] = userTurned ? [shownH, shownW] : [shownW, shownH];
-  const turnPage = (picW > picH && w < h) || (picW < picH && w > h);
+  const wantAcross =
+    orientation === "auto" ? (picW === picH ? w > h : picW > picH) : orientation === "landscape";
+  const turnPage = wantAcross !== w > h && w !== h;
   const pictureAspect = picW / picH;
+  const margin = Math.min(marginMm * MM, Math.min(w, h) / 4);
   return turnPage
-    ? { width: h, height: w, rotation: 0, pictureAspect }
-    : { width: w, height: h, rotation: 0, pictureAspect };
+    ? { width: h, height: w, rotation: 0, pictureAspect, margin }
+    : { width: w, height: h, rotation: 0, pictureAspect, margin };
 }
 
 /**
- * How each picture sits on its page: whole inside it, keeping its shape, as
- * large as fits (touching two opposite sides) and centred. Empty when right.
+ * How each picture sits on its page: whole inside the content box (the page
+ * less `margin` on every side), keeping its shape, as large as fits there
+ * (touching two opposite sides of it) and centred. Empty when right.
  */
 function fitProblems(
   box: PdfImagePaint["box"],
   page: { width: number; height: number },
+  margin: number,
   pictureAspect: number,
 ): string[] {
   const problems: string[] = [];
   const edge = 0.01;
   if (box.x0 < -edge || box.y0 < -edge || box.x1 > page.width + edge || box.y1 > page.height + edge) {
     problems.push("past the page's edge");
+  } else if (
+    box.x0 < margin - edge ||
+    box.y0 < margin - edge ||
+    box.x1 > page.width - margin + edge ||
+    box.y1 > page.height - margin + edge
+  ) {
+    problems.push("into the margin");
   }
   const w = box.x1 - box.x0;
   const h = box.y1 - box.y0;
+  const contentW = page.width - 2 * margin;
+  const contentH = page.height - 2 * margin;
   if (Math.abs(w / h / pictureAspect - 1) > 0.005) problems.push("not its shape");
-  if (Math.abs(w - page.width) > edge && Math.abs(h - page.height) > edge) problems.push("smaller than fits");
+  if (Math.abs(w - contentW) > edge && Math.abs(h - contentH) > edge) problems.push("smaller than fits");
   const centre = 0.1;
   if (
     Math.abs(box.x0 + box.x1 - page.width) / 2 > centre ||
@@ -118,8 +146,9 @@ function fitProblems(
 async function checkPages(
   pdf: PdfReport,
   sources: ImageToPdfSources,
-  { pages, pageSize }: ImageToPdfRequest,
+  request: ImageToPdfRequest,
 ): Promise<Violation[]> {
+  const { pages } = request;
   const violations: Violation[] = [];
   const count = Math.min(pages.length, pdf.pageCount);
   for (let j = 0; j < count; j++) {
@@ -133,7 +162,7 @@ async function checkPages(
       violations.push({ property: "page-image", detail: `page ${n}: shows no image` });
     }
 
-    const expected = expectedPage(pageSize, pages[j], sources);
+    const expected = expectedPage(request, pages[j], sources);
     const out = await pdf.page(n);
     if (Math.abs(out.width - expected.width) >= 0.01 || Math.abs(out.height - expected.height) >= 0.01) {
       violations.push({
@@ -149,7 +178,7 @@ async function checkPages(
     }
     const { images } = await pdf.content(n);
     for (const { box } of images) {
-      const problems = fitProblems(box, out, expected.pictureAspect);
+      const problems = fitProblems(box, out, expected.margin, expected.pictureAspect);
       if (problems.length > 0) {
         violations.push({ property: "picture-fit", detail: `page ${n}: picture ${problems.join(", ")}` });
       }
@@ -208,9 +237,11 @@ function photoInfoViolations(output: Uint8Array): Violation[] {
  * - `page-size` / `page-rotation`: each page follows the page size. Image
  *   fit: the image's size as displayed (EXIF orientation applied), turned as
  *   requested. Preset or custom: that size (custom held within 1 mm–200 in),
- *   upright, turned to the picture as the user turned it
- * - `picture-fit`: every picture is whole inside its page, keeping its
- *   shape, as large as fits and centred
+ *   upright, portrait or landscape as asked, or under auto turned to the
+ *   picture as the user turned it
+ * - `picture-fit`: every picture is whole inside its page less the margin
+ *   (none under image fit), keeping its shape, as large as fits there and
+ *   centred
  * - `size-bound`: the PDF ≤ its images + a margin
  * - ⚡ `photo-info`: no embedded JPEG carries photo info (EXIF, XMP, maker
  *   data, comments, data after its end; CONTEXT "Photo info"), read from

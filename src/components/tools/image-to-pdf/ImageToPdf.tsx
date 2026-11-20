@@ -39,10 +39,13 @@ import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { type PageItem, type Rotation } from "@/lib/pdf/pageItem";
 import {
   type CustomSizeMm,
+  type PageMarginMm,
+  type PageOrientation,
   type PagePreset,
   type PageSize,
   type PageSizeMode,
   customFromPreset,
+  marginPt,
   pageBoxPt,
 } from "@/lib/pdf/pageSize";
 import { ImageToPdfResult } from "./ImageToPdfResult";
@@ -59,22 +62,32 @@ const ACCEPT_ATTR = "image/png,image/jpeg,image/heic,image/heif,.heic,.heif";
 
 const NEUTRAL_TINT = { ring: "transparent" } as const;
 
+/** The page a picture is made on, as its editor card draws it. */
+interface CardPage {
+  /** Width / height. */
+  aspect: number;
+  /** The margin's share of the page's width. */
+  marginRatio: number;
+}
+
 /**
- * The shape (width / height) of the page `item` will be made on, for its
- * editor card: the picture's shown size (EXIF orientation, then the user's
- * turn) put through the same page rule as the engine. Null under image fit,
- * where the picture is the page. A picture whose header cannot be read gets
- * the size as listed.
+ * The page `item` will be made on, for its editor card: the picture's shown
+ * size (EXIF orientation, then the user's turn) put through the same page
+ * and margin rules as the engine. Null under image fit, where the picture is
+ * the page. A picture whose header cannot be read gets the size as listed.
  */
-function cardPageAspect(
+function cardPage(
   pageSize: PageSize,
+  orientation: PageOrientation,
+  marginMm: PageMarginMm,
   item: PageItem,
   bytes: Uint8Array | undefined,
-): number | null {
+): CardPage | null {
   const header = bytes ? readImageHeader(bytes) : null;
   const [w, h] = header ? displayedSize(header) : [1, 1];
-  const box = pageBoxPt(pageSize, w, h, item.rotation);
-  return box ? box.width / box.height : null;
+  const box = pageBoxPt(pageSize, w, h, item.rotation, orientation);
+  if (!box) return null;
+  return { aspect: box.width / box.height, marginRatio: marginPt(box, marginMm) / box.width };
 }
 
 export interface ImageToPdfResultData {
@@ -92,7 +105,7 @@ interface SortableCellProps {
   rotateAria: string;
   deleteAria: string;
   frameBg: string;
-  pageAspect: number | null;
+  page: CardPage | null;
 }
 
 function SortableCell({
@@ -104,7 +117,7 @@ function SortableCell({
   rotateAria,
   deleteAria,
   frameBg,
-  pageAspect,
+  page,
 }: SortableCellProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
@@ -130,7 +143,8 @@ function SortableCell({
         rotateAria={rotateAria}
         deleteAria={deleteAria}
         frameBg={frameBg}
-        pageAspect={pageAspect}
+        pageAspect={page?.aspect ?? null}
+        pageMarginRatio={page?.marginRatio ?? 0}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
       {/* No divider — image-to-pdf always produces one PDF. Keep the column gutter. */}
@@ -161,6 +175,8 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
   // refills them only after another preset was chosen, so sizes typed there
   // survive a look at image fit or the same preset.
   const [customSeed, setCustomSeed] = useState<PagePreset>("a4");
+  const [orientation, setOrientation] = useState<PageOrientation>("auto");
+  const [marginMm, setMarginMm] = useState<PageMarginMm>(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
 
@@ -197,7 +213,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       const live = items.filter((p) => !p.deleted);
       if (live.length === 0) throw new Error("no images to convert"); // Convert is disabled then
       const bytes = await convertImagesToPdf(
-        { pages: live, sourceBytesById, pageSize },
+        { pages: live, sourceBytesById, pageSize, orientation, marginMm },
         onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pdf`;
@@ -366,6 +382,10 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         onPresetChange={setPreset}
         custom={custom}
         onCustomChange={setCustom}
+        orientation={orientation}
+        onOrientationChange={setOrientation}
+        marginMm={marginMm}
+        onMarginChange={setMarginMm}
         labels={labels}
       />
 
@@ -391,8 +411,10 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
                   rotateAria={labels.rotateAria}
                   deleteAria={labels.deleteAria}
                   frameBg="var(--surface-2)"
-                  pageAspect={cardPageAspect(
+                  page={cardPage(
                     pageSize,
+                    orientation,
+                    marginMm,
                     item,
                     sourceBytesById.get(item.sourceFileId),
                   )}

@@ -123,7 +123,8 @@ The size of the pages image-to-pdf makes, set one of three ways:
 - **Custom**: width and height in millimetres, starting from the preset last
   chosen. Poster sizes go here.
 With a preset or custom size the picture sits inside the page whole (never
-cropped or stretched) within an optional margin (none, 10 mm or 20 mm), and
+cropped or stretched) within an optional margin (none, 10 mm or 20 mm; on a
+custom page too small for it, at most a quarter of the short side), and
 **orientation** (auto by default, or portrait or landscape) turns each page
 to its picture: auto gives a landscape picture a landscape page, and a
 portrait picture a 9:16 page under the 16:9 preset.

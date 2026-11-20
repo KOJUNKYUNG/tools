@@ -31,9 +31,15 @@ import {
   orientedSize,
   readJpegOrientation,
 } from "./jpegOrientation";
-import { checkImageToPdf } from "./imageToPdfCheck";
+import { type ImageToPdfRequest, checkImageToPdf } from "./imageToPdfCheck";
 import { checkPdfArrange } from "./pdfArrangeCheck";
-import { type PageSize, pageBoxPt } from "./pageSize";
+import {
+  type PageMarginMm,
+  type PageOrientation,
+  type PageSize,
+  marginPt,
+  pageBoxPt,
+} from "./pageSize";
 
 export interface AssembleInput {
   /** Output sections, already split + deletion-filtered (see splitIntoSections). */
@@ -42,6 +48,10 @@ export interface AssembleInput {
   sourceBytesById: Map<string, Uint8Array>;
   /** The pages pictures get (CONTEXT "Page size"). Default: image fit. */
   pageSize?: PageSize;
+  /** How preset and custom pages are turned. Default: auto. */
+  orientation?: PageOrientation;
+  /** The white on every side of a preset or custom page. Default: none. */
+  marginMm?: PageMarginMm;
 }
 
 /** Detect raster format from magic bytes so PageItem need not carry a mime type. */
@@ -97,7 +107,13 @@ function drawOrientedImage(
  * sections. Progress is reported across the total page count (0–100).
  */
 export async function assembleSections(
-  { sections, sourceBytesById, pageSize = { kind: "image-fit" } }: AssembleInput,
+  {
+    sections,
+    sourceBytesById,
+    pageSize = { kind: "image-fit" },
+    orientation = "auto",
+    marginMm = 0,
+  }: AssembleInput,
   onProgress?: (pct: number) => void,
 ): Promise<Uint8Array[]> {
   const sourceDocCache = new Map<string, PDFDocument>();
@@ -156,14 +172,14 @@ export async function assembleSections(
         const image: EmbeddedImage = isPng
           ? await embedPng(out, bytes)
           : await out.embedJpg(stripPhotoInfo(bytes));
-        const orientation = isPng ? 1 : readJpegOrientation(bytes);
-        const [imgW, imgH] = orientedSize(image.width, image.height, orientation);
+        const exifOrientation = isPng ? 1 : readJpegOrientation(bytes);
+        const [imgW, imgH] = orientedSize(image.width, image.height, exifOrientation);
 
-        const box = pageBoxPt(pageSize, imgW, imgH, item.rotation);
+        const box = pageBoxPt(pageSize, imgW, imgH, item.rotation, orientation);
 
         if (box === null) {
           const page = out.addPage([imgW, imgH]);
-          drawOrientedImage(page, image, orientation, { x: 0, y: 0, width: imgW, height: imgH });
+          drawOrientedImage(page, image, exifOrientation, { x: 0, y: 0, width: imgW, height: imgH });
           if (item.rotation !== 0) page.setRotation(degrees(item.rotation));
         } else {
           const page = out.addPage([box.width, box.height]);
@@ -174,10 +190,12 @@ export async function assembleSections(
             height: box.height,
             color: rgb(1, 1, 1),
           });
-          const fit = computeImageFit(imgW, imgH, box.width, box.height, item.rotation);
-          drawOrientedImage(page, image, orientation, {
-            x: fit.x,
-            y: fit.y,
+          // The picture fits whole inside the page less the margin.
+          const m = marginPt(box, marginMm);
+          const fit = computeImageFit(imgW, imgH, box.width - 2 * m, box.height - 2 * m, item.rotation);
+          drawOrientedImage(page, image, exifOrientation, {
+            x: m + fit.x,
+            y: m + fit.y,
             width: fit.drawW,
             height: fit.drawH,
             rotate: fit.rotateDeg,
@@ -221,27 +239,20 @@ export async function arrangePdf(
  * corrupt-output error.
  */
 export async function convertImagesToPdf(
-  {
-    pages,
-    sourceBytesById,
-    pageSize,
-  }: {
-    /** The images the user kept, in order. */
-    pages: PageItem[];
+  { sourceBytesById, ...request }: ImageToPdfRequest & {
     sourceBytesById: Map<string, Uint8Array>;
-    pageSize: PageSize;
   },
   onProgress?: (pct: number) => void,
 ): Promise<Uint8Array> {
+  const { pages, pageSize, orientation, marginMm } = request;
   const [output] = await assembleSections(
-    { sections: [pages], sourceBytesById, pageSize },
+    { sections: [pages], sourceBytesById, pageSize, orientation, marginMm },
     onProgress,
   );
   return runOutputCheck({
     tool: "image-to-pdf",
     output,
-    check: (out) =>
-      checkImageToPdf(sourceBytesById, { pages, pageSize }, out, "quick"),
+    check: (out) => checkImageToPdf(sourceBytesById, request, out, "quick"),
   });
 }
 

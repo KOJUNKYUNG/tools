@@ -26,6 +26,17 @@ export type PageSize =
 /** The setting's three ways, as its tab row offers them. */
 export type PageSizeMode = PageSize["kind"];
 
+/**
+ * How preset and custom pages are turned: each to its picture (auto, the
+ * default), or every page portrait or landscape. Image fit ignores it.
+ */
+export const PAGE_ORIENTATIONS = ["auto", "portrait", "landscape"] as const;
+export type PageOrientation = (typeof PAGE_ORIENTATIONS)[number];
+
+/** The white left on every side of a preset or custom page, in mm. Image fit ignores it. */
+export const PAGE_MARGINS_MM = [0, 10, 20] as const;
+export type PageMarginMm = (typeof PAGE_MARGINS_MM)[number];
+
 export interface CustomSizeMm {
   widthMm: number;
   heightMm: number;
@@ -72,16 +83,18 @@ export function clampPageMm(mm: number): number {
 /**
  * The page box, in points, a picture shown `shownW`×`shownH` (after its EXIF
  * orientation) and turned `rotation` by the user gets under a preset or
- * custom size; null under image fit, where the page is the picture. The
- * user's turn is applied first, then the page turns to the picture: a
- * landscape picture gets the long side across, a portrait one the long side
- * up; a square one keeps the size as listed.
+ * custom size; null under image fit, where the page is the picture.
+ * Portrait and landscape put the long side up or across on every page.
+ * Under auto the user's turn is applied first, then the page turns to the
+ * picture: a landscape picture gets the long side across, a portrait one the
+ * long side up; a square one keeps the size as listed.
  */
 export function pageBoxPt(
   pageSize: PageSize,
   shownW: number,
   shownH: number,
   rotation: Rotation,
+  orientation: PageOrientation = "auto",
 ): { width: number; height: number } | null {
   if (pageSize.kind === "image-fit") return null;
   const quarterTurned = rotation === 90 || rotation === 270;
@@ -95,7 +108,18 @@ export function pageBoxPt(
         };
   const long = Math.max(listed.width, listed.height);
   const short = Math.min(listed.width, listed.height);
+  if (orientation === "portrait") return { width: short, height: long };
+  if (orientation === "landscape") return { width: long, height: short };
   if (picW > picH) return { width: long, height: short };
   if (picW < picH) return { width: short, height: long };
   return listed;
+}
+
+/**
+ * The margin, in points, on every side of a `page` box: `marginMm`, held at
+ * a quarter of the page's short side so a small custom page keeps at least
+ * half of each side for its picture.
+ */
+export function marginPt(page: { width: number; height: number }, marginMm: PageMarginMm): number {
+  return Math.min(marginMm * PT_PER_MM, Math.min(page.width, page.height) / 4);
 }

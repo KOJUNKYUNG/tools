@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { PDFDocument, degrees } from "pdf-lib";
 import { describe, expect, it } from "vitest";
-import { checkImageToPdf } from "./imageToPdfCheck";
+import { type ImageToPdfRequest, checkImageToPdf } from "./imageToPdfCheck";
 import type { PageSize } from "./pageSize";
 import {
   JPEG_3x2,
@@ -87,6 +87,52 @@ describe("checkImageToPdf: good outputs", () => {
     ]);
     const pageSize: PageSize = { kind: "custom", widthMm: 100, heightMm: 40 };
     expect(await checkImageToPdf(sources(), { pages, pageSize }, out, "full")).toEqual([]);
+  });
+});
+
+describe("checkImageToPdf: orientation", () => {
+  // wide 40×20 up A4: 595.3 × 297.6, centred.
+  const widePortrait = () =>
+    pdfOf([{ source: "wide", size: A4_UP, draw: [0, 272.126, 595.2756, 297.6378] }]);
+
+  it("passes a page turned the way the request forces", async () => {
+    const vs = await checkImageToPdf(
+      sources(),
+      { pages: [image("wide")], pageSize: A4, orientation: "portrait" },
+      await widePortrait(),
+      "full",
+    );
+    expect(vs).toEqual([]);
+  });
+
+  it.each(["auto", "landscape"] as const)("flags a portrait page when the request asks %s", async (orientation) => {
+    const vs = await checkImageToPdf(
+      sources(),
+      { pages: [image("wide")], pageSize: A4, orientation },
+      await widePortrait(),
+      "full",
+    );
+    expect(props(vs)).toContain("page-size");
+  });
+});
+
+describe("checkImageToPdf: margin", () => {
+  // wide 40×20 across A4 less 10 mm (28.35 pt) a side: 785.2 × 392.6, centred.
+  const request: ImageToPdfRequest = { pages: [image("wide")], pageSize: A4, marginMm: 10 };
+
+  it("passes a picture fitted inside the page less the margin", async () => {
+    const out = await pdfOf([{ source: "wide", size: A4_ACROSS, draw: [28.3465, 101.3386, 785.1969, 392.5984] }]);
+    expect(await checkImageToPdf(sources(), request, out, "full")).toEqual([]);
+  });
+
+  it("flags a picture drawn into the margin", async () => {
+    const out = await pdfOf([{ source: "wide", size: A4_ACROSS, draw: [0, 87.17, 841.8898, 420.9449] }]);
+    expect(props(await checkImageToPdf(sources(), request, out, "full"))).toEqual(["picture-fit"]);
+  });
+
+  it("flags a picture left smaller than the content box", async () => {
+    const out = await pdfOf([{ source: "wide", size: A4_ACROSS, draw: [56.69, 115.51, 728.5, 364.25] }]);
+    expect(props(await checkImageToPdf(sources(), request, out, "full"))).toEqual(["picture-fit"]);
   });
 });
 
