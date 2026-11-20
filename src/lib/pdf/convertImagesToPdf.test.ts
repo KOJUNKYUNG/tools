@@ -861,14 +861,22 @@ describe("convertImagesToPdf: WebP", () => {
   });
 
   it("원본 그대로: a WebP goes in at its own size, as JPEG or PNG by the preparation's rule", async () => {
+    // A noisy photo, whose JPEG is a small part of its PNG; a see-through graphic, which stays PNG.
+    const raw = Buffer.alloc(1200 * 800 * 3);
+    for (let i = 0; i < raw.length; i++) raw[i] = (i % 251) ^ Math.floor(Math.random() * 32);
+    const noisy = new Uint8Array(await sharp(raw, { raw: { width: 1200, height: 800, channels: 3 } }).webp().toBuffer());
     const src = new Map([
-      ["photo", await webp(3000, 2000)],
+      ["photo", noisy],
       ["clear", await webp(400, 300, true)],
     ]);
     const output = await run({ pageSize: A4, quality: "original" }, src);
     expect(await storedPictureSizes(output)).toEqual([
-      [3000, 2000],
+      [1200, 800],
       [400, 300],
+    ]);
+    // Only the photo became JPEG; the see-through graphic is the PDF's other picture, a PNG.
+    expect((await embeddedJpegs(output)).map((j) => readImageHeader(j))).toMatchObject([
+      { format: "jpeg", width: 1200, height: 800 },
     ]);
   });
 

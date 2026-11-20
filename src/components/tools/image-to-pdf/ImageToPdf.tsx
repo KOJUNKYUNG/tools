@@ -61,7 +61,9 @@ const ACCEPT = {
   "image/heic": [".heic"],
   "image/heif": [".heif"],
 };
-const ACCEPT_ATTR = "image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif";
+const ACCEPT_ATTR = Object.entries(ACCEPT)
+  .flatMap(([mime, extensions]) => [mime, ...extensions])
+  .join(",");
 /** What the engine takes once HEIC is converted: a WebP goes through the picture preparation. */
 const ENGINE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
@@ -464,13 +466,14 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
 
   // Flat, as image-to-pptx (DESIGN.md "Panel divider"): from tablet width the
   // pictures take the tray's height on the left, the only part that
-  // scrolls, then a 1px divider and the settings in a fixed column narrow
+  // scrolls, then the settings, past a 1px divider, in a fixed column narrow
   // enough to leave two cards a row at tablet width. On a phone the
   // settings sit above the pictures and the page scrolls.
   const editor = (
-    <div className="flex flex-col gap-3 md:grid md:h-[var(--tray-h)] md:grid-cols-[minmax(0,1fr)_1px_300px] md:gap-0">
-      <div className="md:order-3 md:pl-5">{settings}</div>
-      <div className="hidden md:order-2 md:block" style={{ background: "var(--border)" }} aria-hidden="true" />
+    <div className="flex flex-col gap-3 md:grid md:h-[var(--tray-h)] md:grid-cols-[minmax(0,1fr)_300px] md:gap-0">
+      <div className="md:order-2 md:border-l md:pl-5" style={{ borderColor: "var(--border)" }}>
+        {settings}
+      </div>
       <div className="ob-scroll min-h-0 md:order-1 md:overflow-y-auto md:pr-2">{pictures}</div>
     </div>
   );

@@ -90,14 +90,19 @@ export function detectImageFormat(bytes: Uint8Array): "png" | "jpg" | "webp" {
   throw new Error(`${INVALID_INPUT_PREFIX}: not a PNG, JPEG or WebP image`);
 }
 
+type ImageFormat = ReturnType<typeof detectImageFormat>;
+
+/** Whether a PDF holds a picture in `format` as it is: JPEG and PNG, not WebP. */
+const pdfHolds = (format: ImageFormat): format is "png" | "jpg" => format !== "webp";
+
 /** A picture embedded in `out`, with the EXIF orientation it is drawn by and its shown size. */
 async function embedPicture(
   out: PDFDocument,
   bytes: Uint8Array,
 ): Promise<{ image: EmbeddedImage; exifOrientation: ExifOrientation; shownW: number; shownH: number }> {
   const format = detectImageFormat(bytes);
-  // A PDF cannot hold a WebP: it reaches here only through the preparation.
-  if (format === "webp") throw new Error("a WebP must be prepared before it is embedded");
+  // A WebP reaches here only through the preparation.
+  if (!pdfHolds(format)) throw new Error("a WebP must be prepared before it is embedded");
   const isPng = format === "png";
   // A JPEG goes in without its photo info (CONTEXT "Photo info"), its
   // picture byte for byte. The EXIF orientation is read from the original
@@ -188,7 +193,7 @@ export async function assembleSections(
     const whole = crop.width === upright.width && crop.height === upright.height;
     const resized = size.width !== crop.width || size.height !== crop.height;
     const format = detectImageFormat(bytes);
-    if (whole && !resized && format !== "webp" && (quality === "original" || format === "jpg")) return bytes;
+    if (whole && !resized && pdfHolds(format) && (quality === "original" || format === "jpg")) return bytes;
     const encoding = quality === "original" ? "own" : "smallest";
     return (await preparation.prepare(source, crop, size, undefined, encoding)).bytes;
   }
@@ -285,7 +290,7 @@ export async function assembleSections(
   async function addPicturePage(out: PDFDocument, bytes: Uint8Array, rotation: PageItem["rotation"]) {
     if (margin === "fill" && pageSize.kind !== "image-fit") return addFilledPage(out, bytes, rotation);
     const asUploaded = quality === "original";
-    if (asUploaded && detectImageFormat(bytes) !== "webp") {
+    if (asUploaded && pdfHolds(detectImageFormat(bytes))) {
       return addPlacedPage(out, await embedPicture(out, bytes), rotation);
     }
     const source = new Blob([Uint8Array.from(bytes)]);
