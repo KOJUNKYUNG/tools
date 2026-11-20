@@ -36,6 +36,7 @@ import {
   withImageDataTail,
   withPngHeight,
   withPhotoInfo,
+  withPngExif,
 } from "./testImages";
 
 // The real checker by default; one test makes it report a violation.
@@ -885,5 +886,19 @@ describe("convertImagesToPdf: WebP", () => {
     const output = await run({ pageSize: A4, quality: "standard" }, src);
     // 3000 × 2000 across a landscape A4 at 200 dpi: 2339 × 1559, as for the JPEG.
     expect(await storedPictureSizes(output)).toEqual([[2339, 1559]]);
+  });
+});
+
+describe("convertImagesToPdf: a PNG the browser turns", () => {
+  // Browsers show a PNG turned by an eXIf chunk before its image data, as
+  // the editor's cards do; the page follows what they show, at every level.
+  it.each(PICTURE_QUALITIES)("%s: a PNG tagged orientation 6 lands upright on a page of its shown shape", async (quality) => {
+    const src = new Map([["p", withPngExif(solidPng(400, 300))]]);
+    const settings = { pageSize: A4, quality } as const;
+    const output = await convertImagesToPdf({ pages: [image("p")], sourceBytesById: src, ...settings }, undefined, nodeSizedPreparation);
+    expect(await checkImageToPdf(src, { pages: [image("p")], ...settings }, output, "full")).toEqual([]);
+    // Shown 300 × 400: a portrait A4, the picture stored upright.
+    expect(await pageBoxesMm(output)).toEqual([[210, 297]]);
+    expect(await storedPictureSizes(output)).toEqual([[300, 400]]);
   });
 });

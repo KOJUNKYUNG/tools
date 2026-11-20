@@ -34,7 +34,7 @@ import { template } from "@/lib/common/template";
 import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { normalizeImageFiles } from "@/lib/image/heic";
-import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
+import { type PixelSize, uprightSize } from "@/lib/image/slideImage";
 import { convertImagesToPdf } from "@/lib/pdf/assembleSections";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { type PageItem, type Rotation } from "@/lib/pdf/pageItem";
@@ -81,24 +81,40 @@ interface CardPage {
 
 /**
  * The page `item` will be made on, for its editor card: the picture's shown
- * size (EXIF orientation, then the user's turn) put through the same page
- * and margin rules as the engine; under fill page the picture covers the
- * frame, cut at its centre as the engine cuts it. Null under image fit, where the picture is
- * the page. A picture whose header cannot be read gets the size as listed.
+ * size (`shown`, as the engine measures it), then the user's turn, put
+ * through the same page and margin rules as the engine; under fill page the
+ * picture covers the frame, cut at its centre as the engine cuts it. Null
+ * under image fit, where the picture is the page. A picture not measured
+ * gets the size as listed.
  */
 function cardPage(
   pageSize: PageSize,
   orientation: PageOrientation,
   margin: PageMargin,
   item: PageItem,
-  bytes: Uint8Array | undefined,
+  shown: PixelSize | undefined,
 ): CardPage | null {
-  const header = bytes ? readImageHeader(bytes) : null;
-  const [w, h] = header ? displayedSize(header) : [1, 1];
+  const { width: w, height: h } = shown ?? { width: 1, height: 1 };
   const box = pageBoxPt(pageSize, w, h, item.rotation, orientation);
   if (!box) return null;
   if (margin === "fill") return { aspect: box.width / box.height, marginRatio: 0, fill: true };
   return { aspect: box.width / box.height, marginRatio: marginPt(box, margin) / box.width, fill: false };
+}
+
+/**
+ * Each picture's size as the engine measures it (its EXIF orientation, or a
+ * PNG's eXIf, applied), once at upload rather than on every render: from
+ * its header, decoding it only when it carries an orientation the header
+ * reader leaves out. A picture that cannot be measured is left out.
+ */
+async function measureShown(sources: Map<string, Uint8Array>): Promise<Map<string, PixelSize>> {
+  const measured = await Promise.all(
+    [...sources].map(async ([id, bytes]) => {
+      const size = await uprightSize(new Blob([bytes.slice()])).catch(() => null);
+      return size && ([id, size] as const);
+    }),
+  );
+  return new Map(measured.filter((entry) => entry !== null));
 }
 
 export interface ImageToPdfResultData {
@@ -179,6 +195,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
   const [sourceBytesById, setSourceBytesById] = useState<Map<string, Uint8Array>>(
     new Map(),
   );
+  const [shownSizeById, setShownSizeById] = useState<Map<string, PixelSize>>(new Map());
   const [loadingPages, setLoadingPages] = useState(false);
   const [sizeMode, setSizeMode] = useState<PageSizeMode>("preset");
   const [preset, setPreset] = useState<PagePreset>("a4");
@@ -279,14 +296,17 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       try {
         const built = await buildPageItems(accepted);
         if (built.items.length === 0) return;
+        const shown = await measureShown(built.sourceBytesById);
         if (mode === "replace") {
           clearThumbnailCache();
           setItems(built.items);
           setSourceBytesById(built.sourceBytesById);
+          setShownSizeById(shown);
           setFiles(accepted);
         } else {
           setItems((prev) => [...prev, ...built.items]);
           setSourceBytesById((prev) => new Map([...prev, ...built.sourceBytesById]));
+          setShownSizeById((prev) => new Map([...prev, ...shown]));
           setFiles((prev) => [...prev, ...accepted]);
         }
       } catch (err) {
@@ -439,7 +459,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
                 orientation,
                 margin,
                 item,
-                sourceBytesById.get(item.sourceFileId),
+                shownSizeById.get(item.sourceFileId),
               )}
             />
           ))}

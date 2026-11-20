@@ -22,6 +22,7 @@ import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { type CropRect, slideCrop } from "@/lib/image/maxFitCrop";
 import { type PixelSize, type SizedImagePreparation, sizedImagePreparation } from "@/lib/image/slideImage";
 import { stripPhotoInfo } from "@/lib/image/stripPhotoInfo";
+import { hasUnreadOrientation } from "@/lib/output-check/imageHeader";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { type PageItem, buildOutputNames } from "./pageItem";
 import { computeImageFit } from "./imageFit";
@@ -90,20 +91,25 @@ export function detectImageFormat(bytes: Uint8Array): "png" | "jpg" | "webp" {
   throw new Error(`${INVALID_INPUT_PREFIX}: not a PNG, JPEG or WebP image`);
 }
 
-type ImageFormat = ReturnType<typeof detectImageFormat>;
-
-/** Whether a PDF holds a picture in `format` as it is: JPEG and PNG, not WebP. */
-const pdfHolds = (format: ImageFormat): format is "png" | "jpg" => format !== "webp";
+/**
+ * Whether the upload goes into a PDF as it is and shows there as browsers
+ * show it: a JPEG, whose EXIF orientation the engine draws, or a PNG with
+ * no orientation of its own. Not a WebP, which a PDF cannot hold, nor a PNG
+ * browsers turn by its eXIf chunk: the preparation draws those upright.
+ */
+function holdsAsIs(bytes: Uint8Array): boolean {
+  const format = detectImageFormat(bytes);
+  return format === "jpg" || (format === "png" && !hasUnreadOrientation(bytes));
+}
 
 /** A picture embedded in `out`, with the EXIF orientation it is drawn by and its shown size. */
 async function embedPicture(
   out: PDFDocument,
   bytes: Uint8Array,
 ): Promise<{ image: EmbeddedImage; exifOrientation: ExifOrientation; shownW: number; shownH: number }> {
-  const format = detectImageFormat(bytes);
-  // A WebP reaches here only through the preparation.
-  if (!pdfHolds(format)) throw new Error("a WebP must be prepared before it is embedded");
-  const isPng = format === "png";
+  // A WebP or a turned PNG reaches here only through the preparation.
+  if (!holdsAsIs(bytes)) throw new Error("this picture must be prepared before it is embedded");
+  const isPng = detectImageFormat(bytes) === "png";
   // A JPEG goes in without its photo info (CONTEXT "Photo info"), its
   // picture byte for byte. The EXIF orientation is read from the original
   // first and applied when drawn, so the page shows what the editor's
@@ -177,8 +183,8 @@ export async function assembleSections(
   /**
    * The picture that goes in: the upload itself when it is whole and keeps
    * its own size, under 원본 그대로 (every pixel kept) or as a JPEG (which
-   * re-encoding could only blur), unless it is a WebP, which a PDF cannot
-   * hold; otherwise the preparation's `crop` of it
+   * re-encoding could only blur), unless a PDF cannot hold it as it is
+   * (`holdsAsIs`); otherwise the preparation's `crop` of it
    * drawn at `size`. The preparation holds the format rules: a PNG turns
    * into JPEG only at half the size or less, with no transparency used;
    * under 원본 그대로 a cut part keeps its own format, saved once.
@@ -192,8 +198,9 @@ export async function assembleSections(
   ): Promise<Uint8Array> {
     const whole = crop.width === upright.width && crop.height === upright.height;
     const resized = size.width !== crop.width || size.height !== crop.height;
-    const format = detectImageFormat(bytes);
-    if (whole && !resized && pdfHolds(format) && (quality === "original" || format === "jpg")) return bytes;
+    if (whole && !resized && holdsAsIs(bytes) && (quality === "original" || detectImageFormat(bytes) === "jpg")) {
+      return bytes;
+    }
     const encoding = quality === "original" ? "own" : "smallest";
     return (await preparation.prepare(source, crop, size, undefined, encoding)).bytes;
   }
@@ -208,7 +215,7 @@ export async function assembleSections(
    * page, so a picture within a pixel of its shape leaves no white edge.
    */
   async function addFilledPage(out: PDFDocument, bytes: Uint8Array, rotation: PageItem["rotation"]) {
-    const source = new Blob([Uint8Array.from(bytes)]);
+    const source = new Blob([bytes.slice()]);
     const upright = await preparation.measure(source);
     // Non-null: fill page is never asked under image fit.
     const box = pageBoxPt(pageSize, upright.width, upright.height, rotation, orientation)!;
@@ -284,16 +291,16 @@ export async function assembleSections(
 
   /**
    * A page for the picture `bytes`, turned `rotation` by the user. Under
-   * 원본 그대로 a WebP, which a PDF cannot hold, goes through the
-   * preparation at its own size.
+   * 원본 그대로 a picture a PDF cannot hold as it is (`holdsAsIs`) goes
+   * through the preparation at its own size, shown upright.
    */
   async function addPicturePage(out: PDFDocument, bytes: Uint8Array, rotation: PageItem["rotation"]) {
     if (margin === "fill" && pageSize.kind !== "image-fit") return addFilledPage(out, bytes, rotation);
     const asUploaded = quality === "original";
-    if (asUploaded && pdfHolds(detectImageFormat(bytes))) {
+    if (asUploaded && holdsAsIs(bytes)) {
       return addPlacedPage(out, await embedPicture(out, bytes), rotation);
     }
-    const source = new Blob([Uint8Array.from(bytes)]);
+    const source = new Blob([bytes.slice()]);
     const upright = await preparation.measure(source);
     const whole = { x: 0, y: 0, width: upright.width, height: upright.height };
     const size = asUploaded ? upright : keptWholeSize(upright, rotation);

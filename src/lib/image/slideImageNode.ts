@@ -1,7 +1,7 @@
 // Test-only: the shared sized picture preparation run on real pixels in Node,
 // through sharp (a dev dependency; never imported by the app).
 import sharp from "sharp";
-import { readImageHeader } from "@/lib/output-check/imageHeader";
+import { hasUnreadOrientation, readImageHeader } from "@/lib/output-check/imageHeader";
 import { standInSizedPreparation } from "./slideImageStandIn";
 import { keptFormat, preparedFormat, takenWhole, type PreparedImage, type SizedImagePreparation } from "./slideImage";
 
@@ -18,7 +18,14 @@ const OWN_QUALITY = 95;
  * Steps need a canvas and are refused.
  */
 export const nodeSizedPreparation: SizedImagePreparation = {
-  measure: standInSizedPreparation.measure,
+  // As the browser's: from the header, unless the picture carries an
+  // orientation the header reader leaves out (a PNG's eXIf), which sharp reads.
+  async measure(source) {
+    const bytes = new Uint8Array(await source.arrayBuffer());
+    if (!hasUnreadOrientation(bytes)) return standInSizedPreparation.measure(source);
+    const { width = 0, height = 0, orientation = 1 } = await sharp(bytes).metadata();
+    return orientation >= 5 ? { width: height, height: width } : { width, height };
+  },
   async prepare(source, crop, size, step, encoding = "smallest") {
     if (step) throw new Error("the Node preparation takes no step");
     const bytes = new Uint8Array(await source.arrayBuffer());

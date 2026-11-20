@@ -1,5 +1,5 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
-import { type ImageHeader, displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
+import { type ImageHeader, displayedSize, pngOrientation, readImageHeader } from "@/lib/output-check/imageHeader";
 import { inspectPdf, type PdfImagePaint, type PdfReport } from "@/lib/output-check/pdfInspector";
 import { pdfJpegs } from "@/lib/output-check/pdfJpegs";
 import type { PageItem } from "./pageItem";
@@ -31,7 +31,9 @@ const normalise = (deg: number) => ((deg % 360) + 360) % 360;
 // agree with its bugs.
 
 /**
- * A source image's header. Throws when the image is missing or unreadable:
+ * A source image's header, its orientation as browsers show it (a PNG's
+ * eXIf chunk included, which the editor's cards follow). Throws when the
+ * image is missing or unreadable:
  * the engine embedded it, so either the request names an image it was not
  * given or the header reader has a gap. Neither is the output's fault, and
  * skipping would let the size checks pass without checking anything.
@@ -41,7 +43,7 @@ function headerOf(sources: ImageToPdfSources, id: string): ImageHeader {
   if (!bytes) throw new Error(`no source bytes for ${id}`);
   const header = readImageHeader(bytes);
   if (!header) throw new Error(`cannot read the image header of ${id}`);
-  return header;
+  return header.format === "png" ? { ...header, orientation: pngOrientation(bytes) } : header;
 }
 
 // The checker's own table and rules, written from the spec (#176) rather

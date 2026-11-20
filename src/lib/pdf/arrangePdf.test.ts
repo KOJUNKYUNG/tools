@@ -9,7 +9,8 @@ import type { Dictionary } from "@/i18n/config";
 import { arrangePdf } from "./assembleSections";
 import type { PageItem, Rotation } from "./pageItem";
 import * as check from "./pdfArrangeCheck";
-import { JPEG_3x2, PNG_PAGE_OVERHEAD, embeddedJpegs, pngOfKind, withPhotoInfo } from "./testImages";
+import { nodeSizedPreparation } from "@/lib/image/slideImageNode";
+import { JPEG_3x2, PNG_PAGE_OVERHEAD, embeddedJpegs, pngOfKind, solidPng, withPhotoInfo, withPngExif } from "./testImages";
 
 // The real checker by default; one test makes it report a violation.
 vi.mock("./pdfArrangeCheck", async (importOriginal) => {
@@ -82,6 +83,15 @@ describe("arrangePdf", () => {
     const sections = [[item("a", 0), item("gps", 0, 90, "image")]];
     const [output] = await arrangePdf({ sections, sourceBytesById: src });
     expect(await embeddedJpegs(output)).toEqual([JPEG_3x2]);
+  });
+
+  it("a PNG browsers turn by its eXIf chunk becomes a page of the size they show", async () => {
+    const src = new Map([["turned", withPngExif(solidPng(40, 30))]]);
+    const sections = [[item("turned", 0, 0, "image")]];
+    const outputs = await arrangePdf({ sections, sourceBytesById: src, preparation: nodeSizedPreparation });
+    expect(await checkPdfArrange(src, { sections }, outputs, "full")).toEqual([]);
+    const page = (await PDFDocument.load(outputs[0])).getPage(0);
+    expect(page.getSize()).toEqual({ width: 30, height: 40 });
   });
 
   it("a screenshot image page is no larger than the PNG plus a page's overhead", async () => {

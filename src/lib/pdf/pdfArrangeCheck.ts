@@ -1,5 +1,5 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
-import { readImageHeader } from "@/lib/output-check/imageHeader";
+import { pngOrientation, readImageHeader } from "@/lib/output-check/imageHeader";
 import { inspectPdf, type PdfReport } from "@/lib/output-check/pdfInspector";
 import { pdfJpegs, readJpegPhotoInfo } from "@/lib/output-check/pdfJpegs";
 import { sameBytes } from "@/lib/output-check/sameBytes";
@@ -85,7 +85,7 @@ async function sourceFailsToo(sources: PdfArrangeSources, item: PageItem): Promi
 
 /**
  * The size an image page must have: the image as browsers show it (EXIF
- * orientations 5–8 swap the stored sides). Throws when the image is missing
+ * orientations 5–8, a JPEG's or a PNG's eXIf chunk's, swap the stored sides). Throws when the image is missing
  * or unreadable: the engine embedded it, so that is a checker gap, and
  * skipping would pass the page unchecked.
  */
@@ -94,7 +94,8 @@ function displayedImageSize(sources: PdfArrangeSources, id: string): [number, nu
   if (!bytes) throw new Error(`no source bytes for ${id}`);
   const header = readImageHeader(bytes);
   if (!header) throw new Error(`cannot read the image header of ${id}`);
-  const { width, height, orientation } = header;
+  const { width, height } = header;
+  const orientation = header.format === "png" ? pngOrientation(bytes) : header.orientation;
   return orientation >= 5 ? [height, width] : [width, height];
 }
 

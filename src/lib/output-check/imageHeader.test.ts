@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { JPEG_3x2, solidPng as png, withExifOrientation } from "@/lib/pdf/testImages";
-import { readImageHeader } from "./imageHeader";
+import { JPEG_3x2, solidPng as png, withExifOrientation, withPngExif } from "@/lib/pdf/testImages";
+import { pngOrientation, readImageHeader } from "./imageHeader";
 
 /** A JPEG whose frame header follows an APP0 segment, as camera files do. */
 function jpeg(width: number, height: number, sof = 0xc0): Uint8Array {
@@ -159,5 +159,29 @@ describe("readImageHeader", () => {
     ["a lossless WebP without its signature", corrupt(WEBP_1x1_LOSSLESS, 20)],
   ])("rejects %s", (_, bytes) => {
     expect(readImageHeader(bytes)).toBeNull();
+  });
+});
+
+describe("pngOrientation", () => {
+  it("reads the orientation of an eXIf chunk before the image data, which readImageHeader leaves out", () => {
+    const turned = withPngExif(png(4, 3));
+    expect(pngOrientation(turned)).toBe(6);
+    expect(readImageHeader(turned)).toEqual({ format: "png", width: 4, height: 3, orientation: 1 });
+  });
+
+  it("ignores an eXIf chunk after the image data, as browsers do", () => {
+    const turned = withPngExif(png(4, 3));
+    const plain = png(4, 3);
+    // The chunk withPngExif adds, moved from after IHDR to before IEND.
+    const chunk = turned.subarray(33, 33 + (turned.length - plain.length));
+    const late = new Uint8Array([...plain.subarray(0, plain.length - 12), ...chunk, ...plain.subarray(plain.length - 12)]);
+    expect(pngOrientation(late)).toBe(1);
+  });
+
+  it.each([
+    ["a PNG without eXIf", png(4, 3)],
+    ["a JPEG", withExifOrientation(JPEG_3x2, 6)],
+  ])("reports 1 for %s", (_, bytes) => {
+    expect(pngOrientation(bytes)).toBe(1);
   });
 });
