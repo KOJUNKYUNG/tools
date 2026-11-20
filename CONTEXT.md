@@ -123,13 +123,27 @@ The size of the pages image-to-pdf makes, set one of three ways:
 - **Custom**: width and height in millimetres, starting from the preset last
   chosen. Poster sizes go here.
 With a preset or custom size the picture sits inside the page whole (never
-cropped or stretched) within an optional margin (none, 10 mm or 20 mm; on a
-custom page too small for it, at most a quarter of the short side), and
+stretched) within an optional margin (none, 10 mm or 20 mm; on a custom page
+too small for it, at most a quarter of the short side), or, as the margin
+row's fourth choice, covers it: [fill page](#fill-page). And
 **orientation** (auto by default, or portrait or landscape) turns each page
 to its picture: auto gives a landscape picture a landscape page, and a
 portrait picture a 9:16 page under the 16:9 preset.
 _Avoid_: "px" for a page: a PDF page has no pixels, and a custom size in
 pixels read as points made pages of 68 cm and more.
+
+### Fill page
+The margin row's fourth choice in image-to-pdf, for a preset or custom size:
+the picture is enlarged until it covers the whole page, keeping its shape and
+its centre, and what lies past the page's edges is cut off. Only the part on
+the page enters the PDF; the rest is discarded, as with the
+[background crop](#background-crop), so a shared file holds nothing the
+reader cannot see. The editor cards show each picture cut as it will be,
+with no further warning however much is cut. The part kept is always the
+centre; choosing it per picture is not offered. A picture already of the
+page's shape is not cut, and goes in as it would without fill page.
+_Avoid_: "fill" alone: image-to-pptx's **fill size** means the opposite, the
+picture as large as fits inside the slide.
 
 ### Picture quality
 image-to-pdf's one setting for how many pixels a picture keeps: 원본 그대로
@@ -138,7 +152,10 @@ image-to-pdf's one setting for how many pixels a picture keeps: 원본 그대로
 across the size the picture is drawn at; on a screen preset, the
 **screen size**, 4K or Full HD; under image fit, the pixels the same level
 keeps on A4, the page staying the size of the original. A picture is never
-enlarged, and one already small enough goes in as uploaded. 보통 keeps a
+enlarged, and one already small enough goes in as uploaded. Under
+[fill page](#fill-page), 원본 그대로 keeps every pixel of the part on the
+page but saves that part once more (a PNG losslessly, a JPEG at high
+quality), since cutting a picture means storing a new one. 보통 keeps a
 12 MP phone photo near 0.5 MB a page, so about twenty fit a 10 MB upload
 limit.
 _Avoid_: "compression": the tool sizes pictures as they enter; pdf-compress
