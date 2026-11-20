@@ -6,7 +6,7 @@ import type { PageItem } from "./pageItem";
 import type { PageMargin, PageOrientation, PagePreset, PageSize } from "./pageSize";
 import type { PictureQuality } from "./pictureQuality";
 
-/** Raw bytes per source image id (PNG or JPEG). */
+/** Raw bytes per source image id (PNG, JPEG or WebP). */
 export type ImageToPdfSources = Map<string, Uint8Array>;
 
 export interface ImageToPdfRequest {
@@ -323,9 +323,10 @@ async function checkPages(
  * out larger than a carefully optimised file, so it is allowed its raw size
  * (8-bit RGB plus alpha): deflate never exceeds that by more than the margin.
  * Under fill page a part cut from a picture is saved anew (a JPEG at high
- * quality), and under 높게 or 보통 any picture may be resized and saved
- * anew, so such a picture is allowed its raw size too; the pixels it keeps
- * are bounded by `picture-size`.
+ * quality), under 높게 or 보통 any picture may be resized and saved anew,
+ * and a WebP, which a PDF cannot hold, is always saved anew as JPEG or PNG,
+ * so such a picture is allowed its raw size too; the pixels it keeps are
+ * bounded by `picture-size`.
  */
 function sizeBound(sources: ImageToPdfSources, request: ImageToPdfRequest): number {
   const { pages, quality = "original" } = request;
@@ -334,7 +335,7 @@ function sizeBound(sources: ImageToPdfSources, request: ImageToPdfRequest): numb
   for (const id of new Set(pages.map((p) => p.sourceFileId))) {
     const header = headerOf(sources, id);
     images +=
-      header.format === "png" || cut.has(id) || quality !== "original"
+      header.format !== "jpeg" || cut.has(id) || quality !== "original"
         ? header.width * header.height * 4
         : // Non-null: headerOf found the bytes.
           sources.get(id)!.byteLength;

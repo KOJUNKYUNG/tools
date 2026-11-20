@@ -697,7 +697,7 @@
       "description": "Package images into a single PDF.",
       "page": {
         "uploadPrompt": "Drag and drop images, or click to upload",
-        "uploadHint": "JPG/PNG. Add several at once.",
+        "uploadHint": "JPG/PNG/WebP. Add several at once.",
         "uploadMaxSize": "Up to {size} each",
         "reupload": "Re-upload",
         "convert": "Convert ({n})",

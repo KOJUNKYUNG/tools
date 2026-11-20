@@ -57,10 +57,13 @@ import type { ImageToPdfLabels } from "./labels";
 const ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
   "image/png": [".png"],
+  "image/webp": [".webp"],
   "image/heic": [".heic"],
   "image/heif": [".heif"],
 };
-const ACCEPT_ATTR = "image/png,image/jpeg,image/heic,image/heif,.heic,.heif";
+const ACCEPT_ATTR = "image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif";
+/** What the engine takes once HEIC is converted: a WebP goes through the picture preparation. */
+const ENGINE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 const NEUTRAL_TINT = { ring: "transparent" } as const;
 
@@ -249,9 +252,9 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       }
 
       // Images only — drop anything that isn't an accepted image.
-      const images = normalized.filter((f) => f.type === "image/png" || f.type === "image/jpeg");
+      const images = normalized.filter((f) => ENGINE_TYPES.has(f.type));
       for (const f of normalized) {
-        if (!(f.type === "image/png" || f.type === "image/jpeg")) {
+        if (!ENGINE_TYPES.has(f.type)) {
           toast.error(template(labels.fileUpload.invalidTypeTemplate, { name: f.name }));
         }
       }
@@ -387,8 +390,10 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
     standard: labels.qualityStandard,
   };
 
-  const editor = (
-    <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
+  // The page settings, then the picture quality, in one column, each label
+  // above its tabs so the tabs take the column's width in every language.
+  const settings = (
+    <div className="space-y-2">
       <PageSizeSelector
         mode={sizeMode}
         onModeChange={handleModeChange}
@@ -402,67 +407,71 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         onMarginChange={setMargin}
         labels={labels}
       />
-
       {/* Applies under every page size, image fit included, so it stays shown. */}
       <ChoiceTabs
         label={labels.qualityLabel}
-        labelBeside
         options={PICTURE_QUALITIES.map((q) => ({ value: q, label: qualityLabel[q] }))}
         value={quality}
         onChange={setQuality}
       />
+    </div>
+  );
 
-      <div
-        className="ob-scroll min-h-0 flex-1 overflow-y-auto rounded-2xl p-3"
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          boxShadow: "var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.8)",
-        }}
-      >
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
-            <div className="flex flex-wrap justify-center gap-0">
-              {items.map((item, i) => (
-                <SortableCell
-                  key={item.id}
-                  item={item}
-                  pageNumber={i + 1}
-                  bytes={sourceBytesById.get(item.sourceFileId)}
-                  onRotate={handleRotate}
-                  onDelete={handleDelete}
-                  rotateAria={labels.rotateAria}
-                  deleteAria={labels.deleteAria}
-                  frameBg="var(--surface-2)"
-                  page={cardPage(
-                    pageSize,
-                    orientation,
-                    margin,
-                    item,
-                    sourceBytesById.get(item.sourceFileId),
-                  )}
-                />
-              ))}
-              <div className="flex items-stretch">
-                <button
-                  type="button"
-                  onClick={handleAddClick}
-                  aria-label={labels.addAria}
-                  title={labels.addAria}
-                  className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[3px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
-                  style={{
-                    borderColor: "var(--hairline)",
-                    background: "var(--surface-2)",
-                  }}
-                >
-                  <PlusIcon className="size-7" />
-                </button>
-                <div className="w-[18px] shrink-0" aria-hidden="true" />
-              </div>
-            </div>
-          </SortableContext>
-        </DndContext>
-      </div>
+  const pictures = (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
+        <div className="flex flex-wrap justify-center gap-0">
+          {items.map((item, i) => (
+            <SortableCell
+              key={item.id}
+              item={item}
+              pageNumber={i + 1}
+              bytes={sourceBytesById.get(item.sourceFileId)}
+              onRotate={handleRotate}
+              onDelete={handleDelete}
+              rotateAria={labels.rotateAria}
+              deleteAria={labels.deleteAria}
+              frameBg="var(--surface-2)"
+              page={cardPage(
+                pageSize,
+                orientation,
+                margin,
+                item,
+                sourceBytesById.get(item.sourceFileId),
+              )}
+            />
+          ))}
+          <div className="flex items-stretch">
+            <button
+              type="button"
+              onClick={handleAddClick}
+              aria-label={labels.addAria}
+              title={labels.addAria}
+              className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[3px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
+              style={{
+                borderColor: "var(--hairline)",
+                background: "var(--surface-2)",
+              }}
+            >
+              <PlusIcon className="size-7" />
+            </button>
+            <div className="w-[18px] shrink-0" aria-hidden="true" />
+          </div>
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+
+  // Flat, as image-to-pptx (DESIGN.md "Panel divider"): from tablet width the
+  // pictures take the tray's height on the left, the only part that
+  // scrolls, then a 1px divider and the settings in a fixed column narrow
+  // enough to leave two cards a row at tablet width. On a phone the
+  // settings sit above the pictures and the page scrolls.
+  const editor = (
+    <div className="flex flex-col gap-3 md:grid md:h-[var(--tray-h)] md:grid-cols-[minmax(0,1fr)_1px_300px] md:gap-0">
+      <div className="md:order-3 md:pl-5">{settings}</div>
+      <div className="hidden md:order-2 md:block" style={{ background: "var(--border)" }} aria-hidden="true" />
+      <div className="ob-scroll min-h-0 md:order-1 md:overflow-y-auto md:pr-2">{pictures}</div>
     </div>
   );
 

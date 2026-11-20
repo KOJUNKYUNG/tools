@@ -1,8 +1,8 @@
 // Real-file regression set entry for image-to-pdf (`pnpm test:real`).
-// Only PNG and JPEG run here: HEIC is converted to JPEG by the browser's
-// canvas before it reaches the engine, which Node cannot do. Fill page and
-// picture quality cut and resize pictures with the browser's canvas; here
-// sharp does it, on the same rules.
+// PNG, JPEG and WebP run here; HEIC is converted to JPEG by the browser
+// before it reaches the engine, which Node cannot do. Fill page, picture
+// quality and every WebP (which a PDF cannot hold) go through the browser's
+// canvas; here sharp does it, on the same rules.
 import { nodeSizedPreparation } from "@/lib/image/slideImageNode";
 import {
   realFileSuite,
@@ -81,7 +81,7 @@ async function requests(): Promise<RealFileRequest<ImageToPdfRequest>[]> {
 
 realFileSuite({
   tool: "image-to-pdf",
-  extensions: [".png", ".jpg", ".jpeg"],
+  extensions: [".png", ".jpg", ".jpeg", ".webp"],
   requests,
   run: (input, request) =>
     convertImagesToPdf({ ...request, sourceBytesById: sourcesOf(input) }, undefined, nodeSizedPreparation),

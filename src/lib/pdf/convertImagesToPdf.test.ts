@@ -823,3 +823,59 @@ describe("convertImagesToPdf: picture quality", () => {
     expect(pdfJpegs(output).map((j) => j.readable && j.reading.photoInfo)).toEqual([[], []]);
   });
 });
+
+describe("convertImagesToPdf: WebP", () => {
+  /** A solid WebP of `width`×`height`, made by sharp; `alpha` makes it half see-through. */
+  const webp = async (width: number, height: number, alpha = false) =>
+    new Uint8Array(
+      await sharp({
+        create: {
+          width,
+          height,
+          channels: alpha ? 4 : 3,
+          background: alpha ? { r: 90, g: 140, b: 200, alpha: 0.5 } : { r: 90, g: 140, b: 200 },
+        },
+      })
+        .webp({ lossless: alpha })
+        .toBuffer(),
+    );
+  /** The format of each picture the PDF holds, as its own bytes read: JPEGs found, the rest PNG. */
+  const run = async (settings: Omit<ImageToPdfRequest, "pages">, src: Map<string, Uint8Array>) => {
+    const pages = [...src.keys()].map((id) => image(id));
+    const output = await convertImagesToPdf({ pages, sourceBytesById: src, ...settings }, undefined, nodeSizedPreparation);
+    expect(await checkImageToPdf(src, { pages, ...settings }, output, "full")).toEqual([]);
+    return output;
+  };
+
+  it.each<[string, Omit<ImageToPdfRequest, "pages" | "quality">]>([
+    ["A4", { pageSize: A4 }],
+    ["A4 with a margin", { pageSize: A4, margin: 10 }],
+    ["16:9 fill page", { pageSize: { kind: "preset", preset: "16:9" }, margin: "fill" }],
+    ["image fit", { pageSize: IMAGE_FIT }],
+  ])("%s: a WebP lands on its page at every level", async (_, settings) => {
+    const src = new Map([["p", await webp(3000, 2000)]]);
+    for (const quality of PICTURE_QUALITIES) {
+      const output = await run({ ...settings, quality }, src);
+      expect(await storedPictureSizes(output)).toHaveLength(1);
+    }
+  });
+
+  it("원본 그대로: a WebP goes in at its own size, as JPEG or PNG by the preparation's rule", async () => {
+    const src = new Map([
+      ["photo", await webp(3000, 2000)],
+      ["clear", await webp(400, 300, true)],
+    ]);
+    const output = await run({ pageSize: A4, quality: "original" }, src);
+    expect(await storedPictureSizes(output)).toEqual([
+      [3000, 2000],
+      [400, 300],
+    ]);
+  });
+
+  it("보통 sizes a WebP as it would a JPEG of the same size", async () => {
+    const src = new Map([["p", await webp(3000, 2000)]]);
+    const output = await run({ pageSize: A4, quality: "standard" }, src);
+    // 3000 × 2000 across a landscape A4 at 200 dpi: 2339 × 1559, as for the JPEG.
+    expect(await storedPictureSizes(output)).toEqual([[2339, 1559]]);
+  });
+});

@@ -71,7 +71,7 @@ export interface AssembleInput {
 }
 
 /** Detect raster format from magic bytes so PageItem need not carry a mime type. */
-export function detectImageFormat(bytes: Uint8Array): "png" | "jpg" {
+export function detectImageFormat(bytes: Uint8Array): "png" | "jpg" | "webp" {
   if (
     bytes[0] === 0x89 &&
     bytes[1] === 0x50 &&
@@ -83,8 +83,11 @@ export function detectImageFormat(bytes: Uint8Array): "png" | "jpg" {
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
     return "jpg";
   }
+  // "RIFF", the file's size, then "WEBP".
+  const ascii = (at: number, text: string) => [...text].every((c, i) => bytes[at + i] === c.charCodeAt(0));
+  if (ascii(0, "RIFF") && ascii(8, "WEBP")) return "webp";
   // The file is not what its name says: the user's file, not the tool.
-  throw new Error(`${INVALID_INPUT_PREFIX}: not a PNG or JPEG image`);
+  throw new Error(`${INVALID_INPUT_PREFIX}: not a PNG, JPEG or WebP image`);
 }
 
 /** A picture embedded in `out`, with the EXIF orientation it is drawn by and its shown size. */
@@ -92,7 +95,10 @@ async function embedPicture(
   out: PDFDocument,
   bytes: Uint8Array,
 ): Promise<{ image: EmbeddedImage; exifOrientation: ExifOrientation; shownW: number; shownH: number }> {
-  const isPng = detectImageFormat(bytes) === "png";
+  const format = detectImageFormat(bytes);
+  // A PDF cannot hold a WebP: it reaches here only through the preparation.
+  if (format === "webp") throw new Error("a WebP must be prepared before it is embedded");
+  const isPng = format === "png";
   // A JPEG goes in without its photo info (CONTEXT "Photo info"), its
   // picture byte for byte. The EXIF orientation is read from the original
   // first and applied when drawn, so the page shows what the editor's
@@ -166,7 +172,8 @@ export async function assembleSections(
   /**
    * The picture that goes in: the upload itself when it is whole and keeps
    * its own size, under 원본 그대로 (every pixel kept) or as a JPEG (which
-   * re-encoding could only blur); otherwise the preparation's `crop` of it
+   * re-encoding could only blur), unless it is a WebP, which a PDF cannot
+   * hold; otherwise the preparation's `crop` of it
    * drawn at `size`. The preparation holds the format rules: a PNG turns
    * into JPEG only at half the size or less, with no transparency used;
    * under 원본 그대로 a cut part keeps its own format, saved once.
@@ -180,7 +187,8 @@ export async function assembleSections(
   ): Promise<Uint8Array> {
     const whole = crop.width === upright.width && crop.height === upright.height;
     const resized = size.width !== crop.width || size.height !== crop.height;
-    if (whole && !resized && (quality === "original" || detectImageFormat(bytes) === "jpg")) return bytes;
+    const format = detectImageFormat(bytes);
+    if (whole && !resized && format !== "webp" && (quality === "original" || format === "jpg")) return bytes;
     const encoding = quality === "original" ? "own" : "smallest";
     return (await preparation.prepare(source, crop, size, undefined, encoding)).bytes;
   }
@@ -269,14 +277,22 @@ export async function assembleSections(
     return keptSize(upright, { width: fit.drawW, height: fit.drawH }, pixelsPerPoint(sizedOn, box, quality));
   }
 
-  /** A page for the picture `bytes`, turned `rotation` by the user. */
+  /**
+   * A page for the picture `bytes`, turned `rotation` by the user. Under
+   * 원본 그대로 a WebP, which a PDF cannot hold, goes through the
+   * preparation at its own size.
+   */
   async function addPicturePage(out: PDFDocument, bytes: Uint8Array, rotation: PageItem["rotation"]) {
     if (margin === "fill" && pageSize.kind !== "image-fit") return addFilledPage(out, bytes, rotation);
-    if (quality === "original") return addPlacedPage(out, await embedPicture(out, bytes), rotation);
+    const asUploaded = quality === "original";
+    if (asUploaded && detectImageFormat(bytes) !== "webp") {
+      return addPlacedPage(out, await embedPicture(out, bytes), rotation);
+    }
     const source = new Blob([Uint8Array.from(bytes)]);
     const upright = await preparation.measure(source);
     const whole = { x: 0, y: 0, width: upright.width, height: upright.height };
-    const kept = await keptPicture(bytes, source, upright, whole, keptWholeSize(upright, rotation));
+    const size = asUploaded ? upright : keptWholeSize(upright, rotation);
+    const kept = await keptPicture(bytes, source, upright, whole, size);
     const { image, exifOrientation } = await embedPicture(out, kept);
     addPlacedPage(out, { image, exifOrientation, shownW: upright.width, shownH: upright.height }, rotation);
   }

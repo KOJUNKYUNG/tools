@@ -191,21 +191,19 @@ export function PageSizeSelector({
       </div>
 
       {/* Orientation and margin do nothing under image fit, so they are hidden
-          there, keeping their space so the picture cards never move. */}
+          there, keeping their space so nothing below them moves. */}
       <div
-        className={`grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 ${mode === "image-fit" ? "invisible" : ""}`}
+        className={`space-y-2 ${mode === "image-fit" ? "invisible" : ""}`}
         aria-hidden={mode === "image-fit" || undefined}
       >
         <ChoiceTabs
           label={labels.orientationLabel}
-          labelBeside
           options={PAGE_ORIENTATIONS.map((o) => ({ value: o, label: orientationLabel[o] }))}
           value={orientation}
           onChange={onOrientationChange}
         />
         <ChoiceTabs
           label={labels.marginLabel}
-          labelBeside
           options={PAGE_MARGINS.map((m) => ({
             // ChoiceTabs takes string values; the choices stay distinct as strings.
             value: String(m),
