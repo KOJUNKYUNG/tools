@@ -70,6 +70,11 @@ export interface PdfImagePaint {
    * the transform in force when painted, in unrotated page space (pt).
    */
   box: { x0: number; y0: number; x1: number; y1: number };
+  /**
+   * Whether it is painted a quarter turned: its rows run up or down the
+   * page, so its width lies along the box's height.
+   */
+  quarterTurned: boolean;
 }
 
 /** What a page's content stream draws. */
@@ -215,7 +220,8 @@ function report(doc: PDFDocumentProxy, lib: PdfjsLib): PdfReport {
         if (op !== lib.OPS.paintImageXObject) return;
         // pdfjs's paintImageXObject arguments are [objId, width, height].
         const [id, width, height] = argsArray[i] as [string, number, number];
-        images.push({ id, width, height, box: unitSquareBox(ctm) });
+        // The image's x axis is the transform's first column: mostly vertical when turned.
+        images.push({ id, width, height, box: unitSquareBox(ctm), quarterTurned: Math.abs(ctm[1]) > Math.abs(ctm[0]) });
       });
       return { operatorCount: fnArray.length, images };
     },

@@ -727,6 +727,7 @@
         "marginLabel": "Margin",
         "marginNone": "None",
         "marginOption": "{n} mm",
+        "marginFill": "Fill page",
         "resultTitle": "PDF ready",
         "pageCount": "{n} pages",
         "download": "Download",

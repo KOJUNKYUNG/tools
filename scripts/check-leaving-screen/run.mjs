@@ -14,6 +14,7 @@
 //   pnpm check:leaving-screen --tool=ppt-background --fixture=<deck> --edit=recipe|filter [--context-loss]
 //   pnpm check:leaving-screen --tool=ppt-background --fixture=<deck> --edit=photo|effect
 //   pnpm check:leaving-screen --tool=image-to-pptx --fixture=<picture> [--edit=recipe|filter|photo|effect] [--context-loss]
+//   pnpm check:leaving-screen --tool=image-to-pdf --fixture=<picture> [--fill-page]
 //   pnpm check:leaving-screen --compare <fileA> <fileB>
 //   pnpm check:leaving-screen --print-intent [--dpi=150] [--gpu]: pdf-to-image's gate (#139)
 // Options: --paused says this file's run truly stops while hidden, where the tool
@@ -77,6 +78,8 @@ const EN = JSON.parse(await readFile(join(root, "src/i18n/dictionaries/en.json")
 const { processingStatus: RUN_COPY, errors: ERROR_COPY } = EN.common;
 /** image-to-pptx's "change" on the background row, which opens the background editor. */
 const BG_CHANGE = EN.tools["image-to-pptx"].page.bgChange;
+/** image-to-pdf's fill page, the margin row's fourth choice: its run cuts pictures on a canvas. */
+const FILL_PAGE = EN.tools["image-to-pdf"].page.marginFill;
 
 const seconds = (ms) => `${(ms / 1000).toFixed(1)} s`;
 
@@ -226,6 +229,16 @@ const TOOL_SET_UP = {
   "image-to-pptx": setUpImageToPptx,
   // Its text watermark, the default, needs a text.
   "pdf-watermark": (browser) => setInput(browser, `document.querySelector('input[type="text"]')`, `"Ontab"`),
+  // On its default A4 with --fill-page, the picture is cut to the page's shape on a canvas.
+  "image-to-pdf": (browser, { fillPage }) =>
+    fillPage &&
+    waitFor(
+      () =>
+        browser.evaluate(
+          `(() => { const b = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(FILL_PAGE)}); b?.click(); return !!b; })()`,
+        ),
+      "fill page",
+    ),
 };
 
 async function setUp(browser, options, downloads) {
@@ -590,7 +603,9 @@ function toolOptions(origin) {
   if (args.edit && !edit) throw new Error("--edit is for ppt-background and image-to-pptx");
   if (edit && !(edit in DRAWS_WITH_PAPER)) throw new Error(`--edit takes ${Object.keys(DRAWS_WITH_PAPER).join(", ")}`);
   if (args["context-loss"] && !DRAWS_WITH_PAPER[edit]) throw new Error("--context-loss needs a drawing: --edit=recipe or filter");
-  return { origin, tool: args.tool, fixture, edit, paused: Boolean(args.paused) };
+  const fillPage = Boolean(args["fill-page"]);
+  if (fillPage && args.tool !== "image-to-pdf") throw new Error("--fill-page is for image-to-pdf");
+  return { origin, tool: args.tool, fixture, edit, fillPage, paused: Boolean(args.paused) };
 }
 
 async function main() {

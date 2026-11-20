@@ -159,9 +159,10 @@ describe("inspectPdf", () => {
     });
     const [marked, plain] = read;
     expect(marked.images).toEqual([
-      { id: expect.any(String), width: 8, height: 4, box: { x0: 0, y0: 0, x1: 8, y1: 4 } },
-      // Turned a quarter counterclockwise about its lower-left corner (9, 2).
-      { id: marked.images[0].id, width: 8, height: 4, box: { x0: 3, y0: 2, x1: 9, y1: 6 } },
+      { id: expect.any(String), width: 8, height: 4, box: { x0: 0, y0: 0, x1: 8, y1: 4 }, quarterTurned: false },
+      // Turned a quarter counterclockwise about its lower-left corner (9, 2):
+      // its rows now run up the page.
+      { id: marked.images[0].id, width: 8, height: 4, box: { x0: 3, y0: 2, x1: 9, y1: 6 }, quarterTurned: true },
     ]);
     expect(plain.images).toEqual([]);
     expect(marked.operatorCount).toBeGreaterThan(before);

@@ -39,7 +39,7 @@ import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { type PageItem, type Rotation } from "@/lib/pdf/pageItem";
 import {
   type CustomSizeMm,
-  type PageMarginMm,
+  type PageMargin,
   type PageOrientation,
   type PagePreset,
   type PageSize,
@@ -68,18 +68,21 @@ interface CardPage {
   aspect: number;
   /** The margin's share of the page's width. */
   marginRatio: number;
+  /** Fill page: the picture covers the frame, cut at its edges. */
+  fill: boolean;
 }
 
 /**
  * The page `item` will be made on, for its editor card: the picture's shown
  * size (EXIF orientation, then the user's turn) put through the same page
- * and margin rules as the engine. Null under image fit, where the picture is
+ * and margin rules as the engine; under fill page the picture covers the
+ * frame, cut at its centre as the engine cuts it. Null under image fit, where the picture is
  * the page. A picture whose header cannot be read gets the size as listed.
  */
 function cardPage(
   pageSize: PageSize,
   orientation: PageOrientation,
-  marginMm: PageMarginMm,
+  margin: PageMargin,
   item: PageItem,
   bytes: Uint8Array | undefined,
 ): CardPage | null {
@@ -87,7 +90,8 @@ function cardPage(
   const [w, h] = header ? displayedSize(header) : [1, 1];
   const box = pageBoxPt(pageSize, w, h, item.rotation, orientation);
   if (!box) return null;
-  return { aspect: box.width / box.height, marginRatio: marginPt(box, marginMm) / box.width };
+  if (margin === "fill") return { aspect: box.width / box.height, marginRatio: 0, fill: true };
+  return { aspect: box.width / box.height, marginRatio: marginPt(box, margin) / box.width, fill: false };
 }
 
 export interface ImageToPdfResultData {
@@ -145,6 +149,7 @@ function SortableCell({
         frameBg={frameBg}
         pageAspect={page?.aspect ?? null}
         pageMarginRatio={page?.marginRatio ?? 0}
+        pageFill={page?.fill ?? false}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
       {/* No divider — image-to-pdf always produces one PDF. Keep the column gutter. */}
@@ -176,7 +181,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
   // survive a look at image fit or the same preset.
   const [customSeed, setCustomSeed] = useState<PagePreset>("a4");
   const [orientation, setOrientation] = useState<PageOrientation>("auto");
-  const [marginMm, setMarginMm] = useState<PageMarginMm>(0);
+  const [margin, setMargin] = useState<PageMargin>(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
 
@@ -213,7 +218,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       const live = items.filter((p) => !p.deleted);
       if (live.length === 0) throw new Error("no images to convert"); // Convert is disabled then
       const bytes = await convertImagesToPdf(
-        { pages: live, sourceBytesById, pageSize, orientation, marginMm },
+        { pages: live, sourceBytesById, pageSize, orientation, margin },
         onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pdf`;
@@ -384,8 +389,8 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         onCustomChange={setCustom}
         orientation={orientation}
         onOrientationChange={setOrientation}
-        marginMm={marginMm}
-        onMarginChange={setMarginMm}
+        margin={margin}
+        onMarginChange={setMargin}
         labels={labels}
       />
 
@@ -414,7 +419,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
                   page={cardPage(
                     pageSize,
                     orientation,
-                    marginMm,
+                    margin,
                     item,
                     sourceBytesById.get(item.sourceFileId),
                   )}

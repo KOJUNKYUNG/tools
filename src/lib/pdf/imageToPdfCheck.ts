@@ -3,7 +3,7 @@ import { type ImageHeader, readImageHeader } from "@/lib/output-check/imageHeade
 import { inspectPdf, type PdfImagePaint, type PdfReport } from "@/lib/output-check/pdfInspector";
 import { pdfJpegs } from "@/lib/output-check/pdfJpegs";
 import type { PageItem } from "./pageItem";
-import type { PageMarginMm, PageOrientation, PagePreset, PageSize } from "./pageSize";
+import type { PageMargin, PageOrientation, PagePreset, PageSize } from "./pageSize";
 
 /** Raw bytes per source image id (PNG or JPEG). */
 export type ImageToPdfSources = Map<string, Uint8Array>;
@@ -14,8 +14,11 @@ export interface ImageToPdfRequest {
   pageSize: PageSize;
   /** How preset and custom pages are turned; ignored under image fit. Default: auto. */
   orientation?: PageOrientation;
-  /** The white on every side of a preset or custom page; ignored under image fit. Default: none. */
-  marginMm?: PageMarginMm;
+  /**
+   * The white on every side of a preset or custom page, or fill page;
+   * ignored under image fit. Default: none.
+   */
+  margin?: PageMargin;
 }
 
 const normalise = (deg: number) => ((deg % 360) + 360) % 360;
@@ -65,13 +68,24 @@ const MAX_SIDE_PT = 200 * 72;
  * auto along the picture's long side once turned; a square picture keeps it
  * as listed. `margin` is the white on every side, in points: none under
  * image fit, otherwise the margin asked for, at most a quarter of the
- * page's short side.
+ * page's short side. `fill` is fill page on a preset or custom page, and
+ * `cut` whether it cuts this picture: unless the picture, as turned, is
+ * within a pixel of the page's shape (the centred crop CONTEXT "Fill page"
+ * shares with the background crop).
  */
 function expectedPage(
-  { pageSize, orientation = "auto", marginMm = 0 }: ImageToPdfRequest,
+  { pageSize, orientation = "auto", margin: marginChoice = 0 }: ImageToPdfRequest,
   item: PageItem,
   sources: ImageToPdfSources,
-): { width: number; height: number; rotation: number; pictureAspect: number; margin: number } {
+): {
+  width: number;
+  height: number;
+  rotation: number;
+  pictureAspect: number;
+  margin: number;
+  fill: boolean;
+  cut: boolean;
+} {
   const { width, height, orientation: exif } = headerOf(sources, item.sourceFileId);
   const exifTurned = exif >= 5;
   const shownW = exifTurned ? height : width;
@@ -84,6 +98,8 @@ function expectedPage(
       rotation: item.rotation,
       pictureAspect: shownW / shownH,
       margin: 0,
+      fill: false,
+      cut: false,
     };
   }
   const [w, h] =
@@ -98,11 +114,25 @@ function expectedPage(
     orientation === "auto" ? (picW === picH ? w > h : picW > picH) : orientation === "landscape";
   const turnPage = wantAcross !== w > h && w !== h;
   const pictureAspect = picW / picH;
-  const margin = Math.min(marginMm * MM, Math.min(w, h) / 4);
-  return turnPage
-    ? { width: h, height: w, rotation: 0, pictureAspect, margin }
-    : { width: w, height: h, rotation: 0, pictureAspect, margin };
+  const fill = marginChoice === "fill";
+  const margin = fill ? 0 : Math.min(marginChoice * MM, Math.min(w, h) / 4);
+  const [pageW, pageH] = turnPage ? [h, w] : [w, h];
+  const pageAspect = pageW / pageH;
+  const cut = fill && Math.abs(picW - picH * pageAspect) > 1 && Math.abs(picH - picW / pageAspect) > 1;
+  return { width: pageW, height: pageH, rotation: 0, pictureAspect, margin, fill, cut };
 }
+
+/** How far a picture's box may miss an edge, and its centre the page's centre, in points. */
+const EDGE_PT = 0.01;
+const CENTRE_PT = 0.1;
+
+/** Whether `box` lies past an edge of `page`. */
+const pastEdge = (box: PdfImagePaint["box"], page: { width: number; height: number }) =>
+  box.x0 < -EDGE_PT || box.y0 < -EDGE_PT || box.x1 > page.width + EDGE_PT || box.y1 > page.height + EDGE_PT;
+
+/** Whether `box` is centred on `page`. */
+const centred = (box: PdfImagePaint["box"], page: { width: number; height: number }) =>
+  Math.abs(box.x0 + box.x1 - page.width) / 2 <= CENTRE_PT && Math.abs(box.y0 + box.y1 - page.height) / 2 <= CENTRE_PT;
 
 /**
  * How each picture sits on its page: whole inside the content box (the page
@@ -116,8 +146,8 @@ function fitProblems(
   pictureAspect: number,
 ): string[] {
   const problems: string[] = [];
-  const edge = 0.01;
-  if (box.x0 < -edge || box.y0 < -edge || box.x1 > page.width + edge || box.y1 > page.height + edge) {
+  const edge = EDGE_PT;
+  if (pastEdge(box, page)) {
     problems.push("past the page's edge");
   } else if (
     box.x0 < margin - edge ||
@@ -133,13 +163,36 @@ function fitProblems(
   const contentH = page.height - 2 * margin;
   if (Math.abs(w / h / pictureAspect - 1) > 0.005) problems.push("not its shape");
   if (Math.abs(w - contentW) > edge && Math.abs(h - contentH) > edge) problems.push("smaller than fits");
-  const centre = 0.1;
-  if (
-    Math.abs(box.x0 + box.x1 - page.width) / 2 > centre ||
-    Math.abs(box.y0 + box.y1 - page.height) / 2 > centre
-  ) {
-    problems.push("off centre");
+  if (!centred(box, page)) problems.push("off centre");
+  return problems;
+}
+
+/**
+ * How a picture sits on its page under fill page: across the whole page,
+ * neither short of an edge nor past one (past an edge, pixels the reader
+ * cannot see stay in the file), centred, and stored with the shape it is
+ * drawn at, to the pixel: the part kept is a whole-pixel rectangle of the
+ * page's shape, or the picture itself when already within a pixel of it.
+ * The source is not consulted: what was cut is the engine's choice, and the
+ * page's shape is what the stored picture must hold. Empty when right.
+ */
+function fillProblems(
+  { box, width, height, quarterTurned }: PdfImagePaint,
+  page: { width: number; height: number },
+): string[] {
+  const problems: string[] = [];
+  const edge = EDGE_PT;
+  if (pastEdge(box, page)) problems.push("past the page's edge");
+  if (box.x0 > edge || box.y0 > edge || box.x1 < page.width - edge || box.y1 < page.height - edge) {
+    problems.push("does not cover the page");
   }
+  // The stored pixels along the page's width and height.
+  const [across, up] = quarterTurned ? [height, width] : [width, height];
+  const drawnAspect = (box.x1 - box.x0) / (box.y1 - box.y0);
+  if (Math.abs(across - up * drawnAspect) > 1 && Math.abs(up - across / drawnAspect) > 1) {
+    problems.push("not its shape");
+  }
+  if (!centred(box, page)) problems.push("off centre");
   return problems;
 }
 
@@ -177,8 +230,10 @@ async function checkPages(
       });
     }
     const { images } = await pdf.content(n);
-    for (const { box } of images) {
-      const problems = fitProblems(box, out, expected.margin, expected.pictureAspect);
+    for (const paint of images) {
+      const problems = expected.fill
+        ? fillProblems(paint, out)
+        : fitProblems(paint.box, out, expected.margin, expected.pictureAspect);
       if (problems.length > 0) {
         violations.push({ property: "picture-fit", detail: `page ${n}: picture ${problems.join(", ")}` });
       }
@@ -194,13 +249,17 @@ async function checkPages(
  * transparency or interlacing is decoded and deflated again, which can come
  * out larger than a carefully optimised file, so it is allowed its raw size
  * (8-bit RGB plus alpha): deflate never exceeds that by more than the margin.
+ * Under fill page a part cut from a picture is saved anew (a JPEG at high
+ * quality), so a picture any page cuts is allowed its raw size too.
  */
-function sizeBound(sources: ImageToPdfSources, pages: PageItem[]): number {
+function sizeBound(sources: ImageToPdfSources, request: ImageToPdfRequest): number {
+  const { pages } = request;
+  const cut = new Set(pages.filter((p) => expectedPage(request, p, sources).cut).map((p) => p.sourceFileId));
   let images = 0;
   for (const id of new Set(pages.map((p) => p.sourceFileId))) {
     const header = headerOf(sources, id);
     images +=
-      header.format === "png"
+      header.format === "png" || cut.has(id)
         ? header.width * header.height * 4
         : // Non-null: headerOf found the bytes.
           sources.get(id)!.byteLength;
@@ -241,7 +300,8 @@ function photoInfoViolations(output: Uint8Array): Violation[] {
  *   picture as the user turned it
  * - `picture-fit`: every picture is whole inside its page less the margin
  *   (none under image fit), keeping its shape, as large as fits there and
- *   centred
+ *   centred; under fill page, it covers exactly the page, centred, stored
+ *   with the shape it is drawn at (no pixels past the page's edges)
  * - `size-bound`: the PDF ≤ its images + a margin
  * - ⚡ `photo-info`: no embedded JPEG carries photo info (EXIF, XMP, maker
  *   data, comments, data after its end; CONTEXT "Photo info"), read from
@@ -255,7 +315,7 @@ export const checkImageToPdf: OutputChecker<
   const violations: Violation[] = [];
 
   if (depth === "full") {
-    const bound = sizeBound(sources, request.pages);
+    const bound = sizeBound(sources, request);
     if (output.byteLength > bound) {
       violations.push({
         property: "size-bound",

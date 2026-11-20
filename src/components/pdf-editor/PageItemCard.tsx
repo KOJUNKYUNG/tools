@@ -47,6 +47,11 @@ interface PageItemCardProps {
    */
   pageMarginRatio?: number;
   /**
+   * The picture covers the page frame, cut at its edges and centred
+   * (image-to-pdf's fill page). Default false: it fits whole inside.
+   */
+  pageFill?: boolean;
+  /**
    * When false, omit the grab cursor (a non-reorderable grid like pdf-to-image).
    * Default true preserves pdf-arrange / image-to-pdf behavior.
    */
@@ -81,6 +86,7 @@ function PageItemCardImpl({
   frameBg = "var(--surface-2)",
   pageAspect = null,
   pageMarginRatio = 0,
+  pageFill = false,
   draggable = true,
   fluid = false,
   onSelect,
@@ -215,7 +221,7 @@ function PageItemCardImpl({
                 src={frameSrc}
                 alt={`page ${pageNumber}`}
                 draggable={false}
-                className="h-full w-full object-contain"
+                className={`h-full w-full ${pageFill ? "object-cover" : "object-contain"}`}
               />
             </div>
           ) : (

@@ -727,6 +727,7 @@
         "marginLabel": "여백",
         "marginNone": "없음",
         "marginOption": "{n} mm",
+        "marginFill": "꽉 채우기",
         "resultTitle": "PDF 준비 완료",
         "pageCount": "{n}페이지",
         "download": "다운로드",

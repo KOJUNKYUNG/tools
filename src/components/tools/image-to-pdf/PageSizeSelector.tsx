@@ -8,9 +8,9 @@ import {
   type CustomSizeMm,
   MAX_PAGE_MM,
   MIN_PAGE_MM,
-  PAGE_MARGINS_MM,
+  PAGE_MARGINS,
   PAGE_ORIENTATIONS,
-  type PageMarginMm,
+  type PageMargin,
   type PageOrientation,
   type PagePreset,
   type PageSizeMode,
@@ -41,6 +41,7 @@ export interface PageSizeSelectorLabels {
   marginLabel: string;
   marginNone: string;
   marginOptionTemplate: string;
+  marginFill: string;
 }
 
 const FIELD_CLASS =
@@ -60,7 +61,7 @@ export function PageSizeSelector({
   onCustomChange,
   orientation,
   onOrientationChange,
-  marginMm,
+  margin,
   onMarginChange,
   labels,
 }: {
@@ -72,8 +73,8 @@ export function PageSizeSelector({
   onCustomChange: (next: CustomSizeMm) => void;
   orientation: PageOrientation;
   onOrientationChange: (next: PageOrientation) => void;
-  marginMm: PageMarginMm;
-  onMarginChange: (next: PageMarginMm) => void;
+  margin: PageMargin;
+  onMarginChange: (next: PageMargin) => void;
   labels: PageSizeSelectorLabels;
 }) {
   // ISO and JIS sizes are written the same in every language (A4, B5);
@@ -205,12 +206,17 @@ export function PageSizeSelector({
         <ChoiceTabs
           label={labels.marginLabel}
           labelBeside
-          options={PAGE_MARGINS_MM.map((mm) => ({
-            // ChoiceTabs takes string values; the margins are distinct numbers.
-            value: String(mm),
-            label: mm === 0 ? labels.marginNone : template(labels.marginOptionTemplate, { n: mm }),
+          options={PAGE_MARGINS.map((m) => ({
+            // ChoiceTabs takes string values; the choices stay distinct as strings.
+            value: String(m),
+            label:
+              m === "fill"
+                ? labels.marginFill
+                : m === 0
+                  ? labels.marginNone
+                  : template(labels.marginOptionTemplate, { n: m }),
           }))}
-          value={String(marginMm)}
+          value={String(margin)}
           onChange={(v) => onMarginChange(marginFromValue(v))}
         />
       </div>
@@ -218,7 +224,7 @@ export function PageSizeSelector({
   );
 }
 
-/** The margin a tab's value names; only values built from PAGE_MARGINS_MM reach here. */
-function marginFromValue(value: string): PageMarginMm {
-  return PAGE_MARGINS_MM.find((mm) => String(mm) === value) ?? 0;
+/** The margin a tab's value names; only values built from PAGE_MARGINS reach here. */
+function marginFromValue(value: string): PageMargin {
+  return PAGE_MARGINS.find((m) => String(m) === value) ?? 0;
 }

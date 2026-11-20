@@ -19,6 +19,8 @@ import {
   translate,
 } from "pdf-lib";
 import { INVALID_INPUT_PREFIX } from "@/lib/errors";
+import { slideCrop } from "@/lib/image/maxFitCrop";
+import { type SizedImagePreparation, sizedImagePreparation } from "@/lib/image/slideImage";
 import { stripPhotoInfo } from "@/lib/image/stripPhotoInfo";
 import { runOutputCheck } from "@/lib/output-check/core";
 import { type PageItem, buildOutputNames } from "./pageItem";
@@ -34,7 +36,7 @@ import {
 import { type ImageToPdfRequest, checkImageToPdf } from "./imageToPdfCheck";
 import { checkPdfArrange } from "./pdfArrangeCheck";
 import {
-  type PageMarginMm,
+  type PageMargin,
   type PageOrientation,
   type PageSize,
   marginPt,
@@ -50,8 +52,13 @@ export interface AssembleInput {
   pageSize?: PageSize;
   /** How preset and custom pages are turned. Default: auto. */
   orientation?: PageOrientation;
-  /** The white on every side of a preset or custom page. Default: none. */
-  marginMm?: PageMarginMm;
+  /** The white on every side of a preset or custom page, or fill page. Default: none. */
+  margin?: PageMargin;
+  /**
+   * Cuts a picture under fill page: the browser's canvas by default; tests
+   * in Node pass a stand-in.
+   */
+  preparation?: SizedImagePreparation;
 }
 
 /** Detect raster format from magic bytes so PageItem need not carry a mime type. */
@@ -69,6 +76,23 @@ export function detectImageFormat(bytes: Uint8Array): "png" | "jpg" {
   }
   // The file is not what its name says: the user's file, not the tool.
   throw new Error(`${INVALID_INPUT_PREFIX}: not a PNG or JPEG image`);
+}
+
+/** A picture embedded in `out`, with the EXIF orientation it is drawn by and its shown size. */
+async function embedPicture(
+  out: PDFDocument,
+  bytes: Uint8Array,
+): Promise<{ image: EmbeddedImage; exifOrientation: ExifOrientation; shownW: number; shownH: number }> {
+  const isPng = detectImageFormat(bytes) === "png";
+  // A JPEG goes in without its photo info (CONTEXT "Photo info"), its
+  // picture byte for byte. The EXIF orientation is read from the original
+  // first and applied when drawn, so the page shows what the editor's
+  // thumbnail shows. A PNG goes in losslessly and no larger than it is (see
+  // embedPng).
+  const image: EmbeddedImage = isPng ? await embedPng(out, bytes) : await out.embedJpg(stripPhotoInfo(bytes));
+  const exifOrientation = isPng ? 1 : readJpegOrientation(bytes);
+  const [shownW, shownH] = orientedSize(image.width, image.height, exifOrientation);
+  return { image, exifOrientation, shownW, shownH };
 }
 
 /**
@@ -112,7 +136,8 @@ export async function assembleSections(
     sourceBytesById,
     pageSize = { kind: "image-fit" },
     orientation = "auto",
-    marginMm = 0,
+    margin = 0,
+    preparation = sizedImagePreparation,
   }: AssembleInput,
   onProgress?: (pct: number) => void,
 ): Promise<Uint8Array[]> {
@@ -126,6 +151,40 @@ export async function assembleSections(
     const doc = await PDFDocument.load(bytes, LOAD_WITH_RARE_YIELDS);
     sourceDocCache.set(id, doc);
     return doc;
+  }
+
+  /**
+   * A page under fill page (CONTEXT "Fill page"): the page box follows the
+   * picture as shown (EXIF orientation, then the user's turn), and the
+   * picture covers it. Only the largest rectangle of the page's shape at the
+   * picture's centre enters the PDF, cut by the preparation and saved once
+   * in its own format; a picture already of the page's shape goes in whole,
+   * as without fill page. Either is drawn across exactly the page, so a
+   * picture within a pixel of its shape leaves no white edge.
+   */
+  async function addFilledPage(out: PDFDocument, bytes: Uint8Array, rotation: PageItem["rotation"]) {
+    const source = new Blob([Uint8Array.from(bytes)]);
+    const upright = await preparation.measure(source);
+    // Non-null: fill page is never asked under image fit.
+    const box = pageBoxPt(pageSize, upright.width, upright.height, rotation, orientation)!;
+    const turned = rotation === 90 || rotation === 270;
+    // The page as the picture sees it, before the user's turn.
+    const [shapeW, shapeH] = turned ? [box.height, box.width] : [box.width, box.height];
+    const crop = slideCrop({ w: upright.width, h: upright.height }, shapeW / shapeH);
+    const whole = crop.width === upright.width && crop.height === upright.height;
+    const kept = whole
+      ? bytes
+      : (await preparation.prepare(source, crop, { width: crop.width, height: crop.height }, undefined, "own")).bytes;
+    const { image, exifOrientation } = await embedPicture(out, kept);
+    const page = out.addPage([box.width, box.height]);
+    const fit = computeImageFit(shapeW, shapeH, box.width, box.height, rotation);
+    drawOrientedImage(page, image, exifOrientation, {
+      x: fit.x,
+      y: fit.y,
+      width: fit.drawW,
+      height: fit.drawH,
+      rotate: fit.rotateDeg,
+    });
   }
 
   const totalPages = sections.reduce((sum, s) => sum + s.length, 0);
@@ -163,43 +222,35 @@ export async function assembleSections(
       } else {
         const bytes = sourceBytesById.get(item.sourceFileId);
         if (!bytes) throw new Error(`원본 파일을 찾을 수 없습니다: ${item.sourceFileId}`);
-        const isPng = detectImageFormat(bytes) === "png";
-        // A JPEG goes in without its photo info (CONTEXT "Photo info"), its
-        // picture byte for byte. The EXIF orientation is read from the
-        // original first and applied when drawn, so the page shows what the
-        // editor's thumbnail shows. A PNG goes in losslessly and no larger
-        // than it is (see embedPng).
-        const image: EmbeddedImage = isPng
-          ? await embedPng(out, bytes)
-          : await out.embedJpg(stripPhotoInfo(bytes));
-        const exifOrientation = isPng ? 1 : readJpegOrientation(bytes);
-        const [imgW, imgH] = orientedSize(image.width, image.height, exifOrientation);
-
-        const box = pageBoxPt(pageSize, imgW, imgH, item.rotation, orientation);
-
-        if (box === null) {
-          const page = out.addPage([imgW, imgH]);
-          drawOrientedImage(page, image, exifOrientation, { x: 0, y: 0, width: imgW, height: imgH });
-          if (item.rotation !== 0) page.setRotation(degrees(item.rotation));
+        if (margin === "fill" && pageSize.kind !== "image-fit") {
+          await addFilledPage(out, bytes, item.rotation);
         } else {
-          const page = out.addPage([box.width, box.height]);
-          page.drawRectangle({
-            x: 0,
-            y: 0,
-            width: box.width,
-            height: box.height,
-            color: rgb(1, 1, 1),
-          });
-          // The picture fits whole inside the page less the margin.
-          const m = marginPt(box, marginMm);
-          const fit = computeImageFit(imgW, imgH, box.width - 2 * m, box.height - 2 * m, item.rotation);
-          drawOrientedImage(page, image, exifOrientation, {
-            x: m + fit.x,
-            y: m + fit.y,
-            width: fit.drawW,
-            height: fit.drawH,
-            rotate: fit.rotateDeg,
-          });
+          const { image, exifOrientation, shownW, shownH } = await embedPicture(out, bytes);
+          const box = pageBoxPt(pageSize, shownW, shownH, item.rotation, orientation);
+          if (box === null) {
+            const page = out.addPage([shownW, shownH]);
+            drawOrientedImage(page, image, exifOrientation, { x: 0, y: 0, width: shownW, height: shownH });
+            if (item.rotation !== 0) page.setRotation(degrees(item.rotation));
+          } else {
+            const page = out.addPage([box.width, box.height]);
+            page.drawRectangle({
+              x: 0,
+              y: 0,
+              width: box.width,
+              height: box.height,
+              color: rgb(1, 1, 1),
+            });
+            // The picture fits whole inside the page less the margin.
+            const m = marginPt(box, margin === "fill" ? 0 : margin);
+            const fit = computeImageFit(shownW, shownH, box.width - 2 * m, box.height - 2 * m, item.rotation);
+            drawOrientedImage(page, image, exifOrientation, {
+              x: m + fit.x,
+              y: m + fit.y,
+              width: fit.drawW,
+              height: fit.drawH,
+              rotate: fit.rotateDeg,
+            });
+          }
         }
       }
 
@@ -236,17 +287,19 @@ export async function arrangePdf(
  * image-to-pdf's engine entry: one PDF with a page per image, of the page
  * size chosen, then the tool's output check (see `imageToPdfCheck.ts`). A failing
  * check has no safer mode to fall back to, so it blocks with the
- * corrupt-output error.
+ * corrupt-output error. `preparation` cuts pictures under fill page: the
+ * browser's canvas by default; tests in Node pass a stand-in.
  */
 export async function convertImagesToPdf(
   { sourceBytesById, ...request }: ImageToPdfRequest & {
     sourceBytesById: Map<string, Uint8Array>;
   },
   onProgress?: (pct: number) => void,
+  preparation: SizedImagePreparation = sizedImagePreparation,
 ): Promise<Uint8Array> {
-  const { pages, pageSize, orientation, marginMm } = request;
+  const { pages, pageSize, orientation, margin } = request;
   const [output] = await assembleSections(
-    { sections: [pages], sourceBytesById, pageSize, orientation, marginMm },
+    { sections: [pages], sourceBytesById, pageSize, orientation, margin, preparation },
     onProgress,
   );
   return runOutputCheck({

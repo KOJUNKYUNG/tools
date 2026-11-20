@@ -38,6 +38,8 @@ export interface ImageToPdfLabels {
   marginNone: string;
   /** A margin option: `{n}` millimetres. */
   marginOptionTemplate: string;
+  /** The margin row's fourth choice: the picture covers the page (CONTEXT "Fill page"). */
+  marginFill: string;
   resultTitle: string;
   pageCountTemplate: string;
   download: string;
@@ -86,6 +88,7 @@ export function getImageToPdfLabels(dict: Dictionary): ImageToPdfLabels {
     marginLabel: p.marginLabel,
     marginNone: p.marginNone,
     marginOptionTemplate: p.marginOption,
+    marginFill: p.marginFill,
     resultTitle: p.resultTitle,
     pageCountTemplate: p.pageCount,
     download: p.download,

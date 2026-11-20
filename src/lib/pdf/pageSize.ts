@@ -33,9 +33,15 @@ export type PageSizeMode = PageSize["kind"];
 export const PAGE_ORIENTATIONS = ["auto", "portrait", "landscape"] as const;
 export type PageOrientation = (typeof PAGE_ORIENTATIONS)[number];
 
-/** The white left on every side of a preset or custom page, in mm. Image fit ignores it. */
-export const PAGE_MARGINS_MM = [0, 10, 20] as const;
-export type PageMarginMm = (typeof PAGE_MARGINS_MM)[number];
+/**
+ * The margin row of a preset or custom page: the white left on every side,
+ * in mm, or fill page (CONTEXT "Fill page"), the picture covering the page
+ * and cut at its edges. Image fit ignores it.
+ */
+export const PAGE_MARGINS = [0, 10, 20, "fill"] as const;
+export type PageMargin = (typeof PAGE_MARGINS)[number];
+/** The margins that leave white: every choice but fill page. */
+export type PageMarginMm = Exclude<PageMargin, "fill">;
 
 export interface CustomSizeMm {
   widthMm: number;

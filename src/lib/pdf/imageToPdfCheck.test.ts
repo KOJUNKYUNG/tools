@@ -7,6 +7,7 @@ import {
   JPEG_3x2,
   imagePage as image,
   imageSources as sources,
+  solidPng,
   withExifOrientation,
   withPhotoInfo,
 } from "./testImages";
@@ -18,6 +19,10 @@ interface PageSpec {
   rotation?: number;
   /** Where the picture is drawn, [x, y, width, height]; the whole page by default. */
   draw?: [number, number, number, number];
+  /** The picture drawn turned a quarter clockwise about its anchor (x, y), as the engine draws a user's turn. */
+  quarterTurned?: boolean;
+  /** The picture stored, when not the source itself (a part cut under fill page). */
+  stored?: Uint8Array;
 }
 
 /**
@@ -28,14 +33,14 @@ interface PageSpec {
 async function pdfOf(pages: PageSpec[]): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const src = sources();
-  for (const { source, size, rotation = 0, draw = [0, 0, ...size] } of pages) {
+  for (const { source, size, rotation = 0, draw = [0, 0, ...size], quarterTurned, stored } of pages) {
     const page = doc.addPage(size);
     if (source !== null) {
       const bytes = src.get(source)!; // test data: every named source exists
-      const isJpeg = source === "photo" || source === "phone";
-      const img = isJpeg ? await doc.embedJpg(JPEG_3x2) : await doc.embedPng(bytes);
+      const isJpeg = !stored && (source === "photo" || source === "phone");
+      const img = isJpeg ? await doc.embedJpg(JPEG_3x2) : await doc.embedPng(stored ?? bytes);
       const [x, y, width, height] = draw;
-      page.drawImage(img, { x, y, width, height });
+      page.drawImage(img, { x, y, width, height, rotate: quarterTurned ? degrees(-90) : undefined });
     }
     if (rotation) page.setRotation(degrees(rotation));
   }
@@ -118,7 +123,7 @@ describe("checkImageToPdf: orientation", () => {
 
 describe("checkImageToPdf: margin", () => {
   // wide 40×20 across A4 less 10 mm (28.35 pt) a side: 785.2 × 392.6, centred.
-  const request: ImageToPdfRequest = { pages: [image("wide")], pageSize: A4, marginMm: 10 };
+  const request: ImageToPdfRequest = { pages: [image("wide")], pageSize: A4, margin: 10 };
 
   it("passes a picture fitted inside the page less the margin", async () => {
     const out = await pdfOf([{ source: "wide", size: A4_ACROSS, draw: [28.3465, 101.3386, 785.1969, 392.5984] }]);
@@ -133,6 +138,57 @@ describe("checkImageToPdf: margin", () => {
   it("flags a picture left smaller than the content box", async () => {
     const out = await pdfOf([{ source: "wide", size: A4_ACROSS, draw: [56.69, 115.51, 728.5, 364.25] }]);
     expect(props(await checkImageToPdf(sources(), request, out, "full"))).toEqual(["picture-fit"]);
+  });
+});
+
+describe("checkImageToPdf: fill page", () => {
+  // wide 40×20 on a landscape A4: its centre 28×20 covers the page.
+  const request: ImageToPdfRequest = { pages: [image("wide")], pageSize: A4, margin: "fill" };
+  const cut = solidPng(28, 20);
+  const fitDetails = (vs: { property: string; detail: string }[]) =>
+    vs.filter((v) => v.property === "picture-fit").map((v) => v.detail);
+
+  it("passes the part of the page's shape drawn across the whole page", async () => {
+    const out = await pdfOf([{ source: "wide", size: A4_ACROSS, stored: cut }]);
+    expect(await checkImageToPdf(sources(), request, out, "full")).toEqual([]);
+  });
+
+  it("passes a part drawn turned, stored with the page's shape before the turn", async () => {
+    // tall 10×30 turned across: its centre 10×14 drawn a quarter turned over a landscape A4.
+    const out = await pdfOf([
+      { source: "tall", size: A4_ACROSS, stored: solidPng(10, 14), quarterTurned: true, draw: [0, A4_ACROSS[1], A4_ACROSS[1], A4_ACROSS[0]] },
+    ]);
+    const turned: ImageToPdfRequest = { pages: [image("tall", 90)], pageSize: A4, margin: "fill" };
+    expect(await checkImageToPdf(sources(), turned, out, "full")).toEqual([]);
+  });
+
+  it("flags a picture that does not cover its page", async () => {
+    const out = await pdfOf([{ source: "wide", size: A4_ACROSS, stored: cut, draw: [10, 10, 821.8898, 575.2756] }]);
+    expect(fitDetails(await checkImageToPdf(sources(), request, out, "full"))).toEqual([
+      "page 1: picture does not cover the page",
+    ]);
+  });
+
+  it("flags a picture off centre", async () => {
+    const out = await pdfOf([{ source: "wide", size: A4_ACROSS, stored: cut, draw: [-20, -20, 861.8898, 615.2756] }]);
+    expect(fitDetails(await checkImageToPdf(sources(), request, out, "full"))).toEqual([
+      "page 1: picture past the page's edge, off centre",
+    ]);
+  });
+
+  it("flags the whole picture stretched across the page", async () => {
+    const out = await pdfOf([{ source: "wide", size: A4_ACROSS }]);
+    expect(fitDetails(await checkImageToPdf(sources(), request, out, "full"))).toEqual([
+      "page 1: picture not its shape",
+    ]);
+  });
+
+  it("flags the whole picture kept, its pixels past the page's edges left in the file", async () => {
+    // 40×20 at its shape, as tall as the page and centred: 1190.6 pt wide.
+    const out = await pdfOf([{ source: "wide", size: A4_ACROSS, draw: [-174.38, 0, 1190.5512, 595.2756] }]);
+    expect(fitDetails(await checkImageToPdf(sources(), request, out, "full"))).toEqual([
+      "page 1: picture past the page's edge",
+    ]);
   });
 });
 
