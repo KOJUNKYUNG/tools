@@ -149,6 +149,25 @@ export type PrepareSizedImage = (
 ) => Promise<PreparedImage>;
 
 /**
+ * How a prepared picture is saved:
+ * - `smallest` (the default): in the format `preparedFormat` picks, a JPEG
+ *   at quality 0.85;
+ * - `own`: in the source's own format, a PNG losslessly and a JPEG at
+ *   quality 0.95, for a picture cut but meant to keep its quality
+ *   (image-to-pdf's fill page under 원본 그대로, CONTEXT "Picture quality").
+ *   A WebP, which not every output holds, is saved as `smallest` says.
+ */
+export type PreparedEncoding = "smallest" | "own";
+
+/** The format a source in `format` keeps under `encoding`: its own JPEG or PNG under `own`, else none. */
+export function keptFormat(
+  format: string | undefined,
+  encoding: PreparedEncoding,
+): PreparedImage["format"] | null {
+  return encoding === "own" && (format === "jpeg" || format === "png") ? format : null;
+}
+
+/**
  * What an engine sizing pictures itself needs: a picture's upright size, to
  * work out the crop and the size, then the preparation, with an optional
  * step between the fit and the format (`sizedImagePreparer`). Tests and Node
@@ -156,7 +175,13 @@ export type PrepareSizedImage = (
  */
 export interface SizedImagePreparation {
   measure(source: Blob): Promise<PixelSize>;
-  prepare(source: Blob, crop: CropRect, size: PixelSize, step?: PrepareStep): Promise<PreparedImage>;
+  prepare(
+    source: Blob,
+    crop: CropRect,
+    size: PixelSize,
+    step?: PrepareStep,
+    encoding?: PreparedEncoding,
+  ): Promise<PreparedImage>;
 }
 
 /**
@@ -181,6 +206,8 @@ export function preparedFormat({
 
 /** Quality for a picture saved as JPEG; spec #98 measured 0.80 and 0.85 alike in size. */
 const JPEG_QUALITY = 0.85;
+/** Quality for a JPEG saved in its own format: cut, but meant to keep its quality (spec #176). */
+const OWN_JPEG_QUALITY = 0.95;
 
 /** Rows scanned at a time for transparency: bounds the pixel buffer to ~16 MB. */
 const SCAN_PIXELS = 4_000_000;
@@ -206,10 +233,14 @@ function alphaUsed(picture: ImageBitmap | OffscreenCanvas): boolean {
   }
 }
 
-async function encode(canvas: OffscreenCanvas, format: PreparedImage["format"]): Promise<Uint8Array> {
+async function encode(
+  canvas: OffscreenCanvas,
+  format: PreparedImage["format"],
+  jpegQuality = JPEG_QUALITY,
+): Promise<Uint8Array> {
   const blob = await canvas.convertToBlob({
     type: `image/${format}`,
-    quality: format === "jpeg" ? JPEG_QUALITY : undefined,
+    quality: format === "jpeg" ? jpegQuality : undefined,
   });
   return new Uint8Array(await blob.arrayBuffer());
 }
@@ -275,13 +306,16 @@ export async function uprightSize(source: Blob): Promise<PixelSize> {
  * re-encoding it could only lose quality or grow it. So a whole JPEG is never
  * re-encoded, and a whole PNG is re-encoded only to measure the rule. A step
  * changes the pixels, so its picture is always encoded, and scanned for
- * transparency as it comes out.
+ * transparency as it comes out. Under the `own` encoding, a JPEG or PNG keeps
+ * its format, with no measuring: taken whole it goes in as uploaded, and
+ * otherwise it is saved once (see `PreparedEncoding`).
  */
-export function sizedImagePreparer(step?: PrepareStep): PrepareSizedImage {
+export function sizedImagePreparer(step?: PrepareStep, encoding: PreparedEncoding = "smallest"): PrepareSizedImage {
   return async (source, crop, size) => {
     const bytes = new Uint8Array(await source.arrayBuffer());
     const header = readImageHeader(bytes);
     const whole = !step && takenWhole(bytes, crop, size);
+    const ownFormat = keptFormat(header?.format, encoding);
 
     // Decoded even when it goes in as uploaded: nothing else proves the
     // picture opens, and a slide holding one that does not is a silent fault.
@@ -289,9 +323,15 @@ export function sizedImagePreparer(step?: PrepareStep): PrepareSizedImage {
     let canvas: OffscreenCanvas | null = null;
     try {
       if (whole && header?.format === "jpeg") return { bytes, format: "jpeg", ...size };
+      if (whole && ownFormat) return { bytes, format: ownFormat, ...size };
       // Its format was settled when this preparer encoded it; measuring it
       // again in another browser could turn it into JPEG.
       if (whole && isMarkedPrepared(bytes)) return { bytes, format: "png", ...size };
+      if (ownFormat && !step) {
+        canvas = await downscaleImage(bitmap, size.width, size.height, crop);
+        const own = await encode(canvas, ownFormat, OWN_JPEG_QUALITY);
+        return { bytes: ownFormat === "png" ? markPrepared(own) : own, format: ownFormat, ...size };
+      }
       const sourceAlpha = !step && header?.format !== "jpeg" && alphaUsed(bitmap);
       if (whole && sourceAlpha) return { bytes, format: "png", ...size };
       canvas = await downscaleImage(bitmap, size.width, size.height, crop);
@@ -330,5 +370,6 @@ export const prepareSlideImage: PrepareSlideImage = slideImagePreparer();
 const unstepped = sizedImagePreparer();
 export const sizedImagePreparation: SizedImagePreparation = {
   measure: uprightSize,
-  prepare: (source, crop, size, step) => (step ? sizedImagePreparer(step) : unstepped)(source, crop, size),
+  prepare: (source, crop, size, step, encoding = "smallest") =>
+    (step || encoding !== "smallest" ? sizedImagePreparer(step, encoding) : unstepped)(source, crop, size),
 };

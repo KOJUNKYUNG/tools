@@ -96,6 +96,10 @@ components:
     backgroundColor: "{colors.background}"
     textColor: "{colors.primary}"
     rounded: "{rounded.md}"
+  select: # ChoiceSelect — dropdown single-select, the input-field treatment
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.primary}"
+    rounded: "{rounded.md}"
   toolcard: # .toolcard — tool-grid card
     backgroundColor: "{colors.surface}"
     textColor: "{colors.primary}"
@@ -331,6 +335,19 @@ top-level mode tabs. **Every category is migrated**; the legacy
 a real 2px bottom border (transparent when inactive), never an inset
 box-shadow — see Do's & Don'ts.
 
+**Dropdown** — the one exception to the tab underline: a single-select whose
+options do not fit one tab row at phone width (more than four options, or
+labels carrying detail such as a paper size's millimetres) is a dropdown,
+`ChoiceSelect` (`components/common/`). It is a native `<select>`, so a phone
+opens its own picker and the keyboard works, in the **input-field treatment**
+(`--surface-2` fill, `--border` edge, 3px corners, `h-8`, `--ink-strong`
+`body` 12px text, 2px `--emphasis` focus outline), the full width of its row.
+The chosen option is the field's text: no underline, no fill. Options of
+different kinds sit under labelled groups (image-to-pdf: print / screen
+sizes). A tab row and a dropdown may work together, the tabs choosing the way
+and the dropdown the item within it (image-to-pdf: 규격 tab → preset
+dropdown). Never a custom-drawn popover list.
+
 **Tool header** — every tool renders one shared `ToolHeader` (title over
 description) in **both** the standalone card and the landing-inline mount; the
 mount only supplies the card chrome, never its own header. Once a file is loaded
@@ -371,6 +388,7 @@ replace the file; multi-file tools keep their in-body add / remove controls).
   uppercase, tracked); the copyright line stays `body` + `tabular-nums`.
 - **Input / number fields** — `--surface-2` fill, `--border` edge, `--ink-strong`
   text, `--ink-soft` placeholder; focus shows a 2px `--emphasis` outline.
+  The dropdown (`ChoiceSelect`) wears the same treatment.
 - **Slider** (e.g. opacity) — track `--border`, fill + thumb `--ink-strong`
   (replaces the old blue `accentColor`).
 - **Gallery / thumbnail selection** — selected item gets a 2px `--emphasis` ring
@@ -496,7 +514,11 @@ the on-paper case above.
 - Don't reintroduce a filled / inverted active toggle (the retired
   `.nameplate[data-active]` segmented fill) for a single-select — every
   single-select (format / preset / DPI / page-size / mode / in-control source)
-  is the tab underline.
+  is the tab underline, or, past what one tab row holds at phone width, the
+  `ChoiceSelect` dropdown.
+- Don't draw a dropdown's list yourself (popover, menu of buttons) — use the
+  native `<select>` in `ChoiceSelect`; and don't turn a few short options into
+  a dropdown, which hides choices a tab row would show.
 - Don't give a single-select toggle a background / segment fill *and* an underline
   — the `--emphasis` underline marks the active item alone (a filled active tab is
   the legacy look).

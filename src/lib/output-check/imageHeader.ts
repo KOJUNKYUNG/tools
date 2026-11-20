@@ -56,8 +56,12 @@ const isStandalone = (m: number) => (m >= 0xd0 && m <= 0xd9) || m === 0x01;
 function exifOrientation(view: DataView, start: number, end: number): number | null {
   if (end > view.byteLength || end - start < 6) return null;
   if (view.getUint32(start) !== 0x45786966 || view.getUint16(start + 4) !== 0) return null;
-  if (end - start < 14) return 1;
-  const tiff = start + 6;
+  return tiffOrientation(view, start + 6, end);
+}
+
+/** IFD0's Orientation in the TIFF structure at `tiff`, ending at `end`: 1 when it holds no valid one. */
+function tiffOrientation(view: DataView, tiff: number, end: number): number {
+  if (end > view.byteLength || end - tiff < 8) return 1;
   const byteOrder = view.getUint16(tiff);
   if (byteOrder !== 0x4949 && byteOrder !== 0x4d4d) return 1;
   const littleEndian = byteOrder === 0x4949;
@@ -164,6 +168,24 @@ export function hasUnreadOrientation(bytes: Uint8Array): boolean {
     if (ascii(bytes, at + 4, "IDAT")) return false;
   }
   return false;
+}
+
+/**
+ * A PNG's orientation as browsers apply it: the Orientation in an eXIf
+ * chunk before its image data; 1 when there is none, it cannot be read, or
+ * the bytes are not a PNG. `readImageHeader` leaves it out (a PNG reports
+ * 1), so the tools that pass a PNG on unturned keep its stored size;
+ * checkers that follow what browsers show read it here.
+ */
+export function pngOrientation(bytes: Uint8Array): number {
+  if (!PNG_SIGNATURE.every((b, i) => bytes[i] === b)) return 1;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  // Chunks: length (4), type (4), data, CRC (4).
+  for (let at = 8; at + 8 <= bytes.length; at += 12 + view.getUint32(at)) {
+    if (ascii(bytes, at + 4, "IDAT")) return 1;
+    if (ascii(bytes, at + 4, "eXIf")) return tiffOrientation(view, at + 8, at + 8 + view.getUint32(at));
+  }
+  return 1;
 }
 
 /** The image's format and pixel size, or null for bytes it cannot read. */

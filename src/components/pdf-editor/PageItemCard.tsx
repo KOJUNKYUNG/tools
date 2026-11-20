@@ -42,6 +42,16 @@ interface PageItemCardProps {
    */
   pageAspect?: number | null;
   /**
+   * The white on every side of the page frame, as a share of its width
+   * (image-to-pdf's margin). Default 0: the picture fills the frame.
+   */
+  pageMarginRatio?: number;
+  /**
+   * The picture covers the page frame, cut at its edges and centred
+   * (image-to-pdf's fill page). Default false: it fits whole inside.
+   */
+  pageFill?: boolean;
+  /**
    * When false, omit the grab cursor (a non-reorderable grid like pdf-to-image).
    * Default true preserves pdf-arrange / image-to-pdf behavior.
    */
@@ -75,6 +85,8 @@ function PageItemCardImpl({
   dragHandleProps,
   frameBg = "var(--surface-2)",
   pageAspect = null,
+  pageMarginRatio = 0,
+  pageFill = false,
   draggable = true,
   fluid = false,
   onSelect,
@@ -198,13 +210,18 @@ function PageItemCardImpl({
           hasPage ? (
             <div
               className="flex items-center justify-center overflow-hidden"
-              style={{ width: boxW, height: boxH, background: "var(--mono-0)" }}
+              style={{
+                width: boxW,
+                height: boxH,
+                padding: pageMarginRatio * boxW,
+                background: "var(--mono-0)",
+              }}
             >
               <img
                 src={frameSrc}
                 alt={`page ${pageNumber}`}
                 draggable={false}
-                className="h-full w-full object-contain"
+                className={`h-full w-full ${pageFill ? "object-cover" : "object-contain"}`}
               />
             </div>
           ) : (

@@ -218,6 +218,49 @@ describe("sizedImagePreparer", () => {
     expect(again.format).toBe("png");
   });
 
+  describe("in its own format (fill page under 원본 그대로)", () => {
+    /** Each encoding the canvas was asked for: its type and quality. */
+    let encodings: { type: string; quality?: number }[];
+    beforeEach(() => {
+      encodings = [];
+      vi.stubGlobal(
+        "OffscreenCanvas",
+        class extends FakeCanvas {
+          override async convertToBlob(options: { type: string; quality?: number }) {
+            encodings.push(options);
+            return super.convertToBlob(options);
+          }
+        },
+      );
+    });
+
+    it("saves a JPEG's crop once, as JPEG at quality 0.95, at the crop's own size", async () => {
+      vi.stubGlobal("createImageBitmap", async () => bitmap(4000, 3000));
+      const crop = { x: 0, y: 375, width: 4000, height: 2250 };
+
+      const prepared = await sizedImagePreparer(undefined, "own")(jpegFile(4000, 3000, 13), crop, size(4000, 2250));
+
+      expect(prepared).toMatchObject({ format: "jpeg", width: 4000, height: 2250 });
+      expect(decoded(prepared.bytes)).toBe("jpeg:fitted");
+      expect(encodings).toEqual([{ type: "image/jpeg", quality: 0.95 }]);
+    });
+
+    it("keeps a PNG's crop PNG, though JPEG would be a tenth of it", async () => {
+      vi.stubGlobal("createImageBitmap", async () => bitmap(4000, 3000));
+      const png = headerOnlyImage("png", size(4000, 3000), new Uint8Array([14]));
+
+      const prepared = await sizedImagePreparer(undefined, "own")(
+        fileOf(png),
+        { x: 0, y: 375, width: 4000, height: 2250 },
+        size(4000, 2250),
+      );
+
+      expect(prepared).toMatchObject({ format: "png", width: 4000, height: 2250 });
+      expect(decoded(prepared.bytes)).toMatch(/^png:fitted/);
+      expect(encodings.map((e) => e.type)).toEqual(["image/png"]);
+    });
+  });
+
   it("saves a resized PNG whose transparency is used as PNG", async () => {
     vi.stubGlobal("createImageBitmap", async () => ({ ...bitmap(4000, 3000), alpha: 128 }));
     const png = headerOnlyImage("png", size(4000, 3000), new Uint8Array([10]));

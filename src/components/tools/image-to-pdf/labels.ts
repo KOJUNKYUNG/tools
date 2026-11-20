@@ -17,11 +17,34 @@ export interface ImageToPdfLabels {
   deleteAria: string;
   processing: string;
   sizeLabel: string;
+  sizePreset: string;
   sizeFit: string;
-  sizeA4: string;
   sizeCustom: string;
+  presetAria: string;
+  presetGroupPrint: string;
+  presetGroupScreen: string;
+  /** A print preset's option: `{name}`, `{w}` and `{h}` in whole millimetres. */
+  presetPrintOptionTemplate: string;
+  presetNameLetter: string;
+  presetScreenWide: string;
+  presetScreenStandard: string;
   customWidth: string;
   customHeight: string;
+  orientationLabel: string;
+  orientationAuto: string;
+  orientationPortrait: string;
+  orientationLandscape: string;
+  marginLabel: string;
+  marginNone: string;
+  /** A margin option: `{n}` millimetres. */
+  marginOptionTemplate: string;
+  /** The margin row's fourth choice: the picture covers the page (CONTEXT "Fill page"). */
+  marginFill: string;
+  /** The picture quality row (CONTEXT "Picture quality"). */
+  qualityLabel: string;
+  qualityOriginal: string;
+  qualityHigh: string;
+  qualityStandard: string;
   resultTitle: string;
   pageCountTemplate: string;
   download: string;
@@ -51,11 +74,30 @@ export function getImageToPdfLabels(dict: Dictionary): ImageToPdfLabels {
     deleteAria: p.deleteAria,
     processing: p.processing,
     sizeLabel: p.sizeLabel,
+    sizePreset: p.sizePreset,
     sizeFit: p.sizeFit,
-    sizeA4: p.sizeA4,
     sizeCustom: p.sizeCustom,
+    presetAria: p.presetAria,
+    presetGroupPrint: p.presetGroupPrint,
+    presetGroupScreen: p.presetGroupScreen,
+    presetPrintOptionTemplate: p.presetPrintOption,
+    presetNameLetter: p.presetNameLetter,
+    presetScreenWide: p.presetScreenWide,
+    presetScreenStandard: p.presetScreenStandard,
     customWidth: p.customWidth,
     customHeight: p.customHeight,
+    orientationLabel: p.orientationLabel,
+    orientationAuto: p.orientationAuto,
+    orientationPortrait: p.orientationPortrait,
+    orientationLandscape: p.orientationLandscape,
+    marginLabel: p.marginLabel,
+    marginNone: p.marginNone,
+    marginOptionTemplate: p.marginOption,
+    marginFill: p.marginFill,
+    qualityLabel: p.qualityLabel,
+    qualityOriginal: p.qualityOriginal,
+    qualityHigh: p.qualityHigh,
+    qualityStandard: p.qualityStandard,
     resultTitle: p.resultTitle,
     pageCountTemplate: p.pageCount,
     download: p.download,

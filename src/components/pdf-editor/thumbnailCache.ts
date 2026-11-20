@@ -81,7 +81,7 @@ export function getImageUrl(fileId: string, bytes: Uint8Array): string {
   const cached = imageUrlCache.get(fileId);
   if (cached) return cached;
 
-  const mime = detectImageFormat(bytes) === "png" ? "image/png" : "image/jpeg";
+  const mime = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" }[detectImageFormat(bytes)];
   const url = URL.createObjectURL(
     new Blob([bytes.slice().buffer as ArrayBuffer], { type: mime }),
   );

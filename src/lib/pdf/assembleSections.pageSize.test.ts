@@ -24,8 +24,8 @@ function imageItem(fileId: string): PageItem {
   };
 }
 
-describe("assembleSections imageLayout", () => {
-  it("defaults to native: page size equals the image size", async () => {
+describe("assembleSections page size", () => {
+  it("defaults to image fit: page size equals the image size", async () => {
     const id = "f1";
     const out = await assembleSections({
       sections: [[imageItem(id)]],
@@ -37,16 +37,16 @@ describe("assembleSections imageLayout", () => {
     expect(height).toBeCloseTo(1, 1);
   });
 
-  it("fixed mode: page size equals the requested A4 size", async () => {
+  it("a preset: a square picture gets the preset as listed (A4 portrait)", async () => {
     const id = "f1";
     const out = await assembleSections({
       sections: [[imageItem(id)]],
       sourceBytesById: new Map([[id, PNG_1x1]]),
-      imageLayout: { mode: "fixed", widthPt: 595, heightPt: 842 },
+      pageSize: { kind: "preset", preset: "a4" },
     });
     const doc = await PDFDocument.load(out[0]);
     const { width, height } = doc.getPage(0).getSize();
-    expect(width).toBeCloseTo(595, 1);
-    expect(height).toBeCloseTo(842, 1);
+    expect(width).toBeCloseTo(595.28, 1);
+    expect(height).toBeCloseTo(841.89, 1);
   });
 });

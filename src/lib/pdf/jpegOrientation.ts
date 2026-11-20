@@ -3,7 +3,8 @@
 // stored pixels as they are. The engine embeds the JPEG's picture unchanged,
 // without the EXIF segment (see `stripPhotoInfo`), so it reads the orientation
 // from the original first and applies it itself when drawing.
-// PNG is treated as upright: its rare eXIf chunk is not read.
+// A PNG is drawn as stored; one browsers turn by its eXIf chunk goes through
+// the picture preparation instead, which draws it upright (`holdsAsIs`).
 
 /** EXIF Orientation: 1 = upright; 2–8 = mirrored and/or turned (TIFF 6.0). */
 export type ExifOrientation = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;

@@ -191,6 +191,11 @@ describe("detectImageFormat", () => {
     expect(detectImageFormat(jpegHeader)).toBe("jpg");
   });
 
+  it("recognizes WebP's RIFF container", () => {
+    const webpHeader = Uint8Array.from([..."RIFF"].map((c) => c.charCodeAt(0)).concat([0, 0, 0, 0], [..."WEBP"].map((c) => c.charCodeAt(0))));
+    expect(detectImageFormat(webpHeader)).toBe("webp");
+  });
+
   it("throws on an unsupported format", () => {
     const gifHeader = Uint8Array.from([0x47, 0x49, 0x46, 0x38]);
     expect(() => detectImageFormat(gifHeader)).toThrow();

@@ -5,9 +5,19 @@ import type { Dictionary } from "@/i18n/config";
 import en from "@/i18n/dictionaries/en.json";
 import ko from "@/i18n/dictionaries/ko.json";
 import { INVALID_INPUT_PREFIX, getErrorMessage } from "@/lib/errors";
-import { convertImagesToPdf, type ImageLayout } from "./assembleSections";
-import type { Rotation } from "./pageItem";
+import { inspectPdf } from "@/lib/output-check/pdfInspector";
+import sharp from "sharp";
+import type { CropRect } from "@/lib/image/maxFitCrop";
+import type { PixelSize, PreparedEncoding, SizedImagePreparation } from "@/lib/image/slideImage";
+import { nodeSizedPreparation } from "@/lib/image/slideImageNode";
+import { readImageHeader } from "@/lib/output-check/imageHeader";
+import { pdfJpegs } from "@/lib/output-check/pdfJpegs";
+import { convertImagesToPdf } from "./assembleSections";
+import type { PageMarginMm, PageOrientation, PagePreset, PageSize } from "./pageSize";
+import type { PageItem, Rotation } from "./pageItem";
+import { PICTURE_QUALITIES } from "./pictureQuality";
 import * as check from "./imageToPdfCheck";
+import type { ImageToPdfRequest } from "./imageToPdfCheck";
 import type { Matrix } from "./jpegOrientation";
 import {
   JPEG_3x2,
@@ -15,15 +25,18 @@ import {
   PNG_PAGE_OVERHEAD,
   embeddedJpegs,
   firstPictureRgba,
+  noisePng,
   imagePage as image,
   imageSources as sources,
   asAnimatedPng,
   pngOfKind,
+  solidPng,
   withDamagedImageData,
   withExifOrientation,
   withImageDataTail,
   withPngHeight,
   withPhotoInfo,
+  withPngExif,
 } from "./testImages";
 
 // The real checker by default; one test makes it report a violation.
@@ -92,64 +105,395 @@ const pages = [
   image("phone", 90),
 ];
 
-describe("convertImagesToPdf", () => {
-  it.each<[string, ImageLayout]>([
-    ["native layout", { mode: "native" }],
-    ["A4", { mode: "fixed", widthPt: 595, heightPt: 842 }],
-    ["custom size", { mode: "fixed", widthPt: 300, heightPt: 120 }],
-  ])("%s: the output passes the full check", async (_, imageLayout) => {
-    const src = sources();
-    const output = await convertImagesToPdf({ pages, sourceBytesById: src, imageLayout });
-    expect(await checkImageToPdf(src, { pages, imageLayout }, output, "full")).toEqual([]);
+const PT_PER_MM = 72 / 25.4;
+const IMAGE_FIT: PageSize = { kind: "image-fit" };
+const A4: PageSize = { kind: "preset", preset: "a4" };
+const CUSTOM_WIDE: PageSize = { kind: "custom", widthMm: 100, heightMm: 40 };
+
+/** Each page's box in millimetres, as pdf.js reads it, to 0.1 mm. */
+async function pageBoxesMm(pdf: Uint8Array): Promise<[number, number][]> {
+  const lib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const doc = await lib.getDocument({ data: pdf.slice(), verbosity: 0 }).promise;
+  try {
+    const boxes: [number, number][] = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const [x0, y0, x1, y1] = (await doc.getPage(n)).view;
+      const mm = (pt: number) => Math.round((pt / PT_PER_MM) * 10) / 10;
+      boxes.push([mm(x1 - x0), mm(y1 - y0)]);
+    }
+    return boxes;
+  } finally {
+    await doc.destroy();
+  }
+}
+
+describe("convertImagesToPdf: page size", () => {
+  it("a landscape picture on A4 gets a 297 × 210 mm page", async () => {
+    const pageSize: PageSize = { kind: "preset", preset: "a4" };
+    const output = await convertImagesToPdf({ pages: [image("wide")], sourceBytesById: sources(), pageSize });
+    expect(await pageBoxesMm(output)).toEqual([[297, 210]]);
   });
 
-  it.each<[string, ImageLayout, string]>([
-    ["native layout", { mode: "native" }, "right"],
-    ["A4", { mode: "fixed", widthPt: 595, heightPt: 842 }, "right"],
-    ["custom landscape size", { mode: "fixed", widthPt: 300, heightPt: 120 }, "right"],
+  // Sizes from the spec (#176): paper in mm, screens in inches (PowerPoint's
+  // default slides: 13.333 × 7.5 in = 338.7 × 190.5 mm, 10 × 7.5 in).
+  it.each<[PagePreset, [number, number]]>([
+    ["a3", [297, 420]],
+    ["a4", [210, 297]],
+    ["a5", [148, 210]],
+    ["b4", [257, 364]],
+    ["b5", [182, 257]],
+    ["letter", [215.9, 279.4]],
+    ["16:9", [190.5, 338.7]],
+    ["4:3", [190.5, 254]],
+  ])("%s: a portrait picture gets a portrait page, a landscape one a landscape page", async (preset, [short, long]) => {
+    const output = await convertImagesToPdf({
+      pages: [image("tall"), image("wide")],
+      sourceBytesById: sources(),
+      pageSize: { kind: "preset", preset },
+    });
+    expect(await pageBoxesMm(output)).toEqual([
+      [short, long],
+      [long, short],
+    ]);
+  });
+
+  it("a picture turned in the editor gets the page orientation of its turned shape", async () => {
+    // "phone" is stored 3×2 and shown 2×3 (EXIF 6): portrait until the user turns it.
+    const output = await convertImagesToPdf({
+      pages: [image("tall", 90), image("wide", 270), image("phone"), image("phone", 90), image("tall", 180)],
+      sourceBytesById: sources(),
+      pageSize: A4,
+    });
+    expect(await pageBoxesMm(output)).toEqual([
+      [297, 210],
+      [210, 297],
+      [210, 297],
+      [297, 210],
+      [210, 297],
+    ]);
+  });
+
+  it("custom millimetres give pages of that size, turned to the picture", async () => {
+    const output = await convertImagesToPdf({
+      pages: [image("wide"), image("tall")],
+      sourceBytesById: sources(),
+      pageSize: { kind: "custom", widthMm: 100, heightMm: 40 },
+    });
+    expect(await pageBoxesMm(output)).toEqual([
+      [100, 40],
+      [40, 100],
+    ]);
+  });
+
+  it.each<[string, [number, number], [number, number]]>([
+    ["past PDF's largest page is held at 200 in (5080 mm)", [90000, 300], [5080, 300]],
+    ["under 1 mm is held at 1 mm", [0.2, 300], [300, 1]],
+  ])("a custom side %s", async (_, [widthMm, heightMm], expected) => {
+    const output = await convertImagesToPdf({
+      pages: [image("wide")],
+      sourceBytesById: sources(),
+      pageSize: { kind: "custom", widthMm, heightMm },
+    });
+    expect(await pageBoxesMm(output)).toEqual([expected]);
+  });
+
+  it("a square picture keeps the preset as listed: paper portrait, screens landscape", async () => {
+    const src = new Map([["square", solidPng(20, 20)]]);
+    const boxes = async (preset: PagePreset) =>
+      pageBoxesMm(
+        await convertImagesToPdf({ pages: [image("square")], sourceBytesById: src, pageSize: { kind: "preset", preset } }),
+      );
+    expect(await boxes("a4")).toEqual([[210, 297]]);
+    expect(await boxes("16:9")).toEqual([[338.7, 190.5]]);
+  });
+});
+
+type Box = [number, number, number, number];
+
+/** Each page's pictures as pdf.js places them: [x0, y0, x1, y1] in mm. */
+async function pictureBoxesMm(pdf: Uint8Array): Promise<Box[][]> {
+  return inspectPdf(pdf, async (inspection) => {
+    if (inspection.status !== "open") throw new Error(`the PDF does not open: ${inspection.status}`);
+    const mm = (pt: number) => pt / PT_PER_MM;
+    const pagesBoxes: Box[][] = [];
+    for (let n = 1; n <= inspection.pdf.pageCount; n++) {
+      const { images } = await inspection.pdf.content(n);
+      pagesBoxes.push(images.map(({ box }) => [mm(box.x0), mm(box.y0), mm(box.x1), mm(box.y1)]));
+    }
+    return pagesBoxes;
+  });
+}
+
+/** Boxes to within 0.05 mm. */
+const near = (pagesBoxes: Box[][]) => pagesBoxes.map((page) => page.map((box) => box.map((v) => expect.closeTo(v, 1))));
+
+describe("convertImagesToPdf: margin", () => {
+  it.each<[PageMarginMm, Box, Box]>([
+    // wide (2:1) across A4, 297 × 210: the content box is 297 − 2m wide.
+    // tall (1:3) up A4, 210 × 297: the content box is 297 − 2m high.
+    [0, [0, 30.75, 297, 179.25], [55.5, 0, 154.5, 297]],
+    [10, [10, 35.75, 287, 174.25], [58.833, 10, 151.167, 287]],
+    [20, [20, 40.75, 277, 169.25], [62.167, 20, 147.833, 277]],
+  ])("%i mm: the picture fits whole inside the page less the margin, centred", async (margin, wide, tall) => {
+    const output = await convertImagesToPdf({
+      pages: [image("wide"), image("tall")],
+      sourceBytesById: sources(),
+      pageSize: A4,
+      margin,
+    });
+    expect(await pageBoxesMm(output)).toEqual([
+      [297, 210],
+      [210, 297],
+    ]);
+    expect(await pictureBoxesMm(output)).toEqual(near([[wide], [tall]]));
+  });
+
+  it("holds with a forced orientation and a turned picture", async () => {
+    // tall turned across, on a portrait page: shown 3:1 in 190 × 277.
+    const output = await convertImagesToPdf({
+      pages: [image("tall", 90)],
+      sourceBytesById: sources(),
+      pageSize: A4,
+      orientation: "portrait",
+      margin: 10,
+    });
+    expect(await pictureBoxesMm(output)).toEqual(near([[[10, 116.833, 200, 180.167]]]));
+  });
+
+  it("a page too small for the margin keeps half of each side for its picture", async () => {
+    // 30 mm square, 20 mm asked: held at 7.5 mm, a quarter of the side.
+    const pageSize: PageSize = { kind: "custom", widthMm: 30, heightMm: 30 };
+    const src = new Map([["square", solidPng(20, 20)]]);
+    const request: ImageToPdfRequest = { pages: [image("square")], pageSize, margin: 20 };
+    const output = await convertImagesToPdf({ ...request, sourceBytesById: src });
+    expect(await pictureBoxesMm(output)).toEqual(near([[[7.5, 7.5, 22.5, 22.5]]]));
+    expect(await checkImageToPdf(src, request, output, "full")).toEqual([]);
+  });
+
+  it("image fit ignores the margin: the picture is the page", async () => {
+    const output = await convertImagesToPdf({
+      pages: [image("wide")],
+      sourceBytesById: sources(),
+      pageSize: IMAGE_FIT,
+      margin: 20,
+    });
+    const [[w, h]] = await pageBoxesMm(output);
+    expect(await pictureBoxesMm(output)).toEqual(near([[[0, 0, w, h]]]));
+  });
+});
+
+describe("convertImagesToPdf: fill page", () => {
+  // wide, tall, a photo shown portrait by its EXIF (6), and tall turned across by the user.
+  const mixed = [image("wide"), image("tall"), image("phone"), image("tall", 90)];
+  const fill = (pages: PageItem[], settings: Omit<ImageToPdfRequest, "pages">, src = sources()) =>
+    convertImagesToPdf({ pages, sourceBytesById: src, ...settings }, undefined, nodeSizedPreparation);
+
+  it.each<[string, PageSize, PageOrientation]>([
+    ["A4, auto", A4, "auto"],
+    ["A4, portrait", A4, "portrait"],
+    ["16:9, auto", { kind: "preset", preset: "16:9" }, "auto"],
+    ["16:9, landscape", { kind: "preset", preset: "16:9" }, "landscape"],
+    ["custom 100 × 40 mm, auto", CUSTOM_WIDE, "auto"],
+    ["custom 100 × 40 mm, portrait", CUSTOM_WIDE, "portrait"],
+  ])("%s: every picture covers its whole page, and the output passes the full check", async (_, pageSize, orientation) => {
+    const src = sources();
+    const settings = { pageSize, orientation, margin: "fill" } as const;
+    const output = await fill(mixed, settings, src);
+    const pagesMm = await pageBoxesMm(output);
+    expect(await pictureBoxesMm(output)).toEqual(near(pagesMm.map(([w, h]) => [[0, 0, w, h]])));
+    expect(await checkImageToPdf(src, { pages: mixed, ...settings }, output, "full")).toEqual([]);
+  });
+
+  /** The preparation, recording what it is asked to cut. */
+  function recording() {
+    const calls: { crop: CropRect; size: PixelSize; encoding?: PreparedEncoding }[] = [];
+    const preparation: SizedImagePreparation = {
+      measure: nodeSizedPreparation.measure,
+      prepare(source, crop, size, step, encoding) {
+        calls.push({ crop, size, encoding });
+        return nodeSizedPreparation.prepare(source, crop, size, step, encoding);
+      },
+    };
+    return { calls, preparation };
+  }
+
+  it("asks the preparation for the centre rectangle of the page's shape, kept at its own pixels", async () => {
+    const { calls, preparation } = recording();
+    await convertImagesToPdf(
+      {
+        pages: [image("wide"), image("tall", 90), image("phone")],
+        sourceBytesById: sources(),
+        pageSize: A4,
+        margin: "fill",
+      },
+      undefined,
+      preparation,
+    );
+    expect(calls).toEqual([
+      // 40 × 20 on a landscape A4 (√2 : 1): 28 × 20 at the centre.
+      { crop: { x: 6, y: 0, width: 28, height: 20 }, size: { width: 28, height: 20 }, encoding: "own" },
+      // 10 × 30 turned across: a landscape page, 1 : √2 before the turn.
+      { crop: { x: 0, y: 8, width: 10, height: 14 }, size: { width: 10, height: 14 }, encoding: "own" },
+      // Shown 2 × 3 (EXIF 6) on a portrait page: 2 × 3 is within a pixel of A4, so it is not cut.
+    ]);
+  });
+
+  it("puts a picture of the page's shape in whole, as without fill page", async () => {
+    const { calls, preparation } = recording();
+    const src = new Map([["screen", solidPng(160, 90)]]);
+    const pageSize: PageSize = { kind: "preset", preset: "16:9" };
+    const output = await convertImagesToPdf(
+      { pages: [image("screen")], sourceBytesById: src, pageSize, margin: "fill" },
+      undefined,
+      preparation,
+    );
+    expect(calls).toEqual([]);
+    expect(await storedPictureSizes(output)).toEqual([[160, 90]]);
+  });
+
+  it("keeps the part on the page as it was: a PNG's pixels exactly, the centre of the picture", async () => {
+    // Three 10 px bands, red | green | blue: a square page keeps the green one.
+    const bands = await sharp(
+      Buffer.from(
+        Array.from({ length: 10 * 30 }, (_, i) => [[255, 0, 0], [0, 255, 0], [0, 0, 255]][Math.floor((i % 30) / 10)]).flat(),
+      ),
+      { raw: { width: 30, height: 10, channels: 3 } },
+    )
+      .png()
+      .toBuffer();
+    const output = await fill([image("bands")], { pageSize: { kind: "custom", widthMm: 50, heightMm: 50 }, margin: "fill" }, new Map([["bands", new Uint8Array(bands)]]));
+    const green = Array.from({ length: 10 * 10 }, () => [0, 255, 0, 255]).flat();
+    expect(Array.from(await firstPictureRgba(output))).toEqual(green);
+  });
+
+  it("cuts a photo into a JPEG of the part on the page, without its photo info", async () => {
+    // 40 × 30 on 16:9: the largest 16:9 rectangle in whole pixels is 39 × 22.
+    const photo = withPhotoInfo(new Uint8Array(await sharp(Buffer.from(noisePng(40, 30))).jpeg().toBuffer()));
+    const output = await fill([image("photo")], { pageSize: { kind: "preset", preset: "16:9" }, margin: "fill" }, new Map([["photo", photo]]));
+    const [jpeg] = await embeddedJpegs(output);
+    expect(readImageHeader(jpeg)).toMatchObject({ format: "jpeg", width: 39, height: 22 });
+    expect(pdfJpegs(output).map((j) => j.readable && j.reading.photoInfo)).toEqual([[]]);
+  });
+
+  it("image fit ignores fill page: each page is its picture, nothing cut", async () => {
+    const { calls, preparation } = recording();
+    const settings = { pageSize: IMAGE_FIT, margin: "fill" } as const;
+    const fitted = await convertImagesToPdf({ pages: mixed, sourceBytesById: sources(), ...settings }, undefined, preparation);
+    const plain = await convertImagesToPdf({ pages: mixed, sourceBytesById: sources(), pageSize: IMAGE_FIT });
+    expect(calls).toEqual([]);
+    expect(await pageBoxesMm(fitted)).toEqual(await pageBoxesMm(plain));
+  });
+});
+
+/** Each picture's stored size in pixels, page by page, as pdf.js reads it. */
+async function storedPictureSizes(pdf: Uint8Array): Promise<[number, number][]> {
+  return inspectPdf(pdf, async (inspection) => {
+    if (inspection.status !== "open") throw new Error(`the PDF does not open: ${inspection.status}`);
+    const sizes: [number, number][] = [];
+    for (let n = 1; n <= inspection.pdf.pageCount; n++) {
+      for (const { width, height } of (await inspection.pdf.content(n)).images) sizes.push([width, height]);
+    }
+    return sizes;
+  });
+}
+
+describe("convertImagesToPdf: orientation", () => {
+  // wide, tall, a square, and a tall picture the user turned across.
+  const mixed = () => ({
+    pages: [image("wide"), image("tall"), image("square"), image("tall", 90)],
+    sourceBytesById: new Map([...sources(), ["square", solidPng(20, 20)]]),
+  });
+
+  it.each<[string, PageSize, [number, number], [number, number]]>([
+    ["A4", A4, [210, 297], [297, 210]],
+    ["16:9", { kind: "preset", preset: "16:9" }, [190.5, 338.7], [338.7, 190.5]],
+    ["custom 100 × 40 mm", CUSTOM_WIDE, [40, 100], [100, 40]],
+  ])("%s: portrait and landscape turn every page that way, whatever its picture", async (_, pageSize, up, across) => {
+    const portrait = await convertImagesToPdf({ ...mixed(), pageSize, orientation: "portrait" });
+    expect(await pageBoxesMm(portrait)).toEqual([up, up, up, up]);
+    const landscape = await convertImagesToPdf({ ...mixed(), pageSize, orientation: "landscape" });
+    expect(await pageBoxesMm(landscape)).toEqual([across, across, across, across]);
+  });
+
+  it("auto turns each page to its picture as turned in the editor", async () => {
+    const output = await convertImagesToPdf({ ...mixed(), pageSize: A4, orientation: "auto" });
+    expect(await pageBoxesMm(output)).toEqual([
+      [297, 210],
+      [210, 297],
+      [210, 297],
+      [297, 210],
+    ]);
+  });
+
+  it("image fit ignores the orientation: each page is its picture", async () => {
+    const fit = await convertImagesToPdf({ ...mixed(), pageSize: IMAGE_FIT, orientation: "auto" });
+    const forced = await convertImagesToPdf({ ...mixed(), pageSize: IMAGE_FIT, orientation: "portrait" });
+    expect(await pageBoxesMm(forced)).toEqual(await pageBoxesMm(fit));
+  });
+});
+
+describe("convertImagesToPdf", () => {
+  it.each<[string, Omit<ImageToPdfRequest, "pages">]>([
+    ["image fit", { pageSize: IMAGE_FIT }],
+    ["image fit, portrait, 20 mm (both ignored)", { pageSize: IMAGE_FIT, orientation: "portrait", margin: 20 }],
+    ["A4", { pageSize: A4 }],
+    ["A4, portrait, 20 mm", { pageSize: A4, orientation: "portrait", margin: 20 }],
+    ["16:9, landscape, 10 mm", { pageSize: { kind: "preset", preset: "16:9" }, orientation: "landscape", margin: 10 }],
+    ["custom size", { pageSize: CUSTOM_WIDE }],
+    ["custom size, auto, 10 mm", { pageSize: CUSTOM_WIDE, orientation: "auto", margin: 10 }],
+  ])("%s: the output passes the full check", async (_, settings) => {
+    const src = sources();
+    const output = await convertImagesToPdf({ pages, sourceBytesById: src, ...settings });
+    expect(await checkImageToPdf(src, { pages, ...settings }, output, "full")).toEqual([]);
+  });
+
+  it.each<[string, PageSize, string]>([
+    ["image fit", IMAGE_FIT, "right"],
+    ["A4", A4, "right"],
+    ["custom landscape size", CUSTOM_WIDE, "right"],
   ])(
     "%s: draws a photo with EXIF orientation 6 as the browser shows it",
-    async (_, imageLayout, expectedSide) => {
+    async (_, pageSize, expectedSide) => {
       // Orientation 6 is shown turned 90° clockwise: the stored top row
       // appears along the right-hand side.
       const output = await convertImagesToPdf({
         pages: [image("phone")],
         sourceBytesById: sources(),
-        imageLayout,
+        pageSize,
       });
       expect(await storedTopRowSide(output)).toBe(expectedSide);
     },
   );
 
-  it.each<[number, ImageLayout, Rotation, string]>([
-    [1, { mode: "native" }, 0, "top"],
-    [3, { mode: "native" }, 0, "bottom"],
-    [8, { mode: "native" }, 0, "left"],
-    [2, { mode: "fixed", widthPt: 595, heightPt: 842 }, 0, "top"],
+  it.each<[number, PageSize, Rotation, string]>([
+    [1, IMAGE_FIT, 0, "top"],
+    [3, IMAGE_FIT, 0, "bottom"],
+    [8, IMAGE_FIT, 0, "left"],
+    [2, A4, 0, "top"],
     // Shown with its right side up (6), then turned 90° clockwise by the
     // user on a fixed page, where the turn is drawn: the top row lands below.
-    [6, { mode: "fixed", widthPt: 595, heightPt: 842 }, 90, "bottom"],
+    [6, A4, 90, "bottom"],
   ])(
     "orientation %i, %o, turned %i°: the stored top row lands at the %s",
-    async (orientation, imageLayout, rotation, expectedSide) => {
+    async (orientation, pageSize, rotation, expectedSide) => {
       const output = await convertImagesToPdf({
         pages: [image("tagged", rotation)],
         sourceBytesById: new Map([["tagged", withExifOrientation(JPEG_3x2, orientation)]]),
-        imageLayout,
+        pageSize,
       });
       expect(await storedTopRowSide(output)).toBe(expectedSide);
     },
   );
 
-  it.each<[string, ImageLayout]>([
-    ["native layout", { mode: "native" }],
-    ["A4", { mode: "fixed", widthPt: 595, heightPt: 842 }],
-    ["custom size", { mode: "fixed", widthPt: 300, heightPt: 120 }],
-  ])("%s: a photo goes in without its photo info, its picture untouched", async (_, imageLayout) => {
+  it.each<[string, PageSize]>([
+    ["image fit", IMAGE_FIT],
+    ["A4", A4],
+    ["custom size", CUSTOM_WIDE],
+  ])("%s: a photo goes in without its photo info, its picture untouched", async (_, pageSize) => {
     const output = await convertImagesToPdf({
       pages: [image("gps")],
       sourceBytesById: new Map([["gps", withPhotoInfo(JPEG_3x2)]]),
-      imageLayout,
+      pageSize,
     });
     // JPEG_3x2 is the photo with nothing added: same scan data, its JFIF
     // header and colour profile (ICC) still there, nothing re-encoded.
@@ -169,7 +513,7 @@ describe("convertImagesToPdf", () => {
     const output = await convertImagesToPdf({
       pages: [image("padded")],
       sourceBytesById: new Map([["padded", padded]]),
-      imageLayout: { mode: "native" },
+      pageSize: IMAGE_FIT,
     });
     expect(await embeddedJpegs(output)).toEqual([JPEG_3x2]);
   });
@@ -178,7 +522,7 @@ describe("convertImagesToPdf", () => {
     const output = await convertImagesToPdf({
       pages: [image("phone")],
       sourceBytesById: new Map([["phone", withExifOrientation(withPhotoInfo(JPEG_3x2), 6)]]),
-      imageLayout: { mode: "native" },
+      pageSize: IMAGE_FIT,
     });
     expect(await storedTopRowSide(output)).toBe("right");
     expect(await embeddedJpegs(output)).toEqual([JPEG_3x2]);
@@ -189,7 +533,7 @@ describe("convertImagesToPdf", () => {
     const output = await convertImagesToPdf({
       pages: [image("png")],
       sourceBytesById: new Map([["png", png.bytes]]),
-      imageLayout: { mode: "fixed", widthPt: 595, heightPt: 842 },
+      pageSize: A4,
     });
     expect(Buffer.from(await firstPictureRgba(output)).equals(Buffer.from(png.rgba))).toBe(true);
   });
@@ -199,7 +543,7 @@ describe("convertImagesToPdf", () => {
     const output = await convertImagesToPdf({
       pages: [image("png")],
       sourceBytesById: new Map([["png", png]]),
-      imageLayout: { mode: "native" },
+      pageSize: IMAGE_FIT,
     });
     expect(output.byteLength).toBeLessThanOrEqual(png.byteLength + PNG_PAGE_OVERHEAD);
   });
@@ -209,7 +553,7 @@ describe("convertImagesToPdf", () => {
     const output = await convertImagesToPdf({
       pages: [image("art")],
       sourceBytesById: new Map([["art", png]]),
-      imageLayout: { mode: "native" },
+      pageSize: IMAGE_FIT,
     });
     const before = await PDFDocument.create();
     const embedded = await before.embedPng(png);
@@ -221,9 +565,9 @@ describe("convertImagesToPdf", () => {
     const png = withPngHeight(pngOfKind("truecolour").bytes, 80);
     const pagesShort = [image("short")];
     const src = new Map([["short", png]]);
-    const imageLayout: ImageLayout = { mode: "native" };
-    const output = await convertImagesToPdf({ pages: pagesShort, sourceBytesById: src, imageLayout });
-    expect(await checkImageToPdf(src, { pages: pagesShort, imageLayout }, output, "full")).toEqual([]);
+    const pageSize: PageSize = IMAGE_FIT;
+    const output = await convertImagesToPdf({ pages: pagesShort, sourceBytesById: src, pageSize });
+    expect(await checkImageToPdf(src, { pages: pagesShort, pageSize }, output, "full")).toEqual([]);
     expect((await firstPictureRgba(output)).length).toBe(96 * 80 * 4);
   });
 
@@ -234,7 +578,7 @@ describe("convertImagesToPdf", () => {
     const err = await convertImagesToPdf({
       pages: [image("png")],
       sourceBytesById: new Map([["png", damage(pngOfKind("truecolour with alpha").bytes)]]),
-      imageLayout: { mode: "native" },
+      pageSize: IMAGE_FIT,
     }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(Error);
     // Narrowed by the assertion above. The user's file, not the tool: the
@@ -250,7 +594,7 @@ describe("convertImagesToPdf", () => {
     const output = await convertImagesToPdf({
       pages: [image("png")],
       sourceBytesById: new Map([["png", alter(png.bytes)]]),
-      imageLayout: { mode: "native" },
+      pageSize: IMAGE_FIT,
     });
     expect(Buffer.from(await firstPictureRgba(output)).equals(Buffer.from(png.rgba))).toBe(true);
   }, 15_000);
@@ -263,7 +607,7 @@ describe("convertImagesToPdf", () => {
       const output = await convertImagesToPdf({
         pages: [image("png")],
         sourceBytesById: new Map([["png", png.bytes]]),
-        imageLayout: { mode: "native" },
+        pageSize: IMAGE_FIT,
       });
       expect(Buffer.from(await firstPictureRgba(output)).equals(Buffer.from(png.rgba))).toBe(true);
     } finally {
@@ -276,7 +620,7 @@ describe("convertImagesToPdf", () => {
     const err = await convertImagesToPdf({
       pages: [image("cut")],
       sourceBytesById: new Map([["cut", JPEG_3x2.subarray(0, scan)]]),
-      imageLayout: { mode: "native" },
+      pageSize: IMAGE_FIT,
     }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(Error);
     // Narrowed by the assertion above.
@@ -290,7 +634,7 @@ describe("convertImagesToPdf", () => {
     const err = await convertImagesToPdf({
       pages: [image("photo")],
       sourceBytesById: sources(),
-      imageLayout: { mode: "native" },
+      pageSize: IMAGE_FIT,
     }).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(Error);
@@ -302,5 +646,266 @@ describe("convertImagesToPdf", () => {
       expect(hint).toBeTruthy();
       expect(getErrorMessage(err, { copy: dict.common.errors, corruptOutputHint: hint }).message).toBe(hint);
     }
+  });
+});
+
+describe("convertImagesToPdf: picture quality", () => {
+  /** A solid JPEG of `width`×`height`, made by sharp: cheap to cut and resize. */
+  const photo = async (width: number, height: number) =>
+    new Uint8Array(
+      await sharp({ create: { width, height, channels: 3, background: { r: 90, g: 140, b: 200 } } })
+        .jpeg()
+        .toBuffer(),
+    );
+  const run = async (settings: Omit<ImageToPdfRequest, "pages">, src: Map<string, Uint8Array>, pages = [...src.keys()].map((id) => image(id))) => {
+    const output = await convertImagesToPdf({ pages, sourceBytesById: src, ...settings }, undefined, nodeSizedPreparation);
+    expect(await checkImageToPdf(src, { pages, ...settings }, output, "full")).toEqual([]);
+    return storedPictureSizes(output);
+  };
+
+  /** A PNG that stores a photo: a noisy gradient, whose JPEG is a small part of its size. */
+  const photoPng = async (width: number, height: number) => {
+    const raw = Buffer.alloc(width * height * 3);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 3;
+        const jitter = () => Math.floor(Math.random() * 24);
+        raw.set([(x / 5 + jitter()) & 255, (y / 4 + jitter()) & 255, ((x + y) / 8 + jitter()) & 255], i);
+      }
+    }
+    return new Uint8Array(await sharp(raw, { raw: { width, height, channels: 3 } }).png().toBuffer());
+  };
+  const SCREEN_WIDE: PageSize = { kind: "preset", preset: "16:9" };
+  const SCREEN_STANDARD: PageSize = { kind: "preset", preset: "4:3" };
+  const SQUARE_100: PageSize = { kind: "custom", widthMm: 100, heightMm: 100 };
+
+  it("A4: 보통 keeps 200 pixels per inch of the size drawn, 높게 300, never more than the picture", async () => {
+    // 3000 × 2000 across a landscape A4 (297 mm = 11.69 in wide): 2339 px at 200 dpi, 3508 at 300.
+    const src = new Map([["p", await photo(3000, 2000)]]);
+    expect(await run({ pageSize: A4, quality: "standard" }, src)).toEqual([[2339, 1559]]);
+    expect(await run({ pageSize: A4, quality: "high" }, src)).toEqual([[3000, 2000]]);
+  });
+
+  it("custom: the dots per inch hold across the size drawn, margin included", async () => {
+    // 3000 × 2000 across 100 mm (3.94 in): 787 px at 200 dpi, 1181 at 300; across 80 mm with 10 mm margins: 630.
+    const src = new Map([["p", await photo(3000, 2000)]]);
+    expect(await run({ pageSize: SQUARE_100, quality: "standard" }, src)).toEqual([[787, 525]]);
+    expect(await run({ pageSize: SQUARE_100, quality: "high" }, src)).toEqual([[1181, 787]]);
+    expect(await run({ pageSize: SQUARE_100, margin: 10, quality: "standard" }, src)).toEqual([[630, 420]]);
+  });
+
+  // A 4:3 photo across and one up, made once: each case converts them once,
+  // so no case holds several 12 MP runs (CI's runners are a few times slower).
+  let screenPhotos: Promise<Map<string, Uint8Array>> | undefined;
+  const acrossAndUp = () =>
+    (screenPhotos ??= Promise.all([photo(4000, 3000), photo(3000, 4000)]).then(
+      ([across, up]) =>
+        new Map([
+          ["across", across],
+          ["up", up],
+        ]),
+    ));
+
+  // A 4:3 photo on a 16:9 page fills its height: 1080 rows of Full HD, 2160 of 4K.
+  it.each<[string, Omit<ImageToPdfRequest, "pages">, [number, number][]]>([
+    ["16:9 at 보통 keeps Full HD's rows", { pageSize: SCREEN_WIDE, quality: "standard" }, [[1440, 1080], [1080, 1440]]],
+    ["16:9 at 높게 keeps 4K's rows", { pageSize: SCREEN_WIDE, quality: "high" }, [[2880, 2160], [2160, 2880]]],
+    // A 4:3 page is 1440 × 1080 of a Full HD screen.
+    ["4:3 at 보통 is 1440 × 1080 of Full HD", { pageSize: SCREEN_STANDARD, quality: "standard" }, [[1440, 1080], [1080, 1440]]],
+    // Forced landscape: the portrait photo sits in the page's 1080 rows.
+    [
+      "16:9 forced landscape fits the portrait photo in 1080 rows",
+      { pageSize: SCREEN_WIDE, orientation: "landscape", quality: "standard" },
+      [[1440, 1080], [810, 1080]],
+    ],
+  ])("screen presets: %s, turned as the page is", async (_, settings, expected) => {
+    expect(await run(settings, await acrossAndUp())).toEqual(expected);
+  });
+
+  it("image fit: the pixels the level keeps on A4, the page keeping the picture's own size", async () => {
+    // 4000 × 3000 on a landscape A4 fills its 210 mm (8.27 in): 1654 rows at 200 dpi, 2480 at 300.
+    const src = new Map([["p", await photo(4000, 3000)]]);
+    expect(await run({ pageSize: IMAGE_FIT, quality: "standard" }, src)).toEqual([[2205, 1654]]);
+    expect(await run({ pageSize: IMAGE_FIT, quality: "high" }, src)).toEqual([[3307, 2480]]);
+    const output = await convertImagesToPdf(
+      { pages: [image("p")], sourceBytesById: src, pageSize: IMAGE_FIT, quality: "standard" },
+      undefined,
+      nodeSizedPreparation,
+    );
+    expect(await pageBoxesMm(output)).toEqual([[1411.1, 1058.3]]); // 4000 × 3000 pt
+  });
+
+  // One conversion per case, as the screen presets above.
+  it.each<[string, Omit<ImageToPdfRequest, "pages">, [number, number], [number, number]]>([
+    // 4000 × 3000 on 16:9 keeps 4000 × 2250, drawn across the whole Full HD or 4K screen.
+    ["16:9 at 보통 fills Full HD", { pageSize: SCREEN_WIDE, margin: "fill", quality: "standard" }, [4000, 3000], [1920, 1080]],
+    ["16:9 at 높게 fills 4K", { pageSize: SCREEN_WIDE, margin: "fill", quality: "high" }, [4000, 3000], [3840, 2160]],
+    // 4000 × 3000 on a 100 mm square keeps 3000 × 3000, drawn across 100 mm: 787 px at 200 dpi.
+    ["a 100 mm square at 보통 keeps 200 dpi", { pageSize: SQUARE_100, margin: "fill", quality: "standard" }, [4000, 3000], [787, 787]],
+    // 3000 × 2000 on a 100 mm square keeps its 2000 × 2000 centre whole.
+    ["a 100 mm square at 원본 그대로 keeps every pixel of the part", { pageSize: SQUARE_100, margin: "fill", quality: "original" }, [3000, 2000], [2000, 2000]],
+  ])("fill page: %s", async (_, settings, [width, height], expected) => {
+    expect(await run(settings, new Map([["p", await photo(width, height)]]))).toEqual([expected]);
+  });
+
+  it.each<[string, Omit<ImageToPdfRequest, "pages" | "quality">]>([
+    ["A4", { pageSize: A4 }],
+    ["custom with a margin", { pageSize: SQUARE_100, margin: 20 }],
+    ["16:9", { pageSize: SCREEN_WIDE }],
+    ["image fit", { pageSize: IMAGE_FIT }],
+  ])("%s: a small photo goes in as uploaded at every level", async (_, settings) => {
+    const small = await photo(300, 200);
+    for (const quality of PICTURE_QUALITIES) {
+      const output = await convertImagesToPdf(
+        { pages: [image("p")], sourceBytesById: new Map([["p", small]]), ...settings, quality },
+        undefined,
+        nodeSizedPreparation,
+      );
+      expect(await embeddedJpegs(output)).toEqual([small]);
+    }
+  });
+
+  it("a small screenshot of text stays the PNG it was at every level", async () => {
+    // Black and white blocks, like text: JPEG would not halve it.
+    const png = pngOfKind("1-bit greyscale");
+    for (const quality of PICTURE_QUALITIES) {
+      const output = await convertImagesToPdf(
+        { pages: [image("png")], sourceBytesById: new Map([["png", png.bytes]]), pageSize: A4, quality },
+        undefined,
+        nodeSizedPreparation,
+      );
+      expect(Buffer.from(await firstPictureRgba(output)).equals(Buffer.from(png.rgba))).toBe(true);
+    }
+  });
+
+  it("원본 그대로 keeps every picture at its own size and every PNG as PNG; 보통 stores a photo PNG as JPEG", async () => {
+    const src = new Map([
+      ["photo", await photo(3000, 2000)],
+      ["png", await photoPng(1500, 1000)],
+    ]);
+    const original = { pageSize: SQUARE_100, quality: "original" } as const;
+    expect(await run(original, src)).toEqual([
+      [3000, 2000],
+      [1500, 1000],
+    ]);
+    const kept = await convertImagesToPdf({ pages: [image("png")], sourceBytesById: src, ...original }, undefined, nodeSizedPreparation);
+    expect(await embeddedJpegs(kept)).toEqual([]);
+    const standard = await convertImagesToPdf(
+      { pages: [image("png")], sourceBytesById: src, pageSize: SQUARE_100, quality: "standard" },
+      undefined,
+      nodeSizedPreparation,
+    );
+    expect((await embeddedJpegs(standard)).map((j) => readImageHeader(j))).toMatchObject([
+      { format: "jpeg", width: 787, height: 525 },
+    ]);
+  });
+
+  it("a picture the user turned keeps the pixels its level gives the turned picture", async () => {
+    // 3000 × 2000 turned upright: a portrait A4 it fills 297 mm (11.69 in) up, so 2339 of its 3000 columns.
+    const src = new Map([["p", await photo(3000, 2000)]]);
+    expect(await run({ pageSize: A4, quality: "standard" }, src, [image("p", 90)])).toEqual([[2339, 1559]]);
+    // Image fit: the page is the picture turned by /Rotate; it keeps what it would on A4, 2339 × 1559.
+    expect(await run({ pageSize: IMAGE_FIT, quality: "standard" }, src, [image("p", 270)])).toEqual([[2339, 1559]]);
+  });
+
+  it("a photo turned by its EXIF keeps its pixels per inch along the side shown across", async () => {
+    // Stored 3000 × 2000, shown 2000 × 3000 (EXIF 6): a portrait A4 it fills 297 mm (11.69 in) up → 2339 rows.
+    const turned = withExifOrientation(await photo(3000, 2000), 6);
+    expect(await run({ pageSize: A4, quality: "standard" }, new Map([["p", turned]]))).toEqual([[1559, 2339]]);
+  });
+
+  it.each(PICTURE_QUALITIES)("%s: photo info stays behind, resized or not", async (quality) => {
+    const src = new Map([
+      ["big", withPhotoInfo(await photo(3000, 2000))],
+      ["small", withPhotoInfo(await photo(300, 200))],
+    ]);
+    const output = await convertImagesToPdf(
+      { pages: [image("big"), image("small")], sourceBytesById: src, pageSize: A4, quality },
+      undefined,
+      nodeSizedPreparation,
+    );
+    expect(pdfJpegs(output).map((j) => j.readable && j.reading.photoInfo)).toEqual([[], []]);
+  });
+});
+
+describe("convertImagesToPdf: WebP", () => {
+  /** A solid WebP of `width`×`height`, made by sharp; `alpha` makes it half see-through. */
+  const webp = async (width: number, height: number, alpha = false) =>
+    new Uint8Array(
+      await sharp({
+        create: {
+          width,
+          height,
+          channels: alpha ? 4 : 3,
+          background: alpha ? { r: 90, g: 140, b: 200, alpha: 0.5 } : { r: 90, g: 140, b: 200 },
+        },
+      })
+        .webp({ lossless: alpha })
+        .toBuffer(),
+    );
+  /** The format of each picture the PDF holds, as its own bytes read: JPEGs found, the rest PNG. */
+  const run = async (settings: Omit<ImageToPdfRequest, "pages">, src: Map<string, Uint8Array>) => {
+    const pages = [...src.keys()].map((id) => image(id));
+    const output = await convertImagesToPdf({ pages, sourceBytesById: src, ...settings }, undefined, nodeSizedPreparation);
+    expect(await checkImageToPdf(src, { pages, ...settings }, output, "full")).toEqual([]);
+    return output;
+  };
+
+  // Every page kind at every level, one conversion each; resizing a WebP is
+  // the 보통 case below, so a small picture serves here.
+  it.each(
+    (
+      [
+        ["A4", { pageSize: A4 }],
+        ["A4 with a margin", { pageSize: A4, margin: 10 }],
+        ["16:9 fill page", { pageSize: { kind: "preset", preset: "16:9" }, margin: "fill" }],
+        ["image fit", { pageSize: IMAGE_FIT }],
+      ] as const
+    ).flatMap(([label, settings]) => PICTURE_QUALITIES.map((quality) => [label, quality, settings] as const)),
+  )("%s, %s: a WebP lands on its page", async (_, quality, settings) => {
+    const src = new Map([["p", await webp(600, 400)]]);
+    const output = await run({ ...settings, quality }, src);
+    expect(await storedPictureSizes(output)).toHaveLength(1);
+  });
+
+  it("원본 그대로: a WebP goes in at its own size, as JPEG or PNG by the preparation's rule", async () => {
+    // A noisy photo, whose JPEG is a small part of its PNG; a see-through graphic, which stays PNG.
+    const raw = Buffer.alloc(1200 * 800 * 3);
+    for (let i = 0; i < raw.length; i++) raw[i] = (i % 251) ^ Math.floor(Math.random() * 32);
+    const noisy = new Uint8Array(await sharp(raw, { raw: { width: 1200, height: 800, channels: 3 } }).webp().toBuffer());
+    const src = new Map([
+      ["photo", noisy],
+      ["clear", await webp(400, 300, true)],
+    ]);
+    const output = await run({ pageSize: A4, quality: "original" }, src);
+    expect(await storedPictureSizes(output)).toEqual([
+      [1200, 800],
+      [400, 300],
+    ]);
+    // Only the photo became JPEG; the see-through graphic is the PDF's other picture, a PNG.
+    expect((await embeddedJpegs(output)).map((j) => readImageHeader(j))).toMatchObject([
+      { format: "jpeg", width: 1200, height: 800 },
+    ]);
+  });
+
+  it("보통 sizes a WebP as it would a JPEG of the same size", async () => {
+    const src = new Map([["p", await webp(3000, 2000)]]);
+    const output = await run({ pageSize: A4, quality: "standard" }, src);
+    // 3000 × 2000 across a landscape A4 at 200 dpi: 2339 × 1559, as for the JPEG.
+    expect(await storedPictureSizes(output)).toEqual([[2339, 1559]]);
+  });
+});
+
+describe("convertImagesToPdf: a PNG the browser turns", () => {
+  // Browsers show a PNG turned by an eXIf chunk before its image data, as
+  // the editor's cards do; the page follows what they show, at every level.
+  it.each(PICTURE_QUALITIES)("%s: a PNG tagged orientation 6 lands upright on a page of its shown shape", async (quality) => {
+    const src = new Map([["p", withPngExif(solidPng(400, 300))]]);
+    const settings = { pageSize: A4, quality } as const;
+    const output = await convertImagesToPdf({ pages: [image("p")], sourceBytesById: src, ...settings }, undefined, nodeSizedPreparation);
+    expect(await checkImageToPdf(src, { pages: [image("p")], ...settings }, output, "full")).toEqual([]);
+    // Shown 300 × 400: a portrait A4, the picture stored upright.
+    expect(await pageBoxesMm(output)).toEqual([[210, 297]]);
+    expect(await storedPictureSizes(output)).toEqual([[300, 400]]);
   });
 });

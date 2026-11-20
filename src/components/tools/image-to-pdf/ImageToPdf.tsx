@@ -20,6 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
+import { ChoiceTabs } from "@/components/common/ChoiceTabs";
 import { FileUpload } from "@/components/common/FileUpload";
 import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
@@ -33,39 +34,87 @@ import { template } from "@/lib/common/template";
 import { totalSizeWarnFor, uploadLimitFor } from "@/lib/constants";
 import { getErrorMessage } from "@/lib/errors";
 import { normalizeImageFiles } from "@/lib/image/heic";
-import {
-  convertImagesToPdf,
-  type ImageLayout,
-} from "@/lib/pdf/assembleSections";
+import { type PixelSize, uprightSize } from "@/lib/image/slideImage";
+import { convertImagesToPdf } from "@/lib/pdf/assembleSections";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import { type PageItem, type Rotation } from "@/lib/pdf/pageItem";
+import {
+  type CustomSizeMm,
+  type PageMargin,
+  type PageOrientation,
+  type PagePreset,
+  type PageSize,
+  type PageSizeMode,
+  customFromPreset,
+  marginPt,
+  pageBoxPt,
+} from "@/lib/pdf/pageSize";
+import { PICTURE_QUALITIES, type PictureQuality } from "@/lib/pdf/pictureQuality";
 import { ImageToPdfResult } from "./ImageToPdfResult";
-import { PageSizeSelector, type CustomSize, type PageSizeMode } from "./PageSizeSelector";
+import { PageSizeSelector } from "./PageSizeSelector";
 import type { ImageToPdfLabels } from "./labels";
 
 const ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
   "image/png": [".png"],
+  "image/webp": [".webp"],
   "image/heic": [".heic"],
   "image/heif": [".heif"],
 };
-const ACCEPT_ATTR = "image/png,image/jpeg,image/heic,image/heif,.heic,.heif";
+const ACCEPT_ATTR = Object.entries(ACCEPT)
+  .flatMap(([mime, extensions]) => [mime, ...extensions])
+  .join(",");
+/** What the engine takes once HEIC is converted: a WebP goes through the picture preparation. */
+const ENGINE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 const NEUTRAL_TINT = { ring: "transparent" } as const;
 
-/** Read an image file's natural pixel dimensions. Returns null if it can't be
- *  decoded (used to seed the custom page-size default). */
-async function readImagePixelSize(
-  file: File,
-): Promise<{ w: number; h: number } | null> {
-  try {
-    const bitmap = await createImageBitmap(file);
-    const size = { w: bitmap.width, h: bitmap.height };
-    bitmap.close();
-    return size;
-  } catch {
-    return null;
-  }
+/** The page a picture is made on, as its editor card draws it. */
+interface CardPage {
+  /** Width / height. */
+  aspect: number;
+  /** The margin's share of the page's width. */
+  marginRatio: number;
+  /** Fill page: the picture covers the frame, cut at its edges. */
+  fill: boolean;
+}
+
+/**
+ * The page `item` will be made on, for its editor card: the picture's shown
+ * size (`shown`, as the engine measures it), then the user's turn, put
+ * through the same page and margin rules as the engine; under fill page the
+ * picture covers the frame, cut at its centre as the engine cuts it. Null
+ * under image fit, where the picture is the page. A picture not measured
+ * gets the size as listed.
+ */
+function cardPage(
+  pageSize: PageSize,
+  orientation: PageOrientation,
+  margin: PageMargin,
+  item: PageItem,
+  shown: PixelSize | undefined,
+): CardPage | null {
+  const { width: w, height: h } = shown ?? { width: 1, height: 1 };
+  const box = pageBoxPt(pageSize, w, h, item.rotation, orientation);
+  if (!box) return null;
+  if (margin === "fill") return { aspect: box.width / box.height, marginRatio: 0, fill: true };
+  return { aspect: box.width / box.height, marginRatio: marginPt(box, margin) / box.width, fill: false };
+}
+
+/**
+ * Each picture's size as the engine measures it (its EXIF orientation, or a
+ * PNG's eXIf, applied), once at upload rather than on every render: from
+ * its header, decoding it only when it carries an orientation the header
+ * reader leaves out. A picture that cannot be measured is left out.
+ */
+async function measureShown(sources: Map<string, Uint8Array>): Promise<Map<string, PixelSize>> {
+  const measured = await Promise.all(
+    [...sources].map(async ([id, bytes]) => {
+      const size = await uprightSize(new Blob([bytes.slice()])).catch(() => null);
+      return size && ([id, size] as const);
+    }),
+  );
+  return new Map(measured.filter((entry) => entry !== null));
 }
 
 export interface ImageToPdfResultData {
@@ -83,7 +132,7 @@ interface SortableCellProps {
   rotateAria: string;
   deleteAria: string;
   frameBg: string;
-  pageAspect: number | null;
+  page: CardPage | null;
 }
 
 function SortableCell({
@@ -95,7 +144,7 @@ function SortableCell({
   rotateAria,
   deleteAria,
   frameBg,
-  pageAspect,
+  page,
 }: SortableCellProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
@@ -121,7 +170,9 @@ function SortableCell({
         rotateAria={rotateAria}
         deleteAria={deleteAria}
         frameBg={frameBg}
-        pageAspect={pageAspect}
+        pageAspect={page?.aspect ?? null}
+        pageMarginRatio={page?.marginRatio ?? 0}
+        pageFill={page?.fill ?? false}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
       {/* No divider — image-to-pdf always produces one PDF. Keep the column gutter. */}
@@ -144,24 +195,37 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
   const [sourceBytesById, setSourceBytesById] = useState<Map<string, Uint8Array>>(
     new Map(),
   );
+  const [shownSizeById, setShownSizeById] = useState<Map<string, PixelSize>>(new Map());
   const [loadingPages, setLoadingPages] = useState(false);
-  const [sizeMode, setSizeMode] = useState<PageSizeMode>("fit");
-  const [custom, setCustom] = useState<CustomSize>({ w: 595, h: 842 });
+  const [sizeMode, setSizeMode] = useState<PageSizeMode>("preset");
+  const [preset, setPreset] = useState<PagePreset>("a4");
+  const [custom, setCustom] = useState<CustomSizeMm>(() => customFromPreset("a4"));
+  // The preset the custom fields were last filled from: switching to custom
+  // refills them only after another preset was chosen, so sizes typed there
+  // survive a look at image fit or the same preset.
+  const [customSeed, setCustomSeed] = useState<PagePreset>("a4");
+  const [orientation, setOrientation] = useState<PageOrientation>("auto");
+  const [margin, setMargin] = useState<PageMargin>(0);
+  const [quality, setQuality] = useState<PictureQuality>("standard");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
 
-  const imageLayout = useMemo<ImageLayout>(() => {
-    if (sizeMode === "a4") return { mode: "fixed", widthPt: 595, heightPt: 842 };
-    if (sizeMode === "custom") {
-      // Clamp to PDF's max page dimension (14400 pt ≈ 200in) so an absurd value
-      // can't produce a giant page / OOM.
-      const MAX_PT = 14400;
-      const w = Math.min(MAX_PT, Math.max(1, Math.round(custom.w || 0)));
-      const h = Math.min(MAX_PT, Math.max(1, Math.round(custom.h || 0)));
-      return { mode: "fixed", widthPt: w, heightPt: h };
-    }
-    return { mode: "native" };
-  }, [sizeMode, custom]);
+  const pageSize = useMemo<PageSize>(() => {
+    if (sizeMode === "preset") return { kind: "preset", preset };
+    if (sizeMode === "custom") return { kind: "custom", ...custom };
+    return { kind: "image-fit" };
+  }, [sizeMode, preset, custom]);
+
+  const handleModeChange = useCallback(
+    (next: PageSizeMode) => {
+      if (next === "custom" && customSeed !== preset) {
+        setCustom(customFromPreset(preset));
+        setCustomSeed(preset);
+      }
+      setSizeMode(next);
+    },
+    [customSeed, preset],
+  );
 
   const {
     files,
@@ -179,7 +243,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       const live = items.filter((p) => !p.deleted);
       if (live.length === 0) throw new Error("no images to convert"); // Convert is disabled then
       const bytes = await convertImagesToPdf(
-        { pages: live, sourceBytesById, imageLayout },
+        { pages: live, sourceBytesById, pageSize, orientation, margin, quality },
         onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pdf`;
@@ -207,9 +271,9 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       }
 
       // Images only — drop anything that isn't an accepted image.
-      const images = normalized.filter((f) => f.type === "image/png" || f.type === "image/jpeg");
+      const images = normalized.filter((f) => ENGINE_TYPES.has(f.type));
       for (const f of normalized) {
-        if (!(f.type === "image/png" || f.type === "image/jpeg")) {
+        if (!ENGINE_TYPES.has(f.type)) {
           toast.error(template(labels.fileUpload.invalidTypeTemplate, { name: f.name }));
         }
       }
@@ -232,18 +296,17 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       try {
         const built = await buildPageItems(accepted);
         if (built.items.length === 0) return;
+        const shown = await measureShown(built.sourceBytesById);
         if (mode === "replace") {
           clearThumbnailCache();
           setItems(built.items);
           setSourceBytesById(built.sourceBytesById);
+          setShownSizeById(shown);
           setFiles(accepted);
-          // Seed the custom page size with the first image's pixel dimensions, so
-          // "사용자 지정" starts from a meaningful basis (the user's own image).
-          const size = await readImagePixelSize(accepted[0]);
-          if (size) setCustom({ w: size.w, h: size.h });
         } else {
           setItems((prev) => [...prev, ...built.items]);
           setSourceBytesById((prev) => new Map([...prev, ...built.sourceBytesById]));
+          setShownSizeById((prev) => new Map([...prev, ...shown]));
           setFiles((prev) => [...prev, ...accepted]);
         }
       } catch (err) {
@@ -335,15 +398,6 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
   const showOversize =
     totalBytes > totalSizeWarnFor("image-to-pdf") && !oversizeDismissed;
 
-  // White page-rect aspect (w/h) shown inside each editor card. null = fit-image
-  // (no fixed page → image fills the card directly).
-  const editorPageAspect =
-    sizeMode === "a4"
-      ? 595 / 842
-      : sizeMode === "custom"
-        ? Math.max(1, custom.w || 0) / Math.max(1, custom.h || 0)
-        : null;
-
   const filesSummary =
     files.length <= 1
       ? template(labels.filesOneTemplate, { name: files[0]?.name ?? "" })
@@ -352,68 +406,95 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
           rest: files.length - 1,
         });
 
-  const editor = (
-    <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
+  const qualityLabel: Record<PictureQuality, string> = {
+    original: labels.qualityOriginal,
+    high: labels.qualityHigh,
+    standard: labels.qualityStandard,
+  };
+
+  // The page settings, then the picture quality, in one column, each label
+  // above its tabs so the tabs take the column's width in every language.
+  const settings = (
+    <div className="space-y-2">
       <PageSizeSelector
         mode={sizeMode}
-        onModeChange={setSizeMode}
+        onModeChange={handleModeChange}
+        preset={preset}
+        onPresetChange={setPreset}
         custom={custom}
         onCustomChange={setCustom}
-        labels={{
-          sizeLabel: labels.sizeLabel,
-          sizeFit: labels.sizeFit,
-          sizeA4: labels.sizeA4,
-          sizeCustom: labels.sizeCustom,
-          customWidth: labels.customWidth,
-          customHeight: labels.customHeight,
-        }}
+        orientation={orientation}
+        onOrientationChange={setOrientation}
+        margin={margin}
+        onMarginChange={setMargin}
+        labels={labels}
       />
+      {/* Applies under every page size, image fit included, so it stays shown. */}
+      <ChoiceTabs
+        label={labels.qualityLabel}
+        options={PICTURE_QUALITIES.map((q) => ({ value: q, label: qualityLabel[q] }))}
+        value={quality}
+        onChange={setQuality}
+      />
+    </div>
+  );
 
-      <div
-        className="ob-scroll min-h-0 flex-1 overflow-y-auto rounded-2xl p-3"
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          boxShadow: "var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.8)",
-        }}
-      >
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
-            <div className="flex flex-wrap justify-center gap-0">
-              {items.map((item, i) => (
-                <SortableCell
-                  key={item.id}
-                  item={item}
-                  pageNumber={i + 1}
-                  bytes={sourceBytesById.get(item.sourceFileId)}
-                  onRotate={handleRotate}
-                  onDelete={handleDelete}
-                  rotateAria={labels.rotateAria}
-                  deleteAria={labels.deleteAria}
-                  frameBg="var(--surface-2)"
-                  pageAspect={editorPageAspect}
-                />
-              ))}
-              <div className="flex items-stretch">
-                <button
-                  type="button"
-                  onClick={handleAddClick}
-                  aria-label={labels.addAria}
-                  title={labels.addAria}
-                  className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[3px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
-                  style={{
-                    borderColor: "var(--hairline)",
-                    background: "var(--surface-2)",
-                  }}
-                >
-                  <PlusIcon className="size-7" />
-                </button>
-                <div className="w-[18px] shrink-0" aria-hidden="true" />
-              </div>
-            </div>
-          </SortableContext>
-        </DndContext>
+  const pictures = (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={items.map((p) => p.id)} strategy={rectSortingStrategy}>
+        <div className="flex flex-wrap justify-center gap-0">
+          {items.map((item, i) => (
+            <SortableCell
+              key={item.id}
+              item={item}
+              pageNumber={i + 1}
+              bytes={sourceBytesById.get(item.sourceFileId)}
+              onRotate={handleRotate}
+              onDelete={handleDelete}
+              rotateAria={labels.rotateAria}
+              deleteAria={labels.deleteAria}
+              frameBg="var(--surface-2)"
+              page={cardPage(
+                pageSize,
+                orientation,
+                margin,
+                item,
+                shownSizeById.get(item.sourceFileId),
+              )}
+            />
+          ))}
+          <div className="flex items-stretch">
+            <button
+              type="button"
+              onClick={handleAddClick}
+              aria-label={labels.addAria}
+              title={labels.addAria}
+              className="my-[9px] flex h-[204px] w-[150px] items-center justify-center rounded-[3px] border-[1.5px] border-dashed text-[color:var(--ink-soft)] transition-colors hover:border-[color:var(--emphasis)] hover:text-[color:var(--emphasis)]"
+              style={{
+                borderColor: "var(--hairline)",
+                background: "var(--surface-2)",
+              }}
+            >
+              <PlusIcon className="size-7" />
+            </button>
+            <div className="w-[18px] shrink-0" aria-hidden="true" />
+          </div>
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+
+  // Flat, as image-to-pptx (DESIGN.md "Panel divider"): from tablet width the
+  // pictures take the tray's height on the left, the only part that
+  // scrolls, then the settings, past a 1px divider, in a fixed column narrow
+  // enough to leave two cards a row at tablet width. On a phone the
+  // settings sit above the pictures and the page scrolls.
+  const editor = (
+    <div className="flex flex-col gap-3 md:grid md:h-[var(--tray-h)] md:grid-cols-[minmax(0,1fr)_300px] md:gap-0">
+      <div className="md:order-2 md:border-l md:pl-5" style={{ borderColor: "var(--border)" }}>
+        {settings}
       </div>
+      <div className="ob-scroll min-h-0 md:order-1 md:overflow-y-auto md:pr-2">{pictures}</div>
     </div>
   );
 

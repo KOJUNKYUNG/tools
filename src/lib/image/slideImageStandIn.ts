@@ -6,6 +6,7 @@ import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import type { CropRect } from "./maxFitCrop";
 import {
   fittedSize,
+  keptFormat,
   preparedFormat,
   takenWhole,
   type PixelSize,
@@ -100,7 +101,8 @@ function encodedStandIn(
 /**
  * Stands in for `sizedImagePreparation` in Node: the size from the header, the
  * real rule for what goes in as uploaded, and otherwise a header-only image,
- * sized as a photo as `standInPrepare` is. A step is handed a stand-in canvas
+ * sized as a photo as `standInPrepare` is, or in its own format under the
+ * `own` encoding. A step is handed a stand-in canvas
  * of the fitted size, and its picture is always encoded. So an opaque PNG taken whole comes
  * out JPEG here; the preparer's own tests cover one JPEG would not halve.
  */
@@ -111,9 +113,11 @@ export const standInSizedPreparation: SizedImagePreparation = {
     const [width, height] = displayedSize(header);
     return { width, height };
   },
-  async prepare(source, crop, size, step) {
+  async prepare(source, crop, size, step, encoding = "smallest") {
     const bytes = new Uint8Array(await source.arrayBuffer());
-    const format = await photoFormat(bytes);
+    const sourceFormat = readImageHeader(bytes)?.format;
+    const ownFormat = keptFormat(sourceFormat, encoding);
+    const format = ownFormat && !step ? ownFormat : await photoFormat(bytes);
     if (step) {
       // The step changes the pixels, so its picture is always encoded, as the preparer's is.
       // A stand-in canvas of the fitted size: Node has no OffscreenCanvas, and the steps tests pass read only its size.
