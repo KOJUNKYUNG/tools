@@ -20,6 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
+import { ChoiceTabs } from "@/components/common/ChoiceTabs";
 import { FileUpload } from "@/components/common/FileUpload";
 import { OversizeNotice } from "@/components/common/OversizeNotice";
 import { ProcessingStatus } from "@/components/common/ProcessingStatus";
@@ -48,6 +49,7 @@ import {
   marginPt,
   pageBoxPt,
 } from "@/lib/pdf/pageSize";
+import { PICTURE_QUALITIES, type PictureQuality } from "@/lib/pdf/pictureQuality";
 import { ImageToPdfResult } from "./ImageToPdfResult";
 import { PageSizeSelector } from "./PageSizeSelector";
 import type { ImageToPdfLabels } from "./labels";
@@ -182,6 +184,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
   const [customSeed, setCustomSeed] = useState<PagePreset>("a4");
   const [orientation, setOrientation] = useState<PageOrientation>("auto");
   const [margin, setMargin] = useState<PageMargin>(0);
+  const [quality, setQuality] = useState<PictureQuality>("standard");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingModeRef = useRef<"replace" | "append">("append");
 
@@ -218,7 +221,7 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
       const live = items.filter((p) => !p.deleted);
       if (live.length === 0) throw new Error("no images to convert"); // Convert is disabled then
       const bytes = await convertImagesToPdf(
-        { pages: live, sourceBytesById, pageSize, orientation, margin },
+        { pages: live, sourceBytesById, pageSize, orientation, margin, quality },
         onProgress,
       );
       const name = `${deriveBaseName(items[0]?.sourceFileName)}.pdf`;
@@ -378,6 +381,12 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
           rest: files.length - 1,
         });
 
+  const qualityLabel: Record<PictureQuality, string> = {
+    original: labels.qualityOriginal,
+    high: labels.qualityHigh,
+    standard: labels.qualityStandard,
+  };
+
   const editor = (
     <div className="flex flex-col gap-3" style={{ height: "var(--tray-h)" }}>
       <PageSizeSelector
@@ -392,6 +401,15 @@ export function ImageToPdf({ labels, lang, inline = false }: ImageToPdfProps) {
         margin={margin}
         onMarginChange={setMargin}
         labels={labels}
+      />
+
+      {/* Applies under every page size, image fit included, so it stays shown. */}
+      <ChoiceTabs
+        label={labels.qualityLabel}
+        labelBeside
+        options={PICTURE_QUALITIES.map((q) => ({ value: q, label: qualityLabel[q] }))}
+        value={quality}
+        onChange={setQuality}
       />
 
       <div

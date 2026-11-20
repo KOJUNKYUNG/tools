@@ -1,9 +1,10 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
-import { type ImageHeader, readImageHeader } from "@/lib/output-check/imageHeader";
+import { type ImageHeader, displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { inspectPdf, type PdfImagePaint, type PdfReport } from "@/lib/output-check/pdfInspector";
 import { pdfJpegs } from "@/lib/output-check/pdfJpegs";
 import type { PageItem } from "./pageItem";
 import type { PageMargin, PageOrientation, PagePreset, PageSize } from "./pageSize";
+import type { PictureQuality } from "./pictureQuality";
 
 /** Raw bytes per source image id (PNG or JPEG). */
 export type ImageToPdfSources = Map<string, Uint8Array>;
@@ -19,6 +20,8 @@ export interface ImageToPdfRequest {
    * ignored under image fit. Default: none.
    */
   margin?: PageMargin;
+  /** How many pixels each picture keeps (CONTEXT "Picture quality"). Default: as uploaded. */
+  quality?: PictureQuality;
 }
 
 const normalise = (deg: number) => ((deg % 360) + 360) % 360;
@@ -196,6 +199,69 @@ function fillProblems(
   return problems;
 }
 
+// Picture quality, from the spec (#176): print and custom pages keep 300
+// (high) or 200 (standard) pixels per inch drawn; screen presets the page's
+// rectangle on a 4K or Full HD screen turned as the page is; image fit what
+// the picture keeps on A4 turned to it.
+const DPI = { high: 300, standard: 200 } as const;
+const SCREEN_PX = { high: [3840, 2160], standard: [1920, 1080] } as const;
+const SCREEN_PRESETS: readonly PagePreset[] = ["16:9", "4:3"];
+/** Pixels a picture may be stored past what the level allows: one, for rounding. */
+const ROUNDING_PX = 1;
+
+/**
+ * The pixels a picture may hold per point it is drawn across on `page`, or
+ * null under 원본 그대로, which allows its own size.
+ */
+function allowedPerPoint(
+  { pageSize, quality = "original" }: ImageToPdfRequest,
+  page: { width: number; height: number },
+  shown: { width: number; height: number },
+): number | null {
+  if (quality === "original") return null;
+  if (pageSize.kind === "image-fit") {
+    // The picture drawn as large as fits on A4 turned to it; the page is the
+    // picture's own size, so what it keeps there spreads over the page.
+    const [short, long] = LISTED_PT.a4;
+    const [a4W, a4H] = shown.width > shown.height ? [long, short] : [short, long];
+    return (DPI[quality] / 72) * Math.min(a4W / shown.width, a4H / shown.height);
+  }
+  if (pageSize.kind === "preset" && SCREEN_PRESETS.includes(pageSize.preset)) {
+    const [long, short] = SCREEN_PX[quality];
+    const [screenW, screenH] = page.width >= page.height ? [long, short] : [short, long];
+    return Math.min(screenW / page.width, screenH / page.height);
+  }
+  return DPI[quality] / 72;
+}
+
+/**
+ * How many pixels a picture is stored with: no more than its upload (on
+ * either side, as the upload or turned upright by its EXIF), and no more
+ * than the level allows for the box it is drawn across. Empty when right.
+ */
+function sizeProblems(
+  { box, width, height, quarterTurned }: PdfImagePaint,
+  upload: ImageHeader,
+  perPoint: number | null,
+): string[] {
+  const problems: string[] = [];
+  const [long, short] = [Math.max(width, height), Math.min(width, height)];
+  if (long > Math.max(upload.width, upload.height) || short > Math.min(upload.width, upload.height)) {
+    problems.push(`stored ${width}×${height}, larger than its upload ${upload.width}×${upload.height}`);
+  }
+  if (perPoint !== null) {
+    const [across, up] = quarterTurned ? [height, width] : [width, height];
+    const allowedAcross = perPoint * (box.x1 - box.x0);
+    const allowedUp = perPoint * (box.y1 - box.y0);
+    if (across > allowedAcross + ROUNDING_PX || up > allowedUp + ROUNDING_PX) {
+      problems.push(
+        `stored ${across}×${up} along the page, more than the ${Math.floor(allowedAcross)}×${Math.floor(allowedUp)} its level keeps`,
+      );
+    }
+  }
+  return problems;
+}
+
 async function checkPages(
   pdf: PdfReport,
   sources: ImageToPdfSources,
@@ -230,12 +296,19 @@ async function checkPages(
       });
     }
     const { images } = await pdf.content(n);
+    const upload = headerOf(sources, pages[j].sourceFileId);
+    const [shownW, shownH] = displayedSize(upload);
+    const perPoint = allowedPerPoint(request, out, { width: shownW, height: shownH });
     for (const paint of images) {
       const problems = expected.fill
         ? fillProblems(paint, out)
         : fitProblems(paint.box, out, expected.margin, expected.pictureAspect);
       if (problems.length > 0) {
         violations.push({ property: "picture-fit", detail: `page ${n}: picture ${problems.join(", ")}` });
+      }
+      const sizes = sizeProblems(paint, upload, perPoint);
+      if (sizes.length > 0) {
+        violations.push({ property: "picture-size", detail: `page ${n}: picture ${sizes.join(", ")}` });
       }
     }
   }
@@ -250,16 +323,18 @@ async function checkPages(
  * out larger than a carefully optimised file, so it is allowed its raw size
  * (8-bit RGB plus alpha): deflate never exceeds that by more than the margin.
  * Under fill page a part cut from a picture is saved anew (a JPEG at high
- * quality), so a picture any page cuts is allowed its raw size too.
+ * quality), and under 높게 or 보통 any picture may be resized and saved
+ * anew, so such a picture is allowed its raw size too; the pixels it keeps
+ * are bounded by `picture-size`.
  */
 function sizeBound(sources: ImageToPdfSources, request: ImageToPdfRequest): number {
-  const { pages } = request;
+  const { pages, quality = "original" } = request;
   const cut = new Set(pages.filter((p) => expectedPage(request, p, sources).cut).map((p) => p.sourceFileId));
   let images = 0;
   for (const id of new Set(pages.map((p) => p.sourceFileId))) {
     const header = headerOf(sources, id);
     images +=
-      header.format === "png" || cut.has(id)
+      header.format === "png" || cut.has(id) || quality !== "original"
         ? header.width * header.height * 4
         : // Non-null: headerOf found the bytes.
           sources.get(id)!.byteLength;
@@ -302,6 +377,9 @@ function photoInfoViolations(output: Uint8Array): Violation[] {
  *   (none under image fit), keeping its shape, as large as fits there and
  *   centred; under fill page, it covers exactly the page, centred, stored
  *   with the shape it is drawn at (no pixels past the page's edges)
+ * - `picture-size`: no picture is stored with more pixels than its upload,
+ *   nor than its picture quality keeps for the size it is drawn at
+ *   (CONTEXT "Picture quality")
  * - `size-bound`: the PDF ≤ its images + a margin
  * - ⚡ `photo-info`: no embedded JPEG carries photo info (EXIF, XMP, maker
  *   data, comments, data after its end; CONTEXT "Photo info"), read from

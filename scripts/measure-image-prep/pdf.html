@@ -13,6 +13,12 @@
 </head>
 <body>
 <h1>image-to-pdf picture size measurement</h1>
+<p><b>Engine mode</b> (the default): each input set becomes one PDF per page size and picture quality, made by
+image-to-pdf's engine entry as checked out (<code>convertImagesToPdf</code> in
+<code>src/lib/pdf/assembleSections.ts</code>, its quick output check included) with the browser's preparation:
+A4, 16:9 and image fit, orientation auto, no margin, at original, high and standard. <b>MB/page</b> is the PDF's
+size over its pages. Query <code>?sets=jpg,heic,png&amp;sizes=a4,16:9,image-fit&amp;qualities=original,high,standard</code>
+picks what to run; <code>?mode=grilling</code> runs the grilling's levels below instead.</p>
 <p>Grilling measurement for image-to-pdf's picture size setting (2026-11-20). Each input set becomes one PDF per
 level: pictures sized for the page, prepared by the shared preparation image-to-pptx uses
 (<code>sizedImagePreparation</code> in <code>src/lib/image/slideImage.ts</code>: never enlarged, a whole JPEG at its
@@ -38,6 +44,7 @@ import { sizedImagePreparation, containedSize } from "/src/lib/image/slideImage.
 import { normalizeImageFile } from "/src/lib/image/heic.ts";
 import { readImageHeader } from "/src/lib/output-check/imageHeader.ts";
 import { embedPng } from "/src/lib/pdf/embedPng.ts";
+import { convertImagesToPdf } from "/src/lib/pdf/assembleSections.ts";
 
 const params = new URLSearchParams(location.search);
 const setNames = (params.get("sets") ?? "jpg,heic,png").split(",");
@@ -160,8 +167,46 @@ async function samples(list) {
   return out;
 }
 
+/** Engine mode: one PDF per set, page size and level, by the engine entry itself. */
+async function engine() {
+  const sizes = (params.get("sizes") ?? "a4,16:9,image-fit").split(",");
+  const qualities = (params.get("qualities") ?? "original,high,standard").split(",");
+  const pageSizeOf = (name) => (name === "image-fit" ? { kind: "image-fit" } : { kind: "preset", preset: name });
+  const names = await (await fetch("/fixtures")).json();
+  const summary = [];
+  for (const set of setNames) {
+    status(`Reading ${set}…`);
+    const entries = await SETS[set](names);
+    const sourceBytesById = new Map();
+    const pages = [];
+    for (const [i, e] of entries.entries()) {
+      const id = String(i);
+      sourceBytesById.set(id, new Uint8Array(await e.file.arrayBuffer()));
+      pages.push({ id, kind: "image", sourceFileId: id, sourceFileName: e.label, sourcePageIndex: 0, rotation: 0, splitAfter: false, deleted: false });
+    }
+    if (pages.length === 0) continue;
+    for (const size of sizes) {
+      const row = { set, pages: pages.length, "files MB": MB(entries.reduce((s, e) => s + (e.original ?? e.file).size, 0)), "page size": size };
+      for (const quality of qualities) {
+        status(`${set}: ${size}, ${quality}…`);
+        const start = performance.now();
+        const pdf = await convertImagesToPdf({ pages, sourceBytesById, pageSize: pageSizeOf(size), quality });
+        row[`${quality} MB`] = MB(pdf.length);
+        row[`${quality} MB/page`] = +(pdf.length / 1e6 / pages.length).toFixed(2);
+        row[`${quality} s`] = +((performance.now() - start) / 1000).toFixed(1);
+      }
+      summary.push(row);
+    }
+  }
+  document.getElementById("out").innerHTML = `<h2>Per set and page size</h2>${table(summary)}`;
+  return { summary, pdfs: "-", pages: "-", dpi: "-" };
+}
+
 try {
-  if (params.get("samples")) {
+  if ((params.get("mode") ?? "engine") === "engine" && !params.get("samples")) {
+    window.__results = await engine();
+    status("Done.");
+  } else if (params.get("samples")) {
     const made = await samples(params.get("samples").split(","));
     window.__results = { summary: made.map(({ level, MB }) => ({ level, MB })), samples: made, pdfs: "-", pages: "-", dpi: dpis.join("/") };
     status("Done.");

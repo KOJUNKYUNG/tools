@@ -15,6 +15,7 @@ import { pdfJpegs } from "@/lib/output-check/pdfJpegs";
 import { convertImagesToPdf } from "./assembleSections";
 import type { PageMarginMm, PageOrientation, PagePreset, PageSize } from "./pageSize";
 import type { PageItem, Rotation } from "./pageItem";
+import { PICTURE_QUALITIES } from "./pictureQuality";
 import * as check from "./imageToPdfCheck";
 import type { ImageToPdfRequest } from "./imageToPdfCheck";
 import type { Matrix } from "./jpegOrientation";
@@ -644,5 +645,181 @@ describe("convertImagesToPdf", () => {
       expect(hint).toBeTruthy();
       expect(getErrorMessage(err, { copy: dict.common.errors, corruptOutputHint: hint }).message).toBe(hint);
     }
+  });
+});
+
+describe("convertImagesToPdf: picture quality", () => {
+  /** A solid JPEG of `width`×`height`, made by sharp: cheap to cut and resize. */
+  const photo = async (width: number, height: number) =>
+    new Uint8Array(
+      await sharp({ create: { width, height, channels: 3, background: { r: 90, g: 140, b: 200 } } })
+        .jpeg()
+        .toBuffer(),
+    );
+  const run = async (settings: Omit<ImageToPdfRequest, "pages">, src: Map<string, Uint8Array>, pages = [...src.keys()].map((id) => image(id))) => {
+    const output = await convertImagesToPdf({ pages, sourceBytesById: src, ...settings }, undefined, nodeSizedPreparation);
+    expect(await checkImageToPdf(src, { pages, ...settings }, output, "full")).toEqual([]);
+    return storedPictureSizes(output);
+  };
+
+  /** A PNG that stores a photo: a noisy gradient, whose JPEG is a small part of its size. */
+  const photoPng = async (width: number, height: number) => {
+    const raw = Buffer.alloc(width * height * 3);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 3;
+        const jitter = () => Math.floor(Math.random() * 24);
+        raw.set([(x / 5 + jitter()) & 255, (y / 4 + jitter()) & 255, ((x + y) / 8 + jitter()) & 255], i);
+      }
+    }
+    return new Uint8Array(await sharp(raw, { raw: { width, height, channels: 3 } }).png().toBuffer());
+  };
+  const SCREEN_WIDE: PageSize = { kind: "preset", preset: "16:9" };
+  const SCREEN_STANDARD: PageSize = { kind: "preset", preset: "4:3" };
+  const SQUARE_100: PageSize = { kind: "custom", widthMm: 100, heightMm: 100 };
+
+  it("A4: 보통 keeps 200 pixels per inch of the size drawn, 높게 300, never more than the picture", async () => {
+    // 3000 × 2000 across a landscape A4 (297 mm = 11.69 in wide): 2339 px at 200 dpi, 3508 at 300.
+    const src = new Map([["p", await photo(3000, 2000)]]);
+    expect(await run({ pageSize: A4, quality: "standard" }, src)).toEqual([[2339, 1559]]);
+    expect(await run({ pageSize: A4, quality: "high" }, src)).toEqual([[3000, 2000]]);
+  });
+
+  it("custom: the dots per inch hold across the size drawn, margin included", async () => {
+    // 3000 × 2000 across 100 mm (3.94 in): 787 px at 200 dpi, 1181 at 300; across 80 mm with 10 mm margins: 630.
+    const src = new Map([["p", await photo(3000, 2000)]]);
+    expect(await run({ pageSize: SQUARE_100, quality: "standard" }, src)).toEqual([[787, 525]]);
+    expect(await run({ pageSize: SQUARE_100, quality: "high" }, src)).toEqual([[1181, 787]]);
+    expect(await run({ pageSize: SQUARE_100, margin: 10, quality: "standard" }, src)).toEqual([[630, 420]]);
+  });
+
+  it("screen presets: the picture keeps what the page shows on a Full HD (보통) or 4K (높게) screen, turned as the page is", async () => {
+    // A 4:3 photo on a 16:9 page fills its height: 1080 rows of Full HD, 2160 of 4K.
+    const src = new Map([
+      ["across", await photo(4000, 3000)],
+      ["up", await photo(3000, 4000)],
+    ]);
+    expect(await run({ pageSize: SCREEN_WIDE, quality: "standard" }, src)).toEqual([
+      [1440, 1080],
+      [1080, 1440],
+    ]);
+    expect(await run({ pageSize: SCREEN_WIDE, quality: "high" }, src)).toEqual([
+      [2880, 2160],
+      [2160, 2880],
+    ]);
+    // A 4:3 page is 1440 × 1080 of a Full HD screen.
+    expect(await run({ pageSize: SCREEN_STANDARD, quality: "standard" }, src)).toEqual([
+      [1440, 1080],
+      [1080, 1440],
+    ]);
+    // Forced landscape: the portrait photo sits in the page's 1080 rows.
+    expect(
+      await run({ pageSize: SCREEN_WIDE, orientation: "landscape", quality: "standard" }, src),
+    ).toEqual([
+      [1440, 1080],
+      [810, 1080],
+    ]);
+  });
+
+  it("image fit: the pixels the level keeps on A4, the page keeping the picture's own size", async () => {
+    // 4000 × 3000 on a landscape A4 fills its 210 mm (8.27 in): 1654 rows at 200 dpi, 2480 at 300.
+    const src = new Map([["p", await photo(4000, 3000)]]);
+    expect(await run({ pageSize: IMAGE_FIT, quality: "standard" }, src)).toEqual([[2205, 1654]]);
+    expect(await run({ pageSize: IMAGE_FIT, quality: "high" }, src)).toEqual([[3307, 2480]]);
+    const output = await convertImagesToPdf(
+      { pages: [image("p")], sourceBytesById: src, pageSize: IMAGE_FIT, quality: "standard" },
+      undefined,
+      nodeSizedPreparation,
+    );
+    expect(await pageBoxesMm(output)).toEqual([[1411.1, 1058.3]]); // 4000 × 3000 pt
+  });
+
+  it("fill page: the part kept holds what the level keeps across the whole page", async () => {
+    // 4000 × 3000 on 16:9 keeps 4000 × 2250, drawn across the whole Full HD or 4K screen.
+    const src = new Map([["p", await photo(4000, 3000)]]);
+    expect(await run({ pageSize: SCREEN_WIDE, margin: "fill", quality: "standard" }, src)).toEqual([[1920, 1080]]);
+    expect(await run({ pageSize: SCREEN_WIDE, margin: "fill", quality: "high" }, src)).toEqual([[3840, 2160]]);
+    // 3000 × 2000 on 100 mm square keeps 2000 × 2000, drawn across 100 mm: 787 px at 200 dpi.
+    expect(await run({ pageSize: SQUARE_100, margin: "fill", quality: "standard" }, src)).toEqual([[787, 787]]);
+    expect(await run({ pageSize: SQUARE_100, margin: "fill", quality: "original" }, new Map([["p", await photo(3000, 2000)]]))).toEqual([[2000, 2000]]);
+  });
+
+  it.each<[string, Omit<ImageToPdfRequest, "pages" | "quality">]>([
+    ["A4", { pageSize: A4 }],
+    ["custom with a margin", { pageSize: SQUARE_100, margin: 20 }],
+    ["16:9", { pageSize: SCREEN_WIDE }],
+    ["image fit", { pageSize: IMAGE_FIT }],
+  ])("%s: a small photo goes in as uploaded at every level", async (_, settings) => {
+    const small = await photo(300, 200);
+    for (const quality of PICTURE_QUALITIES) {
+      const output = await convertImagesToPdf(
+        { pages: [image("p")], sourceBytesById: new Map([["p", small]]), ...settings, quality },
+        undefined,
+        nodeSizedPreparation,
+      );
+      expect(await embeddedJpegs(output)).toEqual([small]);
+    }
+  });
+
+  it("a small screenshot of text stays the PNG it was at every level", async () => {
+    // Black and white blocks, like text: JPEG would not halve it.
+    const png = pngOfKind("1-bit greyscale");
+    for (const quality of PICTURE_QUALITIES) {
+      const output = await convertImagesToPdf(
+        { pages: [image("png")], sourceBytesById: new Map([["png", png.bytes]]), pageSize: A4, quality },
+        undefined,
+        nodeSizedPreparation,
+      );
+      expect(Buffer.from(await firstPictureRgba(output)).equals(Buffer.from(png.rgba))).toBe(true);
+    }
+  });
+
+  it("원본 그대로 keeps every picture at its own size and every PNG as PNG; 보통 stores a photo PNG as JPEG", async () => {
+    const src = new Map([
+      ["photo", await photo(3000, 2000)],
+      ["png", await photoPng(1500, 1000)],
+    ]);
+    const original = { pageSize: SQUARE_100, quality: "original" } as const;
+    expect(await run(original, src)).toEqual([
+      [3000, 2000],
+      [1500, 1000],
+    ]);
+    const kept = await convertImagesToPdf({ pages: [image("png")], sourceBytesById: src, ...original }, undefined, nodeSizedPreparation);
+    expect(await embeddedJpegs(kept)).toEqual([]);
+    const standard = await convertImagesToPdf(
+      { pages: [image("png")], sourceBytesById: src, pageSize: SQUARE_100, quality: "standard" },
+      undefined,
+      nodeSizedPreparation,
+    );
+    expect((await embeddedJpegs(standard)).map((j) => readImageHeader(j))).toMatchObject([
+      { format: "jpeg", width: 787, height: 525 },
+    ]);
+  });
+
+  it("a picture the user turned keeps the pixels its level gives the turned picture", async () => {
+    // 3000 × 2000 turned upright: a portrait A4 it fills 297 mm (11.69 in) up, so 2339 of its 3000 columns.
+    const src = new Map([["p", await photo(3000, 2000)]]);
+    expect(await run({ pageSize: A4, quality: "standard" }, src, [image("p", 90)])).toEqual([[2339, 1559]]);
+    // Image fit: the page is the picture turned by /Rotate; it keeps what it would on A4, 2339 × 1559.
+    expect(await run({ pageSize: IMAGE_FIT, quality: "standard" }, src, [image("p", 270)])).toEqual([[2339, 1559]]);
+  });
+
+  it("a photo turned by its EXIF keeps its pixels per inch along the side shown across", async () => {
+    // Stored 3000 × 2000, shown 2000 × 3000 (EXIF 6): a portrait A4 it fills 297 mm (11.69 in) up → 2339 rows.
+    const turned = withExifOrientation(await photo(3000, 2000), 6);
+    expect(await run({ pageSize: A4, quality: "standard" }, new Map([["p", turned]]))).toEqual([[1559, 2339]]);
+  });
+
+  it.each(PICTURE_QUALITIES)("%s: photo info stays behind, resized or not", async (quality) => {
+    const src = new Map([
+      ["big", withPhotoInfo(await photo(3000, 2000))],
+      ["small", withPhotoInfo(await photo(300, 200))],
+    ]);
+    const output = await convertImagesToPdf(
+      { pages: [image("big"), image("small")], sourceBytesById: src, pageSize: A4, quality },
+      undefined,
+      nodeSizedPreparation,
+    );
+    expect(pdfJpegs(output).map((j) => j.readable && j.reading.photoInfo)).toEqual([[], []]);
   });
 });

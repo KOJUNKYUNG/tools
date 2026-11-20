@@ -3,6 +3,7 @@
 // --out writes every picture's row as JSON too.
 //
 // Run: node scripts/measure-image-prep/run-headless.mjs [--sets=jpg,heic,png,pdf-jpg,pdf-png] [--screens=full-hd,4k] [--pdfs=<names>|all] [--pages=6] [--out=results.json]
+// The PDF page (pdf.html): --page=pdf [--sets=jpg,heic,png] [--sizes=a4,16:9,image-fit] [--qualities=original,high,standard] [--mode=grilling]
 // The default PDFs: see serve.mjs.
 // Starts serve.mjs unless it already runs on :4340 (MEASURE_IMAGE_PREP_PORT
 // overrides the port). CHROME_PATH overrides the Chrome binary. Local only:
@@ -24,7 +25,7 @@ const args = Object.fromEntries(
 );
 const ORIGIN = `http://localhost:${process.env.MEASURE_IMAGE_PREP_PORT ?? 4340}`;
 const query = new URLSearchParams(
-  Object.entries({ sets: args.sets, screens: args.screens, pdfs: args.pdfs, pages: args.pages, dpi: args.dpi, samples: args.samples }).filter(([, v]) => v),
+  Object.entries({ sets: args.sets, screens: args.screens, pdfs: args.pdfs, pages: args.pages, dpi: args.dpi, samples: args.samples, mode: args.mode, sizes: args.sizes, qualities: args.qualities }).filter(([, v]) => v),
 );
 const PAGE = `${ORIGIN}/${args.page ?? ""}${query.size ? `?${query}` : ""}`;
 

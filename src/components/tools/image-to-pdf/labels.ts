@@ -40,6 +40,11 @@ export interface ImageToPdfLabels {
   marginOptionTemplate: string;
   /** The margin row's fourth choice: the picture covers the page (CONTEXT "Fill page"). */
   marginFill: string;
+  /** The picture quality row (CONTEXT "Picture quality"). */
+  qualityLabel: string;
+  qualityOriginal: string;
+  qualityHigh: string;
+  qualityStandard: string;
   resultTitle: string;
   pageCountTemplate: string;
   download: string;
@@ -89,6 +94,10 @@ export function getImageToPdfLabels(dict: Dictionary): ImageToPdfLabels {
     marginNone: p.marginNone,
     marginOptionTemplate: p.marginOption,
     marginFill: p.marginFill,
+    qualityLabel: p.qualityLabel,
+    qualityOriginal: p.qualityOriginal,
+    qualityHigh: p.qualityHigh,
+    qualityStandard: p.qualityStandard,
     resultTitle: p.resultTitle,
     pageCountTemplate: p.pageCount,
     download: p.download,

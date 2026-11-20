@@ -1,7 +1,8 @@
 // Real-file regression set entry for image-to-pdf (`pnpm test:real`).
 // Only PNG and JPEG run here: HEIC is converted to JPEG by the browser's
-// canvas before it reaches the engine, which Node cannot do. Fill page cuts
-// pictures with the browser's canvas; here sharp does it, on the same rules.
+// canvas before it reaches the engine, which Node cannot do. Fill page and
+// picture quality cut and resize pictures with the browser's canvas; here
+// sharp does it, on the same rules.
 import { nodeSizedPreparation } from "@/lib/image/slideImageNode";
 import {
   realFileSuite,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/output-check/realFileSuite";
 import { convertImagesToPdf } from "./assembleSections";
 import { checkImageToPdf, type ImageToPdfRequest } from "./imageToPdfCheck";
+import { PICTURE_QUALITIES } from "./pictureQuality";
 import { imagePage as image } from "./testImages";
 
 // The suite hands over one file; "a" and "b" let it stand in for two uploads.
@@ -20,7 +22,23 @@ const sourcesOf = (input: Uint8Array) =>
 
 async function requests(): Promise<RealFileRequest<ImageToPdfRequest>[]> {
   const turned = [image("a", 90), image("b", 270)];
+  // Each level (CONTEXT "Picture quality") on every page kind: the requests
+  // below without a level keep every picture as uploaded.
+  const levelBases: RealFileRequest<ImageToPdfRequest>[] = [
+    { label: "A4, 10 mm margin", request: { pages: turned, pageSize: { kind: "preset", preset: "a4" }, margin: 10 } },
+    { label: "16:9", request: { pages: turned, pageSize: { kind: "preset", preset: "16:9" } } },
+    { label: "16:9, fill page", request: { pages: turned, pageSize: { kind: "preset", preset: "16:9" }, margin: "fill" } },
+    { label: "custom 300 × 200 mm", request: { pages: [image("a")], pageSize: { kind: "custom", widthMm: 300, heightMm: 200 } } },
+    { label: "image fit", request: { pages: [image("a")], pageSize: { kind: "image-fit" } } },
+  ];
+  const atEachLevel = levelBases.flatMap(({ label, request }) =>
+    PICTURE_QUALITIES.filter((q) => q !== "original").map((quality) => ({
+      label: `${label}, ${quality}`,
+      request: { ...request, quality },
+    })),
+  );
   return [
+    ...atEachLevel,
     { label: "A4 (default)", request: { pages: [image("a")], pageSize: { kind: "preset", preset: "a4" } } },
     { label: "B4, turned", request: { pages: turned, pageSize: { kind: "preset", preset: "b4" } } },
     { label: "16:9, turned", request: { pages: turned, pageSize: { kind: "preset", preset: "16:9" } } },

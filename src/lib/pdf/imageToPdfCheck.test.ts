@@ -192,6 +192,36 @@ describe("checkImageToPdf: fill page", () => {
   });
 });
 
+describe("checkImageToPdf: picture quality", () => {
+  // A custom page of 0.1 × 0.05 in: 20 × 10 px at 200 dpi (보통), 30 × 15 at 300 (높게).
+  const TINY: PageSize = { kind: "custom", widthMm: 2.54, heightMm: 1.27 };
+  const tinyPage = (): PageSpec[] => [{ source: "wide", size: [7.2, 3.6] }];
+
+  it("passes any picture stored at its own size under 원본 그대로", async () => {
+    const vs = await checkImageToPdf(sources(), { pages: [image("wide")], pageSize: TINY, quality: "original" }, await pdfOf(tinyPage()), "full");
+    expect(vs).toEqual([]);
+  });
+
+  it.each(["standard", "high"] as const)("flags a picture stored with more pixels than %s keeps for the size drawn", async (quality) => {
+    // The 40 × 20 picture kept whole across a page that holds 20 × 10 or 30 × 15.
+    const vs = await checkImageToPdf(sources(), { pages: [image("wide")], pageSize: TINY, quality }, await pdfOf(tinyPage()), "full");
+    expect(props(vs)).toEqual(["picture-size"]);
+  });
+
+  it("passes a picture stored at what the level keeps", async () => {
+    const page: PageSpec = { source: "wide", size: [7.2, 3.6], stored: solidPng(20, 10) };
+    const vs = await checkImageToPdf(sources(), { pages: [image("wide")], pageSize: TINY, quality: "standard" }, await pdfOf([page]), "full");
+    expect(vs).toEqual([]);
+  });
+
+  it("flags a picture stored larger than its upload", async () => {
+    // The 40 × 20 upload enlarged to 80 × 40 on its image-fit page.
+    const page: PageSpec = { source: "wide", size: [40, 20], stored: solidPng(80, 40) };
+    const vs = await checkImageToPdf(sources(), { pages: [image("wide")], pageSize: IMAGE_FIT }, await pdfOf([page]), "full");
+    expect(props(vs)).toEqual(["picture-size"]);
+  });
+});
+
 describe("checkImageToPdf: broken outputs", () => {
   const pages = [image("wide"), image("tall")];
 
