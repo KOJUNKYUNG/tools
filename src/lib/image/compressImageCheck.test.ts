@@ -58,11 +58,13 @@ describe("checkCompressedImage", () => {
     expect(await checkCompressedImage(input, request("image/png"), blob(solidPng(3, 4)), "quick")).toEqual([]);
   });
 
-  it("compares a PNG turned by its eXIf chunk as the browser shows it", async () => {
-    // Stored 4×3, Orientation 6: shown 3×4.
+  // Chrome turns it; a browser that ignores the chunk draws it as stored.
+  it("takes a PNG with an eXIf turn at its turned or its stored size, nothing else", async () => {
+    // Stored 4×3, Orientation 6: shown 3×4 where the browser turns it.
     const input = blob(withPngExif(solidPng(4, 3)));
     expect(await checkCompressedImage(input, request("image/png"), blob(solidPng(3, 4)), "quick")).toEqual([]);
-    expect(properties(await checkCompressedImage(input, request("image/png"), blob(solidPng(4, 3)), "quick"))).toEqual([
+    expect(await checkCompressedImage(input, request("image/png"), blob(solidPng(4, 3)), "quick")).toEqual([]);
+    expect(properties(await checkCompressedImage(input, request("image/png"), blob(solidPng(4, 4)), "quick"))).toEqual([
       "image-size",
     ]);
   });

@@ -4,8 +4,8 @@ import {
   displayedSize,
   hasUnreadOrientation,
   HEADER_FORMAT_OF_MIME,
+  possibleShownSizes,
   readImageHeader,
-  readShownHeader,
   type ImageHeader,
 } from "@/lib/output-check/imageHeader";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
@@ -44,8 +44,8 @@ export const isFormat = (header: ImageHeader | null, format: OutputFormat) =>
  * - `image-size`: its size as displayed equals the input's (canvases draw a
  *   phone photo turned upright). Skipped when the input's header is
  *   unreadable, or for a WebP with EXIF, whose orientation is not read here:
- *   there is nothing certain to compare against. A PNG's eXIf turn is read
- *   (`readShownHeader`)
+ *   there is nothing certain to compare against. A PNG its eXIf chunk turns
+ *   may be drawn turned or as stored, depending on the browser: either passes
  * - `image-decodes`: the browser decodes it
  * - `size-bound`: a same-format output is strictly smaller than its input.
  *   The engine settles this before checking (a file that did not shrink is
@@ -68,14 +68,13 @@ export const checkCompressedImage: OutputChecker<Blob, CompressedImageRequest, B
       });
     }
     const inputBytes = await bytesOf(input);
-    const shown = readShownHeader(inputBytes);
-    const source = shown?.format === "webp" && hasUnreadOrientation(inputBytes) ? null : shown;
-    if (source) {
-      const [w, h] = displayedSize(source);
-      const [ow, oh] = displayedSize(header);
-      if (ow !== w || oh !== h) {
-        violations.push({ property: "image-size", detail: `${ow}×${oh}, input ${w}×${h}` });
-      }
+    // A WebP's EXIF orientation is not read here: nothing certain to compare against.
+    const unreadWebp = readImageHeader(inputBytes)?.format === "webp" && hasUnreadOrientation(inputBytes);
+    const sizes = unreadWebp ? [] : possibleShownSizes(inputBytes);
+    const [ow, oh] = displayedSize(header);
+    if (sizes.length > 0 && !sizes.some(([w, h]) => ow === w && oh === h)) {
+      const [w, h] = sizes[0];
+      violations.push({ property: "image-size", detail: `${ow}×${oh}, input ${w}×${h}` });
     }
   }
   if (!(await browserDecodes(output))) {

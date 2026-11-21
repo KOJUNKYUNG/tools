@@ -198,6 +198,20 @@ export function readShownHeader(bytes: Uint8Array): ImageHeader | null {
   return header?.format === "png" ? { ...header, orientation: pngOrientation(bytes) } : header;
 }
 
+/**
+ * The sizes, [width, height], a browser may show the image at: one, its
+ * displayed size, unless it is a PNG its eXIf chunk turns. Chrome turns
+ * such a PNG; a browser that ignores the chunk shows it as stored, so both
+ * sizes are given. Empty for bytes it cannot read.
+ */
+export function possibleShownSizes(bytes: Uint8Array): [number, number][] {
+  const header = readImageHeader(bytes);
+  if (!header) return [];
+  const turned = header.format === "png" ? pngOrientation(bytes) : 1;
+  if (turned === 1) return [displayedSize(header)];
+  return [displayedSize({ ...header, orientation: turned }), displayedSize(header)];
+}
+
 /** The image's format and pixel size, or null for bytes it cannot read. */
 export function readImageHeader(bytes: Uint8Array): ImageHeader | null {
   if (PNG_SIGNATURE.every((b, i) => bytes[i] === b)) return readPng(bytes);
