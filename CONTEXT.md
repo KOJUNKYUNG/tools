@@ -171,6 +171,47 @@ location in it.
 _Avoid_: "metadata" alone: a PDF also has document properties (title,
 producer), which are a different thing.
 
+### Resize fit
+How image-resize puts a picture into a width × height of another shape, in
+this order:
+- **Crop** (the default): the picture covers the box keeping its shape, and
+  what lies past the box is cut off. The user moves the cut per picture; when
+  the box changes shape, each cut keeps its centre and is pushed back inside
+  the picture, as with the [background crop](#background-crop).
+- **Fit inside**: the picture keeps its shape and shrinks or grows until it
+  just fits the box, so one side may come out shorter than the box. This is
+  how pictures of mixed shapes are brought under one size.
+- **Pad**: the whole picture, centred, inside the box, the rest filled with
+  white (the default), black, or transparent when every picture's format
+  holds transparency (PNG, WebP), as on a marketplace's square product photo.
+- **Stretch**: the picture distorted to the box.
+
+One size and one fit apply to every picture in a run; only the crop's
+position is per picture. When the box has a picture's own shape, the fit
+changes nothing. The user sets the size here, so a picture may be enlarged;
+the tool says which pictures grow and that enlarging adds no detail, and does
+not refuse.
+_Avoid_: "fill" (image-to-pptx's **fill size** and image-to-pdf's
+[fill page](#fill-page) mean other things); a crop switch that leaves
+stretching as the default.
+
+### Purpose preset
+A size named by what it is for (a YouTube thumbnail, an Instagram portrait
+post), with its pixels shown beside the name, rather than by a resolution.
+Users name these by purpose ([target users](#target-users)); the pixels come
+from the platform's current spec, and platforms change them. image-resize
+works in pixels only: print sizes (A4, A3 posters) are image-to-pdf's
+[page size](#page-size), since what decides a print is the page's shape and
+margins, not the picture's pixels.
+_Avoid_: naming presets by resolution alone ("FHD"), except for screen sizes
+kept as such.
+
+### Keep aspect
+The lock that keeps a width and height in one shape while either is edited.
+Its UI label is 비율 유지 (en "Keep aspect ratio") in every tool that has one
+(image-resize, image-to-pptx's placement).
+_Avoid_: 비율 잠금 or 비율 고정 (two names for one control).
+
 ### Placement
 Where image-to-pptx puts the slide pictures: one box for the whole deck, in
 which each picture is fitted keeping its shape (anchored top-left or
