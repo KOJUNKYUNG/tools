@@ -1,6 +1,7 @@
 import { PDFDocument, PDFPage, degrees, drawImage } from "pdf-lib";
 import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
+import { readImageHeader } from "@/lib/output-check/imageHeader";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 import { formatPageNumber, type PageNumberFormat } from "./pageNumberFormat";
 import {
@@ -206,15 +207,19 @@ function drawOverlayOnPage(
 }
 
 /**
- * Embed the logo. A PNG goes in losslessly and no larger than it is, and a
- * damaged one is refused instead of hanging pdf-lib's decoder (see
- * embedPng). A JPEG goes in byte for byte; pdf-lib reads only its markers,
- * so it refuses no damaged JPEG.
+ * Embed the logo, by what its bytes are: `kind` follows the file's MIME
+ * type, which a misnamed file gets wrong. A PNG goes in losslessly and no
+ * larger than it is, and a damaged one is refused instead of hanging
+ * pdf-lib's decoder (see embedPng). A JPEG goes in byte for byte; pdf-lib
+ * reads only its markers, so it refuses no damaged JPEG.
  */
 async function embedLogo(pdf: PDFDocument, logo: LogoInput): Promise<EmbeddedImage> {
-  if (logo.kind === "jpg") return pdf.embedJpg(logo.bytes);
   try {
-    return await embedPng(pdf, logo.bytes);
+    const format = readImageHeader(logo.bytes)?.format;
+    if (format === "jpeg") return await pdf.embedJpg(logo.bytes);
+    if (format === "png") return await embedPng(pdf, logo.bytes);
+    // The picker takes PNG and JPEG only: a WebP got there misnamed.
+    throw new Error(`${INVALID_INPUT_PREFIX}: a logo that is no PNG or JPEG (${format ?? "unreadable"})`);
   } catch (err) {
     if (err instanceof Error && err.message.startsWith(INVALID_INPUT_PREFIX)) {
       throw new UnreadableLogoError("the logo image cannot be read", { cause: err });
@@ -342,12 +347,12 @@ export async function applyOverlay({
     let baseH: number;
 
     if (options.source === "image") {
-      if (!options.logo) throw new Error("로고 이미지를 선택하세요.");
+      if (!options.logo) throw new Error("no logo image chosen");
       img = await embedLogo(pdf, options.logo);
       baseW = img.width;
       baseH = img.height;
     } else {
-      if (!options.text.trim()) throw new Error("워터마크 텍스트를 입력하세요.");
+      if (!options.text.trim()) throw new Error("no watermark text entered");
       const r = await renderTextToPng({
         text: options.text,
         fontPx: options.fontPx,

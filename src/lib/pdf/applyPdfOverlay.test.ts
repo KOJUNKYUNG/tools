@@ -145,6 +145,22 @@ describe("applyOverlay", () => {
     await expect(run(await input(1), pngLogo(logo))).rejects.toBeInstanceOf(UnreadableLogoError);
   }, 15_000);
 
+  // The kind comes from the file's MIME type, which a misnamed file gets wrong.
+  it("a logo goes in by what its bytes are, not the kind it was given", async () => {
+    const png = pngOfKind("truecolour with alpha");
+    const asJpg = await run(await input(1), watermark([1], { source: "image", logo: { bytes: png.bytes, kind: "jpg" } }));
+    expect(Buffer.from(await firstPictureRgba(asJpg)).equals(Buffer.from(png.rgba))).toBe(true);
+    const asPng = watermark([1], { source: "image", logo: { bytes: JPEG_3x2, kind: "png" } });
+    await expect(run(await input(1), asPng)).resolves.toBeInstanceOf(Uint8Array);
+  });
+
+  it("a logo that is neither a PNG nor a JPEG is refused as the user's damaged logo", async () => {
+    const logo = { bytes: JPEG_3x2.subarray(2), kind: "jpg" as const };
+    await expect(run(await input(1), watermark([1], { source: "image", logo }))).rejects.toBeInstanceOf(
+      UnreadableLogoError,
+    );
+  });
+
   it("a rendered label it cannot embed is the tool's fault, not the user's PDF", async () => {
     vi.mocked(renderTextToPng).mockResolvedValueOnce({ bytes: Uint8Array.from([1, 2, 3]), width: 3, height: 1 });
     const err = await run(await input(1), numbers([1])).catch((e: unknown) => e);
