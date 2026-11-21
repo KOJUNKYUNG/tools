@@ -1,9 +1,17 @@
 import { PDFDocument, StandardFonts, degrees } from "pdf-lib";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CORRUPT_OUTPUT_PREFIX, INVALID_INPUT_PREFIX } from "@/lib/errors";
-import { applyOverlay, type OverlayOptions, type WatermarkOptions } from "./applyPdfOverlay";
+import { UnreadableLogoError, applyOverlay, type OverlayOptions, type WatermarkOptions } from "./applyPdfOverlay";
 import * as check from "./pdfWatermarkCheck";
-import { JPEG_3x2, solidPng } from "./testImages";
+import {
+  JPEG_3x2,
+  PNG_KINDS,
+  PNG_PAGE_OVERHEAD,
+  firstPictureRgba,
+  pngOfKind,
+  solidPng,
+  withDamagedImageData,
+} from "./testImages";
 
 // Text is rasterised on a browser canvas; Node gets a fixed image instead.
 vi.mock("./renderTextToPng", () => import("./renderTextToPngNode"));
@@ -106,6 +114,30 @@ describe("applyOverlay", () => {
     const empty = await (await PDFDocument.create()).save({ addDefaultPage: false });
     await expect(run(empty, numbers([1]))).rejects.toThrow(INVALID_INPUT_PREFIX);
   });
+
+  const pngLogo = (bytes: Uint8Array) => watermark([1], { source: "image", logo: { bytes, kind: "png" } });
+
+  it.each(PNG_KINDS)("a %s PNG logo: pdf.js reads back its pixels, transparency included", async (kind) => {
+    const png = pngOfKind(kind);
+    const output = await run(await input(1), pngLogo(png.bytes));
+    expect(Buffer.from(await firstPictureRgba(output)).equals(Buffer.from(png.rgba))).toBe(true);
+  });
+
+  // pdf-lib's own embedPng grew PNGs (#178): the logo adds no more than its file.
+  it.each(PNG_KINDS)("a %s PNG logo adds no more than the PNG plus a page's overhead", async (kind) => {
+    const bytes = await input(1);
+    const png = pngOfKind(kind).bytes;
+    const output = await run(bytes, pngLogo(png));
+    expect(output.byteLength).toBeLessThanOrEqual(bytes.byteLength + png.byteLength + PNG_PAGE_OVERHEAD);
+  });
+
+  it.each<[string, (png: Uint8Array) => Uint8Array]>([
+    ["its compressed image data damaged", withDamagedImageData],
+    ["cut off mid-download", (png) => png.subarray(0, Math.floor(png.length * 0.6))],
+  ])("a PNG logo with %s is refused as the user's damaged logo, not their PDF", async (_, damage) => {
+    const logo = damage(pngOfKind("truecolour with alpha").bytes);
+    await expect(run(await input(1), pngLogo(logo))).rejects.toBeInstanceOf(UnreadableLogoError);
+  }, 15_000);
 
   it("blocks an output the check rejects", async () => {
     mockedCheck.mockResolvedValue([{ property: "page-count", detail: "test" }]);
