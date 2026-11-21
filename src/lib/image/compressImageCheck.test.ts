@@ -52,13 +52,19 @@ describe("checkCompressedImage", () => {
     ]);
   });
 
-  it.each([
-    ["a WebP with an EXIF chunk", () => extendedWebp(4, 3, { exif: true })],
-    ["a PNG with an eXIf chunk", () => withPngExif(solidPng(4, 3))],
-  ])("skips the size check for %s: the browser may turn it by an orientation not read here", async (_, bytes) => {
-    const input = blob(bytes());
+  it("skips the size check for a WebP with an EXIF chunk: the browser may turn it by an orientation not read here", async () => {
+    const input = blob(extendedWebp(4, 3, { exif: true }));
     // Drawn turned a quarter: 3×4.
     expect(await checkCompressedImage(input, request("image/png"), blob(solidPng(3, 4)), "quick")).toEqual([]);
+  });
+
+  it("compares a PNG turned by its eXIf chunk as the browser shows it", async () => {
+    // Stored 4×3, Orientation 6: shown 3×4.
+    const input = blob(withPngExif(solidPng(4, 3)));
+    expect(await checkCompressedImage(input, request("image/png"), blob(solidPng(3, 4)), "quick")).toEqual([]);
+    expect(properties(await checkCompressedImage(input, request("image/png"), blob(solidPng(4, 3)), "quick"))).toEqual([
+      "image-size",
+    ]);
   });
 
   it("still checks the size of a WebP or PNG without orientation metadata", async () => {

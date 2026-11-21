@@ -1,5 +1,5 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
-import { type ImageHeader, displayedSize, readImageHeader, readShownHeader } from "@/lib/output-check/imageHeader";
+import { type ImageHeader, displayedSize, readShownHeader } from "@/lib/output-check/imageHeader";
 import { inspectPdf, type PdfImagePaint, type PdfReport } from "@/lib/output-check/pdfInspector";
 import { pdfJpegs } from "@/lib/output-check/pdfJpegs";
 import type { PageItem } from "./pageItem";

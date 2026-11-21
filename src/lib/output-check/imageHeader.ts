@@ -175,7 +175,7 @@ export function hasUnreadOrientation(bytes: Uint8Array): boolean {
  * chunk before its image data; 1 when there is none, it cannot be read, or
  * the bytes are not a PNG. `readImageHeader` leaves it out (a PNG reports
  * 1), so the tools that pass a PNG on unturned keep its stored size;
- * checkers that follow what browsers show read it here.
+ * checkers that follow what browsers show read `readShownHeader`.
  */
 export function pngOrientation(bytes: Uint8Array): number {
   if (!PNG_SIGNATURE.every((b, i) => bytes[i] === b)) return 1;

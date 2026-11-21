@@ -5,6 +5,7 @@ import {
   hasUnreadOrientation,
   HEADER_FORMAT_OF_MIME,
   readImageHeader,
+  readShownHeader,
   type ImageHeader,
 } from "@/lib/output-check/imageHeader";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
@@ -42,9 +43,9 @@ export const isFormat = (header: ImageHeader | null, format: OutputFormat) =>
  *   user to pick another format
  * - `image-size`: its size as displayed equals the input's (canvases draw a
  *   phone photo turned upright). Skipped when the input's header is
- *   unreadable, or when it carries orientation metadata the header reader
- *   does not read (WebP EXIF, PNG eXIf): there is nothing certain to compare
- *   against
+ *   unreadable, or for a WebP with EXIF, whose orientation is not read here:
+ *   there is nothing certain to compare against. A PNG's eXIf turn is read
+ *   (`readShownHeader`)
  * - `image-decodes`: the browser decodes it
  * - `size-bound`: a same-format output is strictly smaller than its input.
  *   The engine settles this before checking (a file that did not shrink is
@@ -67,7 +68,8 @@ export const checkCompressedImage: OutputChecker<Blob, CompressedImageRequest, B
       });
     }
     const inputBytes = await bytesOf(input);
-    const source = hasUnreadOrientation(inputBytes) ? null : readImageHeader(inputBytes);
+    const shown = readShownHeader(inputBytes);
+    const source = shown?.format === "webp" && hasUnreadOrientation(inputBytes) ? null : shown;
     if (source) {
       const [w, h] = displayedSize(source);
       const [ow, oh] = displayedSize(header);

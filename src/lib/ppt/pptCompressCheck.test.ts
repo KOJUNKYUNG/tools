@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
-import { JPEG_3x2, noisePng, solidPng, withExifOrientation } from "@/lib/pdf/testImages";
+import { JPEG_3x2, noisePng, solidPng, withExifOrientation, withPngExif } from "@/lib/pdf/testImages";
 import { checkPptCompress } from "./pptCompressCheck";
 
 const b64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
@@ -184,6 +184,20 @@ describe("checkPptCompress", () => {
     expect(properties(await checkPptCompress(deck, request, untagged, "quick"))).toEqual([
       "media-dimensions",
     ]);
+  });
+
+  // The slide may show it unturned while the browser re-encodes it turned:
+  // a square one keeps its shape, so only its bytes tell.
+  it("flags a PNG turned by its eXIf chunk that was re-encoded", async () => {
+    const pptx = new PptxGenJS();
+    pptx.addSlide().addImage({ data: `image/png;base64,${b64(withPngExif(noisePng(40, 40)))}`, x: 1, y: 1, w: 2, h: 2 });
+    // write() returns a union over every outputType; "uint8array" yields this one.
+    const deck = (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
+    const png = await mediaPath(deck, "png");
+    const output = await mutate(deck, (zip) => {
+      zip.file(png, solidPng(40, 40), { compression: "STORE" });
+    });
+    expect(properties(await checkPptCompress(deck, request, output, "quick"))).toEqual(["turned-png-kept"]);
   });
 
   it("flags an output that is not a zip", async () => {

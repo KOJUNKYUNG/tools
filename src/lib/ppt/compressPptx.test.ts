@@ -44,6 +44,14 @@ async function syntheticDeck(): Promise<Uint8Array> {
   return (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
 }
 
+/** A 1-slide deck showing `png` in a 2 × 2 in frame. */
+async function deckWithPng(png: Uint8Array): Promise<Uint8Array> {
+  const pptx = new PptxGenJS();
+  pptx.addSlide().addImage({ data: `image/png;base64,${b64(png)}`, x: 1, y: 1, w: 2, h: 2 });
+  // write() returns a union over every outputType; "uint8array" yields this one.
+  return (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
+}
+
 async function media(deck: Uint8Array, pattern: RegExp): Promise<Uint8Array> {
   const zip = await JSZip.loadAsync(deck);
   const entry = zip.file(pattern)[0];
@@ -97,13 +105,11 @@ describe("compressPptxFromBytes", () => {
   // slide may show it unturned: a square one passes the shape check turned.
   it("keeps a PNG whose eXIf chunk may turn it as it is", async () => {
     const turned = withPngExif(noisePng(40, 40));
-    const pptx = new PptxGenJS();
-    pptx.addSlide().addImage({ data: `image/png;base64,${b64(turned)}`, x: 1, y: 1, w: 2, h: 2 });
-    // write() returns a union over every outputType; "uint8array" yields this one.
-    const deck = (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
     const recompress = vi.fn<RecompressMedia>(async () => solidPng(40, 40));
-    const result = await compressPptxFromBytes({ bytes: deck, preset: "medium", recompress });
-    if (result.kind === "compressed") expect(await media(result.data, PNG_MEDIA)).toEqual(turned);
+    // Repackaging alone shrinks pptxgenjs's deck.
+    const result = await compressPptxFromBytes({ bytes: await deckWithPng(turned), preset: "medium", recompress });
+    if (result.kind !== "compressed") throw new Error(`got ${result.kind}`);
+    expect(await media(result.data, PNG_MEDIA)).toEqual(turned);
     expect(recompress).not.toHaveBeenCalled();
   });
 
@@ -380,10 +386,7 @@ describe("compressPptxFromBytes downsampling", () => {
 
 describe("analyzePptxForCompress", () => {
   it("leaves out a PNG whose eXIf chunk may turn it: the run keeps it as it is", async () => {
-    const pptx = new PptxGenJS();
-    pptx.addSlide().addImage({ data: `image/png;base64,${b64(withPngExif(noisePng(40, 40)))}`, x: 1, y: 1, w: 2, h: 2 });
-    // write() returns a union over every outputType; "uint8array" yields this one.
-    const deck = (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
+    const deck = await deckWithPng(withPngExif(noisePng(40, 40)));
     const analysis = await analyzePptxForCompress(new File([new Uint8Array(deck)], "deck.pptx"), async () => null);
     expect(analysis.media).toEqual([]);
     expect(analysis.previewBlob).toBeNull();
