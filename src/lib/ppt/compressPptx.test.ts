@@ -93,6 +93,20 @@ describe("compressPptxFromBytes", () => {
     expect(await checkPptCompress(deck, { preset: "medium" }, result.data, "full")).toEqual([]);
   });
 
+  // A browser decodes it turned and re-encodes it without the chunk, while a
+  // slide may show it unturned: a square one passes the shape check turned.
+  it("keeps a PNG whose eXIf chunk may turn it as it is", async () => {
+    const turned = withPngExif(noisePng(40, 40));
+    const pptx = new PptxGenJS();
+    pptx.addSlide().addImage({ data: `image/png;base64,${b64(turned)}`, x: 1, y: 1, w: 2, h: 2 });
+    // write() returns a union over every outputType; "uint8array" yields this one.
+    const deck = (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
+    const recompress = vi.fn<RecompressMedia>(async () => solidPng(40, 40));
+    const result = await compressPptxFromBytes({ bytes: deck, preset: "medium", recompress });
+    if (result.kind === "compressed") expect(await media(result.data, PNG_MEDIA)).toEqual(turned);
+    expect(recompress).not.toHaveBeenCalled();
+  });
+
   describe("on a deck it could not shrink", () => {
     // Packed as tightly as the engine packs, so repackaging alone cannot shrink it.
     const tightDeck = async () =>
@@ -365,6 +379,16 @@ describe("compressPptxFromBytes downsampling", () => {
 });
 
 describe("analyzePptxForCompress", () => {
+  it("leaves out a PNG whose eXIf chunk may turn it: the run keeps it as it is", async () => {
+    const pptx = new PptxGenJS();
+    pptx.addSlide().addImage({ data: `image/png;base64,${b64(withPngExif(noisePng(40, 40)))}`, x: 1, y: 1, w: 2, h: 2 });
+    // write() returns a union over every outputType; "uint8array" yields this one.
+    const deck = (await pptx.write({ outputType: "uint8array" })) as Uint8Array;
+    const analysis = await analyzePptxForCompress(new File([new Uint8Array(deck)], "deck.pptx"), async () => null);
+    expect(analysis.media).toEqual([]);
+    expect(analysis.previewBlob).toBeNull();
+  });
+
   it("reads each image's size and signs of earlier compression", async () => {
     const deck = await syntheticDeck();
     const counted: number[] = [];

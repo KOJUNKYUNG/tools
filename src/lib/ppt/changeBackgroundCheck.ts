@@ -1,5 +1,5 @@
 import { notInherited, type OutputChecker, type Violation } from "@/lib/output-check/core";
-import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
+import { displayedSize, readImageHeader, readShownHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage, relsPartOf, type PptxPackage, type Relationship } from "@/lib/output-check/pptxPackage";
 import { pngAlphaUsed } from "@/lib/output-check/pngAlpha";
 import { sameBytes } from "@/lib/output-check/sameBytes";
@@ -490,7 +490,8 @@ async function preparationViolations(
   let crop: { width: number; height: number } | null = request.crop ?? null;
   let roundingSlack = 0;
   if (!crop) {
-    const source = readImageHeader(request.source);
+    // As the browser shows it: the engine sized the crop from the decoded picture.
+    const source = readShownHeader(request.source);
     if (source) {
       const [w, h] = displayedSize(source);
       crop = { width: Math.min(w, h * ratio), height: Math.min(h, w / ratio) };

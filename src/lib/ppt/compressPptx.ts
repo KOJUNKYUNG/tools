@@ -154,6 +154,16 @@ const countPngPixelsInBrowser: CountPngPixels = async (bytes, cap) => {
 };
 
 /**
+ * Whether the picture stays as it is whatever the preset: a PNG with an eXIf
+ * chunk. Browsers decode it turned and the re-encode drops the chunk, while
+ * the slide may show it unturned; a non-square one fails the shape check
+ * anyway, but a square one would pass turned.
+ */
+function keptAsIs(ext: string, bytes: Uint8Array): boolean {
+  return ext === "png" && hasUnreadOrientation(bytes);
+}
+
+/**
  * A picture's upright pixel size (EXIF orientation applied); null if its
  * header is unreadable or it carries orientation the header reader does not
  * read (a PNG's eXIf): the browser may draw it turned, and a resize to a
@@ -209,6 +219,8 @@ export async function analyzePptxForCompress(
     if (!entry) continue;
     const bytes = await entry.async("uint8array");
     const ext = getExt(p);
+    // Neither estimated nor previewed: the run leaves it as it is.
+    if (keptAsIs(ext, bytes)) continue;
     const pictureSize = { size: uprightSize(bytes), display: displaySizes.get(p) ?? null };
     if (ext === "png") {
       const png = readPngHeader(bytes);
@@ -385,7 +397,7 @@ export async function compressPptxFromBytes({
     if (entry) {
       const original = await entry.async("uint8array");
       const action = classifyMedia(getExt(path), preset);
-      if (action.kind !== "passthrough") {
+      if (action.kind !== "passthrough" && !keptAsIs(getExt(path), original)) {
         const size = uprightSize(original);
         const target = size && downsampleTarget(size, displaySizes.get(path) ?? null, preset);
         const encode = (a: Extract<MediaAction, { kind: "jpeg" | "png" }>) =>

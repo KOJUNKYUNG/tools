@@ -1,5 +1,5 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
-import { type ImageHeader, displayedSize, pngOrientation, readImageHeader } from "@/lib/output-check/imageHeader";
+import { type ImageHeader, displayedSize, readImageHeader, readShownHeader } from "@/lib/output-check/imageHeader";
 import { inspectPdf, type PdfImagePaint, type PdfReport } from "@/lib/output-check/pdfInspector";
 import { pdfJpegs } from "@/lib/output-check/pdfJpegs";
 import type { PageItem } from "./pageItem";
@@ -41,9 +41,9 @@ const normalise = (deg: number) => ((deg % 360) + 360) % 360;
 function headerOf(sources: ImageToPdfSources, id: string): ImageHeader {
   const bytes = sources.get(id);
   if (!bytes) throw new Error(`no source bytes for ${id}`);
-  const header = readImageHeader(bytes);
+  const header = readShownHeader(bytes);
   if (!header) throw new Error(`cannot read the image header of ${id}`);
-  return header.format === "png" ? { ...header, orientation: pngOrientation(bytes) } : header;
+  return header;
 }
 
 // The checker's own table and rules, written from the spec (#176) rather

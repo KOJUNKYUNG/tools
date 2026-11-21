@@ -188,6 +188,16 @@ export function pngOrientation(bytes: Uint8Array): number {
   return 1;
 }
 
+/**
+ * The image's header with the orientation browsers show it by: a PNG's
+ * taken from its eXIf chunk (see `pngOrientation`). For checkers that follow
+ * what the browser drew; null for bytes it cannot read.
+ */
+export function readShownHeader(bytes: Uint8Array): ImageHeader | null {
+  const header = readImageHeader(bytes);
+  return header?.format === "png" ? { ...header, orientation: pngOrientation(bytes) } : header;
+}
+
 /** The image's format and pixel size, or null for bytes it cannot read. */
 export function readImageHeader(bytes: Uint8Array): ImageHeader | null {
   if (PNG_SIGNATURE.every((b, i) => bytes[i] === b)) return readPng(bytes);
