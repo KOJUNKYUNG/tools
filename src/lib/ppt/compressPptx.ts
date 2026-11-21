@@ -15,6 +15,7 @@ import { runOutputCheck } from "@/lib/output-check/core";
 import {
   displayedSize,
   hasUnreadOrientation,
+  pngOrientation,
   readImageHeader,
 } from "@/lib/output-check/imageHeader";
 import { notSmaller } from "@/lib/output-check/sizeBound";
@@ -154,10 +155,22 @@ const countPngPixelsInBrowser: CountPngPixels = async (bytes, cap) => {
 };
 
 /**
+ * Whether the picture is a PNG its eXIf chunk turns. It stays as it is
+ * whatever the preset: browsers decode it turned and the re-encode drops the
+ * chunk, while the slide may show it unturned (whether PowerPoint honours
+ * eXIf is unknown). A non-square one fails the shape check anyway, but a
+ * square one would pass turned. The checker's `turned-png-kept` holds it.
+ */
+function isTurnedPng(ext: string, bytes: Uint8Array): boolean {
+  return ext === "png" && pngOrientation(bytes) !== 1;
+}
+
+/**
  * A picture's upright pixel size (EXIF orientation applied); null if its
  * header is unreadable or it carries orientation the header reader does not
- * read (a PNG's eXIf): the browser may draw it turned, and a resize to a
- * size worked out from its header would squash it.
+ * read (a WebP's EXIF, or a PNG's eXIf chunk with no turn in it, since a
+ * turned PNG never reaches here): the browser may draw it turned, and a
+ * resize to a size worked out from its header would squash it.
  */
 function uprightSize(bytes: Uint8Array): PixelSize | null {
   const header = hasUnreadOrientation(bytes) ? null : readImageHeader(bytes);
@@ -209,6 +222,8 @@ export async function analyzePptxForCompress(
     if (!entry) continue;
     const bytes = await entry.async("uint8array");
     const ext = getExt(p);
+    // Neither estimated nor previewed: the run leaves it as it is.
+    if (isTurnedPng(ext, bytes)) continue;
     const pictureSize = { size: uprightSize(bytes), display: displaySizes.get(p) ?? null };
     if (ext === "png") {
       const png = readPngHeader(bytes);
@@ -384,8 +399,9 @@ export async function compressPptxFromBytes({
     const entry = zip.file(path);
     if (entry) {
       const original = await entry.async("uint8array");
-      const action = classifyMedia(getExt(path), preset);
-      if (action.kind !== "passthrough") {
+      const ext = getExt(path);
+      const action = classifyMedia(ext, preset);
+      if (action.kind !== "passthrough" && !isTurnedPng(ext, original)) {
         const size = uprightSize(original);
         const target = size && downsampleTarget(size, displaySizes.get(path) ?? null, preset);
         const encode = (a: Extract<MediaAction, { kind: "jpeg" | "png" }>) =>

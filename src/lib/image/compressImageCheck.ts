@@ -4,6 +4,7 @@ import {
   displayedSize,
   hasUnreadOrientation,
   HEADER_FORMAT_OF_MIME,
+  possibleShownSizes,
   readImageHeader,
   type ImageHeader,
 } from "@/lib/output-check/imageHeader";
@@ -42,9 +43,9 @@ export const isFormat = (header: ImageHeader | null, format: OutputFormat) =>
  *   user to pick another format
  * - `image-size`: its size as displayed equals the input's (canvases draw a
  *   phone photo turned upright). Skipped when the input's header is
- *   unreadable, or when it carries orientation metadata the header reader
- *   does not read (WebP EXIF, PNG eXIf): there is nothing certain to compare
- *   against
+ *   unreadable, or for a WebP with EXIF, whose orientation is not read here:
+ *   there is nothing certain to compare against. A PNG its eXIf chunk turns
+ *   may be drawn turned or as stored, depending on the browser: either passes
  * - `image-decodes`: the browser decodes it
  * - `size-bound`: a same-format output is strictly smaller than its input.
  *   The engine settles this before checking (a file that did not shrink is
@@ -67,13 +68,13 @@ export const checkCompressedImage: OutputChecker<Blob, CompressedImageRequest, B
       });
     }
     const inputBytes = await bytesOf(input);
-    const source = hasUnreadOrientation(inputBytes) ? null : readImageHeader(inputBytes);
-    if (source) {
-      const [w, h] = displayedSize(source);
-      const [ow, oh] = displayedSize(header);
-      if (ow !== w || oh !== h) {
-        violations.push({ property: "image-size", detail: `${ow}×${oh}, input ${w}×${h}` });
-      }
+    // A WebP's EXIF orientation is not read here: nothing certain to compare against.
+    const unreadWebp = readImageHeader(inputBytes)?.format === "webp" && hasUnreadOrientation(inputBytes);
+    const sizes = unreadWebp ? [] : possibleShownSizes(inputBytes);
+    const [ow, oh] = displayedSize(header);
+    if (sizes.length > 0 && !sizes.some(([w, h]) => ow === w && oh === h)) {
+      const [w, h] = sizes[0];
+      violations.push({ property: "image-size", detail: `${ow}×${oh}, input ${w}×${h}` });
     }
   }
   if (!(await browserDecodes(output))) {

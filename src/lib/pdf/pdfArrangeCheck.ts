@@ -1,5 +1,5 @@
 import type { OutputChecker, Violation } from "@/lib/output-check/core";
-import { pngOrientation, readImageHeader } from "@/lib/output-check/imageHeader";
+import { displayedSize, readShownHeader } from "@/lib/output-check/imageHeader";
 import { inspectPdf, type PdfReport } from "@/lib/output-check/pdfInspector";
 import { pdfJpegs, readJpegPhotoInfo } from "@/lib/output-check/pdfJpegs";
 import { sameBytes } from "@/lib/output-check/sameBytes";
@@ -92,11 +92,9 @@ async function sourceFailsToo(sources: PdfArrangeSources, item: PageItem): Promi
 function displayedImageSize(sources: PdfArrangeSources, id: string): [number, number] {
   const bytes = sources.get(id);
   if (!bytes) throw new Error(`no source bytes for ${id}`);
-  const header = readImageHeader(bytes);
+  const header = readShownHeader(bytes);
   if (!header) throw new Error(`cannot read the image header of ${id}`);
-  const { width, height } = header;
-  const orientation = header.format === "png" ? pngOrientation(bytes) : header.orientation;
-  return orientation >= 5 ? [height, width] : [width, height];
+  return displayedSize(header);
 }
 
 async function checkPages(

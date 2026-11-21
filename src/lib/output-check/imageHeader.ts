@@ -175,7 +175,7 @@ export function hasUnreadOrientation(bytes: Uint8Array): boolean {
  * chunk before its image data; 1 when there is none, it cannot be read, or
  * the bytes are not a PNG. `readImageHeader` leaves it out (a PNG reports
  * 1), so the tools that pass a PNG on unturned keep its stored size;
- * checkers that follow what browsers show read it here.
+ * checkers that follow what browsers show read `readShownHeader`.
  */
 export function pngOrientation(bytes: Uint8Array): number {
   if (!PNG_SIGNATURE.every((b, i) => bytes[i] === b)) return 1;
@@ -186,6 +186,30 @@ export function pngOrientation(bytes: Uint8Array): number {
     if (ascii(bytes, at + 4, "eXIf")) return tiffOrientation(view, at + 8, at + 8 + view.getUint32(at));
   }
   return 1;
+}
+
+/**
+ * The image's header with the orientation browsers show it by: a PNG's
+ * taken from its eXIf chunk (see `pngOrientation`). For checkers that follow
+ * what the browser drew; null for bytes it cannot read.
+ */
+export function readShownHeader(bytes: Uint8Array): ImageHeader | null {
+  const header = readImageHeader(bytes);
+  return header?.format === "png" ? { ...header, orientation: pngOrientation(bytes) } : header;
+}
+
+/**
+ * The sizes, [width, height], a browser may show the image at: one, its
+ * displayed size, unless it is a PNG its eXIf chunk turns. Chrome turns
+ * such a PNG; a browser that ignores the chunk shows it as stored, so both
+ * sizes are given. Empty for bytes it cannot read.
+ */
+export function possibleShownSizes(bytes: Uint8Array): [number, number][] {
+  const header = readImageHeader(bytes);
+  if (!header) return [];
+  const turned = header.format === "png" ? pngOrientation(bytes) : 1;
+  if (turned === 1) return [displayedSize(header)];
+  return [displayedSize({ ...header, orientation: turned }), displayedSize(header)];
 }
 
 /** The image's format and pixel size, or null for bytes it cannot read. */

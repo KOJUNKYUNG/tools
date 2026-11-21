@@ -1,5 +1,5 @@
 import { notInherited, type OutputChecker, type Violation } from "@/lib/output-check/core";
-import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
+import { displayedSize, possibleShownSizes, readImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage, relsPartOf, type PptxPackage, type Relationship } from "@/lib/output-check/pptxPackage";
 import { pngAlphaUsed } from "@/lib/output-check/pngAlpha";
 import { sameBytes } from "@/lib/output-check/sameBytes";
@@ -487,22 +487,20 @@ async function preparationViolations(
 
   // The crop the picture came from: the one given, or the centred, largest
   // rectangle of the slide's aspect, which may round by half a pixel.
-  let crop: { width: number; height: number } | null = request.crop ?? null;
-  let roundingSlack = 0;
-  if (!crop) {
-    const source = readImageHeader(request.source);
-    if (source) {
-      const [w, h] = displayedSize(source);
-      crop = { width: Math.min(w, h * ratio), height: Math.min(h, w / ratio) };
-      roundingSlack = 0.5;
-    }
-  }
-  if (!crop) {
+  // The engine sized it from the decoded picture, so a PNG its eXIf chunk
+  // turns gives two candidates (see possibleShownSizes): either may hold.
+  const crops: { width: number; height: number }[] = request.crop
+    ? [request.crop]
+    : possibleShownSizes(request.source).map(([w, h]) => ({ width: Math.min(w, h * ratio), height: Math.min(h, w / ratio) }));
+  const roundingSlack = request.crop ? 0 : 0.5;
+  const within = (crop: { width: number; height: number }) =>
+    width <= crop.width + roundingSlack && height <= crop.height + roundingSlack;
+  if (crops.length === 0) {
     violations.push({ property: "background-not-upscaled", detail: "source size unreadable" });
-  } else if (width > crop.width + roundingSlack || height > crop.height + roundingSlack) {
+  } else if (!crops.some(within)) {
     violations.push({
       property: "background-not-upscaled",
-      detail: `${width} × ${height} > crop ${crop.width} × ${crop.height}`,
+      detail: `${width} × ${height} > crop ${crops.map((c) => `${c.width} × ${c.height}`).join(" or ")}`,
     });
   }
   return violations;

@@ -1,6 +1,6 @@
 import type { CompressionPreset } from "@/lib/common/compressionPreset";
 import { notInherited, type OutputChecker, type Violation } from "@/lib/output-check/core";
-import { displayedSize, readImageHeader, type ImageHeader } from "@/lib/output-check/imageHeader";
+import { displayedSize, pngOrientation, readImageHeader, type ImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { sameBytes } from "@/lib/output-check/sameBytes";
 import { notSmaller, SIZE_BOUND } from "@/lib/output-check/sizeBound";
@@ -83,6 +83,10 @@ function keepsShape(w: number, h: number, ow: number, oh: number): boolean {
  *   out display sizes from the slide XML again, duplicating the engine, so
  *   the regression set (`pnpm test:real`) guards it instead
  *
+ * - `turned-png-kept`: a PNG its eXIf chunk turns keeps its bytes. A
+ *   browser re-encodes it turned and without the chunk, while the slide may
+ *   show it unturned; a square one would pass `media-dimensions`
+ *
  * A media part counts as recompressed when its bytes differ from the input's.
  * Structural defects the input already had are not the tool's doing.
  */
@@ -130,6 +134,10 @@ export const checkPptCompress: OutputChecker<Uint8Array, PptCompressRequest, Uin
       // An unreadable part is the zip's damage, not a recompressed image.
       if (original === null || recompressed === null) continue;
       if (sameBytes(original, recompressed)) continue;
+      if (getExt(part) === "png" && pngOrientation(original) !== 1) {
+        violations.push({ property: "turned-png-kept", detail: `${part}: re-encoded` });
+        continue;
+      }
       violations.push(...recompressedMediaViolations(part, original, recompressed));
     }
     return violations;

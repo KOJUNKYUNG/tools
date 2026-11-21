@@ -5,6 +5,7 @@ import PptxGenJS from "pptxgenjs";
 import { maxFitCrop, type CropRect } from "@/lib/image/maxFitCrop";
 import { headerOnlyImage, standInPrepare } from "@/lib/image/slideImageStandIn";
 import { testPng } from "@/lib/image/testPng";
+import { withPngExif } from "@/lib/pdf/testImages";
 import { displayedSize, readImageHeader } from "@/lib/output-check/imageHeader";
 import { openPptxPackage } from "@/lib/output-check/pptxPackage";
 import { changeBackground } from "./changeBackground";
@@ -461,6 +462,22 @@ describe("checkPptBackground checks the prepared picture", () => {
   it("flags a picture enlarged past the default crop", async () => {
     const intent: Intent = { source: picture(1600, 1200), mode: "all-slides" };
     // The centred 16:9 crop of 1600 × 1200 is 1600 × 900.
+    expect(await preparedAs(intent, picture(1600, 900))).toEqual([]);
+    expect(await preparedAs(intent, picture(1920, 1080))).toEqual(["background-not-upscaled"]);
+  });
+
+  // Chrome turns it; a browser that ignores the chunk crops it as stored.
+  it("takes the default crop of a PNG with an eXIf turn as turned or as stored", async () => {
+    // Turned 900 × 1600, its 16:9 crop 900 × 506; stored 1600 × 900, all of it.
+    const intent: Intent = { source: withPngExif(picture(1600, 900)), mode: "all-slides" };
+    expect(await preparedAs(intent, picture(896, 504))).toEqual([]);
+    expect(await preparedAs(intent, picture(1600, 900))).toEqual([]);
+    expect(await preparedAs(intent, picture(1920, 1080))).toEqual(["background-not-upscaled"]);
+  });
+
+  it("takes the default crop of a PNG turned by its eXIf chunk the other way round too", async () => {
+    // Stored 900 × 1600, its 16:9 crop 900 × 506; turned 1600 × 900, all of it.
+    const intent: Intent = { source: withPngExif(picture(900, 1600)), mode: "all-slides" };
     expect(await preparedAs(intent, picture(1600, 900))).toEqual([]);
     expect(await preparedAs(intent, picture(1920, 1080))).toEqual(["background-not-upscaled"]);
   });

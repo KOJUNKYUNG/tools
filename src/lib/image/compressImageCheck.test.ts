@@ -52,13 +52,21 @@ describe("checkCompressedImage", () => {
     ]);
   });
 
-  it.each([
-    ["a WebP with an EXIF chunk", () => extendedWebp(4, 3, { exif: true })],
-    ["a PNG with an eXIf chunk", () => withPngExif(solidPng(4, 3))],
-  ])("skips the size check for %s: the browser may turn it by an orientation not read here", async (_, bytes) => {
-    const input = blob(bytes());
+  it("skips the size check for a WebP with an EXIF chunk: the browser may turn it by an orientation not read here", async () => {
+    const input = blob(extendedWebp(4, 3, { exif: true }));
     // Drawn turned a quarter: 3×4.
     expect(await checkCompressedImage(input, request("image/png"), blob(solidPng(3, 4)), "quick")).toEqual([]);
+  });
+
+  // Chrome turns it; a browser that ignores the chunk draws it as stored.
+  it("takes a PNG with an eXIf turn at its turned or its stored size, nothing else", async () => {
+    // Stored 4×3, Orientation 6: shown 3×4 where the browser turns it.
+    const input = blob(withPngExif(solidPng(4, 3)));
+    expect(await checkCompressedImage(input, request("image/png"), blob(solidPng(3, 4)), "quick")).toEqual([]);
+    expect(await checkCompressedImage(input, request("image/png"), blob(solidPng(4, 3)), "quick")).toEqual([]);
+    expect(properties(await checkCompressedImage(input, request("image/png"), blob(solidPng(4, 4)), "quick"))).toEqual([
+      "image-size",
+    ]);
   });
 
   it("still checks the size of a WebP or PNG without orientation metadata", async () => {
