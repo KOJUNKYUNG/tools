@@ -96,7 +96,8 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
   } = useToolProcessor<ApplyResult>({
     processor: (processorFiles, onProgress) =>
       applyOverlay({ file: processorFiles[0], options: buildOptions(), onProgress }).catch((err: unknown) => {
-        // A damaged logo is the logo's fault, not the PDF's (errorOpen).
+        // A damaged logo is the logo's fault: without this it would show the
+        // invalid-input hint, which says the PDF could not be opened.
         throw err instanceof UnreadableLogoError ? new UserFacingError(labels.errorLogo) : err;
       }),
     onDownload: (res) =>

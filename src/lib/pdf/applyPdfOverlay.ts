@@ -223,6 +223,22 @@ async function embedLogo(pdf: PDFDocument, logo: LogoInput): Promise<EmbeddedIma
   }
 }
 
+/**
+ * Embed a PNG the tool rendered (watermark text, a page number). One it
+ * cannot read is the tool's fault, so it must not reach the user as the
+ * invalid-input hint, which blames their PDF.
+ */
+async function embedRendered(pdf: PDFDocument, bytes: Uint8Array): Promise<EmbeddedImage> {
+  try {
+    return await embedPng(pdf, bytes);
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith(INVALID_INPUT_PREFIX)) {
+      throw new Error("a rendered label could not be embedded", { cause: err });
+    }
+    throw err;
+  }
+}
+
 /** Visual page width/height for an already-loaded page (for logo sizing). */
 function visualPageSize(page: PDFPage): { vw: number; vh: number } {
   const { width, height } = page.getSize();
@@ -302,7 +318,7 @@ export async function applyOverlay({
             fontPx: options.fontPx,
             color: options.color,
           });
-          const img = await embedPng(pdf, r.bytes);
+          const img = await embedRendered(pdf, r.bytes);
           entry = { img, w: r.width, h: r.height };
           cache.set(text, entry);
         }
@@ -337,7 +353,7 @@ export async function applyOverlay({
         fontPx: options.fontPx,
         color: options.color,
       });
-      img = await embedPng(pdf, r.bytes);
+      img = await embedRendered(pdf, r.bytes);
       baseW = r.width;
       baseH = r.height;
     }

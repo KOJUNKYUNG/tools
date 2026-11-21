@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CORRUPT_OUTPUT_PREFIX, INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { UnreadableLogoError, applyOverlay, type OverlayOptions, type WatermarkOptions } from "./applyPdfOverlay";
 import * as check from "./pdfWatermarkCheck";
+import { renderTextToPng } from "./renderTextToPng";
 import {
   JPEG_3x2,
   PNG_KINDS,
@@ -13,8 +14,12 @@ import {
   withDamagedImageData,
 } from "./testImages";
 
-// Text is rasterised on a browser canvas; Node gets a fixed image instead.
-vi.mock("./renderTextToPng", () => import("./renderTextToPngNode"));
+// Text is rasterised on a browser canvas; Node gets a fixed image instead,
+// which a test can replace.
+vi.mock("./renderTextToPng", async () => {
+  const node = await import("./renderTextToPngNode");
+  return { renderTextToPng: vi.fn(node.renderTextToPng) };
+});
 
 // The real checker by default; some tests make it report damage.
 vi.mock("./pdfWatermarkCheck", async (importOriginal) => {
@@ -131,6 +136,7 @@ describe("applyOverlay", () => {
     expect(output.byteLength).toBeLessThanOrEqual(bytes.byteLength + png.byteLength + PNG_PAGE_OVERHEAD);
   });
 
+  // 15 s, as in convertImagesToPdf.test.ts: inflating damaged data is slow under Node.
   it.each<[string, (png: Uint8Array) => Uint8Array]>([
     ["its compressed image data damaged", withDamagedImageData],
     ["cut off mid-download", (png) => png.subarray(0, Math.floor(png.length * 0.6))],
@@ -138,6 +144,14 @@ describe("applyOverlay", () => {
     const logo = damage(pngOfKind("truecolour with alpha").bytes);
     await expect(run(await input(1), pngLogo(logo))).rejects.toBeInstanceOf(UnreadableLogoError);
   }, 15_000);
+
+  it("a rendered label it cannot embed is the tool's fault, not the user's PDF", async () => {
+    vi.mocked(renderTextToPng).mockResolvedValueOnce({ bytes: Uint8Array.from([1, 2, 3]), width: 3, height: 1 });
+    const err = await run(await input(1), numbers([1])).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    // Narrowed by the assertion above.
+    expect((err as Error).message).not.toMatch(new RegExp(`^${INVALID_INPUT_PREFIX}`));
+  });
 
   it("blocks an output the check rejects", async () => {
     mockedCheck.mockResolvedValue([{ property: "page-count", detail: "test" }]);
