@@ -54,6 +54,7 @@ export interface PdfWatermarkLabels {
   errorMemory: string;
   errorCorrupt: string;
   errorOpen: string;
+  errorLogo: string;
   fileUpload: Dictionary["common"]["fileUpload"];
 }
 
@@ -113,6 +114,7 @@ export function getPdfWatermarkLabels(dict: Dictionary): PdfWatermarkLabels {
     errorMemory: p.errorMemory,
     errorCorrupt: p.errorCorrupt,
     errorOpen: p.errorOpen,
+    errorLogo: p.errorLogo,
     fileUpload: dict.common.fileUpload,
   };
 }

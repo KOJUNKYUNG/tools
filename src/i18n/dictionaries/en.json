@@ -586,7 +586,8 @@
         "again": "Start over",
         "errorMemory": "Browser ran out of memory. Try a smaller PDF.",
         "errorCorrupt": "Something went wrong with the tool, so the PDF couldn't be made. Please try again.",
-        "errorOpen": "Couldn't open this PDF. It may be encrypted or damaged."
+        "errorOpen": "Couldn't open this PDF. It may be encrypted or damaged.",
+        "errorLogo": "Couldn't read this logo image. It may be damaged."
       }
     },
     "pdf-lock": {

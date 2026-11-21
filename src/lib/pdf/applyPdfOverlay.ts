@@ -1,6 +1,7 @@
-import { PDFDocument, PDFImage, PDFPage, degrees } from "pdf-lib";
+import { PDFDocument, PDFPage, degrees, drawImage } from "pdf-lib";
 import { INVALID_INPUT_PREFIX } from "@/lib/errors";
 import { runOutputCheck } from "@/lib/output-check/core";
+import { readImageHeader } from "@/lib/output-check/imageHeader";
 import { getPdfjsLib, pdfjsDocParams } from "./pdfjs";
 import { formatPageNumber, type PageNumberFormat } from "./pageNumberFormat";
 import {
@@ -17,6 +18,7 @@ import {
   type Point,
 } from "./overlayLayout";
 import { LOAD_WITH_RARE_YIELDS, SAVE_WITH_RARE_YIELDS } from "./pdfLibYields";
+import { type EmbeddedImage, embedPng } from "./embedPng";
 import { checkPdfWatermark } from "./pdfWatermarkCheck";
 import { renderTextToPng } from "./renderTextToPng";
 
@@ -76,6 +78,14 @@ export interface WatermarkOptions {
 }
 
 export type OverlayOptions = PageNumberOptions | WatermarkOptions;
+
+/**
+ * The logo image could not be read: the user's logo, not their PDF, so the
+ * tool says which file to replace.
+ */
+export class UnreadableLogoError extends Error {
+  override name = "UnreadableLogoError";
+}
 
 export interface ApplyResult {
   data: Uint8Array;
@@ -143,7 +153,7 @@ interface DrawOpts {
  */
 function drawOverlayOnPage(
   page: PDFPage,
-  img: PDFImage,
+  img: EmbeddedImage,
   dw: number,
   dh: number,
   opts: DrawOpts,
@@ -169,17 +179,68 @@ function drawOverlayOnPage(
   const alphaDeg = opts.angleDeg + rotation;
   const alphaRad = degToRad(alphaDeg);
 
+  // page.drawImage takes only pdf-lib's own PDFImage, and the shared PNG
+  // embedder returns a plain image object, so this draws as drawImage does:
+  // the image and its opacity added to the page's resources once, then one
+  // drawing per centre.
+  const name = page.node.newXObject("Image", img.ref);
+  const graphicsState =
+    opts.opacity < 1
+      ? page.node.newExtGState("GS", page.doc.context.obj({ Type: "ExtGState", ca: opts.opacity }))
+      : undefined;
   for (const cv of centersV) {
     const cu = visualPointToUser(rotation, W, H, cv.x, cv.y);
     const corner = cornerForCenter(cu.x, cu.y, dw, dh, alphaRad);
-    page.drawImage(img, {
-      x: corner.x,
-      y: corner.y,
-      width: dw,
-      height: dh,
-      opacity: opts.opacity,
-      rotate: degrees(alphaDeg),
-    });
+    page.pushOperators(
+      ...drawImage(name, {
+        x: corner.x,
+        y: corner.y,
+        width: dw,
+        height: dh,
+        rotate: degrees(alphaDeg),
+        xSkew: degrees(0),
+        ySkew: degrees(0),
+        graphicsState,
+      }),
+    );
+  }
+}
+
+/**
+ * Embed the logo, by what its bytes are: `kind` follows the file's MIME
+ * type, which a misnamed file gets wrong. A PNG goes in losslessly and no
+ * larger than it is, and a damaged one is refused instead of hanging
+ * pdf-lib's decoder (see embedPng). A JPEG goes in byte for byte; pdf-lib
+ * reads only its markers, so it refuses no damaged JPEG.
+ */
+async function embedLogo(pdf: PDFDocument, logo: LogoInput): Promise<EmbeddedImage> {
+  try {
+    const format = readImageHeader(logo.bytes)?.format;
+    if (format === "jpeg") return await pdf.embedJpg(logo.bytes);
+    if (format === "png") return await embedPng(pdf, logo.bytes);
+    // The picker takes PNG and JPEG only: a WebP got there misnamed.
+    throw new Error(`${INVALID_INPUT_PREFIX}: a logo that is no PNG or JPEG (${format ?? "unreadable"})`);
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith(INVALID_INPUT_PREFIX)) {
+      throw new UnreadableLogoError("the logo image cannot be read", { cause: err });
+    }
+    throw err;
+  }
+}
+
+/**
+ * Embed a PNG the tool rendered (watermark text, a page number). One it
+ * cannot read is the tool's fault, so it must not reach the user as the
+ * invalid-input hint, which blames their PDF.
+ */
+async function embedRendered(pdf: PDFDocument, bytes: Uint8Array): Promise<EmbeddedImage> {
+  try {
+    return await embedPng(pdf, bytes);
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith(INVALID_INPUT_PREFIX)) {
+      throw new Error("a rendered label could not be embedded", { cause: err });
+    }
+    throw err;
   }
 }
 
@@ -244,10 +305,7 @@ export async function applyOverlay({
   if (options.mode === "number") {
     // One embedded PNG per distinct label string (e.g. "1 / 10" differs per page,
     // but "page" prefixes / repeated strings are cached).
-    const cache = new Map<
-      string,
-      { img: Awaited<ReturnType<PDFDocument["embedPng"]>>; w: number; h: number }
-    >();
+    const cache = new Map<string, { img: EmbeddedImage; w: number; h: number }>();
 
     for (let i = 0; i < total; i++) {
       if (inRange(i)) {
@@ -265,7 +323,7 @@ export async function applyOverlay({
             fontPx: options.fontPx,
             color: options.color,
           });
-          const img = await pdf.embedPng(r.bytes);
+          const img = await embedRendered(pdf, r.bytes);
           entry = { img, w: r.width, h: r.height };
           cache.set(text, entry);
         }
@@ -284,27 +342,23 @@ export async function applyOverlay({
     }
   } else {
     // Build the watermark image once, reuse on every page.
-    let img: Awaited<ReturnType<PDFDocument["embedPng"]>>;
+    let img: EmbeddedImage;
     let baseW: number;
     let baseH: number;
 
     if (options.source === "image") {
-      if (!options.logo) throw new Error("로고 이미지를 선택하세요.");
-      img =
-        options.logo.kind === "png"
-          ? await pdf.embedPng(options.logo.bytes)
-          : await pdf.embedJpg(options.logo.bytes);
-      const dim = img.scale(1);
-      baseW = dim.width;
-      baseH = dim.height;
+      if (!options.logo) throw new Error("no logo image chosen");
+      img = await embedLogo(pdf, options.logo);
+      baseW = img.width;
+      baseH = img.height;
     } else {
-      if (!options.text.trim()) throw new Error("워터마크 텍스트를 입력하세요.");
+      if (!options.text.trim()) throw new Error("no watermark text entered");
       const r = await renderTextToPng({
         text: options.text,
         fontPx: options.fontPx,
         color: options.color,
       });
-      img = await pdf.embedPng(r.bytes);
+      img = await embedRendered(pdf, r.bytes);
       baseW = r.width;
       baseH = r.height;
     }

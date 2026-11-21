@@ -10,6 +10,7 @@ import { useToolProcessor } from "@/hooks/useToolProcessor";
 import { EMBEDDED_ASSET_LIMIT, uploadLimitFor } from "@/lib/constants";
 import { formatBytes } from "@/lib/common/formatBytes";
 import { template } from "@/lib/common/template";
+import { UserFacingError } from "@/lib/errors";
 import { downloadBlob } from "@/lib/pdf/downloadBlob";
 import {
   analyzePdfForOverlay,
@@ -17,6 +18,7 @@ import {
   type ApplyResult,
   type OverlayOptions,
   type PdfOverlayAnalysis,
+  UnreadableLogoError,
 } from "@/lib/pdf/applyPdfOverlay";
 import { deriveOutputName, type WatermarkMode } from "@/lib/pdf/watermarkNaming";
 import { PdfWatermarkModeToggle } from "./PdfWatermarkModeToggle";
@@ -93,7 +95,11 @@ export function PdfWatermark({ labels, inline = false }: PdfWatermarkProps) {
     download,
   } = useToolProcessor<ApplyResult>({
     processor: (processorFiles, onProgress) =>
-      applyOverlay({ file: processorFiles[0], options: buildOptions(), onProgress }),
+      applyOverlay({ file: processorFiles[0], options: buildOptions(), onProgress }).catch((err: unknown) => {
+        // A damaged logo is the logo's fault: without this it would show the
+        // invalid-input hint, which says the PDF could not be opened.
+        throw err instanceof UnreadableLogoError ? new UserFacingError(labels.errorLogo) : err;
+      }),
     onDownload: (res) =>
       downloadBlob(
         res.data,

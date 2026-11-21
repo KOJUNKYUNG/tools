@@ -1,12 +1,25 @@
 import { PDFDocument, StandardFonts, degrees } from "pdf-lib";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CORRUPT_OUTPUT_PREFIX, INVALID_INPUT_PREFIX } from "@/lib/errors";
-import { applyOverlay, type OverlayOptions, type WatermarkOptions } from "./applyPdfOverlay";
+import { UnreadableLogoError, applyOverlay, type OverlayOptions, type WatermarkOptions } from "./applyPdfOverlay";
 import * as check from "./pdfWatermarkCheck";
-import { JPEG_3x2, solidPng } from "./testImages";
+import { renderTextToPng } from "./renderTextToPng";
+import {
+  JPEG_3x2,
+  PNG_KINDS,
+  PNG_PAGE_OVERHEAD,
+  firstPictureRgba,
+  pngOfKind,
+  solidPng,
+  withDamagedImageData,
+} from "./testImages";
 
-// Text is rasterised on a browser canvas; Node gets a fixed image instead.
-vi.mock("./renderTextToPng", () => import("./renderTextToPngNode"));
+// Text is rasterised on a browser canvas; Node gets a fixed image instead,
+// which a test can replace.
+vi.mock("./renderTextToPng", async () => {
+  const node = await import("./renderTextToPngNode");
+  return { renderTextToPng: vi.fn(node.renderTextToPng) };
+});
 
 // The real checker by default; some tests make it report damage.
 vi.mock("./pdfWatermarkCheck", async (importOriginal) => {
@@ -105,6 +118,55 @@ describe("applyOverlay", () => {
   it("rejects a PDF with no pages as the user's file, not the tool's output", async () => {
     const empty = await (await PDFDocument.create()).save({ addDefaultPage: false });
     await expect(run(empty, numbers([1]))).rejects.toThrow(INVALID_INPUT_PREFIX);
+  });
+
+  const pngLogo = (bytes: Uint8Array) => watermark([1], { source: "image", logo: { bytes, kind: "png" } });
+
+  it.each(PNG_KINDS)("a %s PNG logo: pdf.js reads back its pixels, transparency included", async (kind) => {
+    const png = pngOfKind(kind);
+    const output = await run(await input(1), pngLogo(png.bytes));
+    expect(Buffer.from(await firstPictureRgba(output)).equals(Buffer.from(png.rgba))).toBe(true);
+  });
+
+  // pdf-lib's own embedPng grew PNGs (#178): the logo adds no more than its file.
+  it.each(PNG_KINDS)("a %s PNG logo adds no more than the PNG plus a page's overhead", async (kind) => {
+    const bytes = await input(1);
+    const png = pngOfKind(kind).bytes;
+    const output = await run(bytes, pngLogo(png));
+    expect(output.byteLength).toBeLessThanOrEqual(bytes.byteLength + png.byteLength + PNG_PAGE_OVERHEAD);
+  });
+
+  // 15 s, as in convertImagesToPdf.test.ts: inflating damaged data is slow under Node.
+  it.each<[string, (png: Uint8Array) => Uint8Array]>([
+    ["its compressed image data damaged", withDamagedImageData],
+    ["cut off mid-download", (png) => png.subarray(0, Math.floor(png.length * 0.6))],
+  ])("a PNG logo with %s is refused as the user's damaged logo, not their PDF", async (_, damage) => {
+    const logo = damage(pngOfKind("truecolour with alpha").bytes);
+    await expect(run(await input(1), pngLogo(logo))).rejects.toBeInstanceOf(UnreadableLogoError);
+  }, 15_000);
+
+  // The kind comes from the file's MIME type, which a misnamed file gets wrong.
+  it("a logo goes in by what its bytes are, not the kind it was given", async () => {
+    const png = pngOfKind("truecolour with alpha");
+    const asJpg = await run(await input(1), watermark([1], { source: "image", logo: { bytes: png.bytes, kind: "jpg" } }));
+    expect(Buffer.from(await firstPictureRgba(asJpg)).equals(Buffer.from(png.rgba))).toBe(true);
+    const asPng = watermark([1], { source: "image", logo: { bytes: JPEG_3x2, kind: "png" } });
+    await expect(run(await input(1), asPng)).resolves.toBeInstanceOf(Uint8Array);
+  });
+
+  it("a logo that is neither a PNG nor a JPEG is refused as the user's damaged logo", async () => {
+    const logo = { bytes: JPEG_3x2.subarray(2), kind: "jpg" as const };
+    await expect(run(await input(1), watermark([1], { source: "image", logo }))).rejects.toBeInstanceOf(
+      UnreadableLogoError,
+    );
+  });
+
+  it("a rendered label it cannot embed is the tool's fault, not the user's PDF", async () => {
+    vi.mocked(renderTextToPng).mockResolvedValueOnce({ bytes: Uint8Array.from([1, 2, 3]), width: 3, height: 1 });
+    const err = await run(await input(1), numbers([1])).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    // Narrowed by the assertion above.
+    expect((err as Error).message).not.toMatch(new RegExp(`^${INVALID_INPUT_PREFIX}`));
   });
 
   it("blocks an output the check rejects", async () => {

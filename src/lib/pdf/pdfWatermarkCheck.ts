@@ -28,7 +28,9 @@ function isWholePdf(bytes: Uint8Array): boolean {
 /**
  * An image's worst-case size once embedded: raw RGB plus an alpha mask, or
  * the logo file itself, which pdf-lib embeds byte for byte when it is a JPEG
- * (metadata and all).
+ * (metadata and all). A PNG (see embedPng) goes in as its own data, no
+ * larger than the file, or decoded and deflated, which can run a few bytes
+ * per row over raw size; the input's rewrite margin absorbs that.
  */
 const embeddedImageBound = (width: number, height: number, logoSize: number) =>
   Math.max(width * height * 4, logoSize) + 1024;
